@@ -84,7 +84,7 @@ import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { idReciboDeClaseSuelta } from '@/lib/cobros/recibo-de-cita';
 import { avisoClaseSueltaAlQuitar, clasesSueltasQueCubreSuCuota, cuotaQueYaTiene, cuotasQueCubren, importeDeClaseSuelta, motivoSinClaseSuelta, planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { esError, ventasPorAsignarDePlan } from '@/lib/pos/cliente';
-import { cicloInicialDe } from '@/lib/bono-logic';
+import { cicloYCobroDeAlta } from '@/lib/billing/prorrateo';
 import type { CubiertaPor } from '@/lib/reservas/reserva-mostrador';
 import { AdaptacionesClase } from '@/components/calendario/adaptaciones-clase';
 import { HistorialSesion } from '@/components/calendario/historial-sesion';
@@ -2011,24 +2011,26 @@ export default function Calendario() {
       showToastError(`«${plan.nombre}» ya está cobrada en el TPV sin clienta (${tpv.ventas.length === 1 ? '1 venta' : `${tpv.ventas.length} ventas`}). Asígnasela desde su ficha para no cobrarla dos veces.`);
       return false;
     }
+    let importeCuota = 0;
     try {
-      await assignPlan(socioId, planId);
+      // Con «cobro proporcional» activo el recibo es la parte del mes: lo dice `assignPlan`.
+      importeCuota = (await assignPlan(socioId, planId)).importeCuota;
     } catch (e) {
       // Lo que no se ha guardado lo dice `assignPlan`; no se la apunta a ciegas.
       showToastError(e instanceof Error ? e.message : 'No se ha podido dar la cuota');
       return false;
     }
-    const recibo = plan.precio > 0 ? ` (recibo de ${formatEuro(plan.precio)} pendiente en Cobros)` : '';
+    const recibo = importeCuota > 0 ? ` (recibo de ${formatEuro(importeCuota)} pendiente en Cobros)` : '';
     // Si ya se le había vendido una clase suelta para un día que esta cuota cubre, se dice:
     // si no, se le cobraría esa clase dos veces. Anularla es de la ficha (con su confirmación).
     const sueltas = clasesSueltasQueCubreSuCuota({
       socioId, recibos, reservas,
       sesion: sid => { const s = sesionesEnriquecidas.find(x => x.id === sid); return s ? { inicio: s.inicio, tipoClaseId: s.tipoClaseId ?? null, cancelada: s.cancelada } : undefined; },
-      // La cuota recién dada, con su primer periodo real (`cicloInicialDe`, el mismo que usa `assignPlan`).
-      suscripciones: [...suscripciones, {
-        id: 'cuota-nueva', studioId: '', socioId, planId, estado: 'ACTIVA', fechaInicio: hoyEnEstudio(),
-        ...cicloInicialDe(plan, new Date().toISOString()), stripeSubscriptionId: null,
-      }],
+      // La cuota recién dada, con su primer periodo real (`cicloYCobroDeAlta`, el mismo que usa `assignPlan`).
+      suscripciones: [...suscripciones, (() => {
+        const { fechaFin, sesionesRestantes } = cicloYCobroDeAlta(plan, new Date().toISOString(), hoyEnEstudio(), studio?.cobroProporcionalAltaActivo === true);
+        return { id: 'cuota-nueva', studioId: '', socioId, planId, estado: 'ACTIVA' as const, fechaInicio: hoyEnEstudio(), fechaFin, sesionesRestantes, stripeSubscriptionId: null };
+      })()],
       planes: planesTarifa,
     }).filter(sc => !sc.pagado);
     const ojo = sueltas.length === 0 ? ''

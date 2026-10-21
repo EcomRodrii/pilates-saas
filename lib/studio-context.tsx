@@ -230,7 +230,7 @@ import {
 import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo, cambiarCuotaConDiferencia } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { aplicarApartadas } from '@/lib/student/aforo-fresco';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
@@ -264,7 +264,15 @@ import {
   decidirPremioReferido,
   type AforoApartado,
 } from '@/lib/booking-logic';
-import { calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
+import { calcularReactivacion, avisaBonoAgotado } from '@/lib/bono-logic';
+import { cicloYCobroDeAlta, conceptoAltaProrrateada } from '@/lib/billing/prorrateo';
+
+/** Cambio de cuota a una más cara cobrando la diferencia proporcional (la confirma el servidor). */
+export interface OpcionesAsignarPlan {
+  cobrarDiferencia?: { suscripcionActualId: string; importeConfirmado: number };
+}
+/** `reciboCuotaId`: el recibo PENDIENTE de la cuota recién dada (alta o diferencia), o null. */
+export interface ResultadoAsignarPlan { reciboCuotaId: string | null; importeCuota: number }
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -468,7 +476,13 @@ interface StudioContextValue {
   removeTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
 
   // Suscripciones
-  assignPlan: (socioId: string, planId: string | null) => Promise<void>;
+  /**
+   * Da un plan a una clienta. `opciones.cobrarDiferencia`: cambio de cuota a una más
+   * cara cobrando la diferencia proporcional (lo hace el servidor, todo o nada; el
+   * importe se recalcula allí). Devuelve el recibo de la cuota (el de la alta o el de
+   * la diferencia) para poder cobrarlo a continuación, o `null` si no hay nada que cobrar.
+   */
+  assignPlan: (socioId: string, planId: string | null, opciones?: OpcionesAsignarPlan) => Promise<ResultadoAsignarPlan>;
   pausarSuscripcion: (susId: string, motivo?: string) => Promise<ResultadoEscritura>;
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
@@ -2545,6 +2559,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (plan) {
         planNombreAlta = plan.nombre;
         const susId = `sus-${uid()}`;
+        const cicloAlta = cicloYCobroDeAlta(plan, ahora, hoy, studio?.cobroProporcionalAltaActivo === true);
         const sus: Suscripcion = {
           id: susId,
           studioId: getCurrentStudioId(),
@@ -2556,7 +2571,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           // por días (su `validezDias` es siempre null) y salía con `fecha_fin`
           // a NULL, que aguas abajo es «no caduca nunca» — se cobraba un mes y
           // la socia seguía reservando gratis. Ver el comentario de la función.
-          ...cicloInicialDe(plan, ahora),
+          // Con «Cobrar la parte proporcional del primer mes» activo, la cuota
+          // nace con el ciclo hasta fin de mes (`cicloYCobroDeAlta`); apagado,
+          // es EXACTAMENTE `cicloInicialDe`.
+          fechaFin: cicloAlta.fechaFin,
+          sesionesRestantes: cicloAlta.sesionesRestantes,
           stripeSubscriptionId: null,
         };
         // El alta NO da por cobrado nada por su cuenta. Antes este recibo nacía
@@ -2569,14 +2588,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // (`cobrarEnServidor`). Un recibo no puede crearse ya cobrado desde el
         // navegador: lo impide la base de datos.
         const cobrado = cobroAlta?.pagado === true;
-        const reciboId = `rec-${uid()}`;
+        // Con el cobro proporcional, el id lleva el motivo (`rec-prorrateo-…`) y el
+        // concepto el porqué: «parte proporcional de octubre: 17 de 31 días».
+        const reciboId = `${cicloAlta.prefijoRecibo}${uid()}`;
         const reciboAlta: Recibo = {
           id: reciboId,
           studioId: getCurrentStudioId(),
           socioId: nuevaSocia.id,
           suscripcionId: susId,
-          concepto: `Alta — ${plan.nombre}`,
-          importe: plan.precio,
+          concepto: conceptoAltaProrrateada('Alta', plan.nombre, cicloAlta.prorrateo),
+          importe: cicloAlta.importe,
           estado: 'PENDIENTE',
           fechaVencimiento: hoy,
           fechaCobro: null,
@@ -2590,11 +2611,17 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         if (!resSus.ok) return resSus;
         setSuscripciones(prev => [...prev, sus]);
 
-        const resRec = await dbInsertRecibo(reciboAlta);
-        if (!resRec.ok) return resRec;
-        setRecibos(prev => [...prev, reciboAlta]);
-        // Lo que se cobra al final, por el servidor: el alta y, si la hay, su matrícula.
-        const recibosACobrar: string[] = [reciboAlta.id];
+        // Una parte proporcional por debajo del mínimo (0,50 €) no se cobra: sin
+        // recibo de 0 € a la vista en «Quién me debe». Solo pasa con el ajuste activo.
+        const sinCuotaQueCobrar = cicloAlta.prorrateo !== null && cicloAlta.importe <= 0;
+        const recibosACobrar: string[] = [];
+        if (!sinCuotaQueCobrar) {
+          const resRec = await dbInsertRecibo(reciboAlta);
+          if (!resRec.ok) return resRec;
+          setRecibos(prev => [...prev, reciboAlta]);
+          // Lo que se cobra al final, por el servidor: el alta y, si la hay, su matrícula.
+          recibosACobrar.push(reciboAlta.id);
+        }
 
         // ── Matrícula ───────────────────────────────────────────────────────
         //
@@ -2654,7 +2681,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // confirma, el alta ya está hecha y no se deshace: los recibos se quedan
         // pendientes en «Quién me debe» (que es la verdad) y se avisa. Nunca se
         // da por cobrado lo que el servidor no ha confirmado.
-        if (cobrado) {
+        if (cobrado && recibosACobrar.length > 0) {
           const desenlaces = await cobrarEnServidor(recibosACobrar, cobroAlta.metodo);
           const sinCobrar = desenlaces.filter(d => !esCobroConfirmado(d));
           if (sinCobrar.length > 0) {
@@ -3024,7 +3051,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Suscripciones ────────────────────────────────────────────────────────────
 
-  async function assignPlan(socioId: string, planId: string | null) {
+  async function assignPlan(socioId: string, planId: string | null, opciones: OpcionesAsignarPlan = {}): Promise<ResultadoAsignarPlan> {
+    // Cambio a una cuota más cara cobrando la diferencia: lo hace el SERVIDOR (cuota
+    // nueva + recibo PENDIENTE + baja de la antigua, en una sola transacción) y la
+    // pantalla refleja solo lo que contesta. Nada de esto se escribe desde aquí.
+    if (opciones.cobrarDiferencia && planId) {
+      return cambiarConDiferencia(socioId, planId, opciones.cobrarDiferencia);
+    }
     // Un bono con sesiones sin gastar es DINERO QUE LA CLIENTA YA PAGÓ. Antes,
     // asignarle cualquier otro plan cancelaba TODAS sus suscripciones activas sin
     // mirar si les quedaba algo dentro y sin avisar: venderle un bono de mat de
@@ -3052,6 +3085,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
     );
     const plan = planId ? planesTarifa.find(p => p.id === planId) : null;
+    const ahoraAlta = new Date().toISOString();
+    // La parte proporcional es de un ALTA de cuota. Si esta clienta tiene una cuota
+    // activa que se sustituye, esto es un CAMBIO (ya pagó su mes con la antigua):
+    // se queda como siempre (el cambio cobrando la diferencia es otra vía, la que
+    // confirma y recalcula el servidor).
+    const sustituyeCuotaActiva = aDesactivar.some(s => planesTarifa.find(p => p.id === s.planId)?.tipo === 'MENSUAL');
+    const cicloAlta = plan
+      ? cicloYCobroDeAlta(plan, ahoraAlta, hoyEnEstudio(new Date(ahoraAlta)), studio?.cobroProporcionalAltaActivo === true && !sustituyeCuotaActiva)
+      : null;
     const nueva: Suscripcion | null = plan ? {
       id: `sus-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -3061,8 +3103,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // P-9 (auditoría 21ª pasada): `fecha_inicio` es `date`, no `timestamptz`.
       fechaInicio: hoyEnEstudio(),
       // Mismo motivo que en `addSocio`: un MENSUAL nacía sin fecha de fin y no
-      // se renovaba nunca. Ver `cicloInicialDe`.
-      ...cicloInicialDe(plan, new Date().toISOString()),
+      // se renovaba nunca. Ver `cicloInicialDe` (y `cicloYCobroDeAlta`, que es lo
+      // mismo salvo con «Cobrar la parte proporcional del primer mes» activo).
+      fechaFin: cicloAlta?.fechaFin ?? null,
+      sesionesRestantes: cicloAlta?.sesionesRestantes ?? null,
       stripeSubscriptionId: null,
     } : null;
 
@@ -3120,14 +3164,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // 2) Si el recibo falla, el plan YA está asignado: fingir que no ha pasado
     //    nada sería otra mentira. Se sigue adelante y se avisa de qué falta.
     let reciboPlan: Recibo | null = null;
-    if (nueva && plan && plan.precio > 0) {
+    // `cicloAlta.importe`: el precio de siempre, o la parte proporcional del mes en
+    // curso si el estudio lo activó (0 = por debajo del mínimo: sin recibo).
+    const importeCuota = cicloAlta?.importe ?? 0;
+    if (nueva && plan && importeCuota > 0) {
       const rec: Recibo = {
-        id: `rec-${uid()}`,
+        id: `${cicloAlta?.prefijoRecibo ?? 'rec-'}${uid()}`,
         studioId: getCurrentStudioId(),
         socioId,
         suscripcionId: nueva.id,
-        concepto: plan.nombre,
-        importe: plan.precio,
+        concepto: cicloAlta?.prorrateo && !cicloAlta.prorrateo.mesCompleto
+          ? `${plan.nombre} · ${cicloAlta.prorrateo.texto}` : plan.nombre,
+        importe: importeCuota,
         estado: 'PENDIENTE',
         fechaVencimiento: nueva.fechaInicio,
         fechaCobro: null,
@@ -3136,7 +3184,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       };
       const res = await dbInsertRecibo(rec);
       if (res.ok) reciboPlan = rec;
-      else fallos.push(`El plan se ha asignado, pero el cobro de ${plan.precio} € no ha quedado anotado en "Quién me debe": añádelo a mano.`);
+      else fallos.push(`El plan se ha asignado, pero el cobro de ${importeCuota} € no ha quedado anotado en "Quién me debe": añádelo a mano.`);
     }
 
     // 2b) La matrícula, si es su primer plan aquí. Recibo APARTE del de la
@@ -3205,6 +3253,43 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     // Lo que sí ha quedado guardado ya está en pantalla; lo que no, se cuenta.
     if (fallos.length > 0) throw new Error(fallos.join(' '));
+    return { reciboCuotaId: reciboPlan?.id ?? null, importeCuota: reciboPlan?.importe ?? 0 };
+  }
+
+  // «Cambiar plan» a una cuota más cara cobrando la diferencia proporcional. El
+  // servidor hace el cambio entero (cuota nueva con la MISMA fecha de renovación,
+  // recibo PENDIENTE de la diferencia y baja de la antigua) o no hace nada, y
+  // recalcula el importe: el que se manda es solo el que la persona vio. Si
+  // contesta que no, aquí NO se ha tocado nada y el error llega tal cual.
+  async function cambiarConDiferencia(
+    socioId: string, planId: string,
+    d: { suscripcionActualId: string; importeConfirmado: number },
+  ): Promise<ResultadoAsignarPlan> {
+    const r = await cambiarCuotaConDiferencia({
+      socioId, suscripcionActualId: d.suscripcionActualId, planNuevoId: planId, importeConfirmado: d.importeConfirmado,
+    });
+    if (!r.ok) throw new Error(r.error);
+    // La pantalla, DESPUÉS de la respuesta y con lo que hay guardado: se relee el
+    // recibo (y con él la cuota nueva) en vez de imitar lo que hizo el servidor.
+    setSuscripciones(prev => prev.map(s => s.id === d.suscripcionActualId ? { ...s, estado: 'CANCELADA' as const } : s));
+    const releido = await dbReleerTrasCobro([r.reciboId]);
+    if (releido) {
+      const recPorId = new Map(releido.recibos.map(x => [x.id, x]));
+      setRecibos(prev => [...prev.filter(x => !recPorId.has(x.id)), ...releido.recibos]);
+      const susPorId = new Map(releido.suscripciones.map(x => [x.id, x]));
+      setSuscripciones(prev => [...prev.filter(x => !susPorId.has(x.id)), ...releido.suscripciones]);
+    }
+    // La cuota antigua se canceló: su plaza fija pierde la cuota si la nueva no cubre.
+    await soltarClasesPlazaFijaSinCuota(socioId);
+    const socio = socios.find(x => x.id === socioId);
+    const planNuevo = planesTarifa.find(p => p.id === planId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      `${actorNombre ?? 'Alguien'} cambió a "${planNuevo?.nombre ?? 'otro plan'}" a ${socio?.nombre ?? 'una socia'} cobrando la diferencia proporcional (${r.importe} €)`,
+      socioId,
+      `/socios/${socioId}`,
+    );
+    return { reciboCuotaId: r.reciboId, importeCuota: r.importe };
   }
 
   // I7 + F2 (B2.8): pausar = congelar. La RPC registra la ventana de congelación
