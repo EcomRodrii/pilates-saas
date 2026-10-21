@@ -1142,6 +1142,7 @@ export interface RowStudios {
   mostrar_logo_en_landing: boolean | null;
   // migr 20261021160000.
   cobro_proporcional_alta_activo: boolean | null;
+  // migr 20261021160000.
   cobro_proporcional_dias_minimos: number | null;
 }
 
