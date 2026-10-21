@@ -26,9 +26,11 @@ export const dynamic = 'force-dynamic';
 //    nada: los ids salen de la cuota que se cambia.
 //  · Aquí NO se cobra. El recibo queda PENDIENTE y se cobra por los caminos de
 //    siempre (tarjeta guardada con su guardia de modo de Stripe, o «marcar
-//    cobrado» por `confirmarCobro`). Si ese cobro falla, la deuda ya está a la
-//    vista en «Quién me debe» y con la tarjeta entra en el dunning: nunca hay
-//    plan nuevo sin su recibo.
+//    cobrado» por `confirmarCobro`). El recibo no entra solo en el dunning: queda
+//    PENDIENTE a la vista en «Pagos» y «Quién me debe» hasta que alguien lo cobre
+//    o la alumna pague desde su app. Nunca hay plan nuevo sin su recibo.
+//  · La función de base de datos REVALIDA bajo candado lo que esta ruta leyó (fecha
+//    de renovación, recibos sin cobrar, cuota de Stripe) antes de escribir.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -53,8 +55,14 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });
   const studioId = sesion.studioId;
 
+  // La opción es del estudio (apagada de serie): la puerta de servidor no depende de la pantalla.
+  const { data: ajuste } = await admin.from('studios').select('cobro_proporcional_alta_activo').eq('id', studioId).maybeSingle();
+  if (ajuste?.cobro_proporcional_alta_activo !== true) {
+    return NextResponse.json({ error: 'El cobro proporcional no está activado en este estudio (Configuración › Cobros).', codigo: 'AJUSTE_APAGADO' }, { status: 409 });
+  }
+
   const { data: cuota, error: errCuota } = await admin.from('suscripciones')
-    .select('id, socio_id, estado, fecha_fin, plan_id')
+    .select('id, socio_id, estado, fecha_fin, plan_id, stripe_subscription_id')
     .eq('id', suscripcionActualId).eq('studio_id', studioId).maybeSingle();
   if (errCuota) {
     Sentry.captureException(new Error(`[cambiar-con-diferencia] cuota: ${errCuota.message}`), { tags: { area: 'cobros' } });
@@ -86,6 +94,7 @@ export async function POST(req: NextRequest) {
     cuota: cuota ? {
       id: cuota.id as string, socioId: (cuota.socio_id as string | null) ?? null, estado: cuota.estado as string,
       fechaFin: (cuota.fecha_fin as string | null) ?? null, planId: (cuota.plan_id as string | null) ?? null,
+      stripeSubscriptionId: (cuota.stripe_subscription_id as string | null) ?? null,
     } : null,
     planActual: plan(cuota?.plan_id as string | null),
     planNuevo: plan(planNuevoId),
@@ -99,7 +108,8 @@ export async function POST(req: NextRequest) {
   // haría creer que no pasó.
   if (!decision.ok && decision.codigo === 'CUOTA_NO_ACTIVA') {
     const { data: hecha } = await admin.from('suscripciones').select('id')
-      .eq('id', `sus-camb-${suscripcionActualId}`).eq('studio_id', studioId).maybeSingle();
+      .eq('id', `sus-camb-${suscripcionActualId}`).eq('studio_id', studioId)
+      .eq('socio_id', socioId).eq('plan_id', planNuevoId).maybeSingle();
     if (hecha) return NextResponse.json({ ok: true, yaHecho: true, suscripcionId: hecha.id, reciboId: `rec-camb-${suscripcionActualId}` });
   }
   if (!decision.ok) {
@@ -117,6 +127,7 @@ export async function POST(req: NextRequest) {
     p_importe: decision.importe,
     p_concepto: decision.concepto,
     p_hoy: hoy,
+    p_fecha_fin_esperada: (cuota?.fecha_fin as string | null) ?? null,
   });
   if (errRpc) {
     // P0001/P0002: la función dice «no» con una regla (la cuota cambió entre

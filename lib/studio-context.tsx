@@ -3278,6 +3278,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setRecibos(prev => [...prev.filter(x => !recPorId.has(x.id)), ...releido.recibos]);
       const susPorId = new Map(releido.suscripciones.map(x => [x.id, x]));
       setSuscripciones(prev => [...prev.filter(x => !susPorId.has(x.id)), ...releido.suscripciones]);
+    } else {
+      // El servidor SÍ lo hizo; solo falta releerlo. Se dice, para que no parezca «sin plan».
+      toastAviso.show('El cambio se ha guardado, pero no se ha podido refrescar la ficha. Recárgala para verlo.');
     }
     // La cuota antigua se canceló: su plaza fija pierde la cuota si la nueva no cubre.
     await soltarClasesPlazaFijaSinCuota(socioId);

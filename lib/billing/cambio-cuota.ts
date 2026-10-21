@@ -27,6 +27,8 @@ export interface CuotaDelCambio {
   estado: string;
   fechaFin: string | null;
   planId: string | null;
+  /** Cuota gestionada por Stripe: no se cambia desde aquí (Stripe seguiría cobrando la vieja). */
+  stripeSubscriptionId?: string | null;
 }
 
 export interface PlanDelCambio {
@@ -63,6 +65,9 @@ export function planificarCambioConDiferencia(e: {
   }
   if (cuota.estado !== 'ACTIVA') {
     return { ok: false, status: 409, codigo: 'CUOTA_NO_ACTIVA', error: 'Esa cuota ya no está activa (puede que el cambio ya se haya hecho). Recarga la ficha.' };
+  }
+  if (cuota.stripeSubscriptionId) {
+    return { ok: false, status: 409, codigo: 'CUOTA_EN_STRIPE', error: 'Esta cuota la gestiona Stripe: cámbiala desde su suscripción.' };
   }
   if (!planActual || planActual.tipo !== 'MENSUAL') {
     return { ok: false, status: 409, codigo: 'NO_ES_CUOTA', error: 'Solo se cobra la diferencia al cambiar de una cuota mensual a otra.' };

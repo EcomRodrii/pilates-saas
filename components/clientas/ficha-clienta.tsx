@@ -330,6 +330,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
   const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // Cerrojo síncrono: dos clics en el mismo tick pasan el `useState` (se lee antes de repintar).
+  const cambiandoPlanRef = useRef(false);
   // Cambio a una cuota más cara a mitad de ciclo: la confirmación con la diferencia
   // proporcional (la calcula `diferenciaCambioPlan`; el servidor la RECALCULA al confirmar).
   const [cambioDiferencia, setCambioDiferencia] = useState<{ planId: string; nombrePlan: string; precioNuevo: number; dif: DiferenciaCambioPlan } | null>(null);
@@ -338,7 +340,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const [anulandoSuelta, setAnulandoSuelta] = useState(false);
   // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
   // clienta. `null` = no hay nada que avisar.
-  const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[] } | null>(null);
+  const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[]; cobrarDiferencia?: { importe: number } } | null>(null);
   // Tras asignar una cuota: el nombre del plan mientras se pregunta si le da
   // plaza fija, y el diálogo de plaza fija si dice que sí.
   const [ofrecerPlazaFija, setOfrecerPlazaFija] = useState<string | null>(null);
@@ -750,7 +752,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   // La diferencia proporcional que se podría cobrar al pasar a `p` desde la cuota
   // activa, o null si no procede (no es cuota→cuota, no es más cara, ciclo vencido…).
   function diferenciaAlCambiarA(p: PlanTarifa): DiferenciaCambioPlan | null {
-    if (!puedeCobrar || !suscripcion || suscripcion.estado !== 'ACTIVA' || plan?.tipo !== 'MENSUAL' || p.tipo !== 'MENSUAL') return null;
+    if (studio?.cobroProporcionalAltaActivo !== true || !puedeCobrar || !suscripcion || suscripcion.estado !== 'ACTIVA' || plan?.tipo !== 'MENSUAL' || p.tipo !== 'MENSUAL') return null;
     const d = diferenciaCambioPlan({
       precioActual: plan.precio, precioNuevo: p.precio, fechaFin: suscripcion.fechaFin ?? null,
       mesesCicloActual: mesesDeCiclo(plan), mesesCicloNuevo: mesesDeCiclo(p), hoyISO: hoyEnEstudio(),
@@ -765,7 +767,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   }
 
   async function cambiarPlan(planId: string, nombrePlan: string, opciones: { aunqueEsteCobradoEnTPV?: boolean; cobrarDiferencia?: { importe: number } } = {}) {
-    if (cambiandoPlan) return;
+    if (cambiandoPlan || cambiandoPlanRef.current) return;
+    cambiandoPlanRef.current = true;
     setCambiandoPlan(true);
     setCambioDiferencia(null);
     try {
@@ -778,7 +781,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         // `Array.isArray`: una respuesta con otra forma no puede tumbar el alta.
         if (!esError(r) && Array.isArray(r.ventas) && r.ventas.length > 0) {
           setShowChangePlan(false);
-          setVentaPorAsignar({ planId, nombrePlan, ventas: r.ventas });
+          setVentaPorAsignar({ planId, nombrePlan, ventas: r.ventas, cobrarDiferencia: opciones.cobrarDiferencia });
           return;
         }
       }
@@ -802,6 +805,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     } catch (e) {
       setToastError(e instanceof Error ? e.message : ERROR_GENERICO);
     } finally {
+      cambiandoPlanRef.current = false;
       setCambiandoPlan(false);
     }
   }
@@ -2859,7 +2863,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               )}
               <div className="flex flex-col gap-2 pt-1">
                 <button
-                  onClick={() => void cambiarPlan(ventaPorAsignar.planId, ventaPorAsignar.nombrePlan, { aunqueEsteCobradoEnTPV: true })}
+                  onClick={() => void cambiarPlan(ventaPorAsignar.planId, ventaPorAsignar.nombrePlan, { aunqueEsteCobradoEnTPV: true, cobrarDiferencia: ventaPorAsignar.cobrarDiferencia })}
                   disabled={cambiandoPlan || asignandoVenta}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-40"
                 >

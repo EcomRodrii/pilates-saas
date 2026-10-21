@@ -52,6 +52,11 @@ test('plan igual o más barato: no hay diferencia (sin cobro ni devolución)', (
   }
 });
 
+test('una cuota gestionada por Stripe no se cambia desde aquí', () => {
+  const r = planificarCambioConDiferencia({ ...base(), cuota: cuota({ stripeSubscriptionId: 'sub_x' }) });
+  assert.equal(r.ok === false && r.codigo, 'CUOTA_EN_STRIPE');
+});
+
 test('la cuota ha de ser de esta clienta, de este estudio (si no, no existe) y estar ACTIVA', () => {
   const ajena = planificarCambioConDiferencia({ ...base(), cuota: cuota({ socioId: 'soc-OTRA' }) });
   assert.equal(ajena.ok === false && ajena.status, 404);
@@ -93,15 +98,17 @@ test('la ruta: rol que mueve dinero, estudio de la sesión, importe recalculado 
   assert.match(f, /const studioId = sesion\.studioId/);
   assert.doesNotMatch(f, /body\.studioId|cuerpo\??\.studioId/, 'el estudio sale de la sesión, nunca del cuerpo');
   assert.match(f, /planificarCambioConDiferencia\(/);
+  // Apagada de serie: la puerta de servidor mira el ajuste del estudio.
+  assert.match(f, /cobro_proporcional_alta_activo/);
   // La escritura es UNA llamada a la función de base de datos (todo o nada), no tres `.insert/.update` sueltos.
   assert.match(f, /rpc\('cambiar_cuota_con_diferencia'/);
   assert.doesNotMatch(f, /\.insert\(|\.update\(|\.delete\(/);
   // No cobra: ni Stripe ni COBRADO.
-  assert.doesNotMatch(f, /stripe|COBRADO|confirmarCobro/i);
+  assert.doesNotMatch(f, /from .stripe|stripe\.|COBRADO|confirmarCobro/);
   // Todo cliente de esta ruta filtra por estudio.
   for (const m of f.matchAll(/admin\.from\('([a-z_]+)'\)/g)) {
     const desde = f.indexOf(m[0]);
-    assert.match(f.slice(desde, desde + 400), /studio_id', studioId/, `${m[1]}: lectura sin filtrar por estudio`);
+    assert.match(f.slice(desde, desde + 400), m[1] === 'studios' ? /\.eq\('id', studioId\)/ : /studio_id', studioId/, `${m[1]}: lectura sin filtrar por estudio`);
   }
 });
 
@@ -110,6 +117,10 @@ test('la migración: ids deterministas, todo o nada, grants de service_role y ve
   assert.match(m, /'sus-camb-' \|\| p_sus_actual_id/);
   assert.match(m, /'rec-camb-' \|\| p_sus_actual_id/);
   assert.match(m, /for update/);
+  // Revalida bajo candado lo que el servidor leyó antes.
+  assert.match(m, /p_fecha_fin_esperada/);
+  assert.match(m, /estado in \('PENDIENTE', 'EN_CURSO', 'FALLIDO'\)/);
+  assert.match(m, /stripe_subscription_id is not null/);
   assert.match(m, /from public;/);
   assert.match(m, /from anon;/);
   assert.match(m, /from authenticated;/);

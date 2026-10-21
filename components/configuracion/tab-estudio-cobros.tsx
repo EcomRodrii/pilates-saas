@@ -250,30 +250,35 @@ function studioToCobroDia(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProp
 }
 
 function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
-  // El cobro proporcional es lo que cambia dinero hoy: se pregunta con lo que va a pasar.
+  const partes: Array<{ titulo: string; descripcion: string; textoConfirmar: string }> = [];
+  // El cobro proporcional es dinero: se pregunta con lo que va a pasar.
   if (f.proporcional !== base.proporcional) {
-    return f.proporcional ? {
+    partes.push(f.proporcional ? {
       titulo: '¿Cobrar la parte proporcional del primer mes?',
-      descripcion: 'Desde ahora, una cuota mensual que des de alta desde el panel a mitad de mes (alta de clienta, «Asignar plan» o «Cambiar plan») cobra solo los días que quedan de ese mes, y la primera renovación es el día 1 del mes siguiente por la cuota entera. Las alumnas que ya tienes no cambian. Las altas que hagan ellas mismas desde la web o la app siguen cobrando el mes completo. La matrícula no se prorratea.',
+      descripcion: 'Desde ahora, una cuota mensual que des de alta desde el panel a mitad de mes (alta de clienta o «Asignar plan») cobra solo los días que quedan de ese mes, y la primera renovación es el día 1 del mes siguiente por la cuota entera. Además, al cambiar a una cuota más cara a mitad de ciclo podrás cobrar la diferencia proporcional. Las alumnas que ya tienes no cambian. Las altas que hagan ellas mismas desde la web o la app siguen cobrando el mes completo. La matrícula no se prorratea.',
       textoConfirmar: 'Sí, cobrar la parte proporcional',
     } : {
       titulo: '¿Volver a cobrar el mes entero?',
-      descripcion: 'Las próximas altas vuelven a cobrar la cuota completa. Las cuotas que ya nacieron con parte proporcional siguen su camino y se renuevan como siempre.',
+      descripcion: 'Las próximas altas vuelven a cobrar la cuota completa y el cambio de plan deja de ofrecer la diferencia. Las cuotas que ya nacieron con parte proporcional siguen su camino y se renuevan como siempre.',
       textoConfirmar: 'Sí, cobrar el mes entero',
-    };
+    });
   }
-  const activar = f.dia1;
-  if (activar) {
-    return {
+  if (f.dia1 !== base.dia1 || partes.length === 0) {
+    partes.push(f.dia1 ? {
       titulo: '¿Cobrar todas las cuotas el día 1?',
       descripcion: 'Cada cuota mensual se realinea sola en su PRÓXIMA renovación, sin prorratear ni tocarla ahora: para una alumna que ya tienes puede tardar hasta un ciclo en caer exactamente el día 1. Las cuotas nuevas siguen naciendo en el día en que se apuntan.',
       textoConfirmar: 'Sí, cobrar el día 1',
-    };
+    } : {
+      titulo: '¿Volver al aniversario de cada alumna?',
+      descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada alumna contrató su cuota.',
+      textoConfirmar: 'Sí, volver al aniversario',
+    });
   }
+  if (partes.length === 1) return partes[0];
   return {
-    titulo: '¿Volver al aniversario de cada alumna?',
-    descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada alumna contrató su cuota.',
-    textoConfirmar: 'Sí, volver al aniversario',
+    titulo: partes.map(p => p.titulo.replace(/^¿|\?$/g, '')).join(' y ').replace(/^./, c => `¿${c.toUpperCase()}`) + '?',
+    descripcion: partes.map(p => p.descripcion).join(' '),
+    textoConfirmar: 'Sí, guardar los dos cambios',
   };
 }
 
@@ -345,7 +350,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
             <span className="block text-sm font-medium text-foreground">Cobrar la parte proporcional del primer mes</span>
             <span className="block text-sm text-muted-foreground text-pretty">
               Una cuota mensual nueva dada de alta desde el panel a mitad de mes cobra solo los días que quedan de ese mes
-              (alta el 15 de un mes de 31 días: 17 de 31). El mes siguiente se cobra entero, el día 1. La matrícula no se prorratea.
+              (alta el 15 de un mes de 31 días: 17 de 31). El mes siguiente se cobra entero, el día 1. La matrícula no se prorratea. Al cambiar a una cuota más cara a mitad de ciclo, «Cambiar plan» te deja cobrar la diferencia proporcional.
             </span>
             <span className="mt-1 block text-xs text-muted-foreground text-pretty">
               Aplica a altas hechas desde el panel; la compra online de la alumna sigue cobrando el mes completo. No cambia a las alumnas que ya tienes.

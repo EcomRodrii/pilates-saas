@@ -17,9 +17,12 @@
 -- como dato. Por eso solo la puede llamar el servidor (service_role), que pone el
 -- estudio de la sesión y recalcula el importe; nunca el navegador.
 --
--- Reglas que la función comprueba por su cuenta (defensa en profundidad):
---   · La cuota actual es de `p_studio_id`, de `p_socio_id` y está ACTIVA.
---   · El plan nuevo es de ese estudio, está activo y es MENSUAL.
+-- Reglas que la función comprueba por su cuenta, BAJO EL CANDADO (el servidor las
+-- lee antes; aquí se revalidan):
+--   · La cuota actual es de `p_studio_id`, de `p_socio_id`, está ACTIVA, no es de
+--     Stripe, conserva la `fecha_fin` que el servidor usó para el importe y no
+--     tiene recibos sin cobrar.
+--   · El plan nuevo es de ese estudio, está activo, es MENSUAL de un mes y distinto.
 --   · Un solo cambio por cuota: tras el cambio la antigua deja de estar ACTIVA.
 --
 -- La cuota nueva HEREDA `fecha_fin` (la renovación no se mueve: el siguiente
@@ -41,7 +44,8 @@ create or replace function public.cambiar_cuota_con_diferencia(
   p_plan_nuevo_id text,
   p_importe numeric,
   p_concepto text,
-  p_hoy date
+  p_hoy date,
+  p_fecha_fin_esperada date
 ) returns jsonb
  language plpgsql
  security definer
@@ -53,9 +57,10 @@ declare
   v_nueva_id text := 'sus-camb-' || p_sus_actual_id;
   v_recibo_id text := 'rec-camb-' || p_sus_actual_id;
 begin
-  if p_importe is null or p_importe <= 0 then
+  if p_importe is null or p_importe <= 0 or p_importe > 10000 then
     raise exception 'importe no válido' using errcode = '22023';
   end if;
+  p_importe := round(p_importe, 2);
 
   -- Candado sobre la cuota que se cambia: dos peticiones a la vez se serializan.
   select * into v_actual from public.suscripciones
@@ -65,18 +70,46 @@ begin
     raise exception 'cuota no encontrada' using errcode = 'P0002';
   end if;
 
-  -- Reintento: el cambio ya se hizo. Se devuelve lo hecho, no se repite.
+  -- Reintento: el cambio ya se hizo (la antigua ya está CANCELADA y la nueva es de
+  -- ESTA clienta y de ESTE plan). Se devuelve lo hecho, no se repite. Si la nueva
+  -- existe pero la antigua volvió a estar ACTIVA (alguien la reactivó), NO es un
+  -- reintento: se rechaza para no dejar dos cuotas activas.
   if exists (select 1 from public.suscripciones where id = v_nueva_id and studio_id = p_studio_id) then
-    return jsonb_build_object('ya_hecho', true, 'suscripcion_id', v_nueva_id, 'recibo_id', v_recibo_id);
+    if v_actual.estado = 'CANCELADA'
+       and exists (select 1 from public.suscripciones
+                    where id = v_nueva_id and studio_id = p_studio_id
+                      and socio_id = p_socio_id and plan_id = p_plan_nuevo_id) then
+      return jsonb_build_object('ya_hecho', true, 'suscripcion_id', v_nueva_id, 'recibo_id', v_recibo_id);
+    end if;
+    raise exception 'este cambio ya se hizo con otro plan o la cuota se reactivó' using errcode = 'P0001';
   end if;
 
   if v_actual.estado <> 'ACTIVA' or v_actual.socio_id is distinct from p_socio_id then
     raise exception 'la cuota ya no está activa o no es de esta clienta' using errcode = 'P0001';
   end if;
+  -- Una cuota gestionada por Stripe se cancelaría aquí sin avisar a Stripe.
+  if v_actual.stripe_subscription_id is not null then
+    raise exception 'cuota gestionada por Stripe' using errcode = 'P0001';
+  end if;
+  if v_actual.plan_id = p_plan_nuevo_id then
+    raise exception 'ya tiene ese plan' using errcode = 'P0001';
+  end if;
+  -- Lo que el servidor calculó (el importe) vale solo si la cuota sigue como la leyó.
+  if v_actual.fecha_fin is distinct from p_fecha_fin_esperada then
+    raise exception 'la fecha de renovación ha cambiado' using errcode = 'P0001';
+  end if;
+  -- El ciclo en curso tiene que estar pagado: con un recibo sin cobrar, cancelar la
+  -- antigua le aplicaría la política de recibos pendientes al cancelar una cuota.
+  if exists (select 1 from public.recibos
+              where studio_id = p_studio_id and suscripcion_id = p_sus_actual_id
+                and estado in ('PENDIENTE', 'EN_CURSO', 'FALLIDO')) then
+    raise exception 'la cuota tiene un recibo sin cobrar' using errcode = 'P0001';
+  end if;
 
   select * into v_plan from public.planes_tarifa
    where id = p_plan_nuevo_id and studio_id = p_studio_id;
-  if not found or v_plan.tipo <> 'MENSUAL' or not v_plan.activo then
+  if not found or v_plan.tipo <> 'MENSUAL' or v_plan.activo is not true
+     or coalesce(v_plan.periodicidad_meses, 1) <> 1 then
     raise exception 'plan nuevo no válido' using errcode = 'P0001';
   end if;
 
@@ -101,15 +134,15 @@ begin
 end;
 $function$;
 
-revoke execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date) from public;
-revoke execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date) from anon;
-revoke execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date) from authenticated;
-grant execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date) to service_role;
+revoke execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date, date) from public;
+revoke execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date, date) from anon;
+revoke execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date, date) from authenticated;
+grant execute on function public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date, date) to service_role;
 
 -- Verificación: nadie del cliente puede ejecutarla (no se fía del comentario).
 do $verifica$
 declare
-  f oid := 'public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date)'::regprocedure;
+  f oid := 'public.cambiar_cuota_con_diferencia(text, text, text, text, numeric, text, date, date)'::regprocedure;
 begin
   if has_function_privilege('anon', f, 'EXECUTE') or has_function_privilege('authenticated', f, 'EXECUTE') then
     raise exception 'cambiar_cuota_con_diferencia es ejecutable desde el cliente';
