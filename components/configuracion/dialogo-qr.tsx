@@ -200,13 +200,15 @@ function BloqueDescarga({ titulo, detalle, children }: { titulo: string; detalle
 
 type Descarga = 'cartel-pdf' | 'cartel-png' | 'codigo-png' | 'codigo-svg';
 
-export function BotonQr({ destino, url, slug, estudio, nombreEnlace }: {
+export function BotonQr({ destino, url, slug, estudio, nombreEnlace, onDescargado }: {
   destino: DestinoQr;
   url: string;
   slug: string;
   estudio: string;
   /** Cómo se llama el enlace en la lista («Página de reservas»…), para el título. */
   nombreEnlace: string;
+  /** Tras preparar y descargar un archivo (el embudo del alta lo cuenta como compartido). */
+  onDescargado?: () => void;
 }) {
   const [abierto, setAbierto] = useState(false);
   const [marca, setMarca] = useState<Marca | null>(null);
@@ -272,6 +274,7 @@ export function BotonQr({ destino, url, slug, estudio, nombreEnlace }: {
   const bajar = async (que: Descarga) => {
     setFallo(null);
     setPreparando(que);
+    let descargado = false;
     try {
       const datos = { estudio, destino, url, colores };
       if (que === 'cartel-pdf') {
@@ -283,11 +286,15 @@ export function BotonQr({ destino, url, slug, estudio, nombreEnlace }: {
       } else {
         descargar(new Blob([svgQr(url, `Código QR de ${nombreEnlace}`, colores.codigo)], { type: 'image/svg+xml' }), nombreArchivoQr(destino, slug, 'codigo', 'svg'));
       }
+      descargado = true;
     } catch {
       setFallo('No se ha podido preparar el archivo. Vuelve a intentarlo.');
     } finally {
       setPreparando(null);
     }
+    // Fuera del try: lo que haga quien escucha no puede convertir una descarga
+    // hecha en «No se ha podido preparar el archivo».
+    if (descargado) onDescargado?.();
   };
 
   // El nombre accesible CONTIENE lo que se lee en el botón («PNG») y añade de

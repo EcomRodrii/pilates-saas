@@ -3964,6 +3964,10 @@ export interface RowAltasEstudio {
   recordatorio_error: string | null;
   recordatorio_descartado: string | null;
   actualizado_en: string;
+  // migr 20261021020248.
+  version: string | null;
+  // migr 20261021020248.
+  llegada: string | null;
 }
 
 export interface RowMovimientosDerecho {
@@ -4404,6 +4408,14 @@ export interface RowPlazaFijaSinCuotaAvisos {
   socio_id: string;
   avisada_en: string;
   liberar_desde: string;
+}
+
+export interface RowEmbudoAlta {
+  studio_id: string;
+  paso: string;
+  dia: string;
+  detalle: string | null;
+  ocurrido_en: string;
 }
 
 
@@ -11318,6 +11330,8 @@ export type AltasEstudioInsert = {
   recordatorio_error?: string | null | null;
   recordatorio_descartado?: string | null | null;
   actualizado_en?: string | null;
+  version?: string | null | null;
+  llegada?: string | null | null;
 }
 
 export type AltasEstudioUpdate = {
@@ -11335,6 +11349,8 @@ export type AltasEstudioUpdate = {
   recordatorio_error?: string | null | null;
   recordatorio_descartado?: string | null | null;
   actualizado_en?: string | null;
+  version?: string | null | null;
+  llegada?: string | null | null;
 }
 
 export type MovimientosDerechoInsert = {
@@ -12195,6 +12211,22 @@ export type PlazaFijaSinCuotaAvisosUpdate = {
   socio_id?: string | null;
   avisada_en?: string | null;
   liberar_desde?: string | null;
+}
+
+export type EmbudoAltaInsert = {
+  studio_id?: string | null;
+  paso?: string | null;
+  dia?: string | null;
+  detalle?: string | null | null;
+  ocurrido_en?: string | null;
+}
+
+export type EmbudoAltaUpdate = {
+  studio_id?: string | null;
+  paso?: string | null;
+  dia?: string | null;
+  detalle?: string | null | null;
+  ocurrido_en?: string | null;
 }
 
 export type Database = {
@@ -13569,6 +13601,11 @@ export type Database = {
         Row: RowPlazaFijaSinCuotaAvisos;
         Insert: PlazaFijaSinCuotaAvisosInsert;
         Update: PlazaFijaSinCuotaAvisosUpdate;
+      };
+      embudo_alta: {
+        Row: RowEmbudoAlta;
+        Insert: EmbudoAltaInsert;
+        Update: EmbudoAltaUpdate;
       };
     };
   };

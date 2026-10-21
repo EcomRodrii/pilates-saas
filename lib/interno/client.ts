@@ -181,6 +181,9 @@ export interface AltasSinTerminar {
 }
 export const fetchAltasSinTerminar = () => pedir<AltasSinTerminar>('/crecimiento/altas');
 
+/** Activación de estudios nuevos: embudo del alta y cohortes (`growth.read`). Ver lib/alta/embudo.ts. */
+export const fetchActivacion = () => pedir<import('../alta/embudo.ts').ResumenActivacion>('/crecimiento/activacion');
+
 export const guardarLead = (cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; id: string }>('/crecimiento', { method: 'POST', body: JSON.stringify(cuerpo) });
 

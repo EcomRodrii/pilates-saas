@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { puedeGestionarClientas } from '@/lib/permisos-reglas';
 import { puedeReservarEnServidor } from '@/lib/onboarding/puede-reservar-servidor';
+import { apuntarPaso } from '@/lib/alta/embudo-servidor';
 
 // ¿Puede una alumna NUEVA reservar ya desde la página del estudio? Lo pregunta
 // «Tu estudio ya puede recibir reservas» al abrirse, una vez, antes de prometer
@@ -23,7 +24,12 @@ export async function GET(req: NextRequest) {
 
   const admin = requireSupabaseAdmin();
   try {
-    return NextResponse.json(await puedeReservarEnServidor(admin, sesion.studioId, new Date()));
+    const veredicto = await puedeReservarEnServidor(admin, sesion.studioId, new Date());
+    // El hito 1 del embudo del alta: una alumna nueva ya puede reservar. Es un
+    // hecho del ESTUDIO (lo pregunte quien lo pregunte) y solo el «sí» del
+    // servidor cuenta: un «sin comprobar» no es un sí. Después de contestar.
+    if (veredicto.estado === 'SI') after(() => apuntarPaso(admin, sesion.studioId, 'clase_reservable'));
+    return NextResponse.json(veredicto);
   } catch (e) {
     console.error('[onboarding:puede-reservar]', e);
     return NextResponse.json({ error: 'No se ha podido comprobar' }, { status: 500 });
