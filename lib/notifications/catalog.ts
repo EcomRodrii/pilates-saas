@@ -859,7 +859,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',
-    body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
+    body: 'Se te ha cobrado {importe} € por cancelar fuera del plazo de cancelación o no presentarte a la clase.',
     // Un cargo que ya ocurrió: lo que quiere es verlo, con su recibo.
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/pagos`,
   },

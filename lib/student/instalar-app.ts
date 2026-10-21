@@ -68,7 +68,7 @@ export function textoInstalacion(e: EstadoInstalacion, nombreEstudio: string): T
       return {
         titulo: `Instala la app de ${nombreEstudio}`,
         resumen: 'Tenla en tu pantalla de inicio',
-        cuerpo: 'En iPhone se hace desde Safari, en tres toques. Además, los avisos de plaza libre y recordatorios solo llegan desde la app instalada.',
+        cuerpo: 'En iPhone se hace desde Safari, en tres toques. Además, los avisos al móvil de plaza libre y de recordatorio solo llegan con la app instalada.',
         pasos: [
           'Toca el botón Compartir, el cuadrado con una flecha hacia arriba.',
           'Elige «Añadir a pantalla de inicio».',

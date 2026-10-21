@@ -21,17 +21,25 @@ test('la valoración pregunta por la clase y por quién la dio', () => {
 });
 
 test('la lista de espera sin plaza distingue el bono de la clase suelta', () => {
-  const base = { socioNombre: 'Ana', ...CLASE, marca: MARCA };
+  const base = { socioNombre: 'Ana', ...CLASE, marca: MARCA, emailEstudio: 'hola@example.com' };
   const suelta = correoEsperaSinPlaza({ ...base, sesionesRestantes: 1 });
   const bono = correoEsperaSinPlaza({ ...base, sesionesRestantes: 7 });
 
   // Con una clase suelta el crédito es el importe entero: por eso ahí, y solo
-  // ahí, se le ofrece la devolución.
+  // ahí, se le dice a quién escribir sobre su pago.
   assert.match(suelta, /tienes una sesión disponible/);
-  assert.match(suelta, /te devolvamos el dinero/);
+  assert.match(suelta, /duda sobre tu pago/);
 
   assert.match(bono, /te quedan 7 sesiones/);
-  assert.ok(!bono.includes('te devolvamos el dinero'), 'a quien le quedan sesiones no se le ofrece devolución');
+  assert.ok(!bono.includes('duda sobre tu pago'), 'a quien le quedan sesiones no hace falta la nota');
+});
+
+test('el correo no promete en nombre del estudio una devolución que nadie ha decidido', () => {
+  const base = { socioNombre: 'Ana', ...CLASE, marca: MARCA, emailEstudio: 'hola@example.com' };
+  for (const sesionesRestantes of [1, 7]) {
+    const html = correoEsperaSinPlaza({ ...base, sesionesRestantes });
+    assert.ok(!/devolv|sin explicaciones/i.test(html), `con ${sesionesRestantes} sesiones promete una devolución`);
+  }
 });
 
 test('la caducidad se dice si la hay, y no se inventa un «no caduca» si no', () => {
@@ -45,7 +53,8 @@ test('la caducidad se dice si la hay, y no se inventa un «no caduca» si no', (
 test('la dirección del estudio solo se ofrece si la hay', () => {
   const base = { socioNombre: 'Ana', ...CLASE, marca: MARCA, sesionesRestantes: 1 };
   assert.match(correoEsperaSinPlaza({ ...base, emailEstudio: 'hola@example.com' }), /escríbenos a hola@example\.com/);
-  assert.ok(!correoEsperaSinPlaza(base).includes('escríbenos a'));
+  // Sin dirección no hay a quién escribir: «contéstanos» no llegaría al estudio.
+  assert.ok(!correoEsperaSinPlaza(base).includes('escríbenos'));
 });
 
 test('el mensaje de una automatización se parte en párrafos, no en una parrafada', () => {

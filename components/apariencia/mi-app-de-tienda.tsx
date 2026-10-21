@@ -137,8 +137,8 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
   if (datos.bloqueo) {
     const planes = planesConApp().join(' y ');
     const texto: Record<BloqueoPedirApp, string> = {
-      plan: `La app con el nombre y el icono de tu estudio en la App Store va incluida en ${planes}.`,
-      prueba: `La app con el nombre y el icono de tu estudio en la App Store va incluida en ${planes}. Se pide con el plan ya pagado, no durante la prueba.`,
+      plan: `Pedir la app con el nombre y el icono de tu estudio va incluido en ${planes}. Que salga en la App Store depende de la revisión de Apple.`,
+      prueba: `Pedir la app con el nombre y el icono de tu estudio va incluido en ${planes}. Se pide con el plan ya pagado, no durante la prueba, y que salga en la App Store depende de la revisión de Apple.`,
       cobro: 'Hay un cobro de tu plan pendiente. Cuando se resuelva, podrás pedir aquí tu app.',
       'sin-plan': `Tu plan no está activo. La app con el nombre y el icono de tu estudio va incluida en ${planes}.`,
       sede: `Tu cadena tiene una sola app, con todas sus sedes dentro. Se pide desde ${datos.sedePrincipal ? `«${datos.sedePrincipal}»` : 'su sede principal'}.`,

@@ -88,9 +88,9 @@ export interface Receta {
 }
 
 const MOTIVO_POR_FORMA: Record<MetodoIntegracion, string> = {
-  iframe: 'Va dentro de la página y se adapta sola a su alto: tus alumnas no salen de tu web.',
+  iframe: 'Va dentro de la página y se adapta sola a su alto.',
   nativa: 'Va dentro de la página, sin marco.',
-  popup: 'Funciona mejor con un botón que se abre encima: quien viene por primera vez no sale de tu web.',
+  popup: 'Funciona mejor con un botón que se abre encima: quien viene por primera vez reserva sin ir a tu página de Tentare.',
   boton: 'Un botón que lleva a tu página de reservas funciona en cualquier web.',
   enlace: 'Va mejor en un enlace: para un post, una story o tu newsletter.',
 };
@@ -106,7 +106,7 @@ export function receta(plataforma: PlataformaWeb | null, w: WidgetDisponible): R
 
   switch (plataforma) {
     case 'wordpress':
-      if (recomendado === 'iframe') motivo = 'En WordPress va dentro de la página, con un bloque «HTML personalizado». Tus alumnas no salen de tu web.';
+      if (recomendado === 'iframe') motivo = 'En WordPress va dentro de la página, con un bloque «HTML personalizado».';
       break;
     case 'wix':
       // El «Insertar HTML» de Wix es una caja de alto fijo en su propio marco:

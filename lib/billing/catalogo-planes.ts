@@ -124,7 +124,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     id: 'equipo',
     titulo: 'Equipo',
     filas: [
-      { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: recepción no entra en la caja ni en la ficha clínica.', valor: TODOS },
+      { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: la gerencia no entra en la caja y recepción no ve el detalle clínico.', valor: TODOS },
       { nombre: 'App para tu equipo', detalle: 'Su agenda, pasar lista, su disponibilidad, sus ausencias y los mensajes con sus alumnas, desde el móvil y con tu marca.', valor: TODOS },
       { nombre: 'Tarifa por hora y liquidación', valor: TODOS },
       { nombre: 'Una instructora en varias sedes', detalle: 'Con horario, tarifa y permisos distintos en cada una.', valor: porFeature('multiCentro') },
@@ -180,7 +180,11 @@ export const CATEGORIAS: CategoriaPlan[] = [
       // decidiendo la compra.
       // ⚠️ Y el QR tampoco: la factura solo lo imprime cuando la AEAT ya tiene
       // el registro (selloParaCliente), así que sin envío no sale en ninguna.
-      { nombre: 'Facturas con huella encadenada (Veri*Factu)', detalle: 'Numeración legal y huella encadenada. La firma y el envío automático a la AEAT están en construcción; el QR de cotejo llega con el envío.', valor: TODOS },
+      // ⚠️ Y desde el 2-oct-2026 tampoco la huella: de serie el estudio factura en
+      // modo 'facturas' (número, sin cadena), y la huella solo se calcula con
+      // Veri*Factu activado (migr 20261002191517, sellar-factura-server.ts). Esta
+      // fila decía «Numeración legal y huella encadenada» para todos (21-oct-2026).
+      { nombre: 'Veri*Factu: huella, QR y envío a la AEAT', detalle: 'Va aparte y viene desactivado: se activa dando de alta el envío a la AEAT. Sin él, las facturas llevan su número, pero no huella ni QR.', valor: TODOS },
       { nombre: 'Cierre de año para la gestoría', valor: TODOS },
       { nombre: 'Exportación de tus datos cuando quieras', valor: TODOS },
     ],
@@ -254,7 +258,9 @@ export const PARA_QUIEN: Record<Plan, { gancho: string; para: string }> = {
     para: 'Un estudio con una sala y una o dos instructoras.',
   },
   ESTUDIO: {
-    gancho: 'El más elegido',
+    // Decía «El más elegido» y lo pintaba como insignia en /suscripcion y en el
+    // alta: ningún estudio está en Estudio (21-oct-2026). La web ya lo había quitado.
+    gancho: 'Con equipo',
     para: 'Un estudio en marcha, con equipo y el horario lleno.',
   },
   CADENA: {

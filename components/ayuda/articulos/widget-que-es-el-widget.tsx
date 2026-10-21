@@ -13,12 +13,12 @@ export default function Contenido() {
       <p>
         Desde Configuración &gt; Mi app y mi web &gt; Widgets para tu web eliges qué parte de Tentare quieres en tu
         propia web y dónde, ves cómo queda con el resultado real y copias el código. Tu web sigue siendo tuya: Tentare no la
-        cambia, solo le pone piezas que funcionan de verdad —se reserva, se paga y se entra a la cuenta sin salir de ella.
+        cambia, solo le pone piezas que funcionan de verdad: desde ella se reserva, se paga y se entra a la cuenta.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué puedes poner</h2>
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
-        <li><strong>Tu horario, para que reserven</strong> — reservan y pagan sin salir de tu web. Eliges qué clases, instructoras y salas enseña, y si se ve el precio o el nivel.</li>
+        <li><strong>Tu horario, para que reserven</strong> — reservan y pagan desde tu web. Eliges qué clases, instructoras y salas enseña, y si se ve el precio o el nivel.</li>
         <li><strong>Tus precios</strong> y <strong>Bonos y packs</strong> — tus cuotas y bonos, con pago seguro.</li>
         <li><strong>Tu clase de prueba</strong> y <strong>Un formulario de contacto</strong> — para quien todavía no te conoce.</li>
         <li><strong>Citas</strong> — para servicios con hora concreta (valoraciones, sesiones 1 a 1…).</li>
@@ -30,10 +30,11 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Dónde ponerlo</h2>
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 15, lineHeight: 1.6 }}>
         <li><strong>Dentro de una página</strong> — ajustándose solo a su contenido. Funciona en casi cualquier web.</li>
-        <li><strong>Un botón que se abre encima</strong> — tu alumna no sale de tu web.</li>
+        <li><strong>Un botón que se abre encima</strong> — se abre encima de tu web, sin cambiar de página.</li>
         <li><strong>Un botón que lleva a tu página de reservas</strong> — no necesita ningún script. En WordPress, Wix, Squarespace y Webflow lo haces con el botón de tu propia web y tu enlace.</li>
         <li><strong>Un enlace</strong> — la dirección tal cual, para la bio de Instagram, un newsletter o WhatsApp.</li>
-        <li><strong>Sin marco</strong> (solo el horario, para quien te hace la web) — toma el espacio de tu web como si fuera suyo. Requiere autorizar tu web primero.</li>
+        <li><strong>Sin marco</strong> (solo el horario, para quien te hace la web) — toma el espacio de tu web como si fuera suyo. Requiere autorizar tu web primero. Si tu alumna no ha
+          iniciado sesión, al tocar una clase sigue la reserva en tu página de Tentare.</li>
       </ul>
       <p>
         La primera vez te pregunta con qué está hecha tu web y, con eso, te recomienda dónde ponerlo y te da los pasos

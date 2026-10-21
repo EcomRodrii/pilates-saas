@@ -364,7 +364,7 @@ function ElBoton({ w, c, metodo, cambiar }: {
       )}
       {metodo === 'popup' && (
         <p className="text-[12px] leading-relaxed text-muted-foreground">
-          Se abre encima de tu web, sin salir de ella. En el móvil ocupa la pantalla; la ✕ la cierra.
+          Se abre encima de tu web. En el móvil ocupa la pantalla; la ✕ la cierra.
         </p>
       )}
     </div>
