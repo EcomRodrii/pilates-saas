@@ -18,8 +18,7 @@ import { TutorialProvider } from '@/lib/tutorial-context';
 import { nacioConTutoriales } from '@/lib/ayuda/tutorial-progreso';
 import { tutorialDePantalla } from '@/lib/ayuda/pantallas';
 import { AsistenteProvider } from '@/lib/asistente-context';
-import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
-import { AsistenteFlotante } from '@/components/asistente/asistente-flotante';
+import { FlotantesDelPanel } from '@/components/guia/flotantes-del-panel';
 import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
@@ -512,13 +511,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </PanelPageTransition>
             </div>
           </main>
-          {/* En el chat de Tentare el botón flotante tapaba el de enviar: ahí el
-              soporte sigue en el menú de ayuda, no encima del campo. */}
-          {/* Con el panel nuevo, el soporte va en el menú de ayuda y no flota: en la
-              esquina se amontonaban WhatsApp, el asistente y la visita. */}
-          {pathname !== '/asistente' && !panelNuevo && <WhatsAppFab />}
-          {/* El chat de Tentare, flotante, encima del de soporte (asistente-flotante.tsx). */}
-          <AsistenteFlotante solo={panelNuevo} />
+          {/* La esquina: el WhatsApp de soporte y el chat de Tentare encima. En el
+              chat de Tentare el botón flotante tapaba el de enviar: ahí el soporte
+              sigue en el menú de ayuda. Con el panel nuevo, el soporte va en el
+              menú de ayuda y no flota (se amontonaban WhatsApp, el asistente y la
+              visita)… salvo con el alta nueva mientras «Pon en marcha tu estudio»
+              no esté terminada, que también trae el recorrido rápido
+              (components/guia/flotantes-del-panel.tsx). */}
+          <FlotantesDelPanel panelNuevo={panelNuevo} />
           {/* «Primeros pasos» ya no flota aquí: es una píldora de la barra de arriba (topbar.tsx). */}
           </AsistenteProvider>
           </TutorialProvider>

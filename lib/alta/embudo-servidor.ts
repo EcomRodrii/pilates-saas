@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 // Rutas relativas: lo prueba `node --test`.
 import { hoyEnEstudio } from '../utils.ts';
-import { enVentanaDelEmbudo, type DetalleEmbudo, type PasoEmbudo } from './embudo.ts';
+import { enVentanaDelEmbudo, PASOS_DURABLES, type DetalleEmbudo, type PasoEmbudo } from './embudo.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Apuntar un paso del embudo del alta (`embudo_alta`, migración
@@ -17,6 +17,9 @@ import { enVentanaDelEmbudo, type DetalleEmbudo, type PasoEmbudo } from './embud
 //   en el mismo día no cueste nada ni cambie la primera hora apuntada.
 // · Solo estudios en sus primeros DIAS_EMBUDO días (`enVentanaDelEmbudo`): el
 //   embudo es de estudios que arrancan, y la tabla no crece con los veteranos.
+//   Salvo los `PASOS_DURABLES` (embudo.ts, PR-5): las marcas de «esto ya
+//   se le enseñó» (el recorrido, la tarjeta del plan, el correo de la primera
+//   clase) valen pase cuando pase, y son UNA fila por estudio, no una por día.
 // · Un intento por estudio, paso y día en cada instancia (como `marcarUso`):
 //   /api/billing/status se pide en cada carga del panel, y con la migración sin
 //   aplicar todavía cada carga sería un aviso. Lo que se pierde así es, como
@@ -61,7 +64,7 @@ export async function apuntarPaso(
       if (error) throw new Error(error.message);
       creadoEn = (data?.creado_en as string | null | undefined) ?? null;
     }
-    if (!enVentanaDelEmbudo(creadoEn, ahora)) return false;
+    if (!PASOS_DURABLES.includes(paso) && !enVentanaDelEmbudo(creadoEn, ahora)) return false;
 
     const { error } = await admin.from('embudo_alta').upsert(
       { studio_id: studioId, paso, detalle: opciones.detalle ?? null },

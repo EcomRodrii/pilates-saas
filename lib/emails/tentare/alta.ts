@@ -120,6 +120,7 @@ function pieDelAlta(estudio: string): string {
 // (/api/public/qr-reservas/<slug>): Gmail no pinta un SVG.
 // ─────────────────────────────────────────────────────────────────────────────
 
+
 export function correoRecibirReservas(p: {
   estudioNombre: string;
   /** El nombre de la clase, tal y como sale en su página. */
@@ -157,4 +158,72 @@ ${parrafo('Pégalo en tu Instagram, en el grupo de WhatsApp de tus alumnas o en 
     preheader,
     html: marcoTentare(preheader, bloques, pieDelAlta(estudio)),
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Tu primera clase en Tentare, en 5 minutos»: el correo n.º 3 (maqueta, «09 ·
+// Correos»). Sale UNA vez, entre las 24 y las 72 h de crear el estudio, si una
+// alumna nueva todavía no puede reservar (cuándo y a quién, en
+// lib/alta/correo-primera-clase.ts; lo manda el cron `altas-sin-terminar`).
+//
+// Decisión D7 del fundador: es «sin clase RESERVABLE», y el texto lo dice. Sin
+// ninguna clase, la maqueta tal cual («le falta tu primera clase»). Con una
+// clase que una alumna nueva no puede reservar, decirle «crea tu primera
+// clase» sería mentirle: se le dice qué falta, con la frase de «¡Listo!», y se
+// la lleva a donde se arregla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function correoPrimeraClase(p: {
+  estudioNombre: string;
+  /** Su nombre (`user_metadata.nombre`), para el saludo. Sin él, sin nombre. */
+  nombre: string | null;
+  /** «Sin clase» (la maqueta) o «con clase que aún no se puede reservar». */
+  variante: { tipo: 'sin_clase'; ejemplo: { clase: string; minutos: number; plazas: number } } | { tipo: 'no_reservable'; aviso: string };
+  /** A dónde lleva el botón: `/calendario?primera=1`, o donde se arregla lo que falta. */
+  urlBoton: string;
+}): { asunto: string; preheader: string; html: string } {
+  const t = TENTARE;
+  const estudio = p.estudioNombre.trim() || 'Tu estudio';
+  const nombre = p.nombre?.trim();
+  const preheader = `Es lo único que le falta a ${estudio} para recibir reservas.`;
+  const parrafo = (html: string) =>
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;">${html}</div>`;
+
+  const cuerpo = p.variante.tipo === 'sin_clase'
+    ? [
+      parrafo(`A <b>${escaparHtml(estudio)}</b> le falta una cosa para recibir reservas: tu primera clase.`),
+      parrafo(`Está preparada con valores de ejemplo: ${escaparHtml(p.variante.ejemplo.clase)}, ${p.variante.ejemplo.minutos} minutos y ${p.variante.ejemplo.plazas} plazas. Tú eliges el día y la hora, pones el precio y la publicas.`),
+    ].join('')
+    : [
+      parrafo(`A <b>${escaparHtml(estudio)}</b> le falta una cosa para recibir reservas: que una alumna nueva pueda reservar tu clase.`),
+      parrafo(escaparHtml(p.variante.aviso)),
+    ].join('');
+
+  const bloques = [
+    cabeceraTentare(),
+    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Te falta un paso${nombre ? `, ${escaparHtml(nombre)}` : ''}</div>
+${cuerpo}
+</td></tr>`,
+    botonTentare({ href: p.urlBoton, texto: p.variante.tipo === 'sin_clase' ? 'Crear mi primera clase' : 'Ver qué falta' }),
+    '<tr><td style="padding:0 0 14px;font-size:0;line-height:0;">&nbsp;</td></tr>',
+  ].join('');
+
+  return {
+    asunto: p.variante.tipo === 'sin_clase'
+      ? 'Tu primera clase en Tentare, en 5 minutos'
+      : `Tus alumnas todavía no pueden reservar en ${estudio}`,
+    preheader,
+    html: marcoTentare(preheader, bloques, pieDelRecordatorio(estudio)),
+  };
+}
+
+/** El pie del correo 3: la persona por WhatsApp y que es el único recordatorio sobre esto. */
+function pieDelRecordatorio(estudio: string): string {
+  const t = TENTARE;
+  const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.tintaSuave};text-align:center;">
+¿Te atascas en algo? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.tintaSuave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'} y te ayuda <b>una persona del equipo</b>.<br>Es el único recordatorio que te mandamos sobre esto.<br>Tentare · Software para estudios de Pilates · Hecho en España
+</td></tr></table>`;
 }

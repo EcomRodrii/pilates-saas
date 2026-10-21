@@ -84,3 +84,15 @@ test('⚠️ nunca lanza: un error de lectura, de escritura o del propio cliente
   }
   assert.equal(await apuntarPaso(adminFalso().admin, '', 'panel_abierto', { creadoEn: HACE_3_DIAS, ahora: AHORA }), false);
 });
+
+test('las marcas de «ya se enseñó» se apuntan también pasados los 40 días (PR-5)', async () => {
+  for (const paso of ['recorrido_visto', 'plan_ensenado', 'correo_primera_clase'] as const) {
+    const { admin, escrituras } = adminFalso();
+    assert.equal(await apuntarPaso(admin, `s-${paso}`, paso, { creadoEn: HACE_90_DIAS, ahora: AHORA }), true, paso);
+    assert.equal(escrituras.length, 1);
+  }
+  // Una medida, no.
+  const { admin, escrituras } = adminFalso();
+  assert.equal(await apuntarPaso(admin, 's-medida', 'enlace_compartido', { creadoEn: HACE_90_DIAS, ahora: AHORA, detalle: 'copiar' }), false);
+  assert.equal(escrituras.length, 0);
+});

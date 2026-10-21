@@ -1085,7 +1085,9 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO`]: {
     title: 'Tu horario está listo: falta que lo sepan tus alumnas',
     body: 'Todavía no ha entrado ninguna reserva. Comparte el enlace de tu página de reservas por WhatsApp o Instagram: es lo que hace que llegue la primera.',
-    deepLink: () => `/primeros-pasos`,
+    // A «Comparte tu enlace» (components/guia/compartir-desde-enlace.tsx), no a
+    // /primeros-pasos: allí no se compartía nada (alta nueva, PR-5).
+    deepLink: () => `/dashboard?compartir=1`,
   },
   // Series que se acaban: {resumen} y {lista} los redacta el barrido
   // (lib/series-avisos.ts), con todas las clases del estudio en un solo aviso.

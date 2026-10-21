@@ -271,7 +271,9 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
+    // Se da por hecho con un TIPO de clase, y eso es lo que dice: «Crea tu primera
+    // clase» se marcaba sin ninguna clase en el calendario (alta nueva, PR-5).
+    { id: 'clase', label: 'Crea tu primer tipo de clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
     // superan). Ya no hay horario propuesto (se quitó el 8-oct): las clases se
     // crean en el calendario, con «Crear clase» → «Clase» o «Clase semanal».
@@ -459,7 +461,7 @@ export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboardin
   const base: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura tu estudio', descripcion: '', minutos: 3, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: '', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
+    { id: 'clase', label: 'Crea tu primer tipo de clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     { id: 'horario', label: 'Configura tus horarios', descripcion: '', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: '', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
     { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },

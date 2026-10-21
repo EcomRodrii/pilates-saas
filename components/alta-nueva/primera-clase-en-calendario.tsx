@@ -5,6 +5,10 @@
 // bienvenida con «Prefiero ir a mi panel»): el mismo formulario del paso 6,
 // sobre el Calendario, y al publicar el mismo «¡Listo!» del paso 7.
 //
+// Del «¡Listo!» se sale a la lista «Pon en marcha tu estudio» del Resumen (PR-5,
+// fundador 21-oct: al terminar, «le debe de llevar automáticamente a primeros
+// pasos»), donde ya se ofrece la siguiente tarea: compartir el enlace.
+//
 // Se abre con `/calendario?primera=1` (el correo «Tu cuenta está activa») y con
 // «Crear mi primera clase» del calendario vacío. Solo para la propietaria y tras
 // `ALTA_NUEVA` (o en el estudio que nació de ella): para el resto, el Calendario
@@ -19,11 +23,13 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { ListoParaReservar } from '@/components/onboarding/listo-para-reservar';
 import { useStudio } from '@/lib/studio-context';
 import { anfitrionPortal } from '@/lib/panel-portal';
+import { recargarEstadoAlta } from '@/lib/alta/estado-cliente';
 import { PrimeraClase, type PrimeraClasePublicada } from './primera-clase';
 import { WhatsAppPersona } from './piezas';
 
@@ -33,6 +39,7 @@ export function PrimeraClaseEnCalendario({ onCerrar, onCreada }: {
   onCreada: () => void;
 }) {
   const { studio } = useStudio();
+  const router = useRouter();
   const [publicada, setPublicada] = useState<PrimeraClasePublicada | null>(null);
 
   // Escape cierra el formulario (el «¡Listo!» lo hace por su cuenta).
@@ -55,7 +62,8 @@ export function PrimeraClaseEnCalendario({ onCerrar, onCreada }: {
         veredicto={publicada.veredicto}
         correoEnviado={publicada.correo}
         conQr
-        onSeguir={onCerrar}
+        textoSeguir="Ir a mi panel"
+        onSeguir={() => { onCerrar(); router.push('/dashboard'); }}
       />
     );
   }
@@ -81,7 +89,7 @@ export function PrimeraClaseEnCalendario({ onCerrar, onCreada }: {
           studio={studio}
           enCalendario
           onAtras={onCerrar}
-          onPublicada={r => { setPublicada(r); onCreada(); }}
+          onPublicada={r => { setPublicada(r); onCreada(); recargarEstadoAlta(); }}
         />
       </main>
     </div>,
