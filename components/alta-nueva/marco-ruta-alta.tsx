@@ -34,7 +34,7 @@ export function MarcoRutaAlta({ studioId, children }: { studioId: string; childr
           <div className="mx-auto flex max-w-[1320px] items-center gap-3 px-4 py-2.5 lg:px-6">
             <LogoTentare alto={20} tinta="auto" decorativo />
             <p className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:block">
-              Paso 4 de 7 · Configurando tu estudio
+              Paso 4 de 5 · Configurando tu estudio
             </p>
             <div className="ml-auto flex items-center gap-2">
               <button

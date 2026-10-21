@@ -90,6 +90,8 @@ export function FiltroCabecera({ icono: Icono, valor, onCambio, opciones, etique
 }
 
 export interface CabeceraCalendarioProps {
+  /** `false` con el Calendario aún sin clases: su tutorial («Cada bloque es una clase…») no se abre solo. */
+  tutorialAbreSolo?: boolean;
   vista: VistaCalendario;
   onVista: (v: VistaCalendario) => void;
   /** La instructora no tiene Horario. */
@@ -144,6 +146,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
       <PageHeader
         title="Calendario"
         badge={p.ventana}
+        tutorialAbreSolo={p.tutorialAbreSolo}
         // En el móvil el «+» va en absoluto arriba a la derecha: sin este hueco
         // (solo en la fila del TÍTULO, la de herramientas no se estrecha) se
         // montaba encima de «Cómo funciona» (panel nuevo, 15-oct-2026). Y

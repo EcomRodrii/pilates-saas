@@ -5,7 +5,7 @@ import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { colorDeOcupacion } from '@/components/dashboard/vivo';
-import { clasesPorCelda, claveCelda, diasConClases, filasDeFranjas, textoHueco, type ClaseEnFranja } from '@/lib/calendario/franjas';
+import { clasesPorCelda, claveCelda, diasConClases, filasDeFranjaVacia, filasDeFranjas, textoHueco, type ClaseEnFranja } from '@/lib/calendario/franjas';
 import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
 
 // La semana por franjas (decisión 4 del rediseño, aprobada el 1-oct-2026): una
@@ -16,6 +16,9 @@ import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
 // exacta se cambia en el Día, que es una rejilla de tiempo de verdad.
 
 const NOMBRE_DIA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+/** El rayado de «Cerrado», el mismo de la rejilla del Día. */
+const RAYADO_CERRADO = 'repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--border) 60%, transparent) 6px 7px)';
 
 export interface ResumenDia {
   clases: number;
@@ -45,16 +48,29 @@ export interface SemanaFranjasProps {
   onMoverADia?: (id: string, dia: number) => void;
   /** Tocar una casilla vacía: crear una clase ese día a esa hora. */
   onCrearEn?: (dia: number, hora: number) => void;
+  /**
+   * Solo para una semana TODAVÍA SIN NINGUNA CLASE: las horas en que abre el
+   * estudio [desde, hasta), para pintar sus filas vacías y los días que cierra,
+   * en vez de una cabecera sola. Lo pasa la vista previa del alta nueva («Así se
+   * verá tu semana», components/alta-nueva/paso-tu-estudio.tsx); el Calendario
+   * no lo pasa, y con una sola clase deja de usarse.
+   */
+  franjaVacia?: { desdeHora: number; hastaHora: number };
 }
 
 export function SemanaFranjas({
   fechas, hoyIndex, clases, tarjetas, cerrados, resumenDia, compacta, seleccionadaId, marcadas, enSeleccion,
-  atenuada, onSeleccionar, arrastrable, onMoverADia, onCrearEn,
+  atenuada, onSeleccionar, arrastrable, onMoverADia, onCrearEn, franjaVacia,
 }: SemanaFranjasProps) {
   const rejillaRef = useRef<HTMLDivElement>(null);
   const panelNuevo = usePanelNuevo();
   const [destino, setDestino] = useState<number | null>(null);
-  const filas = useMemo(() => filasDeFranjas(clases), [clases]);
+  // Sin clases y con franja: sus horas, una fila cada una, y los días a todo lo ancho.
+  const semanaVacia = clases.length === 0 && !!franjaVacia;
+  const filas = useMemo(
+    () => (clases.length === 0 && franjaVacia ? filasDeFranjaVacia(franjaVacia.desdeHora, franjaVacia.hastaHora) : filasDeFranjas(clases)),
+    [clases, franjaVacia],
+  );
   const celdas = useMemo(() => clasesPorCelda(clases), [clases]);
   const conClases = useMemo(() => diasConClases(clases, fechas.length), [clases, fechas.length]);
   const diaDe = useMemo(() => new Map(clases.map(c => [c.id, c.dia])), [clases]);
@@ -74,13 +90,13 @@ export function SemanaFranjas({
   // la tarjeta se come ~11 px a la altura del texto y «DOM» (la abreviatura más ancha, ~28 px) no
   // cabía. El Calendario abre una semana que EMPIEZA hoy, así que cada lunes la última columna es
   // el domingo (e2e/panel-nuevo-tableta-mostrador.spec.ts, falló el lunes 19-oct-2026 en todos los PR).
-  const ancho = (i: number) => (conClases[i] ? 'minmax(0,1fr)' : compacta ? (i === fechas.length - 1 ? '44px' : '36px') : '60px');
+  const ancho = (i: number) => (conClases[i] || semanaVacia ? 'minmax(0,1fr)' : compacta ? (i === fechas.length - 1 ? '44px' : '36px') : '60px');
   const plantilla = `${compacta ? '44px' : '52px'} ${fechas.map((_, i) => ancho(i)).join(' ')}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
       <div className="min-h-0 flex-1 overflow-auto" data-testid="semana-franjas">
-        <div ref={rejillaRef} data-rejilla className="grid min-w-[560px]" style={{ gridTemplateColumns: plantilla }}>
+        <div ref={rejillaRef} data-rejilla className={cn('grid', semanaVacia ? 'min-w-[420px]' : 'min-w-[560px]')} style={{ gridTemplateColumns: plantilla }}>
           {/* Cabecera de días, fija arriba al desplazarse. */}
           <div className="sticky top-0 z-20 border-b border-border bg-card" />
           {fechas.map((f, i) => {
@@ -98,7 +114,7 @@ export function SemanaFranjas({
                   // redondeada de la tarjeta (medido a 768 y a 1024). El último, un poco
                   // más a la izquierda: a la altura del texto la curva de la esquina
                   // (28,8 px de radio) entra 8 px.
-                  panelNuevo && !conClases[i] && (i === fechas.length - 1 ? 'pl-0 pr-2' : 'px-0.5'),
+                  panelNuevo && !conClases[i] && !semanaVacia && (i === fechas.length - 1 ? 'pl-0 pr-2' : 'px-0.5'),
                   esHoy ? 'bg-[color-mix(in_srgb,var(--brand)_7%,var(--card))]' : 'bg-card',
                   destino === i && 'bg-[color-mix(in_srgb,var(--brand)_14%,var(--card))]',
                 )}
@@ -158,8 +174,13 @@ export function SemanaFranjas({
                     key={dia}
                     data-dia-index={dia}
                     data-hora={fila.hora}
+                    data-cerrado={semanaVacia && cerrados[dia] ? '' : undefined}
+                    // Un día que no abre, rayado como las horas cerradas del Día (vista-dia-salas.tsx).
+                    style={semanaVacia && cerrados[dia] ? { backgroundImage: RAYADO_CERRADO } : undefined}
                     className={cn(
                       'group relative min-w-0 space-y-1.5 border-b border-l border-border p-1.5',
+                      semanaVacia && 'h-7',
+                      semanaVacia && cerrados[dia] && 'bg-muted/70',
                       hoyIndex === dia && 'bg-[color-mix(in_srgb,var(--brand)_4%,var(--card))]',
                       destino === dia && 'bg-[color-mix(in_srgb,var(--brand)_10%,var(--card))]',
                       crear && conClases[dia] && 'min-h-[52px] cursor-pointer',

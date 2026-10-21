@@ -2,13 +2,12 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las piezas que comparten las pantallas del alta nueva en el panel (pasos 3, 4
-// y 5): la línea de siete pasos, la cabecera del paso, la barra de abajo
-// («Atrás» · «Siguiente»), el atajo a la primera clase y el WhatsApp con una
-// persona. Copiadas de la maqueta aprobada (03-maqueta-alta-nueva.html) con los
+// y 5): la línea de pasos, la cabecera del paso, la barra de abajo
+// («Atrás» · «Siguiente») y el WhatsApp con una persona. Copiadas de la maqueta aprobada (03-maqueta-alta-nueva.html) con los
 // tokens de la marca: nada de color escrito a mano.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { ArrowLeft, ArrowRight, Check, Loader2, SkipForward } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
 import { BOTON_VIVO, DEGRADADO_LOGO } from '@/components/dashboard/vivo';
@@ -29,15 +28,16 @@ export const CLASE_ERROR = 'mt-1 text-[13px] font-medium leading-[18px] text-des
  * dicen. En el móvil quedan los números (los nombres no caben en siete columnas).
  */
 export function LineaDePasos({ actual }: { actual: number }) {
-  const progreso = Math.max(0, Math.min(1, (actual - 1) / (LINEA_DE_PASOS.length - 1)));
+  const n = LINEA_DE_PASOS.length;
+  const progreso = Math.max(0, Math.min(1, (actual - 1) / (n - 1)));
   return (
-    <ol aria-label="Los 7 pasos para abrir tu estudio" className="relative grid grid-cols-7" data-testid="linea-de-pasos">
+    <ol aria-label={`Los ${n} pasos para abrir tu estudio`} className="relative grid" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }} data-testid="linea-de-pasos">
       {/* La pista punteada y, encima, lo recorrido con el degradado del logo. */}
-      <span aria-hidden className="absolute left-[5px] top-[5px] border-t-[1.5px] border-dashed border-muted-foreground/40" style={{ right: `calc(100% / 7 - 5px)` }} />
+      <span aria-hidden className="absolute left-[5px] top-[5px] border-t-[1.5px] border-dashed border-muted-foreground/40" style={{ right: `calc(100% / ${n} - 5px)` }} />
       <span
         aria-hidden
         className="absolute left-[5px] top-[4px] h-[3px] rounded-full transition-[width] duration-500"
-        style={{ width: `calc((100% - 100% / 7) * ${progreso})`, backgroundImage: DEGRADADO_LOGO }}
+        style={{ width: `calc((100% - 100% / ${n}) * ${progreso})`, backgroundImage: DEGRADADO_LOGO }}
       />
       {LINEA_DE_PASOS.map((p, i) => {
         const n = i + 1;
@@ -74,7 +74,7 @@ export function LineaDePasos({ actual }: { actual: number }) {
   );
 }
 
-/** «Paso 3 de 7 · …», el titular y la frase; a la derecha, «Más tarde» si el paso es opcional. */
+/** «Paso 3 de 5 · …», el titular y la frase; a la derecha, «Más tarde» si el paso es opcional. */
 export function CabeceraPaso({ etiqueta, titulo, sub, masTarde, tituloRef }: {
   etiqueta: string;
   titulo: string;
@@ -142,19 +142,6 @@ export function NavPaso({ onAtras, trabajando, textoSiguiente = 'Siguiente', mas
         </button>
       </div>
     </div>
-  );
-}
-
-/** «¿Lo tienes claro? Saltar a mi primera clase»: para quien ya sabe lo que quiere (perfil 2 de la maqueta). */
-export function AtajoPrimeraClase({ onSaltar, disabled }: { onSaltar: () => void; disabled?: boolean }) {
-  return (
-    <p className="mt-4 inline-flex flex-wrap items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
-      <SkipForward size={14} aria-hidden />
-      ¿Lo tienes claro?
-      <button type="button" onClick={onSaltar} disabled={disabled} className="font-semibold text-foreground underline-offset-2 hover:underline disabled:opacity-60">
-        Saltar a mi primera clase
-      </button>
-    </p>
   );
 }
 
