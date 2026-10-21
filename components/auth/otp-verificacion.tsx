@@ -25,11 +25,20 @@ export interface OtpVerificacionProps {
    *  anidadas, una dentro de otra. `/login` y el paso 1 del wizard de
    *  Network SÍ necesitan la tarjeta propia (no hay ninguna otra alrededor). */
   sinTarjeta?: boolean;
+  /** La pantalla que lo incrusta ya dice a dónde se mandó el código (el alta
+   *  nueva: «Revisa tu correo»). Sin esto, el titular salía dos veces. */
+  sinCabecera?: boolean;
+  /** Al escribir (o pegar) la sexta cifra se comprueba sola, sin pulsar el
+   *  botón (el alta nueva: «al escribir la última, el estudio se monta solo»).
+   *  El botón sigue ahí para quien lo busque. */
+  verificarAlCompletar?: boolean;
 }
 
 type Estado = 'rellenando' | 'verificando' | 'exito' | 'error';
 
-export function OtpVerificacion({ email, onVerificar, onReenviar, onCambiarEmail, onVerificado, sinTarjeta }: OtpVerificacionProps) {
+export function OtpVerificacion({
+  email, onVerificar, onReenviar, onCambiarEmail, onVerificado, sinTarjeta, sinCabecera, verificarAlCompletar,
+}: OtpVerificacionProps) {
   const [digitos, setDigitos] = useState<string[]>(Array(LONGITUD_OTP).fill(''));
   const [estado, setEstado] = useState<Estado>('rellenando');
   const [errorMsg, setErrorMsg] = useState('');
@@ -115,16 +124,30 @@ export function OtpVerificacion({ email, onVerificar, onReenviar, onCambiarEmail
   return (
     <div className={sinTarjeta ? 'w-full' : 'w-full max-w-sm'}>
       <div className={sinTarjeta ? '' : 'bg-white rounded-2xl p-6'} style={sinTarjeta ? undefined : { border: '1px solid #E7E7E0', boxShadow: '0 30px 60px -30px rgba(26,26,26,.18)' }}>
-        <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-1.5">Verifica tu correo</h2>
-        <p className="text-[13.5px] text-[#63635D] mb-6 leading-relaxed">
-          Hemos enviado un código de verificación de 6 dígitos a{' '}
-          <span className="font-semibold text-[#1A1A1A] break-all">{email}</span>
-        </p>
+        {!sinCabecera && (
+          <>
+            <h2 className="text-[16px] font-semibold text-[#1A1A1A] mb-1.5">Verifica tu correo</h2>
+            <p className="text-[13.5px] text-[#63635D] mb-6 leading-relaxed">
+              Hemos enviado un código de verificación de 6 dígitos a{' '}
+              <span className="font-semibold text-[#1A1A1A] break-all">{email}</span>
+            </p>
+          </>
+        )}
 
         <form onSubmit={handleSubmit}>
           <OtpInput
             valor={digitos}
-            onCambiar={d => { setDigitos(d); if (estado === 'error') { setEstado('rellenando'); setErrorMsg(''); } }}
+            onCambiar={d => {
+              setDigitos(d);
+              if (estado === 'error') { setEstado('rellenando'); setErrorMsg(''); }
+              // Con la sexta cifra se comprueba sola. Solo cuando se COMPLETA
+              // en este cambio (no si ya lo estaba), y nunca bloqueado ni con
+              // una comprobación en marcha: el servidor cuenta los intentos.
+              const completo = codigoCompleto(d);
+              if (verificarAlCompletar && completo && !codigo && !bloqueado && estado !== 'verificando' && estado !== 'exito') {
+                void verificar(completo);
+              }
+            }}
             disabled={estado === 'verificando' || estado === 'exito' || bloqueado}
             error={estado === 'error'}
             autoFocus

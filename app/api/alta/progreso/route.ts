@@ -11,6 +11,9 @@ import { leerEventoProgreso } from '@/lib/alta/abandono';
 //     sin estudio llega al alta / pasa del paso 1. Sin sesión no hay a quién
 //     apuntarlo; ese tramo lo apunta el trigger de auth.users al crear la cuenta.
 //   · `error_estudio`: `dbCreateStudio` devolvió null.
+// El alta nueva (app/crear-estudio/alta-nueva.tsx) manda además, con la sesión
+// abierta, su `version` y la de los textos legales que acepta al pulsar «Crear
+// mi estudio» (`condiciones`): sin signUp no hay trigger que las copie.
 //
 // Solo escribe SOBRE LA PROPIA cuenta (el id sale del JWT, nunca del cuerpo) y
 // con service-role sobre `altas_estudio`, que no tiene políticas para el
@@ -53,8 +56,14 @@ export async function POST(req: NextRequest) {
   // `inicio` / `plan`: ya tiene estudio o ficha de equipo → no es un alta.
   if (await verificarSesionStaff(req)) return NextResponse.json({ ok: true, registrado: false });
 
+  // `version`: con la sesión ya abierta no hay signUp ni trigger que la copie,
+  // así que el alta nueva la dice aquí. Solo al CREAR la fila (ignoreDuplicates):
+  // una cuenta que ya empezó un alta se queda con la suya.
   const { error: errAlta } = await admin.from('altas_estudio').upsert(
-    { auth_user_id: usuario.userId, origen: 'con_sesion', estudio_nombre: evento.estudio, iniciada_en: ahora },
+    {
+      auth_user_id: usuario.userId, origen: 'con_sesion', estudio_nombre: evento.estudio, iniciada_en: ahora,
+      ...(evento.version ? { version: evento.version } : {}),
+    },
     { onConflict: 'auth_user_id', ignoreDuplicates: true },
   );
   if (errAlta) return NextResponse.json({ error: 'No se pudo registrar' }, { status: 500 });
@@ -63,6 +72,14 @@ export async function POST(req: NextRequest) {
     // La PRIMERA vez que llega al plan: volver atrás y adelante no la mueve.
     await admin.from('altas_estudio').update({ plan_en: ahora, actualizado_en: ahora })
       .eq('auth_user_id', usuario.userId).is('plan_en', null);
+    // Alta nueva con la sesión abierta: `plan` es pulsar «Crear mi estudio»
+    // bajo la línea legal, así que es ahí donde se aceptan los textos. Se
+    // guarda la PRIMERA aceptación (las dos columnas a la vez: un CHECK las ata).
+    if (evento.condiciones) {
+      await admin.from('altas_estudio')
+        .update({ condiciones_version: evento.condiciones, condiciones_aceptadas_en: ahora, actualizado_en: ahora })
+        .eq('auth_user_id', usuario.userId).is('condiciones_version', null);
+    }
     // El nombre sí se actualiza: es el último que escribió, y el del correo.
     if (evento.estudio) {
       await admin.from('altas_estudio').update({ estudio_nombre: evento.estudio, actualizado_en: ahora })

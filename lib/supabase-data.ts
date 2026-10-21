@@ -26,7 +26,7 @@ import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import { idEstudioDe } from '@/lib/id-estudio';
-import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
+import { RESERVADAS as SLUGS_RESERVADOS, slugify } from '@/lib/slug';
 import { mensajeDeFalloAlGuardar, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
 import { fotoSalaParaGuardar, salaCambiosToDb } from '@/lib/sala-cambios';
 import { saldoVivo } from '@/lib/creditos-caducidad';
@@ -5131,15 +5131,10 @@ export async function dbUpdateHorarioEstudio(dias: DiaHorario[]): Promise<Result
   return ESCRITURA_OK;
 }
 
-// Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
-// llama el callback de OAuth de Stripe Connect, un servidor sin sesión.
-export function slugify(nombre: string): string {
-  return nombre
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'estudio';
-}
+// La dirección base de un estudio a partir de su nombre. Vive en lib/slug.ts
+// (el alta nueva la enseña mientras se escribe); se reexporta aquí para quien
+// ya la importaba de este fichero.
+export { slugify };
 
 // Genera un slug único para /reservar/[slug], /kiosk/[slug], /portal/[slug]
 // probando sufijos -2, -3... si el base ya existe.

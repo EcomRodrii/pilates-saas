@@ -33,19 +33,11 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { idEstudioDe } from '../lib/id-estudio.ts';
-import { RESERVADAS as SLUGS_RESERVADOS } from '../lib/slug.ts';
-
-// `slugify` vive en supabase-data.ts (junto a `generateUniqueSlug`, que este
-// script no puede reusar tal cual: está atado al cliente de navegador de
-// `lib/db/supabase.ts`, con RLS de `authenticated` — aquí hace falta el
-// cliente admin). La función en sí es pura, sin más dependencia que esta.
-function slugify(nombre: string): string {
-  return nombre
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'estudio';
-}
+// `slugify` es la misma que usa el alta (lib/slug.ts). `generateUniqueSlug`
+// (lib/supabase-data.ts) no se puede reusar tal cual: está atado al cliente de
+// navegador de `lib/db/supabase.ts`, con RLS de `authenticated` — aquí hace
+// falta el cliente admin.
+import { RESERVADAS as SLUGS_RESERVADOS, slugify } from '../lib/slug.ts';
 
 const URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
