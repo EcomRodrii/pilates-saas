@@ -5,18 +5,23 @@
 // base de datos, esto solo dice dónde seguir. Sin almacenamiento (modo privado,
 // datos del sitio bloqueados) se empieza por la primera y no pasa nada más.
 
-import { clavePantallaAlta, leerPantallaGuardada, pantallaParaGuardar, type PantallaAlta } from '@/lib/alta/bienvenida-nueva';
+import { clavePantallaAlta, leerAltaGuardada, pantallaParaGuardar, type PantallaAlta } from '@/lib/alta/bienvenida-nueva';
 
-export function leerPantalla(studioId: string): PantallaAlta {
+/** La pantalla y, en «¡Listo!», el nombre de la clase publicada. */
+export function leerAlta(studioId: string): { pantalla: PantallaAlta; clase: string | null } {
   try {
-    return leerPantallaGuardada(window.localStorage.getItem(clavePantallaAlta(studioId)));
+    return leerAltaGuardada(window.localStorage.getItem(clavePantallaAlta(studioId)));
   } catch {
-    return 'estudio';
+    return { pantalla: 'estudio', clase: null };
   }
 }
 
-export function guardarPantalla(studioId: string, p: PantallaAlta): void {
-  try { window.localStorage.setItem(clavePantallaAlta(studioId), pantallaParaGuardar(p)); } catch { /* sin almacenamiento */ }
+export function leerPantalla(studioId: string): PantallaAlta {
+  return leerAlta(studioId).pantalla;
+}
+
+export function guardarPantalla(studioId: string, p: PantallaAlta, clase?: string | null): void {
+  try { window.localStorage.setItem(clavePantallaAlta(studioId), pantallaParaGuardar(p, clase)); } catch { /* sin almacenamiento */ }
 }
 
 export function olvidarPantalla(studioId: string): void {

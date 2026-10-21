@@ -62,8 +62,9 @@ export async function POST(req: NextRequest) {
   const correo = correoCuentaActiva({
     estudioNombre: String(estudio!.nombre ?? ''),
     urlPagina: `${base}/reservar/${encodeURIComponent(slug)}`,
-    // Hoy la primera clase se crea en el Calendario.
-    urlPrimeraClase: `${base}/calendario`,
+    // «Tu primera clase» del alta nueva (PR-4): dentro de la bienvenida si aún
+    // no la ha terminado, o sobre el Calendario si ya entró al panel.
+    urlPrimeraClase: `${base}/calendario?primera=1`,
     foundingGratis: foundingGratisEnAltas(),
   });
 

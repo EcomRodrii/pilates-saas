@@ -18,7 +18,9 @@
 import { masDias } from '../utils.ts';
 
 // ── Lo que se guarda: la MISMA lista que el CHECK de la migración ───────────
-// (lo cruza embudo.test.ts). Un paso nuevo se añade aquí Y en una migración.
+// (lo cruza embudo.test.ts; desde el PR-4, el CHECK es el de
+// 20261021134000_alta_primera_clase.sql). Un paso nuevo se añade aquí Y en una
+// migración.
 
 export const PASOS_EMBUDO = [
   'panel_abierto', // la propietaria abre el panel: d1, d7 y d30
@@ -27,6 +29,7 @@ export const PASOS_EMBUDO = [
   'config_completada', // «Tu estudio» de la bienvenida nueva (PR-3), comprobado en la base de datos
   'correo_cuenta_activa', // el correo «Tu cuenta está activa» (PR-2: hoy sin filas)
   'plan_ensenado', // la tarjeta del plan tras la primera reserva (PR-5: hoy sin filas)
+  'correo_recibir_reservas', // el correo «Ya puedes recibir reservas», una vez (PR-4, migración 20261021134000)
 ] as const;
 export type PasoEmbudo = (typeof PASOS_EMBUDO)[number];
 

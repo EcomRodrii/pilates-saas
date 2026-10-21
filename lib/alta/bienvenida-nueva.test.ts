@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DESTINO_PRIMERA_CLASE, LINEA_DE_PASOS, PANTALLAS_ALTA, PASO_DE_PANTALLA, PROGRAMAS, PROGRAMAS_RECONOCIDOS,
-  anteriorPantalla, clavePantallaAlta, esRutaDelAlta, leerPantallaGuardada, listaReconocidos, nacioConAltaNueva,
+  ENTRADA_PRIMERA_CLASE, LINEA_DE_PASOS, PANTALLAS_ALTA, PASO_DE_PANTALLA, PROGRAMAS, PROGRAMAS_RECONOCIDOS,
+  anteriorPantalla, clavePantallaAlta, esRutaDelAlta, leerAltaGuardada, leerPantallaGuardada, pidePrimeraClase, listaReconocidos, nacioConAltaNueva,
   ordenDeVias, origenDeSoftware, pantallaParaGuardar, queExportar, siguientePantalla, softwareAnteriorDe, viaRecomendada,
 } from './bienvenida-nueva.ts';
 import { VERSIONES_ALTA } from './embudo.ts';
@@ -21,13 +21,26 @@ test('la línea son los siete pasos de la maqueta; obligatorios 1, 2, 3 y 6', ()
 });
 
 test('las pantallas van en orden y cada una cae en su paso de la línea', () => {
-  assert.deepEqual([...PANTALLAS_ALTA], ['estudio', 'horario', 'importar', 'marca']);
-  assert.deepEqual(PANTALLAS_ALTA.map(p => PASO_DE_PANTALLA[p]), [3, 3, 4, 5]);
+  assert.deepEqual([...PANTALLAS_ALTA], ['estudio', 'horario', 'importar', 'marca', 'clase', 'publicada']);
+  assert.deepEqual(PANTALLAS_ALTA.map(p => PASO_DE_PANTALLA[p]), [3, 3, 4, 5, 6, 7]);
   assert.equal(siguientePantalla('estudio'), 'horario');
-  assert.equal(siguientePantalla('marca'), null, 'después de la marca, la primera clase (PR-4)');
+  assert.equal(siguientePantalla('marca'), 'clase', 'después de la marca, la primera clase (PR-4)');
+  assert.equal(siguientePantalla('clase'), 'publicada');
+  assert.equal(siguientePantalla('publicada'), null);
   assert.equal(anteriorPantalla('estudio'), null);
   assert.equal(anteriorPantalla('importar'), 'horario');
-  assert.equal(DESTINO_PRIMERA_CLASE, '/calendario?nueva=1', 'mientras tanto, «Nueva clase» del Calendario');
+  assert.equal(anteriorPantalla('clase'), 'marca');
+  assert.equal(ENTRADA_PRIMERA_CLASE, '/calendario?primera=1');
+  assert.equal(pidePrimeraClase('?primera=1'), true);
+  assert.equal(pidePrimeraClase('?nueva=1'), false);
+  assert.equal(pidePrimeraClase(null), false);
+});
+
+test('en «¡Listo!» se guarda también el nombre de la clase, y solo ahí', () => {
+  assert.deepEqual(leerAltaGuardada(pantallaParaGuardar('publicada', 'Reformer')), { pantalla: 'publicada', clase: 'Reformer' });
+  assert.deepEqual(leerAltaGuardada(pantallaParaGuardar('publicada')), { pantalla: 'publicada', clase: null });
+  assert.deepEqual(leerAltaGuardada(pantallaParaGuardar('clase', 'Reformer')), { pantalla: 'clase', clase: null });
+  assert.deepEqual(leerAltaGuardada('{"pantalla":"publicada","clase":7}'), { pantalla: 'publicada', clase: null });
 });
 
 test('reanudar: vuelve a la pantalla guardada; lo que no se entiende, a la primera', () => {

@@ -14,16 +14,21 @@ import {
 // migración y todas las cuentas de /interno.
 
 const MIGRACION = readFileSync(new URL('../../supabase/migrations/20261021020248_embudo_alta.sql', import.meta.url), 'utf8');
+/**
+ * La lista de pasos la rehízo la primera clase (PR-4) para sumar
+ * `correo_recibir_reservas`: el CHECK que vale es el de ESA migración.
+ */
+const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261021134000_alta_primera_clase.sql', import.meta.url), 'utf8');
 
 /** Los literales de un `check (col in (...))` de la migración. */
-function literalesDelCheck(columna: string): string[] {
-  const m = MIGRACION.match(new RegExp(`${columna}[^;]*?check \\((?:${columna} is null or )?${columna} in \\(([^)]*)\\)`, 's'));
+function literalesDelCheck(columna: string, migracion = MIGRACION): string[] {
+  const m = migracion.match(new RegExp(`${columna}[^;]*?check \\((?:${columna} is null or )?${columna} in \\(([^)]*)\\)`, 's'));
   assert.ok(m, `no encuentro el CHECK de ${columna}`);
   return [...m[1].matchAll(/'([^']+)'/g)].map(x => x[1]);
 }
 
 test('los pasos y los detalles son la MISMA lista cerrada que el CHECK de la migración', () => {
-  assert.deepEqual(literalesDelCheck('paso'), [...PASOS_EMBUDO]);
+  assert.deepEqual(literalesDelCheck('paso', MIGRACION_PASOS), [...PASOS_EMBUDO]);
   assert.deepEqual(literalesDelCheck('detalle'), [...DETALLES_EMBUDO]);
 });
 

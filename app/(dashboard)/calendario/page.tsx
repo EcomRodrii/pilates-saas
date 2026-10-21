@@ -121,7 +121,7 @@ import { nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor, claseAtenuadaPorColumna, instructoraApagada, alternarInstructora, alternarEnConjunto } from '@/lib/calendario-filtros';
 import { ColumnaCalendario, type FilaColumna } from '@/components/calendario/columna-calendario';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useAltaNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { ClasesFijasPorAlumna, SelectorHorarioPor, type HorarioPor } from '@/components/calendario/clases-fijas-por-alumna';
 import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
@@ -157,6 +157,12 @@ const HREF_PETICIONES_PLAZA_FIJA = '/configuracion?tab=reservas#plaza-fija-desde
 // está encendido para el estudio y alguien lo abre.
 const DialogoRepetirMes = dynamic(
   () => import('@/components/calendario/dialogo-repetir-mes').then(m => m.DialogoRepetirMes),
+  { ssr: false },
+);
+// «Tu primera clase» del alta nueva (PR-4) para quien entró al panel sin
+// crearla: `?primera=1` o el calendario vacío. Fuera del chunk del Calendario.
+const PrimeraClaseEnCalendario = dynamic(
+  () => import('@/components/alta-nueva/primera-clase-en-calendario').then(m => m.PrimeraClaseEnCalendario),
   { ssr: false },
 );
 
@@ -662,6 +668,10 @@ export default function Calendario() {
 
   const rolActual = useRol();
   const gestionaClientas = puedeGestionarClientas(rolActual);
+  // «Tu primera clase» del alta nueva: solo la propietaria, y tras `ALTA_NUEVA`
+  // (o en el estudio que nació de ella). `=== true`: mientras se pregunta, nada.
+  const altaNueva = useAltaNueva();
+  const primeraClaseNueva = altaNueva === true && rolActual === 'PROPIETARIO';
   const mueveDinero = puedeMoverDinero(rolActual);
   // El estudio decide si la instructora crea sus clases (migr 20260914104856).
   const creaClasesPropias = puedeCrearClasesPropias(rolActual, studio?.instructorasCreanClases ?? true);
@@ -778,6 +788,8 @@ export default function Calendario() {
   // ofrecerle el enlace — antes solo lo veía quien pasaba por la propuesta de
   // horario, y quien montaba su primera clase a mano nunca se enteraba.
   const [primeraClaseCreada, setPrimeraClaseCreada] = useState<number | null>(null);
+  // El formulario de «Tu primera clase» del alta nueva (`?primera=1`).
+  const [primeraAbierta, setPrimeraAbierta] = useState(false);
   const [initialRecurrente, setInitialRecurrente] = useState<RecurringFormData | undefined>(undefined);
   // «Buscar sustituta» del ⋯ en una clase CON instructora: enseña la caja de
   // sustituta en su ficha aunque no esté sin cubrir (su instructora no puede).
@@ -1064,6 +1076,11 @@ export default function Calendario() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setInitialRecurrente(undefined);
       setShowRecurrentes(true);
+      window.history.replaceState({}, '', '/calendario');
+    } else if (params.get('primera') === '1') {
+      // «Crear mi primera clase» del correo del alta nueva. Si este estudio no la
+      // tiene, no se abre nada (lo decide `primeraClaseNueva` al pintar).
+      setPrimeraAbierta(true);
       window.history.replaceState({}, '', '/calendario');
     } else if (/^\d{4}-\d{2}-\d{2}$/.test(params.get('fecha') ?? '')) {
       // «Ver ese día en el calendario» del aviso de festivos: el día, en vista Día.
@@ -3830,7 +3847,9 @@ export default function Calendario() {
             hayTiposDeClase={tiposProgramables.length > 0}
             // El mismo camino que el botón de la cabecera: quien gestiona elige
             // entre «Clase» y «Clase fija» (no se salta esa pregunta).
-            onCrearClase={gestionaClientas ? () => setElegirQueCrear(true) : () => openNueva()}
+            // Con el alta nueva, la propietaria crea la primera con su clase y su
+            // precio a la vez («Tu primera clase»), no solo la clase.
+            onCrearClase={primeraClaseNueva ? () => setPrimeraAbierta(true) : gestionaClientas ? () => setElegirQueCrear(true) : () => openNueva()}
           />
         ) : enMovil ? (
           <VistaAgenda
@@ -4303,6 +4322,14 @@ export default function Calendario() {
         </>
         )}
       </DashboardDrawer>
+
+      {primeraAbierta && primeraClaseNueva && (
+        <PrimeraClaseEnCalendario
+          onCerrar={() => setPrimeraAbierta(false)}
+          // La clase la ha creado el servidor: se olvida la caché de las semanas.
+          onCreada={() => { cacheVistaRef.current.clear(); invalidarHorario(); void refrescarVista(); }}
+        />
+      )}
 
       {primeraClaseCreada != null && studio?.slug && (
         <ListoParaReservar

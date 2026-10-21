@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { correoCuentaActiva, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
+import { correoCuentaActiva, correoRecibirReservas, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
 import { GRATIS_ALUMNAS, GRATIS_RESERVAS_MES } from '../../landing/founding-gratis.ts';
 import { TRIAL_DIAS } from '../../billing/trial.ts';
 
@@ -52,4 +52,42 @@ test('el nombre del estudio se escapa: lo escribió una persona', () => {
   assert.match(c.html, /Pilates &lt;b&gt;&amp;&lt;\/b&gt; &quot;Co&quot;/);
   // Un enlace que no es http(s) no llega a ser un enlace.
   assert.doesNotMatch(correoCuentaActiva({ ...BASE, urlPagina: 'javascript:alert(1)' }).html, /href="javascript/);
+});
+
+// «Ya puedes recibir reservas» (correo 4): sale una vez, al publicar la primera
+// clase, con el enlace y el QR en PNG.
+
+const PUBLICADA = {
+  estudioNombre: 'Estudio Alba Pilates',
+  claseNombre: 'Reformer para principiantes',
+  cuando: 'lunes 26 a las 18:30, cada semana',
+  urlPagina: 'https://www.example.com/reservar/estudio-alba-pilates',
+  urlQr: 'https://www.example.com/api/public/qr-reservas/estudio-alba-pilates',
+};
+
+test('correo 4: asunto, vista previa y cuerpo de la maqueta, con el QR en PNG y un solo botón', () => {
+  const c = correoRecibirReservas(PUBLICADA);
+  assert.equal(c.asunto, 'Ya puedes recibir reservas en Estudio Alba Pilates');
+  assert.equal(c.preheader, 'Tu enlace y tu QR, para tenerlos a mano.');
+  const { html } = c;
+  assert.ok(html.includes(c.preheader));
+  assert.match(html, />Ya puedes recibir reservas</);
+  assert.match(html, /Tu clase <b>Reformer para principiantes<\/b> está publicada \(lunes 26 a las 18:30, cada semana\)\. Copia este enlace y mándalo:/);
+  assert.match(html, /href="https:\/\/www\.example\.com\/reservar\/estudio-alba-pilates"/);
+  // El QR es una imagen PNG servida, nunca un SVG (Gmail no lo pinta).
+  assert.match(html, /<img src="https:\/\/www\.example\.com\/api\/public\/qr-reservas\/estudio-alba-pilates" width="120" height="120" alt="QR de tu página de reservas"/);
+  assert.doesNotMatch(html, /<svg/);
+  assert.match(html, /<b>Tu QR\.<\/b> Imprímelo y ponlo en recepción: al escanearlo, se abre tu página\./);
+  assert.match(html, /Pégalo en tu Instagram, en el grupo de WhatsApp de tus alumnas o en tu web\. No hace falta que se descarguen nada\./);
+  assert.match(html, /Abrir mi página<\/a>/);
+  assert.equal((html.match(/mso-padding-alt/g) ?? []).length, 1, 'un correo, una llamada a la acción');
+  assert.match(html, /te responde una persona/);
+  assert.match(html, /Tentare · Software para estudios de Pilates · Hecho en España/);
+});
+
+test('correo 4: lo que escribió una persona se escapa', () => {
+  const { html, asunto } = correoRecibirReservas({ ...PUBLICADA, claseNombre: '<script>x</script>', estudioNombre: 'A & B' });
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /&lt;script&gt;x&lt;\/script&gt;/);
+  assert.equal(asunto, 'Ya puedes recibir reservas en A & B', 'el asunto va en texto, no en HTML');
 });

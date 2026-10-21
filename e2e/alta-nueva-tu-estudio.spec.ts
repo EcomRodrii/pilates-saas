@@ -16,7 +16,7 @@ async function montarAltaNueva(page: Page, { estudio = {}, horarioFalla = false,
   estudio?: Record<string, unknown>;
   horarioFalla?: boolean;
   /** Empezar en esta pantalla, como si se hubiera quedado ahí en este navegador. */
-  pantalla?: 'estudio' | 'horario' | 'importar' | 'marca';
+  pantalla?: 'estudio' | 'horario' | 'importar' | 'marca' | 'clase';
 } = {}) {
   const escrito = {
     usuario: [] as Record<string, unknown>[],
@@ -191,22 +191,23 @@ test.describe('el alta nueva en el panel', () => {
     await expect(page.getByTestId('app-en-vivo').locator('iframe')).toHaveAttribute('src', '/portal/studio-carmen');
     await page.getByRole('radio', { name: 'Océano' }).click();
     await expect(page.getByTestId('contraste')).toHaveText(/^Botones con texto blanco · \d+,\d:1 · se lee bien$/);
-    // «Más tarde»: no publica el color, sella el alta y va a crear la primera clase.
+    // «Más tarde»: no publica el color y sigue a la primera clase (paso 6, PR-4),
+    // dentro de la bienvenida: todavía no se sella.
     await page.getByRole('button', { name: 'Más tarde' }).first().click();
-    await expect.poll(() => pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible();
+    await expect(page.getByTestId('etiqueta-paso')).toHaveText('Paso 6 de 7 · obligatorio · unos 5 minutos');
     expect(escrito.publicar).toEqual([]);
-    // La URL cambia cuando el router TERMINA de navegar: con `next dev` en frío, el
-    // Calendario tarda en compilar más que los 5 s de serie.
-    await expect(page).toHaveURL(/\/calendario/, { timeout: 30_000 });
+    expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
   });
 
-  test('«Siguiente» en la marca publica el color elegido', async ({ page }) => {
+  test('«Siguiente» en la marca publica el color elegido y sigue a la primera clase', async ({ page }) => {
     const { pet, escrito } = await montarAltaNueva(page, { pantalla: 'marca' });
     await expect(page.getByRole('heading', { name: 'Que se vea tu estudio' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('radio', { name: 'Océano' }).click();
     await page.getByRole('button', { name: 'Siguiente' }).click();
     await expect.poll(() => escrito.publicar).toEqual([{ campos: { primary: '#2F6F8F' } }]);
-    await expect.poll(() => pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(true);
+    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible();
+    expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
   });
 
   test('si recarga, vuelve a la pantalla en que estaba', async ({ page }) => {
@@ -233,10 +234,10 @@ test.describe('el alta nueva en el panel', () => {
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
   });
 
-  test('«Saltar a mi primera clase» sella y abre «Nueva clase» en el Calendario', async ({ page }) => {
+  test('«Saltar a mi primera clase» lleva al paso 6 sin salir de la bienvenida', async ({ page }) => {
     const { pet } = await montarAltaNueva(page);
     await page.getByRole('button', { name: 'Saltar a mi primera clase' }).click();
-    await expect.poll(() => pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(true);
-    await expect(page).toHaveURL(/\/calendario/, { timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Tu primera clase' })).toBeVisible();
+    expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
   });
 });
