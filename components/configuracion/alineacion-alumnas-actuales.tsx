@@ -95,7 +95,6 @@ export function AlineacionAlumnasActuales() {
   }
 
   const ejemploA = vista?.filas[0];
-  const sumaCuotas = vista ? Math.round(vista.filas.reduce((s, f) => s + f.cuota, 0) * 100) / 100 : 0;
   const alumnasQuePagan = vista ? vista.alumnas - vista.alumnasEnCortesia : 0;
   const primeraFecha = vista?.filas[0]?.fechaRenovacion;
   const ultimaFecha = vista?.filas[vista.filas.length - 1]?.fechaRenovacion;
