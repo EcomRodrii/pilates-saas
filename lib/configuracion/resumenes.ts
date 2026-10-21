@@ -802,10 +802,11 @@ export function resumenAlCancelarCuota(
 }
 
 /** «Cada alumna en su aniversario» o «Todas el día 1 de cada mes». */
-export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo'>>): string | null {
+export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo' | 'cobroDia1Modo'>>): string | null {
   if (s.cobroDia1Activo === undefined) return null;
   const base = s.cobroDia1Activo ? 'Todas el día 1 de cada mes' : 'Cada alumna en su aniversario';
-  return s.cobroProporcionalAltaActivo ? `${base} · parte proporcional al alta` : base;
+  const conAlta = s.cobroProporcionalAltaActivo ? `${base} · parte proporcional al alta` : base;
+  return s.cobroDia1Activo && s.cobroDia1Modo === 'PROPORCIONAL' ? `${conAlta} · parte proporcional a las actuales` : conAlta;
 }
 
 /**

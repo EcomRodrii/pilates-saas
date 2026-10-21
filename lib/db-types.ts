@@ -1144,6 +1144,8 @@ export interface RowStudios {
   cobro_proporcional_alta_activo: boolean | null;
   // migr 20261021175710.
   cobro_proporcional_dias_minimos: number | null;
+  // migr 20261021190000.
+  cobro_dia_1_modo: string | null;
 }
 
 export interface RowSuscripciones {
@@ -5936,6 +5938,7 @@ export type StudiosInsert = {
   mostrar_logo_en_landing?: boolean | null | null;
   cobro_proporcional_alta_activo?: boolean | null | null;
   cobro_proporcional_dias_minimos?: number | null | null;
+  cobro_dia_1_modo?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6099,6 +6102,7 @@ export type StudiosUpdate = {
   mostrar_logo_en_landing?: boolean | null | null;
   cobro_proporcional_alta_activo?: boolean | null | null;
   cobro_proporcional_dias_minimos?: number | null | null;
+  cobro_dia_1_modo?: string | null | null;
 }
 
 export type SuscripcionesInsert = {

@@ -66,9 +66,13 @@ export const PREFIJO_RECIBO_PRORRATEO = 'rec-prorrateo-';
 /** Prefijo del id de un recibo de diferencia por cambio de plan. */
 export const PREFIJO_RECIBO_CAMBIO_PLAN = 'rec-camb-';
 
+/** Prefijo del id del recibo parcial de alinear al día 1 a una alumna existente (alineacion-dia1.ts). */
+export const PREFIJO_RECIBO_ALINEACION = 'rec-aline-';
+
 /** ¿Es un recibo de importe parcial (no representa el precio de la cuota)? */
 export function esReciboParcialDeCuota(reciboId: string): boolean {
-  return reciboId.startsWith(PREFIJO_RECIBO_PRORRATEO) || reciboId.startsWith(PREFIJO_RECIBO_CAMBIO_PLAN);
+  return reciboId.startsWith(PREFIJO_RECIBO_PRORRATEO) || reciboId.startsWith(PREFIJO_RECIBO_CAMBIO_PLAN)
+    || reciboId.startsWith(PREFIJO_RECIBO_ALINEACION);
 }
 
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];

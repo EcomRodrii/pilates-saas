@@ -15,6 +15,7 @@ import { Toggle, inputCls } from '@/components/configuracion/estilos';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { Campo } from '@/components/configuracion/formulario-estudio';
+import { AlineacionAlumnasActuales } from '@/components/configuracion/alineacion-alumnas-actuales';
 import { ExportarRegistrosVerifactu } from '@/components/configuracion/exportar-registros-verifactu';
 import type { EstadoEstudioVerifactu } from '@/lib/verifactu/apoderamiento';
 import {
@@ -287,7 +288,7 @@ function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
 }
 
 export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
-  const { studio, updateStudio } = useStudio();
+  const { studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<CobroDiaForm>(() => studioToCobroDia(studio));
   const [base, setBase] = useState<CobroDiaForm>(() => studioToCobroDia(studio));
 
@@ -303,6 +304,8 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
     const enviado = form;
     const res = await updateStudio({ cobroDia1Activo: form.dia1, cobroProporcionalAltaActivo: form.proporcional, cobroProporcionalDiasMinimos: form.diasMinimos });
     if (!res.ok) return res.error;
+    // Apagar el día 1 devuelve el modo de las alumnas actuales a «entera» (lo hace un trigger de la base): se refleja aquí.
+    if (!enviado.dia1) reflejarStudioGuardado({ cobroDia1Modo: 'ENTERA' });
     setForm(f => sincronizarFormulario(f, enviado, enviado));
     setBase(enviado);
     onGuardado('Guardado cuándo se cobra la cuota mensual');
@@ -334,7 +337,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
           <span>
             <span className="block text-sm font-medium text-foreground">Todas el día 1 de cada mes</span>
             <span className="block text-sm text-muted-foreground text-pretty">
-              Cada cuota se realinea sola en su próxima renovación, sin prorratear: una alumna a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1.
+              Cada cuota se realinea sola en su próxima renovación: una alumna a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1. Una vez guardado, eliges si las alumnas que ya tienes pagan la cuota entera (unos días gratis) o solo la parte proporcional.
             </span>
           </span>
         </label>
@@ -386,6 +389,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
             </p>
           </div>
         )}
+        {base.dia1 && form.dia1 && <AlineacionAlumnasActuales />}
       </div>
       <BarraGuardar
         seccion="cobros"

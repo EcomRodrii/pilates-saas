@@ -1,7 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { proximoFinAlineadoDia1, proximoFinDesdeVencimiento, proximoFinNatural } from '../bono-logic.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
-import { terminaEnFinDeMes } from './prorrateo.ts';
+import { terminaEnFinDeMes, PREFIJO_RECIBO_ALINEACION } from './prorrateo.ts';
+import { finDeEntregaAlineacion } from './alineacion-dia1.ts';
+import { hoyEnEstudio } from '../utils.ts';
 import * as Sentry from '@sentry/nextjs';
 
 // Aplica la RENOVACIÓN de una suscripción cuando se cobra su recibo, en el
@@ -155,7 +157,7 @@ async function entregarRenovacion(
   try {
     const { data: rec } = await admin
       .from('recibos')
-      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion, tras_cancelar_cuota')
+      .select('suscripcion_id, entrega_tipo, entrega_aplicada, es_renovacion, tras_cancelar_cuota, fecha_vencimiento')
       .eq('id', reciboId)
       .eq('studio_id', studioId)
       .maybeSingle();
@@ -277,7 +279,17 @@ async function entregarRenovacion(
       // este entorno), cae al aniversario en vez de tumbar el cobro ya
       // hecho — pero se avisa, para que el fallo no sea invisible.
       let fechaFin: string;
-      if (sus.fecha_fin) {
+      // Alinear al día 1 a una alumna existente cobrando la parte proporcional
+      // (`rec-aline-…`, lib/billing/alineacion-dia1.ts): lo entregado es lo que se
+      // cobró, y eso lo dice el RECIBO (su vencimiento), no el ajuste de hoy ni el
+      // reloj. Si ese mes ya pasó al cobrarse, se entrega como A (abajo, alineado).
+      const esAlineacion = reciboId.startsWith(PREFIJO_RECIBO_ALINEACION);
+      const finAlineacion = esAlineacion
+        ? finDeEntregaAlineacion((rec.fecha_vencimiento ?? null) as string | null, hoyEnEstudio())
+        : null;
+      if (finAlineacion) {
+        fechaFin = finAlineacion;
+      } else if (sus.fecha_fin) {
         const { data: est, error: errEst } = await admin.from('studios').select('cobro_dia_1_activo').eq('id', studioId).maybeSingle();
         if (errEst) {
           capturar(new Error(`[cobroDia1Activo] ${errEst.message}`), {
@@ -289,7 +301,7 @@ async function entregarRenovacion(
         // que ya acaba en fin de mes (la prorrateada): las de aniversario no se
         // tocan. Va en una consulta aparte y solo cuando hace falta, para que un
         // entorno sin la columna (migración sin aplicar) no pierda `cobro_dia_1_activo`.
-        let alinear = est?.cobro_dia_1_activo === true;
+        let alinear = est?.cobro_dia_1_activo === true || esAlineacion;
         if (!alinear && terminaEnFinDeMes(sus.fecha_fin as string)) {
           const { data: estPro, error: errPro } = await admin.from('studios').select('cobro_proporcional_alta_activo').eq('id', studioId).maybeSingle();
           if (errPro) {

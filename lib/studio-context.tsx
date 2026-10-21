@@ -4406,8 +4406,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Clienta de baja: tampoco se le genera la renovación (el cron cancela su
       // cuota en vez de renovarla, `repartirVencidas`).
       if (socio?.activo === false) return;
+      // Alinear al día 1 cobrando la parte proporcional: el recibo de esa alumna lo crea el
+      // cron con su importe parcial. Uno entero de aquí ganaría y la alumna pagaría como en el modo A.
+      if (studio?.cobroDia1Activo && studio.cobroDia1Modo === 'PROPORCIONAL') return;
       const yaHayReciboPendiente = recibos.some(
-        r => r.socioId === sus.socioId && r.suscripcionId === sus.id && r.estado === 'PENDIENTE'
+        r => r.socioId === sus.socioId && r.suscripcionId === sus.id && (r.estado === 'PENDIENTE' || r.estado === 'EN_CURSO')
       );
       if (yaHayReciboPendiente) return;
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
