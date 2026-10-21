@@ -36,7 +36,7 @@ function fakeAdmin(t: { studios?: Fila | null | 'error'; suscripciones?: Fila[];
 }
 
 const PLAN = { tipo: 'MENSUAL', precio: 50, periodicidad_meses: 1 };
-const BASE = { studioId: 'st-1', plan: PLAN, socioId: 'soc-1', email: null, conSesion: false, conRecibo: false, hoyISO: '2026-10-15' };
+const BASE = { studioId: 'st-1', planId: 'p-m', plan: PLAN, socioId: 'soc-1', conSesion: false, conRecibo: false, hoyISO: '2026-10-15' };
 const ACTIVO = { cobro_proporcional_alta_activo: true, cobro_proporcional_dias_minimos: 3 };
 
 test('ajuste apagado, sin leer, o columna ausente (migración sin aplicar): se cobra como siempre', async () => {
@@ -69,20 +69,6 @@ test('con pocos días la compra online cobra la cuota ENTERA y el ciclo llega a 
   assert.equal(r.tipo === 'prorrateo' && r.pr.fechaFin, '2026-11-30');
 });
 
-test('lo que la alumna vio se compara: si no coincide, 409 importe_cambiado con el importe y la frase nuevos', async () => {
-  const { admin } = fakeAdmin({ studios: ACTIVO });
-  const ok = await cobroCuotaOnline(admin, { ...BASE, cuotaEsperadaCentimos: 2742 });
-  assert.equal(ok.tipo, 'prorrateo');
-  const distinto = await cobroCuotaOnline(admin, { ...BASE, cuotaEsperadaCentimos: 5000 });
-  assert.equal(distinto.tipo, 'importe_cambiado');
-  if (distinto.tipo !== 'importe_cambiado') return;
-  assert.equal(distinto.status, 409);
-  assert.equal(distinto.cobro.importe, 27.42);
-  assert.match(distinto.cobro.frase, /27,42 €/);
-  // Un importe manipulado a la baja tampoco se cobra: jamás decide el cliente.
-  assert.equal((await cobroCuotaOnline(admin, { ...BASE, cuotaEsperadaCentimos: 1 })).tipo, 'importe_cambiado');
-});
-
 test('cancelar → volver a comprar el mismo mes: no se cobra dos veces el mismo periodo', async () => {
   const sub = { id: 's-vieja', socio_id: 'soc-1', plan_id: 'p-m', estado: 'CANCELADA', fecha_fin: '2026-10-31' };
   const planes = [{ id: 'p-m', tipo: 'MENSUAL', periodicidad_meses: 1 }];
@@ -100,13 +86,13 @@ test('cancelar → volver a comprar el mismo mes: no se cobra dos veces el mismo
   assert.equal(sinCobro.tipo, 'prorrateo');
 });
 
-test('la invitada se busca por email: su cuota cancelada de este mes también cuenta', async () => {
+test('una invitada (sin sesión) no se busca por email: ni oráculo de emails ni bloqueo', async () => {
   const sub = { id: 's-vieja', socio_id: 'soc-9', plan_id: 'p-m', estado: 'CANCELADA', fecha_fin: '2026-10-31' };
   const r = await cobroCuotaOnline(fakeAdmin({
-    studios: ACTIVO, socios: [{ id: 'soc-9' }], suscripciones: [sub],
+    studios: ACTIVO, suscripciones: [sub],
     recibos: [{ suscripcion_id: 's-vieja', estado: 'COBRADO' }], planes: [{ id: 'p-m', tipo: 'MENSUAL', periodicidad_meses: 1 }],
-  }).admin, { ...BASE, socioId: null, email: 'x@example.com' });
-  assert.equal(r.tipo, 'rechazo');
+  }).admin, { ...BASE, socioId: null });
+  assert.equal(r.tipo, 'prorrateo');
 });
 
 // ── Idempotencia del cobro: otro importe o fin de ciclo es OTRO cobro; sin prorrateo, la clave de siempre ──
@@ -139,8 +125,7 @@ test('las dos rutas de checkout: el servidor calcula ANTES del descuento y la ma
     const iDescuento = f.indexOf('resolverDescuentoCheckout(');
     assert.ok(iCuota > 0 && iDescuento > iCuota, `${ruta}: la cuota se calcula antes del descuento`);
     assert.ok(f.indexOf('cobroCuotaOnline(admin') < f.indexOf('reservarMatricula(') || !f.includes('reservarMatricula('), `${ruta}: la matrícula no se prorratea`);
-    assert.match(f, /cuotaEsperadaCentimos: body\.cuotaEsperadaCentimos/);
-    assert.match(f, /importe_cambiado|cobroCuota\.codigo/);
+    assert.doesNotMatch(f, /cuotaEsperadaCentimos/, `${ruta}: el cliente nunca decide el importe`);
     assert.match(f, /prorrateo: cuotaProrrateada/, `${ruta}: la clave de idempotencia lleva el prorrateo`);
     assert.match(f, /conSesion: !!body\.sesionId/, `${ruta}: «pagar y reservar» no se prorratea`);
   }

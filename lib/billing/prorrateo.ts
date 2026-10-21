@@ -185,6 +185,7 @@ const fechaLarga = (iso: string): string => {
   const [, m, d] = partes(iso);
   return `${d} de ${MESES[m - 1]}`;
 };
+const diasTxt = (n: number) => `${n} ${n === 1 ? 'día' : 'días'}`;
 const eurTxt = (n: number) => `${n.toLocaleString('es-ES', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })} €`;
 
 /**
@@ -224,16 +225,16 @@ export function prorrateoDeAlta(
   let frase: string;
   if (mesCompleto) {
     texto = `${mes} completo`;
-    frase = `Hoy pagas ${eurTxt(plan.precio)} (${mes} completo). ${restoTxt}`;
+    frase = `Cuota de hoy: ${eurTxt(plan.precio)} (${mes} completo). ${restoTxt}`;
   } else if (onlineEntera) {
-    texto = `cuota entera: incluye los ${restantes} días que quedan de ${mes} y ${MESES[(m % 12)]} entero`;
-    frase = `Hoy pagas ${eurTxt(plan.precio)}: incluye los ${restantes} días que quedan de ${mes} y todo ${MESES[m % 12]}. ${restoTxt}`;
+    texto = `cuota entera: incluye ${diasTxt(restantes)} de ${mes} y ${MESES[(m % 12)]} entero`;
+    frase = `Cuota de hoy: ${eurTxt(plan.precio)}, que incluye ${diasTxt(restantes)} que ${restantes === 1 ? 'queda' : 'quedan'} de ${mes} y todo ${MESES[m % 12]}. ${restoTxt}`;
   } else if (siguienteMes) {
     texto = `primera cuota el ${fechaLarga(primerCobroFecha)}`;
-    frase = `Hoy no se cobra nada: quedan ${restantes} días de ${mes}. Tu primera cuota (${eurTxt(plan.precio)}) se cobra el ${fechaLarga(primerCobroFecha)}.`;
+    frase = `Hoy no se cobra la cuota: ${restantes === 1 ? 'queda' : 'quedan'} ${diasTxt(restantes)} de ${mes}. Tu primera cuota (${eurTxt(plan.precio)}) se cobra el ${fechaLarga(primerCobroFecha)}.`;
   } else {
-    texto = `parte proporcional de ${mes}: ${restantes} de ${total} días`;
-    frase = `Hoy pagas ${eurTxt(proporcionalC / 100)} (parte proporcional de ${mes}: ${restantes} de ${total} días). ${restoTxt}`;
+    texto = `parte proporcional de ${mes}: ${restantes} de ${total} ${total === 1 ? 'día' : 'días'}`;
+    frase = `Cuota de hoy: ${eurTxt(proporcionalC / 100)} (parte proporcional de ${mes}: ${restantes} de ${total} días). ${restoTxt}`;
   }
   return {
     modo, canal,
@@ -443,15 +444,21 @@ export function fechaFinDeEntregaOnline(e: {
   cicloFinISO?: string | null;
   hoyISO: string;
   porDefecto: string | null;
-}): { fechaFin: string | null; origen: 'metadata' | 'medianoche' | 'defecto' } {
+}): { fechaFin: string | null; origen: 'metadata' | 'medianoche' | 'tarde' | 'defecto' } {
   const c = e.cicloFinISO;
   if (typeof c !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(c) || Number.isNaN(Date.parse(`${c}T00:00:00Z`))) {
     return { fechaFin: e.porDefecto, origen: 'defecto' };
   }
   if (c > masDias(e.hoyISO, 62)) return { fechaFin: e.porDefecto, origen: 'defecto' };
   if (c < e.hoyISO) {
-    const [y, m] = partes(e.hoyISO);
-    return { fechaFin: `${y}-${dosDigitos(m)}-${dosDigitos(diasDelMes(y, m))}`, origen: 'medianoche' };
+    // Cruce de medianoche (o un webhook que tarda un par de días): no nace caducada, llega a fin del mes de
+    // hoy. Con más retraso NO se regala el mes: el pago llegó tarde y se entrega solo hoy, avisando al
+    // estudio (`origen: 'tarde'`) para que lo resuelva a mano.
+    if (c >= masDias(e.hoyISO, -2)) {
+      const [y, m] = partes(e.hoyISO);
+      return { fechaFin: `${y}-${dosDigitos(m)}-${dosDigitos(diasDelMes(y, m))}`, origen: 'medianoche' };
+    }
+    return { fechaFin: e.hoyISO, origen: 'tarde' };
   }
   return { fechaFin: c, origen: 'metadata' };
 }

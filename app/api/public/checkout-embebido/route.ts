@@ -204,9 +204,6 @@ export async function POST(req: NextRequest) {
     // que app/api/stripe/checkout — texto tal cual, el servidor recalcula el
     // importe final.
     codigoDescuento?: string;
-    // Cobro proporcional: lo que la alumna vio como primera cuota, en céntimos. Solo se COMPARA con lo
-    // que calcula el servidor (nunca decide el importe).
-    cuotaEsperadaCentimos?: number | null;
     // "Información adicional" del formulario de pago sin login — solo se
     // escriben al crear ficha NUEVA (ver CompraPlan.datosAdicionales). Nunca
     // deciden nada de negocio, son datos de perfil.
@@ -390,13 +387,12 @@ export async function POST(req: NextRequest) {
   // El servidor recalcula; lo que la alumna vio solo se compara. Antes del código de descuento y de la
   // matrícula (que no se prorratea). «Pagar y reservar» una clase conserva su precio de siempre.
   const cobroCuota = await cobroCuotaOnline(admin, {
-    studioId: body.studioId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
-    socioId, email: socioEmail ?? null, conSesion: !!body.sesionId, conRecibo: false,
-    cuotaEsperadaCentimos: body.cuotaEsperadaCentimos,
+    studioId: body.studioId, planId: body.planId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
+    socioId, conSesion: !!body.sesionId, conRecibo: false,
   });
-  if (cobroCuota.tipo === 'rechazo' || cobroCuota.tipo === 'importe_cambiado') {
+  if (cobroCuota.tipo === 'rechazo') {
     return conCorsWidget(req, NextResponse.json(
-      { error: cobroCuota.error, codigo: cobroCuota.codigo, ...(cobroCuota.tipo === 'importe_cambiado' ? { cobro: cobroCuota.cobro } : {}) },
+      { error: cobroCuota.error, codigo: cobroCuota.codigo },
       { status: cobroCuota.status },
     ));
   }
@@ -429,13 +425,16 @@ export async function POST(req: NextRequest) {
       esNueva: await esSociaNueva(admin, body.studioId, socioId, socioEmail),
       codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
     });
-    if (resultado.ok) {
+    // Con la primera cuota ya prorrateada, un código que la dejara por debajo del mínimo de Stripe (o a 0 €)
+    // tumbaría una compra que sin él sale: se ignora y se dice por qué (como cualquier código que no vale).
+    const dejaMuyBajo = cuotaProrrateada !== null && resultado.ok && Math.round((importe - resultado.descuento) * 100) < 50;
+    if (resultado.ok && !dejaMuyBajo) {
       descuentoAplicado = resultado.descuento;
       importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
       const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
       codigoDescuentoId = codigoAplicado?.id ?? null;
     } else {
-      motivoCodigo = resultado.motivo;
+      motivoCodigo = resultado.ok ? 'no se puede aplicar a una primera cuota con parte proporcional tan baja' : resultado.motivo;
     }
   }
 

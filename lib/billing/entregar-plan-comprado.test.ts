@@ -522,3 +522,11 @@ test('el reintento del webhook con el mismo ciclo prometido no duplica ni cambia
   const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: prometido });
   assert.equal(r.ok, true);
 });
+
+test('un pago que llega con más de 2 días de retraso NO regala el mes: la cuota nace solo hasta hoy y se avisa', async () => {
+  const hoy = hoyEnEstudio();
+  const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -5) });
+  assert.equal(r.ok, true);
+  assert.equal(insertado.suscripciones[0].fecha_fin, hoy);
+});

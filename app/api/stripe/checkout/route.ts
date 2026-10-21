@@ -156,9 +156,6 @@ export async function POST(req: NextRequest) {
     // nunca al cobro de un recibo ya generado — el importe de un recibo
     // viene fijado por reglas de facturación anteriores, no de marketing.
     codigoDescuento?: string;
-    // Cobro proporcional: lo que la alumna vio como primera cuota, en céntimos. Solo se COMPARA
-    // con lo que calcula el servidor (nunca decide el importe).
-    cuotaEsperadaCentimos?: number | null;
     // "Pagar y reservar sin login previo" con Bizum: el fallback de Bizum
     // (docs/reserva-sin-login-diseno.md §4.1, mismo patrón que el fallback de
     // Modo B en usar-datos-widget.ts) reutiliza ESTE endpoint tras un intento
@@ -481,13 +478,12 @@ export async function POST(req: NextRequest) {
     // panel. El servidor recalcula; lo que la alumna vio solo se compara. Va ANTES del código de descuento
     // (que se aplica sobre la parte que de verdad se cobra) y de la matrícula (que no se prorratea).
     const cobroCuota = await cobroCuotaOnline(admin, {
-      studioId: body.studioId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
-      socioId, email: socioEmail ?? null, conSesion: !!body.sesionId, conRecibo: !!body.reciboId,
-      cuotaEsperadaCentimos: body.cuotaEsperadaCentimos,
+      studioId: body.studioId, planId: body.planId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
+      socioId, conSesion: !!body.sesionId, conRecibo: !!body.reciboId,
     });
-    if (cobroCuota.tipo === 'rechazo' || cobroCuota.tipo === 'importe_cambiado') {
+    if (cobroCuota.tipo === 'rechazo') {
       return conCorsWidget(req, NextResponse.json(
-        { error: cobroCuota.error, codigo: cobroCuota.codigo, ...(cobroCuota.tipo === 'importe_cambiado' ? { cobro: cobroCuota.cobro } : {}) },
+        { error: cobroCuota.error, codigo: cobroCuota.codigo },
         { status: cobroCuota.status },
       ));
     }
@@ -521,7 +517,10 @@ export async function POST(req: NextRequest) {
         esNueva: await esSociaNueva(admin, body.studioId, socioId, socioEmail),
         codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
       });
-      if (resultado.ok) {
+      // Con la primera cuota ya prorrateada, un código que la dejara por debajo del mínimo de Stripe (o a 0 €)
+      // tumbaría una compra que sin él sale: se ignora (como cualquier código que no vale) y se paga la cuota de hoy.
+      const dejaMuyBajo = cuotaProrrateada !== null && Math.round((importe - (resultado.ok ? resultado.descuento : 0)) * 100) < 50;
+      if (resultado.ok && !dejaMuyBajo) {
         importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
         const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
         if (codigoAplicado) metadata.codigoDescuentoId = codigoAplicado.id;

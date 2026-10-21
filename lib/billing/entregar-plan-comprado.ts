@@ -406,7 +406,7 @@ export async function entregarPlanComprado(
     if (r.origen !== 'metadata') {
       // El pago llegó con el ciclo ya vencido (cobro abierto antes de medianoche) o con una fecha que no vale.
       sentrySeguro.captureMessage('[entregarPlanComprado] ciclo prometido no aplicable', {
-        level: 'warning', tags: { area: 'cobros', tipo: 'prorrateo-online' },
+        level: r.origen === 'tarde' ? 'error' : 'warning', tags: { area: 'cobros', tipo: 'prorrateo-online' },
         extra: { studioId: compra.studioId, sessionId: compra.sessionId, origen: r.origen, cicloFin: compra.cicloFinISO },
       });
     }
