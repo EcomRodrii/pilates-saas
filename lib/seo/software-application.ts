@@ -63,6 +63,7 @@ export function softwareApplicationLd() {
       'Facturas con numeración legal',
       'Calendario por salas',
       'Importación desde Excel y otros programas, con acta y botón de deshacer',
+      'Asistente «Pregúntale a Tentare»: consulta datos y prepara clases, salas, eventos y citas con confirmación',
       'Gestión de instructoras, disponibilidad y sustituciones con tu visto bueno',
     ],
     keywords: 'software para estudios de Pilates, software para estudios de yoga, programa para centros de Pilates y yoga',

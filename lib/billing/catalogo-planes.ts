@@ -207,11 +207,9 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Centro de Control', detalle: 'Un solo aviso al día, y solo cuando de verdad merece interrumpirte.', valor: porFeature('decisiones') },
       { nombre: 'Piloto automático', detalle: 'Ejecuta solo lo que ya has aprobado muchas veces.', valor: porFeature('decisiones') },
       { nombre: 'Riesgo de fuga y de impago', valor: porFeature('decisiones') },
-      // «Pregúntale a Tentare» salió de aquí el 21-oct-2026: va tras el interruptor
-      // ASISTENTE_IA (lib/asistente/interruptor.ts), encendido solo en algunos
-      // estudios, así que no es algo que se reciba por pagar un plan. Sus topes
-      // (`consultasAsistenteMes`) siguen en entitlements; vuelve a esta lista el
-      // día que esté encendido para todos.
+      // Hoy, lo que Estudio tiene de más frente a Founding Studio de pago (15-oct-2026);
+      // la app propia del estudio se añade aquí cuando se pueda pedir de verdad.
+      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p, e = PLAN_ENTITLEMENTS[p]) => txt(`${e.consultasAsistenteMes} consultas al mes`) },
     ],
   },
   {

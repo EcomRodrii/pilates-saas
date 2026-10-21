@@ -1,4 +1,5 @@
 import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS_CON_COMPLEMENTOS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { PLAN_ENTITLEMENTS } from '@/lib/billing/entitlements';
 import { MENU_PUBLICO } from '@/lib/seo/navegacion-publica';
 
 // Los destinos de primer nivel de la isla (la navegación de toda la web
@@ -30,9 +31,7 @@ export const INTEGRACIONES = [
 // 29 €, sin tope. Por eso Estudio ya no se vende por las sustituciones autónomas,
 // el Centro de Control ni las alumnas ilimitadas: lo tiene Founding Studio. Lo que
 // lo distinguirá es la app propia del estudio (decisión del fundador), que todavía
-// no existe: hasta entonces, solo lo que es verdad hoy. Las consultas al asistente
-// salieron el 21-oct-2026: «Pregúntale a Tentare» va tras el interruptor
-// ASISTENTE_IA, encendido solo en algunos estudios, y no se puede vender por plan.
+// no existe: hasta entonces, solo lo que es verdad hoy (las consultas al asistente).
 export const PLANS = [
   {
     id: 'BASE' as const,
@@ -50,7 +49,7 @@ export const PLANS = [
     name: 'Estudio',
     price: '59€',
     desc: `Todo lo de Founding Studio, con ${COMPLEMENTOS_CORTO} incluidos.`,
-    features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`],
+    features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`, `${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al mes al asistente`],
     cta: CTA_ALTA,
     dark: true,
     popular: true,
@@ -125,7 +124,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Qué es «Pregúntale a Tentare»?',
-    a: 'Es el asistente de Tentare: le preguntas por tu estudio —quién lleva semanas sin venir, qué clases tienen huecos— y responde con tus datos. También prepara clases, salas, eventos y citas, pero no crea nada hasta que tú lo confirmas; no cobra, no borra, no edita y no escribe a tus alumnas. Lo usan la propietaria y la gerencia. Hoy está en pruebas y solo está encendido en algunos estudios.',
+    a: 'Es el asistente de Tentare: le preguntas por tu estudio —quién lleva semanas sin venir, qué clases tienen huecos— y responde con tus datos. También prepara clases, salas, eventos y citas, pero no crea nada hasta que tú lo confirmas; no cobra, no borra, no edita y no escribe a tus alumnas. Lo usan la propietaria y la gerencia, y viene en todos los planes con un límite de consultas al mes.',
   },
   {
     q: '¿Qué pasa si una instructora cancela su clase?',

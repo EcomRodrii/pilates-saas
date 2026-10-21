@@ -301,7 +301,7 @@ export function TablaSolucion({ titulo, intro, cabeceras, filas }: { titulo: str
 // los de PLAN_INFO: Estudio no se vende por lo que también tiene Founding Studio.
 const RESUMEN_WEB: Partial<Record<Plan, string>> = {
   BASE: `${TODO_MENOS_SEDES}. ${TOPE_GRATIS}; ${SI_PASAS_CON_COMPLEMENTOS}.`,
-  ESTUDIO: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos.',
+  ESTUDIO: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y más consultas al asistente.',
 };
 
 /** Los tres planes, con el precio de lib/billing (nunca escrito a mano). */

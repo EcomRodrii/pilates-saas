@@ -38,7 +38,7 @@ const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
   BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: CTA_ALTA },
   // Estudio ya no se vende por el equipo ni por las alumnas: Founding Studio
   // también los tiene, sin tope (15-oct-2026). El mismo texto que la home.
-  ESTUDIO: { gancho: 'Los complementos, incluidos', para: PLANS.find((x) => x.id === 'ESTUDIO')!.desc, cta: CTA_ALTA },
+  ESTUDIO: { gancho: 'Más consultas al asistente', para: PLANS.find((x) => x.id === 'ESTUDIO')!.desc, cta: CTA_ALTA },
   CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
 };
 

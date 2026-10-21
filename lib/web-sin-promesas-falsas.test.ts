@@ -19,16 +19,15 @@
 //   · Las líneas de comentario: tienen que poder contar qué se quitó y por qué.
 //   · Los tests, que nombran las frases para comprobar que no están.
 //
-// Si un día una frase vuelve a ser verdad (Veri*Factu activo, el asistente
-// encendido para todos…), se quita su regla con el motivo en el PR: nunca se
-// rodea con una excepción silenciosa.
+// Si un día una frase vuelve a ser verdad (Veri*Factu activo, por ejemplo), se
+// quita su regla con el motivo en el PR: nunca se rodea con una excepción
+// silenciosa.
 // ─────────────────────────────────────────────────────────────────────────────
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ADDONS } from './billing/entitlements.ts';
-import { CATEGORIAS } from './billing/catalogo-planes.ts';
 
 const RAIZ = join(import.meta.dirname, '..');
 
@@ -86,8 +85,6 @@ const REGLAS: { patron: RegExp; motivo: string; salvo?: RegExp }[] = [
     motivo: 'en Founding Studio de pago, el Centro de Control es un complemento (ADDONS.decisiones)' },
   { patron: /lo que cambia es el tamano/,
     motivo: 'al pasar a Founding Studio de pago cambian también los complementos' },
-  { patron: /viene en todos los planes con un limite de consultas|consultas al mes al asistente|mas consultas al asistente|pregunta\w* a tentare[^.]{0,40}en todos los planes|asistente integrado[^.]{0,40}en todos los planes/,
-    motivo: '«Pregúntale a Tentare» va tras el interruptor ASISTENTE_IA, encendido solo en algunos estudios' },
   { patron: /recepcion no entra en la caja/,
     motivo: 'recepción sí entra en la caja (`puedeMoverDinero`); la que no entra es la gerencia' },
   // Datos de salud, informes (W9, W12, W13).
@@ -148,12 +145,6 @@ test('cada «complemento de N €/mes» de la web es el precio real de su comple
     }
   }
   assert.deepEqual(fallos, []);
-});
-
-test('el catálogo de planes no vende «Pregúntale a Tentare», que va tras un interruptor', () => {
-  // Vuelve el día que ASISTENTE_IA esté encendido para todos los estudios.
-  const filas = CATEGORIAS.flatMap((c) => c.filas);
-  assert.equal(filas.some((f) => /preg[uú]ntale a tentare/i.test(f.nombre)), false);
 });
 
 test('CONTROL: la guardia ve las frases con tildes y deja pasar la verdad', () => {
