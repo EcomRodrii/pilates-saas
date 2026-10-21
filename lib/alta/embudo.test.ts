@@ -81,13 +81,19 @@ test('sin datos personales en embudo_alta: ni cuenta, ni correo, ni IP, ni texto
   assert.doesNotMatch(devuelve, /\bemail text\b|nombre|auth_user_id/);
 });
 
-test('el navegador solo puede apuntar «enlace compartido», y con su canal', () => {
+test('el navegador solo puede apuntar «enlace compartido» (con su canal) y pedir «Tu estudio» (sin detalle)', () => {
   for (const detalle of DETALLES_EMBUDO) {
     assert.deepEqual(leerPasoDelNavegador({ paso: 'enlace_compartido', detalle }), { paso: 'enlace_compartido', detalle });
   }
+  // «Tu estudio» se escribe desde el navegador directo a la base de datos: no hay
+  // ruta nuestra donde apuntarlo. Se pide, y la ruta lo comprueba en la base de
+  // datos antes de apuntarlo (app/api/alta/paso, `tuEstudioGuardado`).
+  assert.deepEqual(leerPasoDelNavegador({ paso: 'config_completada' }), { paso: 'config_completada', detalle: null });
+  assert.equal(leerPasoDelNavegador({ paso: 'config_completada', detalle: 'copiar' }), null, 'sin detalle');
   // Lo que se apunta en servidor no se puede apuntar desde el navegador.
-  for (const paso of ['clase_reservable', 'panel_abierto', 'config_completada', 'correo_cuenta_activa', 'plan_ensenado']) {
+  for (const paso of ['clase_reservable', 'panel_abierto', 'correo_cuenta_activa', 'plan_ensenado']) {
     assert.equal(leerPasoDelNavegador({ paso, detalle: 'copiar' }), null, paso);
+    assert.equal(leerPasoDelNavegador({ paso }), null, paso);
   }
   assert.equal(leerPasoDelNavegador({ paso: 'enlace_compartido' }), null);
   assert.equal(leerPasoDelNavegador({ paso: 'enlace_compartido', detalle: 'instagram' }), null);

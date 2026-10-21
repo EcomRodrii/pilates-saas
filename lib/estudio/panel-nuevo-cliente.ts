@@ -1,7 +1,7 @@
 'use client';
 
 import { useCore } from '@/lib/core-context';
-import { useInterruptor } from './interruptores-cliente';
+import { useInterruptor, useInterruptorConEspera } from './interruptores-cliente';
 
 /**
  * ¿Ve este estudio el panel nuevo (interruptor `PANEL_NUEVO`, 14-oct-2026)?
@@ -17,4 +17,15 @@ export function usePanelNuevo(): boolean {
 export function useMiWebNueva(): boolean {
   const { studio } = useCore();
   return useInterruptor('miWebNueva', studio?.id);
+}
+
+/**
+ * ¿Ve este estudio el alta nueva dentro del panel (`ALTA_NUEVA`, o porque nació
+ * de ella; 21-oct-2026)? TRES estados: `null` mientras se pregunta la primera
+ * vez. Quien sustituye una pantalla entera con esto (la bienvenida) pinta un
+ * esqueleto con `null`, para no enseñar un instante la de siempre.
+ */
+export function useAltaNueva(): boolean | null {
+  const { studio } = useCore();
+  return useInterruptorConEspera('altaNueva', studio?.id);
 }

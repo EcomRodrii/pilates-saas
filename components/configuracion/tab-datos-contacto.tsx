@@ -8,6 +8,7 @@ import { inputCls } from '@/components/configuracion/estilos';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { Campo, useFormularioEstudio } from '@/components/configuracion/formulario-estudio';
+import { ZonaHorariaFija } from '@/components/alta-nueva/zona-horaria-fija';
 
 // Los dos cajones de datos de «Mi estudio»: «Nombre y dirección» y «Contacto».
 //
@@ -24,24 +25,22 @@ function falloDe(res: ResultadoEscritura | null): string | null {
 }
 
 type NombreYDireccion = {
-  nombre: string; direccion: string; ciudad: string; codigoPostal: string; zonaHoraria: string;
+  nombre: string; direccion: string; ciudad: string; codigoPostal: string;
 };
 
 function aNombreYDireccion(s: Studio | null): NombreYDireccion {
   return {
     nombre: s?.nombre ?? '', direccion: s?.direccion ?? '', ciudad: s?.ciudad ?? '', codigoPostal: s?.codigoPostal ?? '',
-    zonaHoraria: s?.zonaHoraria ?? 'Europe/Madrid',
   };
 }
 
-// CAL-5, Fase 0: solo las dos zonas reales de España — nada de un buscador de
-// las ~400 zonas IANA del mundo sin que exista todavía un estudio que lo
-// necesite (ver docs/CAL-5-diseno). Cambiar esto NO mueve ninguna clase ni
-// ningún recordatorio hasta que `lib/utils.ts` empiece a leer este campo.
-const ZONAS_HORARIAS = [
-  { valor: 'Europe/Madrid', etiqueta: 'España peninsular y Baleares' },
-  { valor: 'Atlantic/Canary', etiqueta: 'Canarias' },
-] as const;
+// La zona horaria ya NO se elige aquí (decisión del fundador, 21-oct-2026). Había
+// un selector «España peninsular y Baleares / Canarias» (CAL-5, fase 0) que no
+// cambiaba nada: todo se calcula en hora de Madrid (`TZ_ESTUDIO`, lib/utils.ts)
+// y su ayuda decía que cambiaba «el día y la hora que ven tus alumnas», que no
+// era verdad. Ahora se enseña fija, con el mismo aviso para Canarias que el alta
+// nueva. La columna `studios.zona_horaria` sigue ahí, sin tocar: este formulario
+// solo deja de mandarla.
 
 export function FormNombreYDireccion({ showToast, onGuardado }: PropsFormularioCajon) {
   const { form, setForm, hayCambios, guardar, descartar } = useFormularioEstudio(aNombreYDireccion, showToast);
@@ -71,17 +70,7 @@ export function FormNombreYDireccion({ showToast, onGuardado }: PropsFormularioC
         <Campo label="Código postal">
           {id => <input id={id} className={inputCls} inputMode="numeric" value={form.codigoPostal} onChange={campo('codigoPostal')} />}
         </Campo>
-        <Campo
-          label="Zona horaria"
-          className="@sm/config:col-span-2"
-          ayuda="Solo afecta al día y la hora que ven tus alumnas y tu equipo. Casi ningún estudio necesita cambiar esto."
-        >
-          {id => (
-            <select id={id} className={`${inputCls} cursor-pointer`} value={form.zonaHoraria} onChange={campo('zonaHoraria')}>
-              {ZONAS_HORARIAS.map(z => <option key={z.valor} value={z.valor}>{z.etiqueta}</option>)}
-            </select>
-          )}
-        </Campo>
+        <ZonaHorariaFija codigoPostal={form.codigoPostal} className="@sm/config:col-span-2" />
       </div>
       <BarraGuardar
         seccion="estudio"

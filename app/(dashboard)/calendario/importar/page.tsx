@@ -20,6 +20,7 @@ import { useRol } from '@/lib/permisos';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { puedeGestionarSede } from '@/lib/permisos-reglas';
 import { HorarioDesdeImagen } from '@/components/calendario/horario-desde-imagen';
+import { PLANTILLA_HORARIO } from '@/lib/importar-plantillas';
 
 // Asistente de importación del HORARIO — tercera pieza de la migración asistida
 // (tras socias y membresías). Acepta las dos formas en que las plataformas
@@ -27,12 +28,10 @@ import { HorarioDesdeImagen } from '@/components/calendario/horario-desde-imagen
 
 type Paso = 1 | 2 | 3;
 
-const PLANTILLA_HEADERS = ['Clase', 'Día de la semana', 'Hora inicio', 'Hora fin', 'Instructora', 'Sala', 'Aforo'];
-const PLANTILLA_EJEMPLO = [
-  ['Pilates Mat', 'Lunes', '09:00', '10:00', 'María Soler', 'Sala 1', '12'],
-  ['Reformer Fundamental', 'Lunes', '19:00', '19:50', 'Julia Ramos', 'Sala 2', '8'],
-  ['Pilates Mat', 'Miércoles', '09:00', '10:00', 'María Soler', 'Sala 1', '12'],
-];
+// La plantilla vive en lib/importar-plantillas.ts: la descarga también el paso
+// «¿Traes alumnas de otro sitio?» del alta nueva.
+const PLANTILLA_HEADERS = PLANTILLA_HORARIO.cabeceras;
+const PLANTILLA_EJEMPLO = PLANTILLA_HORARIO.ejemplo;
 
 const MAPEO_VACIO: Record<CampoClase, number> = {
   clase: -1, fecha: -1, dia_semana: -1, hora_inicio: -1, hora_fin: -1,
@@ -200,7 +199,7 @@ export default function ImportarHorarioPage() {
                   como uno <span className="font-medium text-foreground">con fechas concretas</span>.
                 </p>
                 <button
-                  onClick={e => { e.stopPropagation(); descargar('plantilla-horario.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
+                  onClick={e => { e.stopPropagation(); descargar(PLANTILLA_HORARIO.archivo, serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO)); }}
                   className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-brand-medio hover:underline"
                 >
                   <Download size={14} />Descargar plantilla de ejemplo

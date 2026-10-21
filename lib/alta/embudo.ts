@@ -24,7 +24,7 @@ export const PASOS_EMBUDO = [
   'panel_abierto', // la propietaria abre el panel: d1, d7 y d30
   'clase_reservable', // una alumna nueva ya puede reservar (el «sí» de puedeReservarAlumnaNueva)
   'enlace_compartido', // copió, mandó o bajó el QR de su enlace de reservas
-  'config_completada', // «Tu estudio» de la bienvenida nueva (PR-3: hoy sin filas)
+  'config_completada', // «Tu estudio» de la bienvenida nueva (PR-3), comprobado en la base de datos
   'correo_cuenta_activa', // el correo «Tu cuenta está activa» (PR-2: hoy sin filas)
   'plan_ensenado', // la tarjeta del plan tras la primera reserva (PR-5: hoy sin filas)
 ] as const;
@@ -53,14 +53,27 @@ export function normalizarLlegada(x: unknown): string | null {
 }
 
 /**
- * Lo único que el NAVEGADOR puede apuntar por /api/alta/paso, con su detalle
- * obligatorio. El resto lo apunta el servidor cuando lo ve: que el navegador
- * pudiera escribir «clase reservable» sería medir lo que dice la pantalla y no
- * lo que pasa.
+ * Lo único que el NAVEGADOR puede pedir que se apunte por /api/alta/paso. El
+ * resto lo apunta el servidor cuando lo ve: que el navegador pudiera escribir
+ * «clase reservable» sería medir lo que dice la pantalla y no lo que pasa.
+ *
+ *   · `enlace_compartido`, con su canal obligatorio: copiar o mandar el enlace
+ *     no deja huella en ningún servidor.
+ *   · `config_completada` («Tu estudio», PR-3), sin detalle. Sus escrituras van
+ *     del navegador a la base de datos sin pasar por una ruta nuestra
+ *     (`updateStudio`, `studio_horario`, `auth.updateUser`), así que no hay
+ *     dónde apuntarlo al escribir. Pero la ruta NO se fía de la petición: antes
+ *     de apuntarlo mira en la base de datos que lo guardado está ahí
+ *     (`tuEstudioGuardado`, lib/alta/tu-estudio.ts).
  */
-export function leerPasoDelNavegador(cuerpo: unknown): { paso: 'enlace_compartido'; detalle: DetalleEmbudo } | null {
+export type PasoDelNavegador =
+  | { paso: 'enlace_compartido'; detalle: DetalleEmbudo }
+  | { paso: 'config_completada'; detalle: null };
+
+export function leerPasoDelNavegador(cuerpo: unknown): PasoDelNavegador | null {
   if (!cuerpo || typeof cuerpo !== 'object') return null;
   const { paso, detalle } = cuerpo as Record<string, unknown>;
+  if (paso === 'config_completada') return detalle == null ? { paso, detalle: null } : null;
   if (paso !== 'enlace_compartido') return null;
   if (typeof detalle !== 'string' || !(DETALLES_EMBUDO as readonly string[]).includes(detalle)) return null;
   return { paso, detalle: detalle as DetalleEmbudo };
