@@ -85,7 +85,7 @@ export function AppEnElMovil({ nombre, slug, colorPrimario, faviconUrl, logoUrl 
 
       <p className="text-[12px] leading-relaxed text-muted-foreground">
         Es la app web de tu estudio: se abre a pantalla completa, con tu nombre y tu icono. No está en la App Store ni en Google Play.
-        En iPhone, los avisos de plaza libre y los recordatorios solo llegan desde la app instalada.
+        En iPhone, los avisos al móvil de plaza libre y de recordatorio solo llegan con la app instalada.
       </p>
     </div>
   );

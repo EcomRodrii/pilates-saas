@@ -306,7 +306,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   });
 
   const pagos: PasoOnboarding[] = [
-    { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta o SEPA — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
+    { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
     { id: 'renovacion', label: 'Activa una membresía con renovación automática', descripcion: 'Cobra la cuota sola cada mes, sin que tengas que perseguir a nadie.', minutos: 2, done: d.numSuscripcionesActivas > 0, href: '/productos' },
   ];
 

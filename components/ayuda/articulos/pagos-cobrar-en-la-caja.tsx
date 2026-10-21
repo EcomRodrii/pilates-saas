@@ -63,7 +63,8 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        Cada venta lleva su factura, igual que cualquier otro cobro de Tentare, y queda en <strong>Ventas</strong>{' '}
+        Cada venta, salvo en efectivo, lleva su factura, igual que cualquier otro cobro de Tentare (la de efectivo la
+        haces desde Cobros si te la piden), y queda en <strong>Ventas</strong>{' '}
         con su número y su método. Ojo con una cosa: la factura de una venta sin clienta se emite como{' '}
         <strong>simplificada</strong>, y asignarla después <em>no</em> le cambia el receptor — un documento fiscal
         ya sellado no se reescribe. Si hace falta la factura a su nombre, se hace una rectificativa desde Facturas.

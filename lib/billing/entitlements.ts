@@ -137,7 +137,9 @@ export const ADDONS: Record<Addon, InfoAddon> = {
   },
   ia: {
     nombre: 'Redacción con IA', precioMes: 9,
-    resumen: 'Notas de sesión, campañas y los mensajes de tus automatizaciones redactados con IA.',
+    // Sin «campañas»: el módulo de marketing está apagado (MARKETING_MODULE_ENABLED,
+    // lib/feature-flags.ts) y /marketing lleva a Resumen. No se vende lo que no se usa.
+    resumen: 'Notas de sesión y los mensajes de tus automatizaciones redactados con IA.',
     features: ['ia'],
   },
 };

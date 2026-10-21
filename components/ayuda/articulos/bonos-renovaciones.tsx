@@ -5,9 +5,10 @@ export default function Contenido() {
   return (
     <>
       <p>
-        Una cuota (mensual, trimestral, semestral o anual) con tarjeta o SEPA guardados se cobra sola al vencer —
-        no hace falta que tú ni la alumna hagáis nada para que siga activa. Sin método guardado, el recibo queda
-        pendiente en Cobros para cobrarlo a mano.
+        Una cuota (mensual, trimestral, semestral o anual) con tarjeta guardada se cobra sola al vencer —
+        no hace falta que tú ni la alumna hagáis nada para que siga activa. Si la cobras por domiciliación (con su
+        mandato firmado), el recibo queda pendiente y entra en la próxima remesa que prepares para tu banco. Sin
+        ninguna de las dos, el recibo queda pendiente en Cobros para cobrarlo a mano.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Qué comprueba antes de cobrar</h2>
@@ -24,7 +25,7 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Cada renovación genera su propio cobro y su propia factura — nunca se junta con la del mes anterior, aunque
+        Cada renovación genera su propio cobro y, salvo en efectivo, su propia factura — nunca se junta con la del mes anterior, aunque
         el importe sea idéntico cada vez.
       </AyudaResultado>
     </>

@@ -85,12 +85,6 @@ export function SelectorPlan({
                 : 'border-border bg-card hover:border-brand/40 hover:bg-muted/40'
             }`}
           >
-            {PARA_QUIEN[plan].gancho === 'El más elegido' && (
-              <span className="absolute -top-2.5 left-4 rounded-full bg-brand px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-brand-foreground">
-                El más elegido
-              </span>
-            )}
-
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <div className="text-[15px] font-bold text-foreground"><NombrePlan plan={plan} /></div>
