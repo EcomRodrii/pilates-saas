@@ -308,13 +308,16 @@ test('un alta de verdad (sin cuota anterior) sigue prorrateando', () => {
   assert.equal(alta.importe, 27.42);
 });
 
-test('fecha de entrega online: la prometida manda; vencida → fin del mes de hoy; rara → la de siempre', () => {
+test('fecha de entrega online: la prometida manda; vencida → los días pagados desde hoy; rara → la de siempre', () => {
   const porDefecto = '2026-11-14';
+  const base = { cuotaCentimos: 4900, importeCuotaCentimos: 158 };
   assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-10-31', porDefecto }), { fechaFin: '2026-10-31', origen: 'metadata' });
-  // Abierto el 31, pagado el 1 (o hasta 2 días tarde): nace con fin de noviembre (alineada), no caducada.
-  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-01', porDefecto }), { fechaFin: '2026-11-30', origen: 'medianoche' });
-  assert.equal(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-02', porDefecto }).origen, 'medianoche');
-  // Con más retraso NO se regala el mes: solo hoy, y se avisa (origen 'tarde').
+  // Abierto el 31 (1 día de octubre, 1,58 €), pagado el 1 o el 2: se entrega 1 día, no noviembre entero.
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-01', porDefecto, ...base }), { fechaFin: '2026-11-01', origen: 'medianoche' });
+  assert.equal(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-02', porDefecto, ...base }).origen, 'medianoche');
+  // 27,42 € de 50 € (17 de 31 días) pagados con retraso: 17 días desde hoy, nunca caducada.
+  assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-05', porDefecto, cuotaCentimos: 5000, importeCuotaCentimos: 2742 }), { fechaFin: '2026-11-21', origen: 'tarde' });
+  // Sin datos de lo cobrado: solo hoy y se avisa.
   assert.deepEqual(fechaFinDeEntregaOnline({ cicloFinISO: '2026-10-31', hoyISO: '2026-11-05', porDefecto }), { fechaFin: '2026-11-05', origen: 'tarde' });
   assert.equal(fechaFinDeEntregaOnline({ cicloFinISO: '2026-12-30', hoyISO: '2026-11-01', porDefecto }).origen, 'metadata');
   for (const raro of [null, undefined, '', 'ayer', '2026-02-30x', '2027-12-31']) {

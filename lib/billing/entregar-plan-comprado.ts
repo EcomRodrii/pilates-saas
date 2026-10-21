@@ -401,7 +401,8 @@ export async function entregarPlanComprado(
   let fechaFin = fechaFinDeSiempre;
   const esCuotaDeUnMes = plan.tipo === 'MENSUAL' && mesesDeCiclo({ periodicidadMeses: plan.periodicidad_meses as number | null }) === 1;
   if (compra.cicloFinISO && esCuotaDeUnMes) {
-    const r = fechaFinDeEntregaOnline({ cicloFinISO: compra.cicloFinISO, hoyISO: hoy, porDefecto: fechaFinDeSiempre });
+    const r = fechaFinDeEntregaOnline({ cicloFinISO: compra.cicloFinISO, hoyISO: hoy, porDefecto: fechaFinDeSiempre,
+      cuotaCentimos: Math.round(Number(plan.precio) * 100), importeCuotaCentimos: compra.importeCobradoCentimos != null ? Math.round(importeReal * 100) : null });
     fechaFin = r.fechaFin;
     if (r.origen !== 'metadata') {
       // El pago llegó con el ciclo ya vencido (cobro abierto antes de medianoche) o con una fecha que no vale.

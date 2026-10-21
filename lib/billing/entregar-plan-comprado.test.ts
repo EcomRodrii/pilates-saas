@@ -491,14 +491,16 @@ test('cobro proporcional online: la cuota nace con el fin de ciclo PROMETIDO (me
   assert.match(String(insertado.recibos[0].concepto), /Alta web — .* · parte proporcional de octubre: 17 de 31 días/);
 });
 
-test('cobro abierto antes de medianoche y pagado después: no nace caducada, llega a fin del mes de hoy', async () => {
+test('cobro abierto antes de medianoche y pagado después: no nace caducada ni regala el mes siguiente', async () => {
   const hoy = hoyEnEstudio();
   const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
-  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -1) });
+  // Pagó 1/31 de la cuota (un día de su mes): se le entrega ese día, no un mes entero.
+  const pagado = Math.round(Number(MENSUAL.precio) * 100 / 31);
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -1), importeCobradoCentimos: pagado });
   assert.equal(r.ok, true);
   const fin = insertado.suscripciones[0].fecha_fin as string;
   assert.ok(fin >= hoy, 'no puede nacer vencida');
-  assert.equal(masDias(fin, 1).slice(8), '01', 'acaba en fin de mes: el cron la renueva el día 1');
+  assert.ok(fin <= masDias(hoy, 1), 'solo los días pagados, no el mes siguiente');
 });
 
 test('un ciclo prometido mal formado, absurdo o en un plan que no es cuota se ignora', async () => {
@@ -523,10 +525,20 @@ test('el reintento del webhook con el mismo ciclo prometido no duplica ni cambia
   assert.equal(r.ok, true);
 });
 
-test('un pago que llega con más de 2 días de retraso NO regala el mes: la cuota nace solo hasta hoy y se avisa', async () => {
+test('un pago que llega muy tarde recibe solo los días que pagó (nunca caducada, nunca el mes siguiente)', async () => {
   const hoy = hoyEnEstudio();
   const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
-  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -5) });
+  const mitad = Math.round(Number(MENSUAL.precio) * 100 / 2);
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -5), importeCobradoCentimos: mitad });
+  assert.equal(r.ok, true);
+  const fin = insertado.suscripciones[0].fecha_fin as string;
+  assert.ok(fin >= hoy && fin <= masDias(hoy, 30), 'entre hoy y un mes: los días pagados');
+});
+
+test('sin saber lo cobrado, un pago tarde solo entrega hoy y se avisa', async () => {
+  const hoy = hoyEnEstudio();
+  const { admin, insertado } = fakeAdmin({ plan: MENSUAL });
+  const r = await entregarPlanComprado(admin, { ...COMPRA, socioId: 'soc-1', cicloFinISO: masDias(hoy, -5), importeCobradoCentimos: null });
   assert.equal(r.ok, true);
   assert.equal(insertado.suscripciones[0].fecha_fin, hoy);
 });
