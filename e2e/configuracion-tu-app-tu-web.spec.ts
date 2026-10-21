@@ -34,10 +34,14 @@ for (const ancho of [1440, 375] as const) {
     await abrir(page, 'configuracion?tab=marca', true);
     await expect(titulo(page)).toHaveText('Mi app', { timeout: 60_000 });
     const app = page.locator('main');
-    await expect(app.getByText('Apariencia de tu app').first()).toBeVisible();
-    await expect(app.getByText('Contenido de tu app').first()).toBeVisible();
-    await expect(app.getByText('Tu app en la App Store').first()).toBeVisible();
-    await expect(app.locator('a#app-en-la-tienda')).toHaveAttribute('href', '/configuracion/apariencia?paso=instalar');
+    // «Mi app» guiada (21-oct-2026): siete pasos en orden, con progreso arriba. La App Store va en el 7.
+    const guiada = app.getByTestId('mi-app-guiada');
+    await expect(guiada).toBeVisible({ timeout: 60_000 });
+    await expect(guiada.locator('[data-paso]')).toHaveCount(7);
+    await expect(guiada.getByTestId('mi-app-progreso')).toContainText('de 4 pasos hechos');
+    await expect(guiada.locator('[data-paso="estilo"]').getByRole('link', { name: /Editar/ })).toHaveAttribute('href', '/configuracion/apariencia?paso=estilo');
+    await expect(guiada.locator('[data-paso="compartir"]')).toContainText('App Store');
+    await expect(guiada.locator('[data-paso="compartir"]').getByRole('link')).toHaveAttribute('href', '/configuracion/apariencia?paso=instalar');
     await page.screenshot({ path: `test-results/configuracion-tu-app-${ancho}-despues.png`, fullPage: true });
 
     await abrir(page, 'configuracion?tab=web', true);
@@ -82,6 +86,6 @@ test('encendido: «Contenido de tu app» abierto desde «Mi app» vuelve a «Mi 
   await page.setViewportSize({ width: 1440, height: 900 });
   await abrir(page, 'configuracion?tab=marca', true);
   await expect(titulo(page)).toHaveText('Mi app', { timeout: 60_000 });
-  await page.locator('main').getByText('Contenido de tu app').first().click();
+  await page.locator('main [data-paso="inicio"]').getByRole('link', { name: /Editar/ }).click();
   await expect(page.getByRole('button', { name: /Volver a Mi app/ }).or(page.getByRole('link', { name: /Volver a Mi app/ })).first()).toBeVisible({ timeout: 60_000 });
 });

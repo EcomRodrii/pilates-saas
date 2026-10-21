@@ -96,14 +96,20 @@ export function CajonAjuste({
   id,
   abierto,
   onCerrar,
+  titulo,
+  frase,
   children,
 }: {
   id: TarjetaId;
   abierto: boolean;
   onCerrar: () => void;
+  /** Otro título y otra frase que los de su tarjeta, cuando el cajón enseña solo una parte («Tu frase, a mano»). */
+  titulo?: string;
+  frase?: string;
   children: ReactNode;
 }) {
-  const tarjeta = tarjetaPorId(id);
+  const deLaTarjeta = tarjetaPorId(id);
+  const tarjeta = { ...deLaTarjeta, titulo: titulo ?? deLaTarjeta.titulo, frase: frase ?? deLaTarjeta.frase };
   const tituloRef = useRef<HTMLHeadingElement>(null);
   const conCambios = useRef(new Map<number, () => void>());
   const ultimaMarca = useRef(0);

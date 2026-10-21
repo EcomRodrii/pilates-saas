@@ -81,11 +81,12 @@ export function parametrosDelModelo(modelo: string): { temperature?: number; thi
 }
 
 /**
- * Tope de salida por petición. Una respuesta buena es de ≤ 80 palabras (~150
- * tokens) y una petición de herramientas, ~60: 600 deja margen de sobra para
- * terminar la frase y corta antes a un modelo que se enrolla (el peor caso de
- * salida de una pregunta pasa de 6 × 1.024 a 6 × 600 tokens). Con el tokenizador
- * de Haiku 5.5 (~30 % más tokens por el mismo texto) cabe algo menos de texto:
- * subirlo es una propuesta aparte (tenti-propuesta-limites), no un cambio de aquí.
+ * Tope de salida por petición. Una respuesta buena es de ≤ 80 palabras y una
+ * petición de herramientas, ~60 tokens: con el tokenizador de Haiku 5.5 (~30 %
+ * más tokens por el mismo texto que Haiku 4.5) la misma respuesta ocupa ~200
+ * tokens. 800 deja margen para terminar la frase y sigue cortando a un modelo
+ * que se enrolla (propuesta A de tenti-propuesta-limites: conserva el mismo
+ * texto máximo que daban los 600 de Haiku 4.5; el peor caso de salida de una
+ * pregunta es 6 × 800 tokens, ~0,0024 $ con las tarifas de 5.5).
  */
-export const MAX_TOKENS_RESPUESTA = 600;
+export const MAX_TOKENS_RESPUESTA = 800;
