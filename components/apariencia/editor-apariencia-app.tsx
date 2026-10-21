@@ -50,10 +50,10 @@ import { MuestraEstilo } from './muestra-estilo';
 import { AppEnElMovil } from './app-en-el-movil';
 import { MiAppDeTienda } from './mi-app-de-tienda';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { PALETAS } from '@/lib/apariencia/paletas';
+import { pintarBorrador } from '@/lib/apariencia/borrador-en-marco';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const ID_ESTILO_BORRADOR = 'apariencia-borrador';
-/** Tamaño lógico del móvil de la vista previa: un iPhone de 390 pt. */
 
 interface Borrador { primary: string; secondary: string; app: AparienciaApp }
 
@@ -64,23 +64,9 @@ function borradorDe(t: ThemeConfig): Borrador {
 const mismaApp = (a: AparienciaApp, b: AparienciaApp) =>
   a.estilo === b.estilo && a.tipografia === b.tipografia && a.marca === b.marca && a.boton === b.boton && a.encuadre === b.encuadre;
 
-/** Pinta el borrador dentro de la app del iframe. Mismo origen: se escribe en su `<head>`. */
-// Un iPhone le da a la app un margen arriba (isla y hora) y abajo (indicador de inicio) con
-// `env(safe-area-inset-*)`; dentro de un iframe esos márgenes valen 0 y la cabecera quedaría
-// debajo de la isla. La app los lee de estas dos variables: aquí se les dan los del iPhone 17.
-const MARGEN_IPHONE = 'html .student-app { --safe-top: 62px; --safe-bottom: 34px; }\n';
-
-function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
-  const doc = iframe?.contentDocument;
-  if (!doc?.head) return;
-  let el = doc.getElementById(ID_ESTILO_BORRADOR);
-  if (!el) {
-    el = doc.createElement('style');
-    el.id = ID_ESTILO_BORRADOR;
-    doc.head.appendChild(el);
-  }
-  el.textContent = MARGEN_IPHONE + css;
-}
+// El borrador se pinta dentro de la app del iframe con `pintarBorrador`
+// (lib/apariencia/borrador-en-marco.ts): el mismo mecanismo que usa el paso
+// «Tu marca» del alta nueva.
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
@@ -118,15 +104,8 @@ const PASOS: { id: PasoAsistente; corto: string; titulo: string; sub: string }[]
   { id: 'instalar', corto: 'Tu app', titulo: 'Tu app en el móvil de tus alumnas', sub: 'Cómo la instalan y cómo se la haces llegar.' },
 ];
 
-/** Paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas). Son un color de marca como cualquier otro: al publicar pasan el mismo control que uno elegido a mano. */
-const PALETAS: { nombre: string; color: string }[] = [
-  { nombre: 'Salvia', color: '#5E7A5A' },
-  { nombre: 'Terracota', color: '#A85A3E' },
-  { nombre: 'Lavanda', color: '#6E62A8' },
-  { nombre: 'Océano', color: '#2F6F8F' },
-  { nombre: 'Rosa empolvado', color: '#A85C72' },
-  { nombre: 'Tinta', color: '#2E3440' },
-];
+// Las paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas)
+// viven en lib/apariencia/paletas.ts: las comparte el paso «Tu marca» del alta.
 
 function LineaDePasos({ pasos, paso, onPaso }: { pasos: typeof PASOS; paso: PasoAsistente; onPaso: (p: PasoAsistente) => void }) {
   const actual = pasos.findIndex(p => p.id === paso);

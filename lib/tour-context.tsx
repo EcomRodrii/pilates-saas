@@ -31,6 +31,7 @@ import { rutaFueraDelMenu } from '@/lib/nav-config';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { estadoBilling } from '@/lib/api-client';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { useAltaNueva } from '@/lib/estudio/panel-nuevo-cliente';
 import { pasoAplica, visitaObligatoria } from '@/lib/tour/aplica';
 import {
   PROGRESO_VACIO, abrirCapitulo, cerrarPaso, empezar, estadoVisita, parseProgreso, verCapitulo,
@@ -99,7 +100,12 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   // obligatoria: se puede saltar y se vuelve a abrir desde Primeros pasos, como
   // en Bonsai. Apagado el interruptor, la regla de siempre.
   const panelNuevo = useInterruptor('panelNuevo', studio?.id);
-  const obligatoria = visitaObligatoria(studio, rol) && !panelNuevo;
+  // Con el alta nueva (decisión D3 del fundador, 21-oct-2026: bienvenida corta)
+  // la visita de 43 pasos tampoco arranca sola: queda como «Visita guiada
+  // completa», opcional. `=== false` y no `!altaNueva`: mientras se pregunta
+  // (`null`) no se arranca algo que medio segundo después habría que quitar.
+  const altaNueva = useAltaNueva();
+  const obligatoria = visitaObligatoria(studio, rol) && !panelNuevo && altaNueva === false;
 
   // La visita opcional: encendida por el botón de Primeros pasos, con su progreso
   // en el navegador. `null` = no hay visita opcional en marcha.

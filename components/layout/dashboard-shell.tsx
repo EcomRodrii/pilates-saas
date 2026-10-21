@@ -32,6 +32,8 @@ import { debeObservar } from '@/lib/analitica/hitos';
 import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { useAltaNueva } from '@/lib/estudio/panel-nuevo-cliente';
+import { esRutaDelAlta } from '@/lib/alta/bienvenida-nueva';
 import { reviewBoostToca } from '@/lib/growth/review-boost';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
@@ -42,6 +44,17 @@ import { reviewBoostToca } from '@/lib/growth/review-boost';
 // a la vista.
 const PantallaBienvenida = dynamic(
   () => import('@/components/onboarding/pantalla-bienvenida').then(m => m.PantallaBienvenida),
+  { loading: () => <PanelSkeleton /> },
+);
+// La bienvenida del alta nueva (tras `ALTA_NUEVA`, o para el estudio que nació
+// de ella) y el marco de las pantallas de traer datos abiertas desde ella: aparte
+// también, por lo mismo.
+const BienvenidaNueva = dynamic(
+  () => import('@/components/alta-nueva/bienvenida-nueva').then(m => m.BienvenidaNueva),
+  { loading: () => <PanelSkeleton /> },
+);
+const MarcoRutaAlta = dynamic(
+  () => import('@/components/alta-nueva/marco-ruta-alta').then(m => m.MarcoRutaAlta),
   { loading: () => <PanelSkeleton /> },
 );
 const PrimeraVezAqui = dynamic(() => import('@/components/guia/primera-vez-aqui').then(m => m.PrimeraVezAqui), { ssr: false });
@@ -100,6 +113,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // El panel nuevo (14-oct-2026): sus secciones propias (Festivos) entran en el
   // menú y en el título de la pestaña; y trae su propia guía (más abajo).
   const panelNuevo = useInterruptor('panelNuevo', studio?.id);
+  // El alta nueva (21-oct-2026): TRES estados, `null` mientras se pregunta. Elige
+  // qué bienvenida se enseña (más abajo), y con `null` se espera con el esqueleto
+  // en vez de pintar un instante la de siempre.
+  const altaNueva = useAltaNueva();
 
   // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
   // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
@@ -392,7 +409,30 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // preguntaba cosas que no se iban a poder aplicar — /api/onboarding/configurar
   // exige PROPIETARIO, así que habría respondido 403 y el estudio se quedaría
   // sin montar después de que el asistente dijera "las creamos por ti".
+  //
+  // Con el alta nueva (`altaNueva`), su bienvenida en lugar de esta. Mientras se
+  // pregunta (`null`), el esqueleto: si no, se vería un instante la de siempre y
+  // saltaría a la otra. Y las tres pantallas de traer datos se pueden abrir desde
+  // ella sin terminarla (lib/alta/bienvenida-nueva.ts, `RUTAS_DEL_ALTA`).
   if (studio && !cargandoDatos && !studio.bienvenidaVistaEn && rolResuelto && rol === 'PROPIETARIO') {
+    if (altaNueva === null) {
+      return (
+        <PanelPrivacyProvider>
+          <PanelThemeProvider className="panel-app min-h-dvh bg-background">
+            <main className="min-h-dvh">
+              <div className="max-w-[1180px] mx-auto px-5 py-6">
+                <PanelSkeleton />
+              </div>
+            </main>
+          </PanelThemeProvider>
+        </PanelPrivacyProvider>
+      );
+    }
+    if (altaNueva) {
+      return esRutaDelAlta(pathname)
+        ? <MarcoRutaAlta studioId={studio.id}>{children}</MarcoRutaAlta>
+        : <BienvenidaNueva studio={studio} />;
+    }
     return <PantallaBienvenida studio={studio} />;
   }
 

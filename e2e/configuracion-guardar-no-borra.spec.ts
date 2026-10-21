@@ -88,9 +88,9 @@ async function montar(
 
 // Mi estudio en filas con su cajón (15-sep, v2): los siete campos de «Datos y
 // contacto» son dos cajones, y cada «Guardar» manda solo los suyos.
-// Con la zona horaria (CAL-5): su selector vive en este mismo bloque, así que
-// guardar el bloque la manda con él.
-const NOMBRE_Y_DIRECCION = ['ciudad', 'codigo_postal', 'direccion', 'nombre', 'zona_horaria'];
+// Sin la zona horaria: su selector se quitó el 21-oct-2026 (no cambiaba nada,
+// todo va en hora de Madrid) y el bloque ya no la manda.
+const NOMBRE_Y_DIRECCION = ['ciudad', 'codigo_postal', 'direccion', 'nombre'];
 const CONTACTO = ['email', 'sitio_web', 'telefono'];
 const FISCALES = ['iva_por_defecto', 'nif', 'razon_social'];
 // Marca en filas con su cajón (16-sep, v2): los siete textos son dos cajones,

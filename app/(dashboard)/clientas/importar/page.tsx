@@ -21,14 +21,14 @@ import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { PageHeader } from '@/components/ui/page-header';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { useStudio } from '@/lib/studio-context';
+import { PLANTILLA_CLIENTAS } from '@/lib/importar-plantillas';
 
 type Paso = 1 | 2 | 3;
 
-const PLANTILLA_HEADERS = ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'NIF', 'Etiquetas', 'Fecha de alta', 'Dirección', 'Fecha de nacimiento'];
-const PLANTILLA_EJEMPLO = [
-  ['Ana', 'García López', 'ana@ejemplo.com', '600123456', '12345678Z', 'reformer;mañana', '15/03/2022', 'C/ Mayor 3, Madrid', '02/06/1990'],
-  ['Lucía', 'Martín', 'lucia@ejemplo.com', '611654321', '', 'vip', '', '', ''],
-];
+// La plantilla vive en lib/importar-plantillas.ts: la descarga también el paso
+// «¿Traes alumnas de otro sitio?» del alta nueva.
+const PLANTILLA_HEADERS = PLANTILLA_CLIENTAS.cabeceras;
+const PLANTILLA_EJEMPLO = PLANTILLA_CLIENTAS.ejemplo;
 
 function descargar(nombre: string, contenido: string) {
   const blob = new Blob(['﻿' + contenido], { type: 'text/csv;charset=utf-8;' });
@@ -333,7 +333,7 @@ export default function ImportarSociasPage() {
 
           <div className="flex items-center gap-4 text-[13px]">
             <button
-              onClick={() => descargar('plantilla-clientas-tentare.csv', serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO))}
+              onClick={() => descargar(PLANTILLA_CLIENTAS.archivo, serializeCsv(PLANTILLA_HEADERS, PLANTILLA_EJEMPLO))}
               className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline"
             >
               <Download size={14} /> Descargar plantilla de ejemplo
