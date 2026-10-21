@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { proximoFinAlineadoDia1, proximoFinDesdeVencimiento, proximoFinNatural } from '../bono-logic.ts';
 import { seguirCreditosAlRecibo } from './creditos-recibo-server.ts';
+import { terminaEnFinDeMes } from './prorrateo.ts';
 import * as Sentry from '@sentry/nextjs';
 
 // Aplica la RENOVACIÓN de una suscripción cuando se cobra su recibo, en el
@@ -283,7 +284,22 @@ async function entregarRenovacion(
             level: 'warning', tags: { area: 'renovacion' }, extra: { reciboId, studioId },
           });
         }
-        fechaFin = est?.cobro_dia_1_activo
+        // «Cobrar la parte proporcional del primer mes»: sus cuotas nacen con el
+        // ciclo hasta fin de mes y se renuevan el día 1. SOLO se realinea una cuota
+        // que ya acaba en fin de mes (la prorrateada): las de aniversario no se
+        // tocan. Va en una consulta aparte y solo cuando hace falta, para que un
+        // entorno sin la columna (migración sin aplicar) no pierda `cobro_dia_1_activo`.
+        let alinear = est?.cobro_dia_1_activo === true;
+        if (!alinear && terminaEnFinDeMes(sus.fecha_fin as string)) {
+          const { data: estPro, error: errPro } = await admin.from('studios').select('cobro_proporcional_alta_activo').eq('id', studioId).maybeSingle();
+          if (errPro) {
+            capturar(new Error(`[cobroProporcionalAlta] ${errPro.message}`), {
+              level: 'warning', tags: { area: 'renovacion' }, extra: { reciboId, studioId },
+            });
+          }
+          alinear = estPro?.cobro_proporcional_alta_activo === true;
+        }
+        fechaFin = alinear
           ? proximoFinAlineadoDia1(sus.fecha_fin as string, { periodicidadMeses: plan.periodicidad_meses })
           : proximoFinDesdeVencimiento(sus.fecha_fin as string, { periodicidadMeses: plan.periodicidad_meses });
       } else {

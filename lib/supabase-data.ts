@@ -2,6 +2,7 @@ import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { esPlataforma, origenDe, type Plataforma } from '@/lib/plataformas/catalogo';
 import type { FilaCobrada } from '@/lib/billing/export-cobrado';
 import { paginarTodo } from '@/lib/paginar-todo';
+import { normalizarDiasMinimos } from '@/lib/billing/prorrateo';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
@@ -5076,6 +5077,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('recibosAlCancelarCuota' in changes) db.recibos_al_cancelar_cuota = changes.recibosAlCancelarCuota;
   if ('renovarSolaCuotaCancelada' in changes) db.renovar_sola_cuota_cancelada = changes.renovarSolaCuotaCancelada;
   if ('cobroDia1Activo' in changes) db.cobro_dia_1_activo = changes.cobroDia1Activo;
+  if ('cobroProporcionalAltaActivo' in changes) db.cobro_proporcional_alta_activo = changes.cobroProporcionalAltaActivo;
+  if ('cobroProporcionalDiasMinimos' in changes) db.cobro_proporcional_dias_minimos = changes.cobroProporcionalDiasMinimos;
   if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
@@ -5497,6 +5500,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     recibosAlCancelarCuota: (r.recibos_al_cancelar_cuota as Studio['recibosAlCancelarCuota'] | null) ?? 'MANTENER_CON_REINTENTOS',
     renovarSolaCuotaCancelada: r.renovar_sola_cuota_cancelada ?? true,
     cobroDia1Activo: r.cobro_dia_1_activo ?? false,
+    cobroProporcionalAltaActivo: r.cobro_proporcional_alta_activo ?? false,
+    cobroProporcionalDiasMinimos: normalizarDiasMinimos(r.cobro_proporcional_dias_minimos),
     reembolsosActivos: r.reembolsos_activos ?? false,
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,

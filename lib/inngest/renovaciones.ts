@@ -21,6 +21,7 @@ import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
 import { primerDiaDeCobro, renovacionAdoptable, tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
 import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
+import { PREFIJO_RECIBO_PRORRATEO, PREFIJO_RECIBO_CAMBIO_PLAN } from '@/lib/billing/prorrateo';
 import { emitirRenovacionSinTarjeta } from '@/lib/notifications/emit';
 
 export const renovacionesDispatcher = inngest.createFunction(
@@ -393,9 +394,14 @@ async function avisarSubidaPrecioRenovacion(studioId: string, nowISO: string): P
     // tuviera el plan al contratar — si nunca se le ha cobrado (alta muy
     // reciente, primer ciclo) no hay "subida" de la que avisar: es su primer
     // cargo, ya lo vio al contratar.
+    // Los recibos PARCIALES (la parte proporcional del alta y la diferencia de un
+    // cambio de plan) no son «lo que cuesta la cuota»: tomarlos por precio anterior
+    // avisaría de una subida que no existe. Llevan el motivo en el id.
     const { data: ultimoCobro, error: cobroErr } = await admin.from('recibos')
       .select('importe')
       .eq('studio_id', studioId).eq('suscripcion_id', sus.id as string).eq('estado', 'COBRADO')
+      .not('id', 'like', `${PREFIJO_RECIBO_PRORRATEO}%`)
+      .not('id', 'like', `${PREFIJO_RECIBO_CAMBIO_PLAN}%`)
       .order('fecha_cobro', { ascending: false }).limit(1).maybeSingle();
     if (cobroErr) throw new Error(cobroErr.message);
     if (!ultimoCobro) continue;

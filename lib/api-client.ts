@@ -882,6 +882,40 @@ export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: s
   }
 }
 
+// «Cambiar plan» a una cuota más cara cobrando la diferencia proporcional. El
+// importe lo recalcula el servidor; `importeConfirmado` es el que la persona vio.
+// Todo o nada en la base de datos y sin duplicar al repetir. NUNCA lanza: si la
+// respuesta no llega, el cambio PUEDE haberse hecho (la pantalla relee antes de repetir).
+export type ResultadoCambioConDiferencia =
+  | { ok: true; suscripcionId: string; reciboId: string; importe: number; yaHecho: boolean }
+  | { ok: false; error: string; codigo?: string; importe?: number };
+
+export async function cambiarCuotaConDiferencia(params: {
+  socioId: string; suscripcionActualId: string; planNuevoId: string; importeConfirmado: number;
+}): Promise<ResultadoCambioConDiferencia> {
+  try {
+    const res = await fetch('/api/suscripciones/cambiar-con-diferencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)),
+        codigo: typeof data.codigo === 'string' ? data.codigo : undefined,
+        importe: typeof data.importe === 'number' ? data.importe : undefined,
+      };
+    }
+    return {
+      ok: true, suscripcionId: String(data.suscripcionId ?? ''), reciboId: String(data.reciboId ?? ''),
+      importe: Number(data.importe ?? params.importeConfirmado), yaHecho: Boolean(data.yaHecho),
+    };
+  } catch {
+    return { ok: false, codigo: CODIGO_RESPUESTA_PERDIDA, error: 'No hemos podido confirmar el cambio. Mira la ficha antes de repetirlo: puede haberse hecho.' };
+  }
+}
+
 /** `errorCode` de un cobro/devolución cuya respuesta no llegó: el servidor puede haberlo hecho. La pantalla relee el estado. */
 export const CODIGO_RESPUESTA_PERDIDA = 'RESPUESTA_PERDIDA';
 

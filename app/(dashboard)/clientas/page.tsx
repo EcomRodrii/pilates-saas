@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, hoyEnEstudio } from '@/lib/utils';
+import { prorrateoDeAlta } from '@/lib/billing/prorrateo';
 import { useEsAncho } from '@/lib/hooks/use-es-ancho';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
@@ -2205,7 +2206,15 @@ export default function Socios() {
                   El manager da de alta clientas pero no cobra, así que ve el
                   formulario sin este campo. */}
               {mueveDinero && (
-              <FF label="Plan / Tarifa" description="Le crea su plan y su primer recibo. Tú dices si ya te lo ha pagado.">
+              <FF label="Plan / Tarifa" description={(() => {
+                const base = 'Le crea su plan y su primer recibo. Tú dices si ya te lo ha pagado.';
+                // Cobro proporcional: se dice ANTES de guardar lo que se le va a cobrar y por qué.
+                if (showForm !== 'nueva' || studio?.cobroProporcionalAltaActivo !== true) return base;
+                const plan = planesTarifa.find(p => p.id === form.planId);
+                const pr = plan ? prorrateoDeAlta(plan, hoyEnEstudio(), studio?.cobroProporcionalDiasMinimos) : null;
+                if (!plan || !pr || pr.mesCompleto) return base;
+                return `${base} ${pr.frase}`;
+              })()}>
                 <select
                   className={selectCls}
                   value={form.planId}

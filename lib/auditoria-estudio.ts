@@ -295,6 +295,7 @@ export const ACCIONES: Readonly<Record<string, string>> = {
   RECIBO_REEMBOLSADO_A_MANO: 'Devolvió el dinero de un cobro',
   RECIBO_REINTENTADO_POR_BANCO: 'Volvió a pasar por el banco un recibo devuelto',
   COBRO_CONFIRMADO_POR_BANCO: 'Confirmó que el banco cobró un recibo de la remesa',
+  CUOTA_CAMBIADA_CON_DIFERENCIA: 'Cambió a una cuota más cara cobrando la diferencia proporcional',
 };
 
 function objetoDe(e: EntradaAuditoria, o: OpcionesDescripcion): string | null {

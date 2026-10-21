@@ -322,6 +322,13 @@ export interface Studio {
   // cada renovación se realinea al día 1, sin tocar el alta ni prorratear
   // (ver `proximoFinAlineadoDia1`, lib/bono-logic.ts). Apagado de serie.
   cobroDia1Activo: boolean;
+  // Cobro proporcional al alta (migr `cobro_proporcional_alta`): con esto activo,
+  // una cuota MENSUAL nueva dada de alta POR EL PANEL a mitad de mes cobra solo
+  // la parte del mes que queda y se renueva el día 1 por la cuota entera (ver
+  // lib/billing/prorrateo.ts). Apagado de serie.
+  cobroProporcionalAltaActivo: boolean;
+  // Días mínimos restantes del mes para prorratear (0..10, de serie 3): con ese número o menos, la primera cuota se cobra el día 1 del mes siguiente.
+  cobroProporcionalDiasMinimos: number;
   // true (default) = comportamiento de siempre: alguien del estudio marca su
   // asistencia (escaneando su QR de acceso o en la lista de la clase) antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien
