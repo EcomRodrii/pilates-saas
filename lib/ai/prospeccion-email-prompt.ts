@@ -21,6 +21,7 @@
 // cumplido. Las dos capas son a propósito: el prompt pide, el revisor verifica.
 // ─────────────────────────────────────────────────────────────────────────────
 import { PLAN_INFO } from '../billing/entitlements.ts';
+import { GRATIS_CON_LIMITES, SI_PASAS_CON_COMPLEMENTOS } from '../landing/founding-gratis.ts';
 
 export interface ContextoProspecto {
   estudio: string;
@@ -30,17 +31,23 @@ export interface ContextoProspecto {
   softwareActual: string | null;
 }
 
-const precios = () => Object.values(PLAN_INFO)
-  .map(p => `${p.nombre} ${p.precioMes}€/mes`)
-  .join(' · ');
+// 21-oct-2026: decía «Founding Studio 29€/mes» y «Prueba de 7 días sin tarjeta».
+// Desde el 15-oct Founding Studio es gratis con dos límites y no hay prueba; desde
+// el 19/20-oct, pasados los límites, tres cosas van como complementos. Las cifras
+// salen de las mismas constantes que la web (lib/landing/founding-gratis.ts).
+const precios = () => [
+  `${PLAN_INFO.BASE.nombre}: ${GRATIS_CON_LIMITES.toLowerCase()}; ${SI_PASAS_CON_COMPLEMENTOS}`,
+  `${PLAN_INFO.ESTUDIO.nombre} ${PLAN_INFO.ESTUDIO.precioMes} €/mes, que los incluye`,
+  `${PLAN_INFO.CADENA.nombre} ${PLAN_INFO.CADENA.precioMes} €/mes, para varias sedes`,
+].join(' · ');
 
 export const PROSPECCION_EMAIL_SYSTEM_PROMPT = `Escribes correos de venta en frío para Tentare, un software español de gestión para estudios de Pilates. Los firma Marcos, el fundador.
 
 QUÉ ES TENTARE (solo esto es cierto, no añadas nada más):
-- Software de gestión para estudios de Pilates en España: reservas online, calendario con salas y aforo propio, bonos y cuotas, cobros recurrentes con tarjeta o SEPA, y facturación española con Veri*Factu (firma y envío a la AEAT).
-- Lo que no tiene nadie más: sustitución de instructoras integrada — cuando una instructora no puede dar su clase, el sistema propone candidatas según disponibilidad real y costumbre horaria, en vez de que alguien lo resuelva por WhatsApp.
+- Software de gestión para estudios de Pilates en España: reservas online, calendario con salas, bonos y cuotas, cobros recurrentes con tarjeta (y la remesa SEPA preparada para que el estudio la presente en su banco, si cobra por domiciliación), y facturas con numeración legal. Veri*Factu (la huella, el QR y el envío a la AEAT) todavía no está activo: no lo prometas.
+- Sustitución de instructoras integrada: cuando una instructora no puede dar su clase, el sistema propone candidatas según disponibilidad real y costumbre horaria, en vez de que alguien lo resuelva por WhatsApp. No digas que no lo tiene nadie más: otros programas también lo anuncian.
 - Portal de marca para las alumnas (web instalable en el móvil, con el logo y los colores del estudio). NO es una app nativa de App Store ni Google Play.
-- Planes: ${precios()}. Prueba de 7 días sin tarjeta. Sin permanencia y sin comisión sobre lo que el estudio cobra a sus alumnas.
+- Planes: ${precios()}. Se empieza sin tarjeta. Sin permanencia y sin comisión sobre lo que el estudio cobra a sus alumnas.
 
 REGLA QUE NO SE ROMPE NUNCA:
 Solo puedes afirmar lo que aparece en la ficha del estudio que te paso. Si un dato no está en la ficha, ese dato NO EXISTE para ti.

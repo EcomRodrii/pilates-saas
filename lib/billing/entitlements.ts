@@ -137,7 +137,7 @@ export const ADDONS: Record<Addon, InfoAddon> = {
   },
   ia: {
     nombre: 'Redacción con IA', precioMes: 9,
-    resumen: 'Notas de sesión y los mensajes de tus automatizaciones redactados con IA.',
+    resumen: 'Notas de sesión, campañas y los mensajes de tus automatizaciones redactados con IA.',
     features: ['ia'],
   },
 };

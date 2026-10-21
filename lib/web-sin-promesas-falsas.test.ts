@@ -12,9 +12,10 @@
 // si vuelve una de las más claras.
 //
 // Qué NO mira, a propósito:
-//   · El panel, la ayuda, los correos y la app de la alumna: tienen su propia
-//     revisión. Aquí solo la web comercial, `public/llms.txt` y el catálogo de
-//     planes que pintan /precios, /suscripcion y el alta.
+//   · El panel, la ayuda, los correos, la app de la alumna y el catálogo de
+//     planes (lib/billing/catalogo-planes.ts): los vigila
+//     lib/sin-promesas-falsas-producto.test.ts (#2824). Aquí solo la web
+//     comercial, `public/llms.txt` y el prompt de los correos de prospección.
 //   · Las líneas de comentario: tienen que poder contar qué se quitó y por qué.
 //   · Los tests, que nombran las frases para comprobar que no están.
 //
@@ -37,7 +38,7 @@ const WEB = [
   'app/(legal)', 'app/comparativa', 'app/soluciones', 'app/funcionalidades', 'app/recursos', 'app/glosario',
   'components/landing', 'components/web', 'components/comparativa', 'components/soluciones',
   'components/funcionalidades', 'components/recursos', 'lib/recursos', 'lib/seo', 'lib/landing',
-  'lib/billing/catalogo-planes.ts', 'public/llms.txt',
+  'public/llms.txt', 'lib/ai/prospeccion-email-prompt.ts',
 ];
 
 const normalizar = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/ | /g, ' ');
@@ -115,6 +116,8 @@ const REGLAS: { patron: RegExp; motivo: string; salvo?: RegExp }[] = [
   { patron: /demostracion sin compromiso/, motivo: 'no hay forma de pedir una demo' },
   { patron: /rondan el 80|entre el 40 y el 60|la integracion que convierte mas|el motivo numero uno/, motivo: 'cifras del sector sin fuente' },
   { patron: /una idea al mes para llenar tu estudio|sin spam — cancelas cuando quieras/, motivo: 'no existe ningún envío periódico' },
+  { patron: /prueba de (7|siete) dias|lo que no tiene nadie mas/, motivo: 'ya no hay prueba de 7 días (15-oct-2026), y otros programas también tienen sustituciones' },
+  { patron: /veri\*factu \(firma y envio a la aeat\)/, motivo: 'Veri*Factu no está activo: no hay firma ni envío a la AEAT' },
   // Legal (W4, W5): pendiente de abogado. Que no vuelva lo que no existe.
   { patron: /acuerdo de\s+encargo, art\. 28|\(dpa\)[^.]{0,120}te lo damos/, motivo: 'no hay un DPA ni un acuerdo de encargo del art. 28 publicado' },
   { patron: /se suprimen tambien de las copias de seguridad|dispone de 30 dias para descargar sus datos/, motivo: 'la purga de estudios vencidos está apagada hasta que el abogado la valide' },
@@ -146,14 +149,10 @@ test('cada «complemento de N €/mes» de la web es el precio real de su comple
   assert.deepEqual(fallos, []);
 });
 
-test('el catálogo de planes no vende lo que va tras un interruptor ni la huella', () => {
+test('el catálogo de planes no vende «Pregúntale a Tentare», que va tras un interruptor', () => {
+  // Vuelve el día que ASISTENTE_IA esté encendido para todos los estudios.
   const filas = CATEGORIAS.flatMap((c) => c.filas);
-  // «Pregúntale a Tentare» vuelve aquí el día que ASISTENTE_IA esté encendido para todos.
   assert.equal(filas.some((f) => /preg[uú]ntale a tentare/i.test(f.nombre)), false);
-  // Veri*Factu: «No» en los tres planes mientras no esté activo en ningún estudio.
-  const verifactu = filas.find((f) => /veri\*factu/i.test(f.nombre));
-  assert.ok(verifactu, 'falta la fila de Veri*Factu');
-  for (const p of ['BASE', 'ESTUDIO', 'CADENA'] as const) assert.deepEqual(verifactu.valor(p), { tipo: 'no' });
 });
 
 test('CONTROL: la guardia ve las frases con tildes y deja pasar la verdad', () => {

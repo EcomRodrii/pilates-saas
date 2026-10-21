@@ -118,7 +118,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/app-para-alumnas"
     ],
-    "palabras": 2565,
+    "palabras": 2579,
     "actualizado": "2026-10-15"
   },
   {
