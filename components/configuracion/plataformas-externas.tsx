@@ -1,5 +1,6 @@
 'use client';
 
+import { uscVerificada } from '@/lib/plataformas/usc/proveedor-config';
 import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -380,16 +381,21 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
       : { ...config, modo: 'manual' };
     setGuardando(true);
     const res = await upsertIntegracion('URBAN_SPORTS_CLUB', true, nueva, config);
+    if (!res.ok) { setGuardando(false); setError(res.error); return; }
+    // El servidor decide si los IDs quedan verificados: se vuelve a leer la config.
+    const leida = await fetch('/api/integrations/config?tipo=URBAN_SPORTS_CLUB')
+      .then(r => (r.ok ? r.json() : null)).catch(() => null) as { config?: Record<string, string> } | null;
     setGuardando(false);
-    if (!res.ok) { setError(res.error); return; }
-    onGuardada(nueva);
+    onGuardada(leida?.config ?? nueva);
     showToast(prov ? 'Conexión con Urban Sports Club guardada' : 'Urban Sports Club vuelve a modo manual');
   }
 
   return (
     <form onSubmit={guardar} className="mt-3 space-y-2 rounded-xl bg-muted/50 p-3" data-testid="conexion-usc">
       <p className="text-xs text-muted-foreground">
-        {conectada && ventaCortada
+        {conectada && !uscVerificada(config)
+          ? 'Guardada, pero sin verificar con Urban Sports Club: de momento no se publica nada ni entran sus reservas. Se verifica al volver a guardar cuando la conexión esté activada por nuestra parte.'
+          : conectada && ventaCortada
           ? `En pausa: ${porQueSinVentaExterna(ventaCortada)}. Mientras tanto no se publica nada en Urban Sports Club ni entran sus reservas, y lo que estaba publicado se retira.`
           : conectada
           ? 'Conectada. Las clases cuyo tipo tiene plazas cedidas a Urban Sports Club se publican solas en su app (dos semanas vista), y sus reservas entran solas en la clase.'
