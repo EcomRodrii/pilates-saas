@@ -19,7 +19,7 @@ export const dynamic = 'force-dynamic';
 //
 // Por qué una ruta y no el `updateStudio` del navegador: es dinero de las alumnas.
 // La columna `studios.cobro_dia_1_modo` NO es escribible por `authenticated`
-// (migr 20261021190000): solo esta ruta puede ponerla en PROPORCIONAL, y solo si
+// (migr 20261022081316): solo esta ruta puede ponerla en PROPORCIONAL, y solo si
 // trae la huella de la lista que HOY sale. Si la lista cambió desde que la vio
 // (otra alumna, otro día, otro ajuste de días mínimos) → 409 y vuelve a verla.
 // Volver a ENTERA no pide huella: es el comportamiento de siempre y es reversible.

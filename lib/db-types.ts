@@ -1144,7 +1144,7 @@ export interface RowStudios {
   cobro_proporcional_alta_activo: boolean | null;
   // migr 20261021175710.
   cobro_proporcional_dias_minimos: number | null;
-  // migr 20261021190000.
+  // migr 20261022081316.
   cobro_dia_1_modo: string | null;
 }
 

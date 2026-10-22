@@ -248,7 +248,7 @@ test('contrato del cron: la extensión sin recibo es condicional y el modo se le
 
 test('contrato de la migración: columna con CHECK, default A, sin grant al navegador, trigger de reinicio', () => {
   const dir = new URL('../../supabase/migrations/', import.meta.url);
-  const sql = readFileSync(new URL('20261021190000_cobro_dia_1_modo_alineacion.sql', dir), 'utf8');
+  const sql = readFileSync(new URL('20261022081316_cobro_dia_1_modo_alineacion.sql', dir), 'utf8');
   assert.match(sql, /cobro_dia_1_modo text not null default 'ENTERA'/);
   assert.match(sql, /check \(cobro_dia_1_modo in \('ENTERA', 'PROPORCIONAL'\)\)/);
   assert.doesNotMatch(sql.replace(/--[^\n]*/g, ''), /grant update \(/);
