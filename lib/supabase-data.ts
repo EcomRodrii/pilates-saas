@@ -5502,6 +5502,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     cobroDia1Activo: r.cobro_dia_1_activo ?? false,
     cobroProporcionalAltaActivo: r.cobro_proporcional_alta_activo ?? false,
     cobroProporcionalDiasMinimos: normalizarDiasMinimos(r.cobro_proporcional_dias_minimos),
+    cobroDia1Modo: r.cobro_dia_1_modo === 'PROPORCIONAL' ? 'PROPORCIONAL' : 'ENTERA',
     reembolsosActivos: r.reembolsos_activos ?? false,
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,

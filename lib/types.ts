@@ -329,6 +329,11 @@ export interface Studio {
   cobroProporcionalAltaActivo: boolean;
   // Días mínimos restantes del mes para prorratear (0..10, de serie 3): con ese número o menos, la primera cuota se cobra el día 1 del mes siguiente.
   cobroProporcionalDiasMinimos: number;
+  // Cómo se alinean al día 1 las alumnas que YA tiene el estudio (migr `cobro_dia_1_modo_alineacion`;
+  // solo con `cobroDia1Activo`). ENTERA (de serie) = cuota entera en su renovación y cubierta hasta
+  // fin del mes siguiente; PROPORCIONAL = solo los días hasta fin de mes y el día 1 la entera.
+  // SOLO LECTURA desde el navegador: la cambia `/api/cobros/alineacion-dia1` tras la vista previa.
+  cobroDia1Modo: 'ENTERA' | 'PROPORCIONAL';
   // true (default) = comportamiento de siempre: alguien del estudio marca su
   // asistencia (escaneando su QR de acceso o en la lista de la clase) antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien

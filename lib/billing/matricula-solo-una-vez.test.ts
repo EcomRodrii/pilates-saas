@@ -44,7 +44,7 @@ test('el recibo de renovación se emite con el precio del plan, y nada más', ()
   const cron = fuente('../inngest/renovaciones.ts');
   assert.match(
     cron,
-    /importe:\s*plan\.precio\b/,
+    /importe:\s*(parcial \? parcial\.importe : )?plan\.precio\b/, // o el parcial de alinear al día 1 (alineacion-dia1.ts)
     'el importe de la renovación ha dejado de ser `plan.precio` a secas: ' +
       'revisa que no se le esté sumando ningún extra de una sola vez',
   );

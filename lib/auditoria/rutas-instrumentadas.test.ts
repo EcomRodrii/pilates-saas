@@ -30,6 +30,7 @@ const RUTAS: Array<{ ruta: string; acciones: string[] }> = [
   { ruta: 'app/api/cobros/reembolso-manual/route.ts', acciones: [] }, // la anota lib/billing/reembolso-manual.ts
   { ruta: 'app/api/cobros/reintentar-banco/route.ts', acciones: [] }, // la anota lib/billing/marcar-devuelto.ts
   { ruta: 'app/api/suscripciones/cambiar-con-diferencia/route.ts', acciones: ['CUOTA_CAMBIADA_CON_DIFERENCIA'] },
+  { ruta: 'app/api/cobros/alineacion-dia1/route.ts', acciones: ['ALINEACION_DIA_1_MODO_CAMBIADO'] },
 ];
 
 test('cada ruta usa la sesión ENTERA como actor y nunca lo que diga el cuerpo', () => {

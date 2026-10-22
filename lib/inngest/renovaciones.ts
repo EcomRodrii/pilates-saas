@@ -21,8 +21,13 @@ import { repartirVencidas } from '@/lib/billing/baja-al-vencer';
 import { puedeArmarReintento, type ReciboParaCobrar } from '@/lib/billing/cobro-permitido';
 import { primerDiaDeCobro, renovacionAdoptable, tipoPlanEmbebido } from '@/lib/billing/renovacion-adoptable';
 import { debeAvisarSubidaPrecio } from '@/lib/billing/aviso-subida-precio';
-import { PREFIJO_RECIBO_PRORRATEO, PREFIJO_RECIBO_CAMBIO_PLAN, MARCA_CONCEPTO_PARCIAL } from '@/lib/billing/prorrateo';
+import { PREFIJO_RECIBO_PRORRATEO, PREFIJO_RECIBO_CAMBIO_PLAN, PREFIJO_RECIBO_ALINEACION, MARCA_CONCEPTO_PARCIAL } from '@/lib/billing/prorrateo';
 import { emitirRenovacionSinTarjeta } from '@/lib/notifications/emit';
+import { decidirRenovacion, idReciboAlineacion, type ReciboAlineacionExistente } from '@/lib/billing/alineacion-dia1';
+import { ejecutarDecisionAlineacion } from '@/lib/billing/alineacion-dia1-cron';
+import { aplicarRenovacionServidor } from '@/lib/billing/renovacion-server';
+import { hoyEnEstudio } from '@/lib/utils';
+import { normalizarDiasMinimos } from '@/lib/billing/prorrateo';
 
 export const renovacionesDispatcher = inngest.createFunction(
   { id: 'renovaciones-dispatcher', triggers: [{ cron: '0 8 * * *' }] },
@@ -225,20 +230,36 @@ async function adoptarRecibosCliente(studioId: string, nowISO: string, conMetodo
   return adoptados;
 }
 
-async function generarRecibosRenovacion(studioId: string, nowISO: string, conMetodoCobro: Set<string>): Promise<number> {
+// Modo B de «cobrar todas las cuotas el día 1» (lib/billing/alineacion-dia1.ts).
+// Fallo-seguro: cualquier error o columna ausente (migración sin aplicar) es el
+// modo A de siempre — un cobro de más no se arriesga por un fallo de lectura.
+async function ajustesAlineacion(studioId: string): Promise<{ proporcional: boolean; diasMinimos: number }> {
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const { data: dia1, error: e1 } = await admin.from('studios').select('cobro_dia_1_activo').eq('id', studioId).maybeSingle();
+  if (e1 || dia1?.cobro_dia_1_activo !== true) return { proporcional: false, diasMinimos: 3 };
+  const { data, error } = await admin.from('studios').select('cobro_dia_1_modo, cobro_proporcional_dias_minimos').eq('id', studioId).maybeSingle();
+  if (error) {
+    console.error('[renovaciones] modo de alineación ilegible, se usa el de siempre:', error.message);
+    return { proporcional: false, diasMinimos: 3 };
+  }
+  return { proporcional: data?.cobro_dia_1_modo === 'PROPORCIONAL', diasMinimos: normalizarDiasMinimos(data?.cobro_proporcional_dias_minimos) };
+}
+
+async function generarRecibosRenovacion(studioId: string, nowISO: string, conMetodoCobro: Set<string>): Promise<{ creados: number; extendidas: number }> {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const hoy = nowISO.slice(0, 10);
 
   const [{ data: susRows, error: susErr }, { data: planRows, error: planErr }, { data: bajaRows, error: bajaLeerErr }] = await Promise.all([
     admin.from('suscripciones')
-      .select('id, socio_id, plan_id, fecha_fin, baja_al_vencer')
+      .select('id, socio_id, plan_id, fecha_fin, baja_al_vencer, stripe_subscription_id')
       .eq('studio_id', studioId)
       .eq('estado', 'ACTIVA')
       .not('fecha_fin', 'is', null)
       .lt('fecha_fin', hoy),
     admin.from('planes_tarifa')
-      .select('id, nombre, precio, tipo')
+      .select('id, nombre, precio, tipo, periodicidad_meses')
       .eq('studio_id', studioId)
       .eq('tipo', 'MENSUAL'),
     // Clientas DE BAJA: su cuota vencida se cancela en vez de renovarse
@@ -255,7 +276,7 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
 
   const planById = new Map((planRows ?? []).map(p => [p.id as string, p]));
   const todasVencidas = (susRows ?? []).filter(s => planById.has(s.plan_id as string));
-  if (todasVencidas.length === 0) return 0;
+  if (todasVencidas.length === 0) return { creados: 0, extendidas: 0 };
 
   // Baja programada a fin de periodo (migr 20260913215533): la cuota vence
   // y se CANCELA en vez de generarle el recibo del mes siguiente. Va antes
@@ -298,7 +319,7 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
       console.error('[renovaciones] soltar plazas fijas sin cuota:', e instanceof Error ? e.message : e);
     }
   }
-  if (vencidas.length === 0) return 0;
+  if (vencidas.length === 0) return { creados: 0, extendidas: 0 };
 
   // Dedupe: fuera las suscripciones que ya tienen un recibo de renovación
   // en juego (PENDIENTE o adeudo EN_CURSO) — del cliente, de este cron ayer,
@@ -312,19 +333,53 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
   if (penErr) throw new Error(penErr.message);
   const conRecibo = new Set((pendientes ?? []).map(r => r.suscripcion_id as string));
 
+  // Modo B (alinear al día 1 cobrando la parte proporcional). Con él apagado —lo
+  // normal— `decidirRenovacion` devuelve siempre `normal` y esto no cambia nada.
+  const ajustes = await ajustesAlineacion(studioId);
+  const alineacionExistente = new Map<string, ReciboAlineacionExistente>();
+  if (ajustes.proporcional) {
+    const ids = vencidas.filter(s => s.fecha_fin).map(s => idReciboAlineacion(s.id as string, s.fecha_fin as string));
+    if (ids.length > 0) {
+      const { data: previos, error: prevErr } = await admin.from('recibos')
+        .select('id, estado, entrega_aplicada').eq('studio_id', studioId).in('id', ids);
+      if (prevErr) throw new Error(prevErr.message);
+      for (const r of previos ?? []) alineacionExistente.set(r.id as string, { estado: r.estado as string, entregaAplicada: (r.entrega_aplicada as boolean | null) ?? null });
+    }
+  }
+
   let creados = 0;
+  let extendidas = 0;
+  const hoyMadrid = hoyEnEstudio(new Date(nowISO));
   for (const sus of vencidas) {
     if (conRecibo.has(sus.id as string)) continue;
     const plan = planById.get(sus.plan_id as string)!;
+    const decision = decidirRenovacion({
+      modoProporcional: ajustes.proporcional,
+      suscripcionId: sus.id as string,
+      fechaFin: (sus.fecha_fin as string | null) ?? null,
+      plan: { tipo: 'MENSUAL', precio: Number(plan.precio), periodicidadMeses: ((plan.periodicidad_meses as number | null) ?? 1) as 1 },
+      hoyISO: hoyMadrid,
+      diasMinimos: ajustes.diasMinimos,
+      stripeSubscriptionId: (sus.stripe_subscription_id as string | null) ?? null,
+      reciboExistente: sus.fecha_fin ? alineacionExistente.get(idReciboAlineacion(sus.id as string, sus.fecha_fin as string)) ?? null : null,
+    });
+    const hecho = await ejecutarDecisionAlineacion(admin, {
+      studioId, suscripcionId: sus.id as string, fechaFin: (sus.fecha_fin as string | null) ?? null, decision,
+    }, { aplicarRenovacion: aplicarRenovacionServidor });
+    if (hecho === 'extendida') extendidas++;
+    if (hecho !== 'seguir') continue;
+    // Parcial (`cobrar`) o el recibo de siempre (`normal`): misma forma de crearlo.
+    const parcial = decision.accion === 'cobrar' ? decision.plan : null;
     // Id determinista por (suscripción, mes): un reintento del step o dos
     // ejecuciones el mismo día no duplican el recibo (choca por PK).
-    const id = `rec-renov-${sus.id}-${hoy.slice(0, 7)}`;
+    const id = parcial ? parcial.reciboId : `rec-renov-${sus.id}-${hoy.slice(0, 7)}`;
     // Sin tarjeta/SEPA guardados no hay a quién cobrarle off-session — se
     // crea el recibo igual (para /cobros), pero sin entrar al dunning.
     const proximoReintento = conMetodoCobro.has(sus.socio_id as string) ? nowISO : null;
     const { error: insErr } = await admin.from('recibos').insert({
       id, studio_id: studioId, socio_id: sus.socio_id, suscripcion_id: sus.id,
-      concepto: `Renovación ${plan.nombre}`, importe: plan.precio, estado: 'PENDIENTE',
+      concepto: parcial ? parcial.concepto : `Renovación ${plan.nombre}`,
+      importe: parcial ? parcial.importe : plan.precio, estado: 'PENDIENTE',
       // Renueva un ciclo ya entregado: al cobrarlo hay que recargar/extender.
       es_renovacion: true,
       fecha_vencimiento: sus.fecha_fin, fecha_cobro: null, fecha_devolucion: null,
@@ -341,7 +396,7 @@ async function generarRecibosRenovacion(studioId: string, nowISO: string, conMet
     // pendiente sin que nadie se enterase. Al estudio se lo cuenta su bandeja.
     if (proximoReintento === null) await emitirRenovacionSinTarjeta(admin, { studioId, reciboId: id });
   }
-  return creados;
+  return { creados, extendidas };
 }
 
 // PAY-6 (auditoría 2026-09-16, decisión del fundador): el estudio puede subir
@@ -402,6 +457,7 @@ async function avisarSubidaPrecioRenovacion(studioId: string, nowISO: string): P
       .eq('studio_id', studioId).eq('suscripcion_id', sus.id as string).eq('estado', 'COBRADO')
       .not('id', 'like', `${PREFIJO_RECIBO_PRORRATEO}%`)
       .not('id', 'like', `${PREFIJO_RECIBO_CAMBIO_PLAN}%`)
+      .not('id', 'like', `${PREFIJO_RECIBO_ALINEACION}%`)
       // El alta online no lleva el motivo en el id (`rec-web-…`): lo lleva el concepto.
       .not('concepto', 'ilike', `%${MARCA_CONCEPTO_PARCIAL}%`)
       .order('fecha_cobro', { ascending: false }).limit(1).maybeSingle();
@@ -446,9 +502,9 @@ export const procesarRenovacionesEstudio = inngest.createFunction(
     return step.run('renovar', async () => {
       const conMetodoCobro = new Set(await sociosConMetodoCobro(studioId));
       const adoptados = await adoptarRecibosCliente(studioId, nowISO, conMetodoCobro);
-      const generados = await generarRecibosRenovacion(studioId, nowISO, conMetodoCobro);
+      const { creados: generados, extendidas } = await generarRecibosRenovacion(studioId, nowISO, conMetodoCobro);
       const avisados = await avisarSubidaPrecioRenovacion(studioId, nowISO);
-      return { studioId, adoptados, generados, avisados };
+      return { studioId, adoptados, generados, extendidas, avisados };
     });
   },
 );
