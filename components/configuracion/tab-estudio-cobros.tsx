@@ -360,8 +360,8 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
               (alta el 15 de un mes de 31 días: 17 de 31). El mes siguiente se cobra entero, el día 1. La matrícula no se prorratea. Al cambiar a una cuota más cara a mitad de ciclo, «Cambiar plan» te deja cobrar la diferencia proporcional.
             </span>
             <span className="mt-1 block text-xs text-muted-foreground text-pretty">
-              Aplica a altas desde el panel y a la compra online de la alumna (ella ve antes de pagar cuánto y por qué). Con pocos días de mes por delante, panel y online no actúan igual: se explica en «Días mínimos». No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar», que cobran el mes entero.
-              Si también eliges «Todas el día 1», las alumnas que ya tienes pasan al día 1 en su próxima renovación, sin prorratear: pueden ganar unos días de cuota sin pagarlos y cambia el día en que se les cobra.
+              Aplica a altas desde el panel y a la compra online (la alumna ve antes de pagar cuánto y por qué). No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar», que cobran el mes entero.
+              Con «Todas el día 1», lo que pagan las alumnas que ya tienes se elige aparte, después de guardar.
             </span>
           </span>
         </label>
@@ -385,7 +385,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
               className="mt-2 h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm"
             />
             <p className="mt-2 text-xs text-muted-foreground text-pretty">
-              Si al apuntarse quedan {form.diasMinimos} días o menos del mes (contando el día del alta), no se le cobra una cantidad simbólica: desde el panel no se le cobra nada hoy y su primera cuota es el día 1 del mes siguiente. Con más días, se le cobra la parte proporcional. Pon 0 para prorratear siempre (por debajo de 0,50 € tampoco se cobra). En la compra online, con pocos días se cobra hoy la cuota entera y cubre hasta el final del mes siguiente (el siguiente cobro es el día 1 del mes posterior), porque la tarjeta no se puede guardar sin un primer pago.
+              Si quedan {form.diasMinimos} días o menos del mes (contando el día del alta): desde el panel no se cobra nada hoy y la primera cuota es el día 1; en la compra online se cobra hoy la cuota entera, que cubre hasta el final del mes siguiente (la tarjeta no se puede guardar sin un primer pago). Con más días se cobra la parte proporcional. Con 0 se prorratea siempre (por debajo de 0,50 € no se cobra).
             </p>
           </div>
         )}
