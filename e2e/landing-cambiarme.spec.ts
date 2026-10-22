@@ -85,7 +85,7 @@ test.describe('«Cambiarme a Tentare» — escritorio', () => {
 
     await entrada.click();
     await expect(page).toHaveURL(new RegExp(`${DESTINO}$`));
-    await expect(page.getByRole('heading', { level: 1 })).toContainText('Cambiarte a Tentare');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Cámbiate a Tentare');
   });
 
   test('ya encogida, la isla sigue con el logo y el botón principal, sin recortes', async ({ page }) => {
