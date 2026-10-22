@@ -25,9 +25,14 @@ export async function saludDe(
     studio.owner_auth_user_id ? db.auth.admin.getUserById(studio.owner_auth_user_id) : Promise.resolve(null),
   ]);
 
+  // Última actividad real de la dueña (sesiones renovadas), no el último login.
+  const actividadDuena = studio.owner_auth_user_id
+    ? ((await db.rpc('ultimo_acceso_real', { p_user_ids: [studio.owner_auth_user_id] })).data as { ultimo: string | null }[] | null)?.[0]?.ultimo ?? null
+    : null;
+
   const senales: SenalesEstudio = {
     estadoSuscripcion: studio.subscription_status,
-    ultimoAccesoDuena: duena?.data?.user?.last_sign_in_at ?? null,
+    ultimoAccesoDuena: actividadDuena ?? duena?.data?.user?.last_sign_in_at ?? null,
     reservas7d: reservas.error ? null : reservas.count ?? 0,
     clasesProximas7d: clases.error ? null : clases.count ?? 0,
     cobrosFallidos30d: fallidos.error ? null : fallidos.count ?? 0,

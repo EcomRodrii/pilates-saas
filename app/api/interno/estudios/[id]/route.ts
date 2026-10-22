@@ -82,6 +82,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   }));
 
   const duena = 'data' in duenaAuth ? duenaAuth.data?.user ?? null : null;
+  // «Último acceso» = última actividad de sus sesiones, no el último login (que no se mueve si no cierra sesión).
+  let ultimoAccesoReal: string | null = null;
+  if (duena) {
+    const { data: act } = await db.rpc('ultimo_acceso_real', { p_user_ids: [duena.id] });
+    ultimoAccesoReal = (act as { ultimo: string | null }[] | null)?.[0]?.ultimo ?? null;
+  }
 
   const salud = esDePago(studio.subscription_id as string | null)
     ? await saludDe(db, {
@@ -111,7 +117,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     },
     duena: duena ? {
       email: duena.email ?? null,
-      ultimoAcceso: duena.last_sign_in_at ?? null,
+      ultimoAcceso: ultimoAccesoReal ?? duena.last_sign_in_at ?? null,
       alta: duena.created_at ?? null,
     } : null,
     pagos: {
