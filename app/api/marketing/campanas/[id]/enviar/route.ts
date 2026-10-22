@@ -49,7 +49,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // otra vez a Enviar.
   if (campana.tipo === 'WHATSAPP' && !whatsappDelEstudio(await dbGetIntegracionConfig(sesion.studioId, 'WHATSAPP'))) {
     return NextResponse.json(
-      { error: 'Conecta tu WhatsApp Business en Configuración → Cómo me comunico' },
+      { error: 'Conecta tu WhatsApp Business en Configuración → Integraciones' },
       { status: 503 },
     );
   }

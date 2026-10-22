@@ -344,12 +344,14 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
             </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          {/* `tactil:gap-3`: con el dedo, cada flecha (32 px) gana 6 a cada lado
+              hasta los 44 de su zona táctil; con 6 de hueco se pisaban. */}
+          <div className="flex items-center gap-1.5 tactil:gap-3">
             {!esHoy && hoy && (
               <button
                 type="button"
                 onClick={() => setFecha(hoy)}
-                className="rounded-full px-2.5 py-1 text-[12px] font-semibold text-brand-medio transition-colors hover:bg-muted"
+                className="zona-tactil rounded-full px-2.5 py-1 text-[12px] font-semibold text-brand-medio transition-colors hover:bg-muted"
               >
                 Volver a hoy
               </button>
@@ -358,7 +360,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
               type="button"
               onClick={() => setFecha(masDias(fecha, -1))}
               aria-label="Día anterior"
-              className="flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="zona-tactil flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronLeft size={15} />
             </button>
@@ -366,14 +368,14 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
               type="button"
               onClick={() => setFecha(masDias(fecha, 1))}
               aria-label="Día siguiente"
-              className="flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              className="zona-tactil flex size-8 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <ChevronRight size={15} />
             </button>
             {puedeCalendario && (
               <Link
                 href="/calendario"
-                className="ml-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="zona-tactil ml-1 rounded-full px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 Ver calendario
               </Link>
@@ -400,7 +402,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
             <button
               type="button"
               onClick={refrescar}
-              className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
+              className="zona-tactil mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
             >
               <RefreshCw size={12} /> Reintentar
             </button>
@@ -513,7 +515,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
           {puedeCalendario && (
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="zona-tactil text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Ver calendario
             </Link>
@@ -528,7 +530,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
             <button
               type="button"
               onClick={refrescar}
-              className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
+              className="zona-tactil mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-brand-medio hover:underline"
             >
               <RefreshCw size={12} /> Reintentar
             </button>
@@ -743,7 +745,7 @@ function AccionClase({
       <button
         type="button"
         onClick={onRellenar}
-        className="rounded-full border border-border px-3 py-1.5 text-[11.5px] font-semibold text-foreground transition-colors hover:bg-muted"
+        className="zona-tactil rounded-full border border-border px-3 py-1.5 text-[11.5px] font-semibold text-foreground transition-colors hover:bg-muted"
       >
         Rellenar hueco{clase.huecos > 1 ? 's' : ''}
       </button>
@@ -766,8 +768,8 @@ function AccionClase({
         // En la home nueva, la acción que toca es la principal de la fila: oscura,
         // como manda brand/component-guidelines.md («Buscar sustituta» primary).
         className={nueva
-          ? 'inline-block rounded-full bg-primary px-3 py-1.5 text-[11.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
-          : 'inline-block rounded-full bg-brand px-3 py-1.5 text-[11.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95'}
+          ? 'zona-tactil inline-block rounded-full bg-primary px-3 py-1.5 text-[11.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90'
+          : 'zona-tactil inline-block rounded-full bg-brand px-3 py-1.5 text-[11.5px] font-semibold text-brand-foreground transition-[filter] hover:brightness-95'}
       >
         {texto}
       </Link>

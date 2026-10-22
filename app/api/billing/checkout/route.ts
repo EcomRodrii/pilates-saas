@@ -3,18 +3,21 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { priceIdDe } from '@/lib/billing/billing';
+import { complementosALaVenta, priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
+import { METADATA_REGIMEN } from '@/lib/billing/lectura-suscripcion';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
 import { pagaPlan } from '@/lib/billing/plan-gratis';
+import { planSueltoACancelarAlPasarACadena } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
 import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
 import { claveCheckoutLock, reclamarCheckoutLock, liberarCheckoutLock } from '@/lib/billing/checkout-lock';
 import {
-  leerCadenaDeLaSede, cadenaPagaSusSedes, consultarCadenaAntesDeIndividual, checkoutsAbiertosDeLasSedes, caducarCheckouts,
+  decidirPlanSuelto, consultarCadenaAntesDeIndividual, checkoutsAbiertosDeLasSedes, caducarCheckouts,
   MENSAJE_SEDE_INCLUIDA_EN_CADENA, MENSAJE_PAGO_DE_CADENA_A_MEDIAS, MENSAJE_PAGO_DE_SEDE_A_MEDIAS,
 } from '@/lib/billing/sede-incluida-en-cadena';
+import { leerCadenaParaGratis } from '@/lib/billing/convertir-a-gratis';
 import { leerRecompensaPendiente, canjearRecompensa, devolverRecompensa } from '@/lib/billing/recompensa-review-boost';
 
 // Suscripción del ESTUDIO al SaaS (Stripe Billing). Solo la propietaria puede
@@ -203,10 +206,8 @@ export async function POST(req: NextRequest) {
       // nueva, que dice qué reemplaza ESTE checkout. (`studio.subscription_id`
       // no lo pisa nadie: el trigger de cadena no propaga ese campo, ver
       // lib/billing/suscripcion-desplazada-por-cadena.ts.)
-      const cancelarAlConfirmar =
-        studio.subscription_id && studio.subscription_status && studio.subscription_status !== 'canceled'
-          ? (studio.subscription_id as string)
-          : null;
+      // Solo si la sede lo está pagando de verdad: ver `planSueltoACancelarAlPasarACadena`.
+      const cancelarAlConfirmar = planSueltoACancelarAlPasarACadena(studio);
 
       let customerId = cadena.stripe_customer_id;
       if (!customerId) {
@@ -291,23 +292,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Plan individual para una sede cuya cadena ya paga: sería un segundo cobro
-    // por lo mismo, y el guard de arriba no lo ve (la sede hereda el estado de la
-    // cadena, no su `subscription_id`). Se mira la BD y también a Stripe, porque
-    // el webhook tarda; un Checkout de cadena abierto se caduca (puede estar
-    // abandonado) y, si no se deja, no se abre este. Va antes de crear el cliente
-    // de la sede. Ver lib/billing/sede-incluida-en-cadena.ts.
+    // Plan individual para una sede de cadena (`decidirPlanSuelto`, ver
+    // lib/billing/sede-incluida-en-cadena.ts). Va antes de crear el cliente de la sede:
+    // · Si la cadena ya paga, sería un segundo cobro por lo mismo, y el guard de
+    //   arriba no lo ve (la sede hereda el estado de la cadena, no su
+    //   `subscription_id`).
+    // · Si no paga, solo la sede PRINCIPAL (la más antigua, la que elige
+    //   `leerCadenaParaGratis`) puede contratar un plan suelto; las demás se
+    //   reabren contratando Cadena (decisión del fundador, 15-oct-2026).
+    // Se mira la BD y también a Stripe, porque el webhook tarda; un Checkout de
+    // cadena abierto se caduca (puede estar abandonado) y, si no se deja, no se
+    // abre este.
     if (studio.cadena_id) {
       const cerrada = await cerrarCadena(studio.cadena_id as string);
       if (cerrada) return cerrada;
-      const cadena = await leerCadenaDeLaSede(admin, studio.cadena_id as string);
-      if (cadena && cadenaPagaSusSedes(cadena.estado)) {
-        return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
-      }
+      const cadena = await leerCadenaParaGratis(admin, studio);
+      const decision = decidirPlanSuelto(cadena && { estado: cadena.subscriptionStatus, esPrincipal: cadena.esPrincipal });
+      if (decision.accion === 'bloquear') return NextResponse.json({ error: decision.mensaje }, { status: 409 });
       // Si la sede comparte cliente con la cadena (las migradas en 0066), ya lo
       // mira `checkoutPrevio` de abajo, que además puede reutilizar su Checkout.
-      if (cadena?.clienteStripe && cadena.clienteStripe !== studio.stripe_customer_id) {
-        const enStripe = await consultarCadenaAntesDeIndividual(stripe, cadena.clienteStripe);
+      if (cadena?.stripeCustomerId && cadena.stripeCustomerId !== studio.stripe_customer_id) {
+        const enStripe = await consultarCadenaAntesDeIndividual(stripe, cadena.stripeCustomerId);
         if (enStripe.accion === 'bloquear') {
           return NextResponse.json({ error: MENSAJE_SEDE_INCLUIDA_EN_CADENA }, { status: 409 });
         }
@@ -344,10 +349,14 @@ export async function POST(req: NextRequest) {
       // estudio (lib/billing/trial.ts). Quien llega hasta aquí es porque
       // decidió pagar —durante su prueba o después de agotarla—, así que este
       // Checkout cobra desde el primer periodo.
+      // `regimen`: desde el 19-oct-2026, quien paga Founding por aquí lleva los
+      // complementos aparte (lib/billing/entitlements.ts `ADDONS`). El webhook
+      // lo pasa a `studios.regimen_addons`; las suscripciones de antes no lo
+      // traen y conservan el Founding completo.
       subscription_data: {
-        metadata: { studioId: studio.id, plan },
+        metadata: { studioId: studio.id, plan, ...(complementosALaVenta() ? METADATA_REGIMEN : {}) },
       },
-      metadata: { studioId: studio.id, plan },
+      metadata: { studioId: studio.id, plan, ...(complementosALaVenta() ? METADATA_REGIMEN : {}) },
       success_url: `${appUrl}/suscripcion?suscripcion=ok`,
       cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
       locale: 'es',

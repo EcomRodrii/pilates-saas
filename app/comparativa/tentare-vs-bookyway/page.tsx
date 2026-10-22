@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs BookyWay',
     description: 'Modelo de precio, sustitución de instructoras y elección de reformer — comparados con lo que consta en la web pública de BookyWay.',
@@ -25,14 +26,14 @@ export const metadata: Metadata = {
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sin suscripción ni cancelación, según su web'] },
-  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Sí, en la UE'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Datos alojados en la UE', tentare: ['yes', 'Base de datos en la UE; algunos proveedores, fuera (ver privacidad)'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', '«Reformer» es un tipo de actividad; no consta elegir máquina'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan Estudio'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
   // Nuevos ejes (bookyway.com/es/ y bookyway.com/es/sistema-de-reservas/, revisados el 29-sep-2026):
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo propio por sala, no solo un aforo global por clase; en el reformer, capacidad por puesto'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase; lo que no se toca hereda del estudio'], them: ['partial', 'Su web solo menciona límites de reservas semanales generales; no consta configuración por tipo de actividad'] },
   { feature: 'App instalable con la marca del estudio', tentare: ['yes', 'Instalable desde el navegador con el nombre, el icono y los colores del estudio; no pasa por App Store ni Google Play'], them: ['partial', 'App de reservas «para cualquier negocio», descargable en App Store y Google Play; no consta personalización de marca por estudio'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', '30 días de prueba, según su web («Prueba BookyWay gratis durante 30 días»); no consta si pide tarjeta de crédito'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', '30 días de prueba, según su web («Prueba BookyWay gratis durante 30 días»); no consta si pide tarjeta de crédito'] },
 ];
 
 
@@ -41,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta BookyWay?',
-    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'No tiene suscripción: según su web, tras 30 días de prueba se paga un único pago de 1,50 € por cada usuario adicional. Tentare funciona por cuota mensual: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
 ];
 
@@ -53,7 +54,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Sin suscripción: 1,50 € por cada usuario adicional tras 30 días',
   permanencia: 'Sin suscripción ni cancelación',
   destacado: { etiqueta: 'Elegir reformer', suyo: 'No consta: «Reformer» es un tipo de actividad', nuestro: 'Sí: cada alumna elige su máquina' },
-  respuesta: <>BookyWay es una app de reservas para muchos tipos de negocio que cobra por usuario en lugar de por mes. Para un estudio de Pilates en España, con alumnas que entran y salen cada temporada, un precio mensual fijo es más fácil de prever, y Tentare suma plaza por reformer, plazas fijas, cobros y sustituciones: desde 29 €/mes con IVA, sin permanencia.</>,
+  respuesta: <>BookyWay es una app de reservas para muchos tipos de negocio que cobra por usuario en lugar de por mes. Para un estudio de Pilates en España, con alumnas que entran y salen cada temporada, un precio mensual fijo es más fácil de prever, y Tentare suma plaza por reformer, plazas fijas, cobros y sustituciones: gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -62,7 +63,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>BookyWay no tiene cuota mensual: según su web, tras 30 días de prueba pagas 1,50 € por cada usuario adicional. En un estudio que cada septiembre recibe a decenas de alumnas nuevas, el coste depende de cuántas pasen por la puerta.</p>
-        <p>Tentare cobra un mes fijo: 29 €/mes con IVA hasta 150 alumnas activas, o 59 €/mes sin límite. Y cuenta las alumnas activas, no todas las que han pasado alguna vez. <Link href="/precios">Ver los planes</Link>.</p>
+        <p>Tentare tiene un precio mensual fijo: gratis hasta 150 alumnas activas y 250 reservas al mes, y 29 €/mes con IVA si pasas de ahí. Y cuenta las alumnas activas, no todas las que han pasado alguna vez. <Link href="/precios">Ver los planes</Link>.</p>
       </>
     ),
   },
@@ -74,11 +75,11 @@ export default function TentareVsBookyWayPage() {
       name="BookyWay"
       slug="tentare-vs-bookyway"
       logo={{ src: '/comparativa/logos/bookyway.svg', alt: 'Logo de BookyWay', height: 20, width: 120 }}
-      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que cobra por cada usuario adicional. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare es un software hecho para Pilates, con un precio mensual fijo que sabes desde el primer día.</>}
+      intro={<>BookyWay es una plataforma italiana de reservas para estudios y gimnasios que cobra por cada usuario adicional. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare es un software hecho para Pilates, con un precio mensual fijo que sabes desde el primer día.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras, con un precio mensual fijo y público. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: plaza por reformer, plazas fijas, cobros recurrentes y sustituciones de instructoras, con un precio mensual fijo y público. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de BookyWay (bookyway.com) a 29 de septiembre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. BookyWay es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

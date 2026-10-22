@@ -21,6 +21,7 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ESTADOS_VIVOS, leerPagosDelCliente, type SuscripcionPrevia } from './checkout-saas-previo.ts';
+import { cancelarSuscripciones, type ResultadoCancelaciones, type PlanSueltoQueCancelaCadena } from './cancelar-suscripcion-anterior.ts';
 
 export const MENSAJE_SEDE_INCLUIDA_EN_CADENA =
   'Esta sede ya está incluida en el plan de tu cadena, así que no necesita un plan propio.';
@@ -28,6 +29,9 @@ export const MENSAJE_PAGO_DE_CADENA_A_MEDIAS =
   'Hay un pago del plan de tu cadena a medias. Espera unos segundos y vuelve a intentarlo.';
 export const MENSAJE_PAGO_DE_SEDE_A_MEDIAS =
   'Hay un pago del plan de una de tus sedes a medias. Espera unos segundos y vuelve a intentarlo.';
+export const MENSAJE_SEDE_SOLO_CADENA =
+  'Esta sede forma parte de tu cadena, así que se contrata con el plan Cadena, que cubre todas tus sedes en una sola suscripción. '
+  + 'Founding Studio y Estudio son para un solo estudio: solo los puede contratar tu sede principal.';
 
 export interface CadenaDeLaSede {
   estado: string | null;
@@ -37,6 +41,42 @@ export interface CadenaDeLaSede {
 /** ¿La suscripción de la cadena cubre ya a sus sedes? */
 export function cadenaPagaSusSedes(estadoCadena: string | null | undefined): boolean {
   return estadoCadena != null && ESTADOS_VIVOS.includes(estadoCadena);
+}
+
+/**
+ * Lo que /suscripcion necesita para ofrecer planes a quien no paga (lo calcula
+ * /api/billing/status).
+ */
+export interface OpcionesDePlan {
+  /** Sede secundaria de una cadena: solo puede contratar Cadena (`decidirPlanSuelto`). */
+  soloCadena: boolean;
+  /** Planes sueltos que contratar Cadena cancelará: se avisa antes del botón de pagar. */
+  sueltosQueCancelaCadena: PlanSueltoQueCancelaCadena[];
+}
+
+export type DecisionPlanSuelto =
+  | { accion: 'seguir' }
+  | { accion: 'bloquear'; motivo: 'incluida-en-cadena' | 'solo-cadena'; mensaje: string };
+
+/**
+ * ¿Puede este estudio contratar un plan SUELTO (Founding Studio, Estudio)?
+ * `cadena` es la suya (null si no tiene): su estado y si esta sede es la
+ * principal, la más antigua, como la elige `leerCadenaParaGratis`.
+ *
+ * · Un estudio suelto, sí, como siempre.
+ * · Una sede de una cadena que paga, no: ya la paga la cadena.
+ * · Una sede SECUNDARIA de una cadena que no paga, tampoco: se reabre
+ *   contratando Cadena (decisión del fundador, 15-oct-2026). Si pudiera, una
+ *   cadena de N sedes saldría por 29 € × (N−1), con la principal en el plan
+ *   gratis, en vez de 149 €. Vale para contrataciones nuevas: una sede que ya
+ *   paga su plan suelto sigue como está (no llega aquí: ya tiene suscripción).
+ * · La sede PRINCIPAL, sí: es «un estudio», y es la que pasa al plan gratis.
+ */
+export function decidirPlanSuelto(cadena: { estado: string | null; esPrincipal: boolean } | null): DecisionPlanSuelto {
+  if (!cadena) return { accion: 'seguir' };
+  if (cadenaPagaSusSedes(cadena.estado)) return { accion: 'bloquear', motivo: 'incluida-en-cadena', mensaje: MENSAJE_SEDE_INCLUIDA_EN_CADENA };
+  if (!cadena.esPrincipal) return { accion: 'bloquear', motivo: 'solo-cadena', mensaje: MENSAJE_SEDE_SOLO_CADENA };
+  return { accion: 'seguir' };
 }
 
 /**
@@ -91,19 +131,100 @@ export async function checkoutsAbiertosDeLasSedes(
   cadenaId: string,
   clienteCadena: string,
 ): Promise<string[]> {
-  const { data, error } = await admin.from('studios').select('stripe_customer_id').eq('cadena_id', cadenaId);
-  if (error) throw new Error(`leer sedes: ${error.message}`);
-  const clientes = [...new Set(
-    ((data ?? []) as { stripe_customer_id: string | null }[])
-      .map(s => s.stripe_customer_id)
-      .filter((c): c is string => Boolean(c) && c !== clienteCadena),
-  )];
   const ids: string[] = [];
-  for (const cliente of clientes) {
+  for (const cliente of await clientesDeLasSedes(admin, cadenaId, clienteCadena)) {
     const { sesionesAbiertas } = await leerPagosDelCliente(stripe, cliente);
     ids.push(...sesionesAbiertas.map(s => s.id));
   }
   return ids;
+}
+
+/** Las sedes de la cadena (id y cliente de Stripe). Lanza si la lectura falla. */
+async function sedesDeLaCadena(admin: Pick<SupabaseClient, 'from'>, cadenaId: string): Promise<{ id: string; stripe_customer_id: string | null }[]> {
+  const { data, error } = await admin.from('studios').select('id, stripe_customer_id').eq('cadena_id', cadenaId);
+  if (error) throw new Error(`leer sedes: ${error.message}`);
+  return (data ?? []) as { id: string; stripe_customer_id: string | null }[];
+}
+
+/** Los clientes de Stripe de las sedes de la cadena, cada uno una vez y sin el de la propia cadena. */
+async function clientesDeLasSedes(admin: Pick<SupabaseClient, 'from'>, cadenaId: string, clienteCadena: string): Promise<string[]> {
+  return clientesDistintos(await sedesDeLaCadena(admin, cadenaId), clienteCadena);
+}
+
+function clientesDistintos(sedes: readonly { stripe_customer_id: string | null }[], clienteCadena: string): string[] {
+  return [...new Set(sedes.map(s => s.stripe_customer_id).filter((c): c is string => Boolean(c) && c !== clienteCadena))];
+}
+
+/**
+ * Lo que una suscripción SUELTA de una sede puede estar haciendo y la de la
+ * cadena viene a sustituir: cobrar (`ESTADOS_VIVOS`) o estar a medio cobrar
+ * ('incomplete'). ⚠️ Cancelar la suscripción no para un cobro que ya esté en
+ * vuelo (un SEPA en `processing`): si acaba cobrándose, hay que devolverlo a mano.
+ */
+export const ESTADOS_SUELTA_A_CANCELAR: readonly string[] = [...ESTADOS_VIVOS, 'incomplete'];
+
+/**
+ * Estados en que la cadena manda sobre sus sedes en la BD: los mismos que usa
+ * `propagar_plan_cadena` (migr 20261015141653) para pisar el plan de una sede.
+ * 'unpaid' no: el trigger no la pisaría, y la sede se quedaría sin plan pagado.
+ */
+const CADENA_MANDA_EN_SUS_SEDES: readonly string[] = ['active', 'trialing', 'past_due'];
+
+const COMENTARIO_CANCELACION = 'Sustituida por la suscripción de su cadena (Tentare cancela el plan suelto de la sede al confirmarse Cadena).';
+
+export interface ResultadoSueltasDeLasSedes extends ResultadoCancelaciones {
+  /**
+   * Suscripciones vivas en el cliente de una sede que NO son el plan suelto de
+   * una sede de esta cadena (otra cadena, otro producto, sin metadata): no se
+   * tocan, se avisan para revisarlas a mano.
+   */
+  revisar: string[];
+}
+
+/**
+ * Al confirmarse la suscripción de una cadena, cancela los planes SUELTOS que
+ * sigan vivos en los clientes de TODAS sus sedes (distintos del de la cadena).
+ * Sin esto, contratar Cadena desde una sede secundaria dejaba cobrando el plan
+ * suelto de la principal (la que pasó a Founding Studio de pago desde el gratis):
+ * `cancelarSuscripcionAnterior` solo conoce la de la sede desde la que se pagó.
+ *
+ * · Solo con la cadena en un estado en que manda sobre sus sedes (el de
+ *   `propagar_plan_cadena`): un Checkout a medias no cancela nada que funcione.
+ * · Solo planes sueltos de ESTA cadena: `metadata.studioId` de una de sus sedes
+ *   y sin `metadata.cadenaId`. Lo demás vivo va a `revisar`.
+ * · Idempotente: se pregunta a Stripe en cada evento, y lo ya cancelado no sale.
+ * · Nunca la de la propia cadena, aunque estuviera en un cliente de una sede.
+ * · Un cliente que no se puede leer no frena a los demás: va a `errores`.
+ * Lanza solo si no puede leer las sedes.
+ */
+export async function cancelarSueltasDeLasSedes(
+  admin: Pick<SupabaseClient, 'from'>,
+  stripe: Pick<Stripe, 'subscriptions'>,
+  cadena: { id: string; clienteStripe: string; suscripcion: { id: string; status: string } },
+): Promise<ResultadoSueltasDeLasSedes> {
+  if (!CADENA_MANDA_EN_SUS_SEDES.includes(cadena.suscripcion.status)) return { canceladas: [], errores: [], revisar: [] };
+  const sedes = await sedesDeLaCadena(admin, cadena.id);
+  const idsSedes = new Set(sedes.map(s => s.id));
+  const sueltas: string[] = [];
+  const revisar: string[] = [];
+  const errores: ResultadoCancelaciones['errores'] = [];
+  for (const cliente of clientesDistintos(sedes, cadena.clienteStripe)) {
+    let subs: { id: string; status: string; metadata?: Record<string, string> | null }[];
+    try {
+      // Hasta 100: con `limit` 20, unos cuantos 3DS abandonados podían esconder una viva más antigua.
+      subs = (await stripe.subscriptions.list({ customer: cliente, status: 'all', limit: 100 })).data;
+    } catch (error) {
+      errores.push({ id: cliente, error });
+      continue;
+    }
+    for (const s of subs) {
+      if (s.id === cadena.suscripcion.id || !ESTADOS_SUELTA_A_CANCELAR.includes(s.status)) continue;
+      const deUnaSede = !s.metadata?.cadenaId && !!s.metadata?.studioId && idsSedes.has(s.metadata.studioId);
+      (deUnaSede ? sueltas : revisar).push(s.id);
+    }
+  }
+  const r = await cancelarSuscripciones(stripe, sueltas, { comentario: COMENTARIO_CANCELACION });
+  return { canceladas: r.canceladas, errores: [...errores, ...r.errores], revisar };
 }
 
 /**

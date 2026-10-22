@@ -198,7 +198,7 @@ test('⌘K: una tarea que lleva a la misma tarjeta que un ajuste no sale dos vec
 
   const conHref = (href: string) => ({ href });
   // Otra ancla de la misma sección es otro sitio.
-  assert.equal(sinTareasRepetidas([conHref('/configuracion?tab=cobros#integracion-stripe')], ajustes).length, 1);
+  assert.equal(sinTareasRepetidas([conHref('/configuracion?tab=conexiones#integracion-stripe')], ajustes).length, 1);
   // Un `?tab=` viejo cuenta como la sección que abre hoy.
   assert.deepEqual(
     sinTareasRepetidas([conHref('/configuracion?tab=clases-salas')], [conHref('/configuracion?tab=clases')]),

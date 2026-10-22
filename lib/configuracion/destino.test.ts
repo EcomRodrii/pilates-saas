@@ -32,14 +32,14 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
   const casos: [string, ReturnType<typeof resolverHref>][] = [
     // Los que aterrizaban mal (auditoría del 15-sep).
     // (Desde el 15-sep, v2, canjes y salas viven en la pantalla de su herramienta.)
-    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
+    ['/configuracion?tab=gamificacion&sub=canjes', { tab: 'motivacion', abrir: 'canjes' }],
     ['/configuracion?tab=clases-salas&sub=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=estudio&sub=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=estudio&sub=general#datos-fiscales', { tab: 'cobros', ancla: 'datos-fiscales' }],
     // Las vueltas de una conexión, sin `tab=` o con uno viejo: a la sección que
     // pinta HOY su tarjeta, que es la única que enseña el aviso.
-    ['/configuracion?stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?stripe_connect_error=Stripe%20no%20configurado', { tab: 'conexiones', ancla: 'integracion-stripe' }],
     ['/configuracion?google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?google_calendar_error=x', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?zoom_connected=1', { tab: 'conexiones', ancla: 'integracion-zoom' }],
@@ -48,19 +48,23 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?klaviyo_error=x', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
     // «Más integraciones» se partió en una fila por conexión (15-sep, v2): su ancla, a la primera.
     ['/configuracion?tab=conexiones#mas-integraciones', { tab: 'conexiones', ancla: 'integracion-kisi' }],
-    ['/configuracion?whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
     // Lo que mandaban los cinco callbacks y el Embedded Signup hasta el 15-sep.
-    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=integraciones&stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
     ['/configuracion?tab=integraciones&google_calendar_connected=1', { tab: 'conexiones', ancla: 'integracion-google_calendar' }],
     ['/configuracion?tab=integraciones&zoom_error=x', { tab: 'conexiones', ancla: 'integracion-zoom' }],
     ['/configuracion?tab=integraciones&klaviyo_connected=1', { tab: 'conexiones', ancla: 'integracion-klaviyo' }],
-    ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=conexiones&whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
     // Lo que mandan hoy.
-    ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?tab=comunicacion&whatsapp_connected=1', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
-    // Tarjetas que cambiaron de sección el 15-sep: su ancla las sigue.
-    ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'cobros', ancla: 'integracion-stripe' }],
-    ['/configuracion?tab=conexiones#integracion-whatsapp', { tab: 'comunicacion', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=cobros&stripe_connected=1', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=comunicacion&whatsapp_connected=1', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
+    // Tarjetas que cambiaron de sección (15-sep; Stripe y WhatsApp, a Integraciones el 16-oct): su ancla las sigue, también con el `tab=` de antes.
+    ['/configuracion?tab=cobros#integracion-stripe', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=cobros#datafono', { tab: 'conexiones', ancla: 'datafono' }],
+    ['/configuracion?tab=comunicacion#integracion-whatsapp', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
+    ['/configuracion?tab=comunicacion#integracion-gmail', { tab: 'conexiones', ancla: 'integracion-gmail' }],
+    ['/configuracion?tab=conexiones#integracion-stripe', { tab: 'conexiones', ancla: 'integracion-stripe' }],
+    ['/configuracion?tab=conexiones#integracion-whatsapp', { tab: 'conexiones', ancla: 'integracion-whatsapp' }],
     ['/configuracion?tab=integraciones#integracion-resend', { tab: 'comunicacion', ancla: 'integracion-resend' }],
     // «Exportar a Excel» se retiró: su ancla lleva a la única exportación que queda.
     ['/configuracion?tab=conexiones#integracion-excel', { tab: 'datos', ancla: 'exportar' }],
@@ -100,10 +104,10 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=clases-salas&sub=clases', { tab: 'clases', abrir: 'tipos-de-clase' }],
     ['/configuracion?tab=citas&sub=servicios', { tab: 'clases', ancla: 'servicios-de-cita' }],
     ['/configuracion?tab=citas&sub=horario', { tab: 'clases', ancla: 'horario-de-citas' }],
-    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'recompensas' }],
-    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'logros' }],
-    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'niveles' }],
-    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion?tab=gamificacion&sub=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
+    ['/configuracion?tab=gamificacion&sub=logros', { tab: 'motivacion', ancla: 'logros' }],
+    ['/configuracion?tab=gamificacion&sub=niveles', { tab: 'motivacion', ancla: 'niveles' }],
+    ['/configuracion?tab=gamificacion&sub=retos', { tab: 'motivacion', ancla: 'retos' }],
     ['/configuracion?tab=estudio&sub=general', { tab: 'estudio' }],
     ['/configuracion?tab=estudio&sub=sedes', { tab: 'estudio', ancla: 'sedes' }],
     ['/configuracion?tab=estudio&sub=horario', { tab: 'estudio', ancla: 'horario' }],
@@ -118,11 +122,11 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=api&sub=widgets', { tab: 'web', abrir: 'widgets' }],
     ['/configuracion?tab=api&sub=crecimiento', { tab: 'web', abrir: 'widgets' }],
     // Los alias que ya existían.
-    ['/configuracion?tab=recompensas', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'recompensas' }],
-    ['/configuracion?tab=canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
-    ['/configuracion?tab=logros', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'logros' }],
-    ['/configuracion?tab=niveles', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'niveles' }],
-    ['/configuracion?tab=retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion?tab=recompensas', { tab: 'motivacion', ancla: 'recompensas' }],
+    ['/configuracion?tab=canjes', { tab: 'motivacion', abrir: 'canjes' }],
+    ['/configuracion?tab=logros', { tab: 'motivacion', ancla: 'logros' }],
+    ['/configuracion?tab=niveles', { tab: 'motivacion', ancla: 'niveles' }],
+    ['/configuracion?tab=retos', { tab: 'motivacion', ancla: 'retos' }],
     ['/configuracion?tab=clases', { tab: 'clases' }],
     ['/configuracion?tab=salas', { tab: 'estudio', abrir: 'salas' }],
     ['/configuracion?tab=servicios-cita', { tab: 'clases', ancla: 'servicios-de-cita' }],
@@ -141,8 +145,12 @@ test('tabla: cada enlace llega a su sección y a su tarjeta', () => {
     ['/configuracion?tab=clases#tipos-de-clase', { tab: 'clases', abrir: 'tipos-de-clase' }],
     ['/configuracion?tab=comunicacion#correos-automaticos', { tab: 'comunicacion', abrir: 'correos-automaticos' }],
     ['/configuracion?tab=web#contenido-de-tu-app', { tab: 'web', abrir: 'contenido-de-tu-app' }],
-    ['/configuracion#canjes', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' }],
-    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros#retos', { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'retos' }],
+    ['/configuracion#canjes', { tab: 'motivacion', abrir: 'canjes' }],
+    // La herramienta «Recompensas, logros y retos» ya no existe (20-oct): sus
+    // enlaces viejos abren Motivación, y los códigos de descuento, Cobros.
+    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros#retos', { tab: 'motivacion', ancla: 'retos' }],
+    ['/configuracion?tab=motivacion&abrir=recompensas-y-logros', { tab: 'motivacion' }],
+    ['/configuracion?tab=motivacion&abrir=codigos-descuento', { tab: 'cobros', abrir: 'codigos-descuento' }],
     ['/configuracion?tab=web&abrir=widgets#no-es-una-tarjeta', { tab: 'web', abrir: 'widgets', ancla: 'no-es-una-tarjeta' }],
     // Un ancla de la sección cierra la herramienta: se ve la tarjeta que se pide.
     ['/configuracion?tab=web&abrir=widgets#network', { tab: 'web', ancla: 'network' }],
@@ -212,8 +220,8 @@ test('las doce pestañas de antes y todas sus sub-pestañas tienen sitio hoy', (
 });
 
 test('los parámetros de conexión mandan sobre un tab= distinto, y el ancla conocida también', () => {
-  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'cobros', ancla: 'integracion-stripe' });
-  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', abrir: 'recompensas-y-logros', ancla: 'canjes' });
+  assert.deepEqual(resolverDestino({ tab: 'estudio', params: { stripe_connected: '1' } }), { tab: 'conexiones', ancla: 'integracion-stripe' });
+  assert.deepEqual(resolverDestino({ tab: 'clases', hash: '#canjes' }), { tab: 'motivacion', abrir: 'canjes' });
   // Una herramienta abre su sección, con cualquier otro `tab=`.
   assert.deepEqual(resolverDestino({ tab: 'cobros', params: { abrir: 'widgets' } }), { tab: 'web', abrir: 'widgets' });
   assert.deepEqual(resolverDestino({ tab: 'cobros', hash: 'otra-cosa' }), { tab: 'cobros', ancla: 'otra-cosa' });
@@ -260,8 +268,8 @@ test('las pantallas sueltas de antes llevan a su sección, y sus páginas rediri
   }
 });
 
-test('la propietaria ve las quince secciones; la gerencia, tres (con la demo) y solo con sus tarjetas; recepción e instructora, ninguna', () => {
-  assert.equal(seccionesVisibles('PROPIETARIO').length, 15);
+test('la propietaria ve las catorce secciones; la gerencia, dos y solo con sus tarjetas; recepción e instructora, ninguna', () => {
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
   assert.deepEqual(seccionesVisibles('INSTRUCTOR'), []);
 
@@ -269,10 +277,9 @@ test('la propietaria ve las quince secciones; la gerencia, tres (con la demo) y 
   // que lleva de su sede: ni el nombre del estudio, ni las sedes, ni los
   // servicios de cita (que llevan precio).
   const gerencia = seccionesVisibles('MANAGER');
-  assert.deepEqual(gerencia.map(s => s.id), ['estudio', 'clases', 'demo']);
+  assert.deepEqual(gerencia.map(s => s.id), ['estudio', 'clases']);
   assert.deepEqual(gerencia[0].tarjetas.map(t => t.id), ['horario', 'cerrar-el-centro', 'salas']);
   assert.deepEqual(gerencia[1].tarjetas.map(t => t.id), ['tipos-de-clase', 'horario-de-citas']);
-  assert.deepEqual(gerencia[2].tarjetas.map(t => t.id), ['video-de-la-demo']);
   // Y a la propietaria no se le recorta ninguna.
   for (const s of seccionesVisibles('PROPIETARIO')) {
     assert.equal(s.tarjetas.length, seccionPorId(s.id).tarjetas.length, s.id);
@@ -349,15 +356,15 @@ test('cada tarjeta de secciones.ts existe de verdad como id en un componente', (
 
 test('cada integración tiene su fila en la sección de su tarjeta, y solo en esa', () => {
   // Desde el 15-sep (v2) no hay catálogo de tarjetas de integraciones: cada una
-  // es una fila con UN estado. Stripe en Cobros, el remitente, WhatsApp y Gmail
-  // en Cómo me comunico, y el resto en Conexiones. Si una sección la pintara y
+  // es una fila con UN estado. Todas en Integraciones desde el 16-oct (Stripe,
+  // datáfono, WhatsApp, Gmail), salvo el remitente, en Cómo me comunico. Si una sección la pintara y
   // otra la tuviera en secciones.ts, su ancla, «Revisa esto» y la vuelta de su
   // conexión llevarían a una sección donde no está.
   assert.ok(!existsSync(join(RAIZ, 'components/configuracion/tab-integraciones.tsx')), 'vuelve a haber un catálogo de tarjetas de integraciones');
   const FICHEROS: Partial<Record<SeccionId, string[]>> = {
-    cobros: ['secciones/seccion-cobros.tsx', 'cobro-con-tarjeta.tsx'],
-    comunicacion: ['secciones/seccion-comunicacion.tsx', 'canales-comunicacion.tsx'],
-    conexiones: ['secciones/seccion-conexiones.tsx', 'conexiones.tsx'],
+    cobros: ['secciones/seccion-cobros.tsx'],
+    comunicacion: ['secciones/seccion-comunicacion.tsx'],
+    conexiones: ['secciones/seccion-conexiones.tsx', 'conexiones.tsx', 'cobro-con-tarjeta.tsx', 'canales-comunicacion.tsx', 'datafono.tsx'],
   };
   const leer = (s: SeccionId) => (FICHEROS[s] ?? []).map(f => readFileSync(join(RAIZ, 'components/configuracion', f), 'utf8')).join('\n');
   const tieneFila = (codigo: string, id: string) => codigo.includes(`id="${id}"`) || codigo.includes(`id: '${id}'`);

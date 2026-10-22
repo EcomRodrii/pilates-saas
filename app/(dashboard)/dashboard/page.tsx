@@ -55,6 +55,7 @@ import { useConteoDecidir } from '@/lib/estado-estudio-cliente';
 import { VentasRecientes } from '@/components/dashboard/ventas-recientes';
 import { EmbudoWidgetCard } from '@/components/dashboard/embudo-widget-card';
 import { ResumenNuevo } from '@/components/dashboard/resumen-nuevo';
+import { CompartirDesdeEnlace } from '@/components/guia/compartir-desde-enlace';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Code-split (mismo patrón que components/configuracion/shell/config-shell.tsx):
@@ -140,6 +141,8 @@ const actividadConfig: Record<TipoActividad, { color: string; bg: string; label:
   // Aviso: tocar la seguridad de la cuenta de una alumna tiene que verse.
   DOBLE_FACTOR_QUITADO: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Seguridad' },
   PLAZA_PLATAFORMA_LIBERADA: { color: 'var(--info)', bg: 'color-mix(in srgb, var(--info) 12%, var(--card))', label: 'ClassPass' },
+  // Aviso: un código que valía una vez se usó dos (una venta ya cobrada, asignada después).
+  CODIGO_REPETIDO_AL_ASIGNAR: { color: 'var(--warning)', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', label: 'Código repetido' },
 };
 
 // ─── Sparkline SVG Chart ──────────────────────────────────────────────────────
@@ -724,7 +727,7 @@ export default function Dashboard() {
           <div key={r.id} className="flex items-center gap-3 px-5 py-3">
             <Link
               href={`/clientas/${r.socioId}`}
-              className="w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
+              className="zona-tactil w-8 h-8 rounded-full bg-info/10 text-brand-medio font-bold text-[10px] flex items-center justify-center shrink-0 hover:opacity-75 transition-opacity"
             >
               {r.socio!.nombre[0]}
               {r.socio!.apellidos[0]}
@@ -746,7 +749,7 @@ export default function Dashboard() {
                   else showToast(res.error, { variant: 'error' });
                 })}
                 className={panelNuevo
-                ? 'rounded-full border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted'
+                ? 'zona-tactil rounded-full border border-border px-3 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-muted'
                 : 'text-[11px] font-bold px-3 py-1.5 rounded-lg bg-brand text-brand-foreground hover:brightness-95 transition-colors'}
               />
             </div>
@@ -771,6 +774,8 @@ export default function Dashboard() {
   if (panelNuevo) {
     return (
       <div data-tour="resumen-vista">
+        {/* `?compartir=1`: el aviso de las 72 h sin reservas abre aquí «Comparte tu enlace». */}
+        <CompartirDesdeEnlace />
         <ResumenNuevo
           titulo={nombrePropio ? `${saludo}, ${nombrePropio}` : saludo}
           fecha={capitalizarPrimera(mesFecha)}
@@ -813,6 +818,7 @@ export default function Dashboard() {
   return (
 
     <div data-tour="resumen-vista">
+      <CompartirDesdeEnlace />
       <div className="flex flex-col gap-5">
 
         {/* ── Header (fijo arriba, no reordenable) ───────────────────────────── */}

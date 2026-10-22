@@ -498,7 +498,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Conectar Stripe', href: '/configuracion?tab=cobros#integracion-stripe' },
+      { label: 'Conectar Stripe', href: '/configuracion?tab=conexiones#integracion-stripe' },
       { label: 'Ver quién me debe', href: '/cobros' },
     ],
     consejo: 'Antes de cobrarle a nadie de verdad, haz una compra de prueba desde tu propia página con un importe pequeño. Ver el recibo aparecer solo es la mejor forma de fiarte del sistema.',
@@ -577,8 +577,11 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Lleva tu nombre, tu logo y tus colores. Para tus alumnas es la app de tu estudio. Hoy puedes cambiar el logo, el favicon, los colores de marca y los textos que se leen al entrar.',
       },
       {
-        titulo: 'Tu tablón',
-        texto: 'En «Contenido de tu app» (Configuración → Mi app y mi web) pones el mensaje destacado que ven al entrar y los avisos del estudio. Cada tarjeta nace oculta: no se publica hasta que tú lo dices.',
+        // Decía «pones el mensaje destacado que ven al entrar y los avisos del estudio»:
+        // ninguna pantalla de su app enseña ninguno de los dos (sí las tarjetas). Y
+        // «tablón» es el de Comunidad, que es otra cosa y ese sí se ve.
+        titulo: 'Tus tarjetas de «Descubre»',
+        texto: 'En «Contenido de tu app» (Configuración → Mi app y mi web) publicas las tarjetas con foto que ven al entrar en su app. Cada tarjeta nace oculta: no se publica hasta que tú lo dices.',
       },
       {
         titulo: 'El editor de marca completo, ahora mismo',
@@ -586,7 +589,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Personalizar mi tablón', href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
+      { label: 'Publicar una tarjeta', href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
       { label: 'Mi logo y mi color', href: '/configuracion?tab=marca' },
       { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
     ],
@@ -724,7 +727,7 @@ export const CAPITULOS: CapituloGuia[] = [
     acciones: [
       { label: 'Activar mis automatizaciones', href: '/automatizaciones' },
       { label: 'Mis correos', href: '/configuracion?tab=comunicacion&abrir=correos-automaticos' },
-      { label: 'Conectar WhatsApp', href: '/configuracion?tab=comunicacion#integracion-whatsapp' },
+      { label: 'Conectar WhatsApp', href: '/configuracion?tab=conexiones#integracion-whatsapp' },
     ],
     consejo: 'Empieza por recuperar a quien no viene y vive con ello dos semanas. Encender cinco cosas a la vez hace imposible saber cuál funcionó.',
     pasos: ['ausencias', 'nuevas'],

@@ -64,8 +64,10 @@ export function urlServida(url: string, ancho: number): string {
 /**
  * El `srcset` para un hueco de ancho FIJO, por densidad de pantalla (`1x/2x/3x`).
  *
- * ⚠️ Solo vale si el hueco NO cambia con el viewport — la tarjeta de «Descubre»
- * mide 172 px siempre. Para una imagen que ocupa el ancho disponible hay que
+ * ⚠️ Solo vale si el hueco NO cambia con el viewport — un avatar o una miniatura
+ * de 48 px miden lo mismo en cualquier móvil. La tarjeta de «Descubre» ya no: es
+ * 16:9 y mide lo que la pantalla menos 76 px, así que va por ancho. Para una
+ * imagen que ocupa el ancho disponible hay que
  * usar `srcSetPorAncho` + `sizes`: con densidades, el navegador elige `3x` de lo
  * que se declare como `1x`, así que declarar el ancho de ESCRITORIO le hace
  * bajar la mayor a un móvil. Medido en WebKit/iPhone (DPR 3): con un hueco real

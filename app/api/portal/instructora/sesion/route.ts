@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { fichaInstructoraPendiente, verificarInstructoraEnEstudio } from '@/lib/auth-instructora';
 import { verificarUsuarioSupabase } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { resolverStudioPorSlug } from '@/lib/db/supabase-data-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
+import { marcarUso } from '@/lib/retencion/marcar-uso';
 
 // ¿La cuenta de la app es instructora de ESTE estudio?
 //
@@ -34,6 +35,10 @@ export async function POST(req: NextRequest) {
         { status: 404 },
       );
     }
+    // La app del equipo cuenta como uso del estudio, igual que el panel (una vez
+    // al día, solo con BAJAS_AUTOMATICAS=informe), después de contestar.
+    const admin = getSupabaseAdmin();
+    if (admin) after(() => marcarUso(admin, 'panel', sesion.studioId));
     return NextResponse.json({
       instructora: { instructorId: sesion.instructorId, nombre: sesion.nombre, fotoUrl: sesion.fotoUrl },
     });

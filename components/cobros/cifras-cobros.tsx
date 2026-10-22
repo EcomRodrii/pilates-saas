@@ -112,7 +112,7 @@ export function GraficaCobros({ datos, onVerCobrado }: { datos: DatosCobros; onV
       alDia={alDia}
       href={null}
       pie={(
-        <button type="button" onClick={onVerCobrado} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
+        <button type="button" onClick={onVerCobrado} className="zona-tactil mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
           Ver lo que he cobrado <ArrowRight size={14} aria-hidden />
         </button>
       )}

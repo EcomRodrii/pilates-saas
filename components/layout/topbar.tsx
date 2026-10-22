@@ -8,6 +8,7 @@ import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 
@@ -83,16 +84,19 @@ export function Topbar() {
     // de este fondo translúcido. La variable la escribe el propio menú al
     // MEDIRSE (`aplicarHuecos`), que es lo único que no se queda desfasado
     // cuando la barra crece de dos filas a tres.
-    // Glass ligero de la marca (brand/tokens.css): fondo al 80 % —que en claro
-    // es justo `--t-glass-light-bg`— y su desenfoque. El fondo sale de
-    // `--background` y no del token porque el glass en oscuro no está definido
-    // (OPEN DECISION): así sigue al modo, como siempre.
-    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background/80 backdrop-blur-(--t-glass-light-blur)">
+    // ⚠️ OPACA (15-oct-2026, decisión 9 de «Mi app y mi web»). Antes era un glass
+    // al 80 % con desenfoque y lo que pasaba por debajo —filas de tabla, cabeceras
+    // pegajosas, la vista previa de Widgets— se leía a medias detrás de la
+    // barra, en claro y en oscuro. El fondo sigue saliendo de `--background` y no
+    // de un token de glass, así acompaña al modo. Una barra pegajosa no se vuelve
+    // translúcida: lo vigila `lib/barra-superior-opaca.test.ts` y se mide en
+    // `e2e/panel-nuevo-barra-opaca.spec.ts`.
+    <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background">
       <div className="flex items-center gap-2 flex-1 max-w-[440px]">
         <button
           onClick={() => abrirBuscador(true)}
           data-tour="buscador"
-          className="flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
+          className="zona-tactil flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
         >
           <Zap size={14} aria-hidden="true" className="shrink-0" />
           <Search size={14} aria-hidden="true" className="shrink-0 opacity-70" />
@@ -108,7 +112,11 @@ export function Topbar() {
           />
         )}
       </div>
-      <div className="flex items-center gap-1.5">
+      {/* `tactil:gap-2`: con el dedo, cada icono (36 px) gana 4 a cada lado hasta
+          los 44 de su zona táctil; con 6 de hueco se pisaban 2. */}
+      <div className="flex items-center gap-1.5 tactil:gap-2">
+        {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
+        <PrimerosPasosFlotante />
         <PildoraPrueba className="mr-1" />
         <IconButton
           label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
@@ -119,7 +127,7 @@ export function Topbar() {
         <Link
           href="/mensajeria"
           title="Mensajería"
-          className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
+          className="zona-tactil w-9 h-9 flex items-center justify-center rounded-full hover:bg-background text-muted-foreground transition-colors"
         >
           <Inbox size={16} />
         </Link>

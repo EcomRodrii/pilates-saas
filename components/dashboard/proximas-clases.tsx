@@ -174,7 +174,7 @@ export function ProximasClases({ nueva = false }: { nueva?: boolean } = {}) {
           {puedeCalendario && (
             <Link
               href="/calendario"
-              className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="zona-tactil text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               Ver todas
             </Link>

@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 import { DEFAULT_THEME } from '../lib/theme-schema';
+import { temaAppCssText } from '../lib/student/apariencia';
 
 // «Apariencia de tu app» (Configuración): elegir estilo, tipografía y color,
 // verlo en la app REAL de la vista previa y publicarlo.
@@ -41,7 +42,9 @@ async function preparar(page: Page, publicar: (cuerpo: { campos: Record<string, 
 const ALUMNA = 'Alumna Prueba';
 
 /** El saludo de Inicio sin nombre: el de la propietaria, que no es alumna. */
-const SALUDO_SIN_NOMBRE = /^Buen(os días|as tardes|as noches) 👋$/;
+// El saludo de Inicio desde la maqueta de oct-2026: «Hola» sin sesión, «Hola, <nombre de pila>» con ella.
+const SALUDO_SIN_NOMBRE = /^Hola$/;
+const SALUDO_ALUMNA = new RegExp(`^Hola, ${ALUMNA.split(' ')[0]}$`);
 const VISTA_PREVIA = 'iframe[title="Vista previa de la app de tus alumnas"]';
 
 /**
@@ -150,7 +153,7 @@ test.describe('Apariencia de tu app', () => {
     // Arranca en Inicio DE VERDAD. Sin esto el `.st-auth-hero` del final ya
     // estaba ahí desde el principio (el login) y el «salta» no probaba nada.
     const marco = page.frameLocator(VISTA_PREVIA);
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
+    await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
 
     await page.getByLabel('Titular de la entrada').fill('Respira.\nEmpieza.');
@@ -162,7 +165,7 @@ test.describe('Apariencia de tu app', () => {
     // Y se enseña dónde se lee: la vista previa pasa a la pantalla de entrada.
     await expect(page.getByRole('radio', { name: 'Entrada', exact: true })).toHaveAttribute('aria-checked', 'true');
     await expect(marco.locator('.st-auth-hero')).toBeVisible({ timeout: 60_000 });
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toHaveCount(0);
+    await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toHaveCount(0);
   });
 
   test('la vista previa cambia entre Inicio y Entrada, sin que la propietaria sea alumna', async ({ page }) => {
@@ -205,7 +208,7 @@ test.describe('Apariencia de tu app', () => {
     await ir(page, 'configuracion/apariencia');
     await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
     const marco = page.frameLocator(VISTA_PREVIA);
-    await expect(marco.getByRole('heading', { name: new RegExp(ALUMNA) })).toBeVisible({ timeout: 60_000 });
+    await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toBeVisible({ timeout: 60_000 });
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
     expect(alumna.sesiones()).toBeGreaterThan(0);
   });
@@ -232,6 +235,74 @@ test.describe('Apariencia de tu app', () => {
     await expect(page).toHaveURL(/\/portal\/pilates-centro\/acceso\/login\?next=/, { timeout: 30_000 });
     await expect(page.locator('.st-auth-hero')).toBeVisible();
     await expect(page.getByRole('heading', { name: SALUDO_SIN_NOMBRE })).toHaveCount(0);
+  });
+
+  test('con Carbón/Editorial/botón en su color PUBLICADOS, un borrador Crema/Moderna/tinta se ve tal cual', async ({ page }) => {
+    // El servidor del e2e publica el tema de serie, así que lo publicado se
+    // pinta a mano igual que lo hace el layout de la app: un `<style>` dentro
+    // de `.student-app`, en el <body>, DESPUÉS del borrador del <head>. Antes
+    // el borrador solo traía lo que difería del kit y aquí se quedaban el
+    // fondo oscuro, la letra Editorial y el botón en el color de marca.
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => fondoDeLaApp(page)).toBe('#FAF9F5');
+    const publicado = temaAppCssText('#A85C72', { estilo: 'carbon', tipografia: 'editorial', marca: 'fiel', boton: 'marca', encuadre: 'arriba' });
+    const marco = page.frameLocator(VISTA_PREVIA);
+    await marco.locator('.student-app').first().evaluate((el, css) => {
+      const s = document.createElement('style');
+      s.textContent = css;
+      el.prepend(s);
+    }, publicado);
+    const visto = () => marco.locator('.student-app').first().evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const v = (p: string) => cs.getPropertyValue(p).trim();
+      // La letra, por la familia que de verdad pinta un párrafo y un título
+      // (Editorial es Libre Caslon + Figtree; Moderna, Plus Jakarta Sans).
+      const p = document.createElement('p');
+      const h = document.createElement('h1');
+      h.className = 't-h1';
+      el.append(p, h);
+      const letra = `${getComputedStyle(p).fontFamily} | ${getComputedStyle(h).fontFamily}`;
+      p.remove(); h.remove();
+      return {
+        fondo: v('--background').toUpperCase(), boton: v('--primary').toUpperCase(), portada: v('--portada-y'),
+        editorial: /Figtree|Caslon/i.test(letra), jakarta: /Jakarta/i.test(letra),
+        body: getComputedStyle(document.body).backgroundColor,
+        esquema: getComputedStyle(document.documentElement).colorScheme,
+      };
+    });
+    await expect.poll(visto).toEqual({
+      fondo: '#FAF9F5', boton: '#1A1A1A', portada: '', editorial: false, jakarta: true,
+      body: 'rgb(250, 249, 245)', esquema: 'light',
+    });
+  });
+
+  test('con la página oculta, la vista previa lo dice en vez de enseñar el cartel sin explicación', async ({ page }) => {
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    let lecturas = 0;
+    await page.route((u) => u.pathname === '/api/pagina-publica', (r) => {
+      lecturas++;
+      return json(r, { oculta: true, tieneClave: false });
+    });
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('aviso-pagina-oculta-apariencia')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('aviso-pagina-oculta-apariencia')).toContainText('Tu página está oculta');
+    expect(lecturas).toBeGreaterThan(0);
+  });
+
+  test('con la página visible (o sin saberlo), no hay aviso de página oculta', async ({ page }) => {
+    await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
+    let lecturas = 0;
+    await page.route((u) => u.pathname === '/api/pagina-publica', (r) => {
+      lecturas++;
+      return json(r, { oculta: false, tieneClave: false });
+    });
+    await ir(page, 'configuracion/apariencia');
+    await expect(page.getByRole('heading', { name: 'Apariencia de tu app' })).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => lecturas, { timeout: 30_000 }).toBeGreaterThan(0);
+    await expect(page.getByTestId('aviso-pagina-oculta-apariencia')).toHaveCount(0);
   });
 
   test('«Descartar» vuelve a lo publicado, también en la vista previa', async ({ page }) => {

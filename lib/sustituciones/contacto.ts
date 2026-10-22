@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { colorDeMarcaDelEstudio } from '@/lib/emails/plantillas-server';
 import { uid, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { firmarTokenInstructora } from '@/lib/sustituciones/token';
 import { hashToken } from '@/lib/token-hash';
@@ -12,7 +13,7 @@ import { emailDeLaPropietaria } from '@/lib/notifications/recipients';
 import { acumuladorSalud } from '@/lib/integraciones/salud';
 import { registrarSaludIntegracion } from '@/lib/integraciones/registrar-salud';
 import { descifrarConfigDeFila } from '@/lib/integraciones/config-cifrada-servidor';
-import { tieneFeature } from '@/lib/billing/entitlements';
+import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 import {
   cuerpoNudgeCandidata,
   parametrosNudgeCandidata,
@@ -173,7 +174,7 @@ export async function contactarCandidata(
     to: cand.email,
     toName: cand.nombre,
     estudioNombre: estudio?.nombre ?? 'Tu estudio',
-    colorPrimario: estudio?.color_primario,
+    colorPrimario: await colorDeMarcaDelEstudio(studioId, estudio?.color_primario),
     logoUrl: estudio?.logo_url,
     claseNombre: tipo?.nombre ?? 'Clase',
     cuando: sesion?.inicio ? formatCuando(sesion.inicio) : '',
@@ -339,7 +340,7 @@ export async function alertarPropietaria(
   let email = false;
   if (destinatario) {
     const r = await enviarEmailAlertaPropietaria({
-      to: destinatario, estudioNombre, colorPrimario: estudio?.color_primario, logoUrl: estudio?.logo_url,
+      to: destinatario, estudioNombre, colorPrimario: await colorDeMarcaDelEstudio(studioId, estudio?.color_primario), logoUrl: estudio?.logo_url,
       claseNombre, cuando, tipo,
       candidataNombre: params.candidataNombre, urlPanel,
       yaContactando: params.yaContactando,
@@ -399,10 +400,10 @@ export async function escalacionVigente(
 // única para no reimplementar la degradación en cada llamador (baja/escalado/endpoint).
 export async function modoAutonomiaEfectivo(admin: SupabaseClient, studioId: string): Promise<string> {
   const { data: estudio } = await admin
-    .from('studios').select('modo_autonomia, plan, subscription_status').eq('id', studioId).maybeSingle();
+    .from('studios').select(`modo_autonomia, ${COLUMNAS_PLAN}`).eq('id', studioId).maybeSingle();
   let modo = (estudio?.modo_autonomia as string) ?? 'asistido';
   if ((modo === 'autonomo' || modo === 'vacaciones') &&
-      !tieneFeature({ plan: estudio?.plan, subscriptionStatus: estudio?.subscription_status }, 'sustitucionesAutonomas')) {
+      !tieneFeature(planDeFila(estudio), 'sustitucionesAutonomas')) {
     modo = 'asistido';
   }
   return modo;

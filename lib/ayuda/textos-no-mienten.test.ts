@@ -51,8 +51,8 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Logros y motivación/, ahora: 'la sección se llama Motivación' },
   { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Cómo reservan mis alumnas' },
   {
-    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|Integraciones|API|Emails|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad)\\b`),
-    ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Conexiones o Datos y seguridad',
+    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|API|Emails|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad)\\b`),
+    ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad',
   },
   // 15-sep (PR B): cada ajuste se fue a su sección.
   {
@@ -68,7 +68,12 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Guardar colores/, ahora: 'el color se guarda con el «Guardar» de su cajón, igual que el resto de Marca' },
   {
     patron: new RegExp(`Conexiones${FLECHA}(?:Stripe|WhatsApp|Gmail)|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Conexiones`),
-    ahora: 'Stripe está en Configuración > Cobros y facturas; WhatsApp, Gmail y el remitente, en Cómo me comunico',
+    ahora: 'Stripe, WhatsApp y Gmail están en Configuración > Integraciones; el remitente, en Cómo me comunico',
+  },
+  // 16-oct-2026: Stripe, el datáfono, WhatsApp y Gmail pasaron a Integraciones.
+  {
+    patron: new RegExp(`(?:Stripe|Datáfono)[^.<]{0,60}Configuración${FLECHA}Cobros y facturas|(?:WhatsApp|Gmail)[^.<]{0,60}Configuración${FLECHA}Cómo me comunico`),
+    ahora: 'Stripe, el datáfono, WhatsApp y Gmail se conectan en Configuración > Integraciones',
   },
   { patron: /Guardar datos del estudio/, ahora: 'cada parte tiene su propio «Guardar»: las filas de Mi estudio, de Cobros y facturas y de Marca' },
   // I-14 (auditoría 15-sep): «Textos de tu app» pasó de su propio botón

@@ -8,20 +8,22 @@ import { ACHIEVEMENT_METRICS } from '@/lib/engines/achievement-engine';
 import { estadoReto } from '@/lib/engines/challenge-engine';
 import type { ChallengeDefinition, AchievementMetric } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, inicioDelDiaEstudio, instanteEnEstudio } from '@/lib/utils';
+import { diaMadrid } from '@/lib/engines/alcance-reto';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { MiniaturaInsignia, SelectorInsignia } from '@/components/configuracion/selector-insignia';
 
 function isoToDateInput(iso: string): string {
-  return iso ? iso.slice(0, 10) : '';
+  return iso ? diaMadrid(iso) : '';
 }
 
 const emptyForm = (): Omit<ChallengeDefinition, 'id' | 'studioId' | 'creadoEn'> => {
   const hoy = new Date();
   const enUnaSemana = new Date(hoy.getTime() + 7 * 86400000);
   return {
-    metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', objetivo: 3, icono: '🎯',
-    creditosRecompensa: 0, activo: true,
+    metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', objetivo: 3, icono: 'objetivo',
+    creditosRecompensa: 0, activo: true, alcance: 'INSCRIPCION',
     fechaInicio: hoy.toISOString(), fechaFin: enUnaSemana.toISOString(),
   };
 };
@@ -48,7 +50,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
   function openEditar(c: ChallengeDefinition) {
     setForm({
       metric: c.metric, nombre: c.nombre, descripcion: c.descripcion ?? '', objetivo: c.objetivo, icono: c.icono,
-      creditosRecompensa: c.creditosRecompensa, activo: c.activo, fechaInicio: c.fechaInicio, fechaFin: c.fechaFin,
+      creditosRecompensa: c.creditosRecompensa, activo: c.activo, alcance: c.alcance, fechaInicio: c.fechaInicio, fechaFin: c.fechaFin,
     });
     setEditId(c.id);
     setModal('editar');
@@ -103,7 +105,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
             return (
               <div key={c.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
                 <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
-                  {c.icono}
+                  <MiniaturaInsignia icono={c.icono} porDefecto="objetivo" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -112,7 +114,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
                       {badge.label}
                     </span>
                   </div>
-                  <p className="text-[12px] text-muted-foreground">{metricLabel(c.metric)} · objetivo {c.objetivo}{c.creditosRecompensa > 0 ? ` · +${c.creditosRecompensa} créditos` : ''}</p>
+                  <p className="text-[12px] text-muted-foreground">{c.alcance === 'ESTUDIO' ? 'Para todo el estudio' : 'Con inscripción'} · {metricLabel(c.metric)} · objetivo {c.objetivo}{c.creditosRecompensa > 0 ? ` · +${c.creditosRecompensa} créditos` : ''}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {new Date(c.fechaInicio).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })} — {new Date(c.fechaFin).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })}
                   </p>
@@ -138,21 +140,17 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
             <DialogTitle>{modal === 'nuevo' ? 'Nuevo reto' : 'Editar reto'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-[80px_1fr] gap-3">
-              <div>
-                <Field label="Icono"
-                  description="Un emoji. Es la cara del reto en la app de la alumna."
-                >
-                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
-                </Field>
-              </div>
-              <div>
-                <Field label="Nombre"
-                  description="Corto y motivador. Ej: «Enero a tope» o «5 clases en 15 días»."
-                >
-                  <input className={inputCls} value={form.nombre} placeholder="Ej. Reto de verano" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                </Field>
-              </div>
+            <div>
+              <Field label="Nombre"
+                description="Corto y motivador. Ej: «Enero a tope» o «5 clases en 15 días»."
+              >
+                <input className={inputCls} value={form.nombre} placeholder="Ej. Reto de verano" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              </Field>
+            </div>
+            <div>
+              <Field label="Insignia" description="La cara del reto en la app de la alumna.">
+                <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
+              </Field>
             </div>
             <div>
               <Field label="Descripción"
@@ -163,12 +161,25 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
             </div>
             <div>
               <Field label="Métrica"
-                description="Qué se cuenta para avanzar en el reto. Se calcula solo con la actividad que ya registra la app."
+                description="Qué se cuenta para avanzar en el reto. Se calcula solo con la actividad que ya registra la app. En un reto, «Reservas totales» no cuenta las canceladas ni la lista de espera."
               >
                 <select className={inputCls} value={form.metric} onChange={e => setForm(f => ({ ...f, metric: e.target.value as AchievementMetric }))}>
                   {ACHIEVEMENT_METRICS.map(m => (
                     <option key={m.metric} value={m.metric}>{m.nombre}</option>
                   ))}
+                </select>
+              </Field>
+            </div>
+            <div>
+              <Field label="Quién participa"
+                description={modal === 'editar'
+                  ? 'No se puede cambiar una vez creado: cambiaría a quién cuenta lo que ya han hecho.'
+                  : 'Con inscripción: solo cuenta a quien se apunta desde la app, y desde que se apunta. Para todo el estudio: cuenta a todas las alumnas desde el inicio, sin botón.'}
+              >
+                <select className={inputCls} value={form.alcance} disabled={modal === 'editar'}
+                  onChange={e => setForm(f => ({ ...f, alcance: e.target.value === 'ESTUDIO' ? 'ESTUDIO' : 'INSCRIPCION' }))}>
+                  <option value="INSCRIPCION">Con inscripción (se apuntan las que quieran)</option>
+                  <option value="ESTUDIO">Para todo el estudio (cuentan todas)</option>
                 </select>
               </Field>
             </div>
@@ -195,7 +206,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
                 >
                   <input
                     type="date" className={inputCls} value={isoToDateInput(form.fechaInicio)}
-                    onChange={e => setForm(f => ({ ...f, fechaInicio: new Date(e.target.value).toISOString() }))}
+                    onChange={e => setForm(f => ({ ...f, fechaInicio: e.target.value ? inicioDelDiaEstudio(e.target.value) : f.fechaInicio }))}
                   />
                 </Field>
               </div>
@@ -205,7 +216,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
                 >
                   <input
                     type="date" className={inputCls} value={isoToDateInput(form.fechaFin)}
-                    onChange={e => setForm(f => ({ ...f, fechaFin: new Date(e.target.value + 'T23:59:59').toISOString() }))}
+                    onChange={e => setForm(f => ({ ...f, fechaFin: e.target.value ? (instanteEnEstudio(e.target.value, '23:59') ?? f.fechaFin) : f.fechaFin }))}
                   />
                 </Field>
               </div>

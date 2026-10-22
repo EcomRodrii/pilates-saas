@@ -28,7 +28,7 @@ import { WhatsAppIcon } from '@/components/icons/brand-icons';
 export function PrimerosPasosTarjeta() {
   const {
     studio, updateStudio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal, dataLoaded, datosIncompletos,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal, dataLoaded, datosIncompletos,
   } = useStudio();
   const [ocultando, setOcultando] = useState(false);
   const [fallo, setFallo] = useState(false);
@@ -40,7 +40,7 @@ export function PrimerosPasosTarjeta() {
 
   const datos = datosOnboardingDelEstudio({
     studio, instructores, tiposClase, sesiones, socios, reservas,
-    salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+    salas, planesTarifa, suscripciones, automationRules, bannersPortal,
   });
   const p = primerosPasos(calcularOnboarding(datos).categorias);
   const soporte = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${studio.nombre ?? 'mi estudio'} y estoy poniendo en marcha Tentare:`);

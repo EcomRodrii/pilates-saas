@@ -55,6 +55,23 @@ export function formatEuro(n: number): string {
   return `${FORMATO_EURO.format(n)} €`;
 }
 
+/**
+ * Redondeo a céntimos como `ROUND(x, 2)` de Postgres: en decimal, la mitad se aleja
+ * del cero (2,175 → 2,18). La ÚNICA regla de redondeo de importes del navegador: la
+ * usan el ticket de la Caja (`céntimos`) y los códigos de descuento
+ * (`calcularDescuento`, que comparten la Caja y los tres cobros online), para que
+ * todos den lo mismo que `registrar_venta_pos`.
+ *
+ * En coma flotante 2,175 es 2,17499…, y `Math.round(x * 100) / 100` (o sumarle
+ * `Number.EPSILON`, que solo alcanza por debajo de 1 €) daba 2,17. Se redondea el
+ * importe ya multiplicado a 12 cifras, que borra ese ruido sin tocar ningún importe
+ * real, y después la mitad hacia fuera.
+ */
+export function redondearCentimos(n: number): number {
+  const x = Number((Math.abs(n) * 100).toPrecision(12));
+  return (Math.sign(n) * Math.round(x)) / 100;
+}
+
 // Formateadores de fecha/hora en español — estaban reimplementados (copy-paste
 // idéntico o casi) en 6+ páginas. Un único sitio para no divergir por accidente.
 export function formatFechaLarga(iso: string): string {

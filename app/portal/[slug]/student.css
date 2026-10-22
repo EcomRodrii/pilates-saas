@@ -124,18 +124,23 @@
   --on-dark-tinta: #1A1A1A;
 
   /* El VELO de las barras que flotan sobre el contenido (la de abajo y la
-     cabecera pegada): el fondo del estilo translúcido, con desenfoque detrás.
+     cabecera pegada): el fondo del estilo casi opaco, sin desenfoque (costaba fotogramas al hacer scroll).
      ⚠️ Estaba escrito a mano como `rgba(250,249,245,.88)` en las dos, así que
      con un estilo de fondo oscuro la app salía negra y su menú, crema. */
-  --velo: rgba(250, 249, 245, .88);
+  --velo: rgba(250, 249, 245, .97);
 
   /* ── Tipografía ──
      Las FAMILIAS son las del paquete y no se tocan. Lo que se añade es la
      escala: había 28 tamaños distintos en la app porque cada pantalla elegía el
      suyo, y varios se diferenciaban en medio píxel. Ocho pasos cubren todo lo
      que la app dice, y con ocho el ritmo se ve. */
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  /* ⚠️ Por la VARIABLE, nunca por el nombre: las fuentes van autoalojadas con
+     `next/font/local` (app/_fuentes), que las registra con otro nombre de
+     familia, así que el literal 'Plus Jakarta Sans' no casaba con ninguna cara
+     cargada y «Moderna» —la de serie— caía a system-ui (San Francisco en el
+     iPhone de la alumna). Lo vigila lib/student/apariencia.test.ts. */
+  --font-sans: var(--font-jakarta), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   /* Títulos. Por defecto, la misma familia y el mismo peso de siempre: solo
      cambian si el estudio elige otra pareja tipográfica en «Apariencia de tu
      app» (lib/student/apariencia.ts). Una serif no aguanta el −0,03 em ni el
@@ -510,6 +515,7 @@
 .student-app .badge--ok { background: var(--accent-soft); color: var(--accent-soft-foreground); }
 .student-app .badge--few { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .badge--full { background: var(--destructive-soft); color: var(--destructive-foreground); }
+.student-app .badge--ultima { background: var(--destructive-soft); color: var(--destructive-foreground); }
 .student-app .badge--booked { background: var(--success); color: var(--success-foreground); }
 .student-app .badge--wait { background: var(--warning-soft); color: var(--warning-foreground); }
 .student-app .badge--neutral { background: var(--muted); color: var(--muted-foreground); }
@@ -646,7 +652,6 @@
 @keyframes apPulse{0%,100%{opacity:1}50%{opacity:.35}}
 @keyframes apHeart{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
 @keyframes apToast{from{opacity:0;transform:translateY(-18px) scale(.94)}to{opacity:1;transform:none}}
-@keyframes apKen{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
 @keyframes apDot{0%{transform:scale(0)}60%{transform:scale(1.4)}100%{transform:scale(1)}}
 @keyframes apConfA{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(-46px,-110px) rotate(320deg)}}
 @keyframes apConfB{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(8px,-130px) rotate(-280deg)}}
@@ -851,3 +856,155 @@ html[data-vt-volver]::view-transition-new(.alumna-otra-entra) { animation: alumn
 .student-app .fila-horario__enlace::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
 .student-app .fila-horario__nombre { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .student-app .fila-horario__derecha { position: relative; z-index: 1; }
+
+/* ── Tarjeta con FOTO a sangre (maqueta de los cuatro iPhones, 19-oct-2026) ──
+   La foto de la clase manda y el texto vive sobre su sombra. El velo es NEGRO y
+   no de marca: sobre una foto que sube cada estudio, lo que garantiza el
+   contraste del texto claro es oscurecer, no teñir (misma lección que el héroe
+   de Inicio). Sube desde abajo, donde están la hora y el botón, y deja ver la
+   foto arriba. Sin foto, el fondo es `--accent-deep` (lo pone la tarjeta). */
+.student-app .velo-foto {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to top, rgba(8,8,8,.82) 0%, rgba(8,8,8,.62) 38%, rgba(8,8,8,.22) 68%, rgba(8,8,8,.08) 100%),
+    linear-gradient(90deg, rgba(8,8,8,.30), rgba(8,8,8,0) 70%);
+}
+.student-app .pildora-foto {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 999px;
+  background: rgba(250,249,245,.92); color: var(--on-dark-tinta);
+  white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.student-app .fila-meta-foto {
+  display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 4px;
+  font-size: var(--t-small); font-weight: 600; color: rgba(250,249,245,.94);
+}
+.student-app .fila-meta-foto > span { display: inline-flex; align-items: center; gap: 5px; }
+/* El botón claro sobre la foto, con la flecha en un disco del color del estudio. */
+.student-app .boton-foto {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  height: 52px; padding: 0 6px 0 20px; border-radius: 999px;
+  background: var(--on-dark); color: var(--on-dark-tinta);
+  font-size: var(--t-body); font-weight: 800;
+}
+.student-app .boton-foto-flecha {
+  width: 40px; height: 40px; border-radius: 999px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent); color: var(--accent-foreground);
+}
+
+/* Disco de cifra o de icono de las tarjetas de progreso (Inicio y Mi plan). */
+.student-app .disco-cifra {
+  width: 52px; height: 52px; border-radius: 999px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent-soft-foreground);
+  font-size: 22px; font-weight: 800; letter-spacing: -.02em;
+}
+
+/* Etiquetas de la ficha de una clase (sus objetivos). Neutras: informan, no se pulsan. */
+.student-app .fila-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.student-app .etiqueta {
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--muted); color: var(--foreground);
+  font-size: var(--t-meta); font-weight: 700;
+}
+/* La hoja de contenido que sube sobre la foto de la ficha (24 px por encima de su borde). */
+.student-app .hoja-sobre-foto {
+  position: relative; z-index: 1; margin-top: -24px;
+  background: var(--background); border-radius: 24px 24px 0 0;
+}
+
+/* ── Inicio, copia de la maqueta (19-oct-2026) ── */
+.student-app .saludo-inicio {
+  margin: 4px 0 0; font-family: var(--font-heading); font-weight: var(--heading-weight);
+  font-size: calc(32px * var(--heading-scale, 1)); letter-spacing: -.03em; line-height: 1.08;
+}
+.student-app .enlace-ver {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--t-small); font-weight: 700; color: var(--accent);
+}
+.student-app .tarjeta-proxima {
+  position: relative; overflow: hidden; border-radius: 26px;
+  background: var(--accent-deep); color: var(--on-dark); box-shadow: var(--shadow-hero);
+}
+.student-app .tarjeta-proxima__foto { position: absolute; inset: 0; display: block; }
+.student-app .tarjeta-proxima__cuerpo { position: relative; display: flex; flex-direction: column; gap: 14px; padding: 16px 16px 16px; min-height: 236px; }
+.student-app .tarjeta-proxima__texto { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; color: inherit; flex: 1; }
+.student-app .tarjeta-proxima__texto > .pildora-foto { margin-bottom: auto; font-size: var(--t-micro); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.student-app .tarjeta-proxima__hora { margin-top: 14px; font-family: var(--font-heading); font-weight: var(--heading-weight); font-size: 44px; letter-spacing: -.04em; line-height: 1; }
+.student-app .tarjeta-proxima__nombre { font-family: var(--font-heading); font-weight: var(--heading-weight); font-size: calc(22px * var(--heading-scale, 1)); letter-spacing: -.02em; line-height: 1.15; }
+.student-app .baldosa-maqueta {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  height: 100%; flex: 1; min-width: 0; padding: 16px 4px 12px; border-radius: 18px;
+  background: var(--card); color: var(--foreground); box-shadow: var(--shadow-card);
+  font-size: 11.5px; font-weight: 700; text-align: center; letter-spacing: -.015em; white-space: nowrap;
+}
+.student-app .baldosa-maqueta--suave { background: var(--accent-soft); color: var(--accent-soft-foreground); }
+.student-app .dia-progreso {
+  width: 22px; height: 22px; border-radius: 999px; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--muted); color: var(--muted-foreground); font-size: 10px; font-weight: 800;
+}
+.student-app .dia-progreso--hecho { background: var(--accent); color: var(--accent-foreground); }
+.student-app .tarjeta-reto { display: flex; align-items: stretch; overflow: hidden; padding: 0; color: var(--foreground); }
+.student-app .tarjeta-reto__foto { width: 92px; flex-shrink: 0; background-size: cover; background-position: center; background-color: var(--muted); }
+/* La pestaña activa de la barra: el icono en una píldora del color del estudio. */
+.student-app .nav-icono { width: 40px; height: 28px; border-radius: 10px; display: flex; align-items: center; justify-content: center; transition: background .2s, color .2s; }
+.student-app .nav-icono--on { background: var(--accent); color: var(--accent-foreground); }
+
+/* ── Reservar, copia de la maqueta (19-oct-2026) ── */
+.student-app .cabecera-pantalla {
+  display: grid; grid-template-columns: 44px 1fr 44px; align-items: center;
+  padding-top: calc(8px + var(--safe-top)); min-height: calc(56px + var(--safe-top));
+}
+.student-app .cabecera-pantalla__titulo { margin: 0; text-align: center; font-family: var(--font-heading); font-weight: var(--heading-weight); font-size: calc(20px * var(--heading-scale, 1)); letter-spacing: -.02em; }
+.student-app .cabecera-pantalla__boton { position: relative; width: 44px; height: 44px; border: none; background: none; color: var(--foreground); display: flex; align-items: center; justify-content: center; border-radius: 999px; }
+.student-app .cabecera-pantalla__boton--caja { background: var(--card); box-shadow: var(--shadow-card); width: 40px; height: 40px; justify-self: end; }
+.student-app .cabecera-pantalla__punto { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 99px; background: var(--accent); border: 1.5px solid var(--card); }
+.student-app .pill--maqueta { border-color: transparent; background: var(--card); }
+.student-app .pill--maqueta[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); border-color: var(--accent); }
+.student-app .flecha-fila { width: 32px; height: 32px; border-radius: 999px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); color: var(--foreground); background: var(--card); }
+/* La tira de días como en la maqueta: «Lun / 20» en caja normal, el elegido relleno del color del estudio y un punto
+   bajo cada día con clases (relleno si tiene reserva suya). */
+.student-app .day.day--semana { width: 44px; min-width: 44px; padding: 8px 0 6px !important; border-radius: 14px; }
+.student-app .day--semana .day__semana { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 12px; color: var(--muted-foreground); }
+.student-app .day--semana .day__numero { font-size: 15px; }
+.student-app .day.day--semana[aria-selected="true"] { background: var(--accent); color: var(--accent-foreground); }
+.student-app .day.day--semana[aria-selected="true"] .day__semana { color: inherit; opacity: .85; }
+.student-app .day--semana .day__punto--clases { display: inline-block; width: 5px; height: 5px; border-radius: 99px; background: var(--border-strong); }
+
+/* ── Ficha de clase, copia de la maqueta (19-oct-2026) ── */
+.student-app .fila-meta-ficha {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px;
+  font-size: var(--t-small); font-weight: 600; color: var(--muted-foreground);
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.student-app .fila-meta-ficha > span:not(.badge) { display: inline-flex; align-items: center; gap: 6px; }
+.student-app .fila-meta-ficha > span:not(.badge) + span:not(.badge) { padding-left: 14px; border-left: 1px solid var(--border); }
+.student-app .fila-instructora {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 2px 0 14px; border: none; background: none;
+  border-bottom: 1px solid var(--border); color: var(--foreground); font: inherit; cursor: pointer;
+}
+/* El botón ancho de la ficha: oscuro, con la flecha a la derecha. */
+.student-app .boton-cta { position: relative; height: 56px !important; border-radius: 999px; font-size: var(--t-body); }
+.student-app .boton-cta__flecha { position: absolute; right: 22px; top: 50%; transform: translateY(-50%); display: flex; }
+
+/* ── Mi plan, copia de la maqueta (19-oct-2026) ── */
+.student-app .selector-periodo {
+  position: relative; display: inline-flex; align-items: center; gap: 4px;
+  padding: 0 12px; height: 34px; border-radius: 999px; background: var(--card); border: 1px solid var(--border);
+  font-size: var(--t-meta); font-weight: 600; color: var(--foreground);
+}
+
+.student-app .insignia-maqueta {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  padding: 14px 6px 12px; border-radius: 18px; background: var(--muted); color: var(--foreground);
+}
+.student-app .insignia-maqueta--hecha { background: var(--accent-soft); color: var(--accent-soft-foreground); }
+.student-app .tarjeta-reto__foto { position: relative; }
+.student-app .tarjeta-reto__insignia { position: absolute; left: 8px; bottom: 8px; width: 42px; height: 42px; border-radius: 999px; background: var(--card); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-card); }
+
+/* Reservar: cabecera, píldoras y días fijos arriba (20-oct-2026). Fondo opaco y una línea fina solo cuando la lista ya
+   pasa por debajo (`data-pegado`, lo pone un IntersectionObserver), sin backdrop-filter. */
+.student-app .reservar-fijo { position: sticky; top: 0; z-index: 20; background: var(--background); transition: box-shadow .2s; }
+.student-app .reservar-fijo[data-pegado] { box-shadow: 0 1px 0 var(--border), 0 6px 14px -10px rgba(26,26,26,.18); }

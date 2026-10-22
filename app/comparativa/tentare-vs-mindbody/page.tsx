@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Tentare vs Mindbody',
     description: 'Precio, contrato, comisión del marketplace y funciones — comparados con lo que consta en la web pública de Mindbody.',
@@ -24,15 +25,15 @@ export const metadata: Metadata = {
 // Una versión anterior de esta tabla atribuía al competidor datos que nadie había
 // comprobado (contratos, comisiones, dónde aloja los datos): eso no vuelve a entrar.
 const ROWS: ComparativaRow[] = [
-  { feature: 'Precio público en la web', tentare: ['yes', 'Desde 29 €/mes, IVA incluido'], them: ['partial', 'Desde 99 € al mes por ubicación; el resto de planes, «hablemos»'] },
+  { feature: 'Precio público en la web', tentare: ['yes', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA'], them: ['partial', 'Desde 99 € al mes por ubicación; el resto de planes, «hablemos»'] },
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'Depende del plan y de las condiciones que contrates; la baja puede requerir preaviso'] },
   { feature: 'Comisión por clientas nuevas del marketplace', tentare: ['yes', 'Sin marketplace ni comisión'], them: ['partial', '20 % (tope de 30 $ o su equivalente) en la primera compra de una clienta nueva'] },
   { feature: 'Elegir plaza en la sala', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['yes', '«Client Pick-a-Spot», en el plan Accelerate'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['partial', 'App de marca como complemento de pago (precio no publicado)'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'La antelación para cancelar puede ser distinta por tipo de clase (p. ej. reformer vs. mat)'], them: ['yes', '«Booking window» y «cancellation window» configurables por servicio, según su web de ayuda'] },
-  { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada sala tiene su propio aforo, independiente del de la clase'], them: ['partial', 'Asigna una sala o recurso a la clase o cita, pero el aforo se fija por clase, no por sala, según su ayuda'] },
+  { feature: 'Aforo por sala individual', tentare: ['yes', 'Aforo por clase, con la capacidad de la sala como referencia; una avería baja el aforo de las clases de esa sala'], them: ['partial', 'Asigna una sala o recurso a la clase o cita, pero el aforo se fija por clase, no por sala, según su ayuda'] },
   { feature: 'Varias sedes en un panel único', tentare: ['yes', 'Varias sedes con un solo acceso y una sola suscripción, desde el plan Cadena'], them: ['yes', '«Un panel corporativo único» para todas las sedes, según su web; solo en el nivel Enterprise, a consultar'] },
-  { feature: 'Prueba gratuita sin tarjeta', tentare: ['yes', '7 días, sin pedir tarjeta de crédito'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública'] },
 ];
 
 
@@ -41,11 +42,11 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Mindbody?',
-    a: 'Su página de precios indica «desde 99 € al mes por ubicación» y el resto de planes se consultan con ellos; no hay cuota de alta. Tentare publica todos sus precios: Founding Studio 29, Estudio 59 y Cadena 149 €/mes, IVA incluido.',
+    a: 'Su página de precios indica «desde 99 € al mes por ubicación» y el resto de planes se consultan con ellos; no hay cuota de alta. Tentare publica todos sus precios: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
   },
   {
     q: '¿Puedo pasar mis datos de Mindbody a Tentare?',
-    a: 'Sí. El importador de Tentare reconoce las exportaciones de Mindbody (y de bsport, Momence, Eversports, Timp y Excel): te enseña un acta con lo importado y puedes deshacerlo con un botón. Si prefieres, te ayudamos nosotros.',
+    a: 'Sí. El importador de Tentare lee los archivos CSV o Excel que exportas de Mindbody o de cualquier otro programa: te enseña un acta con lo importado y puedes deshacerlo con un botón.',
   },
 ];
 
@@ -57,7 +58,7 @@ const RESUMEN: ResumenCompetidor = {
   precio: 'Desde 99 €/mes + IVA por local; el resto de planes, a consultar',
   permanencia: 'Depende del plan; la baja puede pedir preaviso',
   prueba: 'No consta en su web pública',
-  respuesta: <>Mindbody es una plataforma grande, con marketplace propio, pero su precio arranca en 99 € al mes por ubicación, la app con tu marca es un complemento de pago y se queda una comisión en la primera compra de cada clienta nueva que llega por su marketplace. Para un estudio de Pilates o yoga en España, la alternativa es Tentare: desde 29 €/mes con IVA, la app con tu marca incluida y ninguna comisión sobre tus cobros.</>,
+  respuesta: <>Mindbody es una plataforma grande, con marketplace propio, pero su precio arranca en 99 € al mes por ubicación, la app con tu marca es un complemento de pago y se queda una comisión en la primera compra de cada clienta nueva que llega por su marketplace. Para un estudio de Pilates o yoga en España, la alternativa es Tentare: gratis hasta 150 alumnas activas y 250 reservas al mes, la app con tu marca incluida y ninguna comisión sobre tus cobros.</>,
 };
 
 const ANALISIS: SeccionAnalisis[] = [
@@ -78,14 +79,14 @@ const ANALISIS: SeccionAnalisis[] = [
     titulo: 'Elegir reformer y aforo por sala',
     cuerpo: (
       <>
-        <p>En Mindbody, elegir sitio al reservar («Pick-a-Spot») va en el plan Accelerate, y el aforo se fija por clase. En Tentare, si defines los puestos de una sala, la alumna elige su reformer al reservar en cualquier plan, y cada sala tiene su propio aforo: una máquina averiada baja la capacidad de esa clase sin tocar las demás. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
+        <p>En Mindbody, elegir sitio al reservar («Pick-a-Spot») va en el plan Accelerate, y el aforo se fija por clase. En Tentare, si defines los puestos de una sala, la alumna elige su reformer al reservar en cualquier plan, y la sala da la capacidad de partida de sus clases: una máquina averiada baja la capacidad de las clases de esa sala sin tocar las demás. <Link href="/soluciones/estudio-de-pilates-reformer">Tentare para estudios de reformer</Link>.</p>
       </>
     ),
   },
   {
     titulo: 'Cómo cambiarte de Mindbody a Tentare',
     cuerpo: (
-      <p>El importador de Tentare reconoce las exportaciones de Mindbody: clientas, bonos, clases y reservas, con un acta para revisarlo antes de guardar y un botón para deshacerlo. Si prefieres, te lo hacemos nosotros. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
+      <p>El importador de Tentare lee los archivos CSV o Excel que exportas de Mindbody: clientas, bonos, clases y reservas, con un acta para revisarlo antes de guardar y un botón para deshacerlo. <Link href="/soluciones/cambiar-de-software">Cómo es el cambio</Link>.</p>
     ),
   },
 ];
@@ -96,11 +97,11 @@ export default function TentareVsMindbodyPage() {
       name="Mindbody"
       slug="tentare-vs-mindbody"
       logo={{ src: '/comparativa/logos/mindbody.svg', alt: 'Logo de Mindbody', height: 24, width: 115 }}
-      intro={<>Mindbody es una plataforma internacional de fitness y bienestar con su propio marketplace de consumidores. Para un <strong style={{ color: '#1A1A1A' }}>estudio de pilates en España</strong>, Tentare te da lo que necesitas sin comisiones por clienta nueva ni sobre tus cobros.</>}
+      intro={<>Mindbody es una plataforma internacional de fitness y bienestar con su propio marketplace de consumidores. Para un <strong style={{ color: 'var(--w-texto)' }}>estudio de pilates en España</strong>, Tentare te da lo que necesitas sin comisiones por clienta nueva ni sobre tus cobros.</>}
       resumen={RESUMEN}
       rows={ROWS}
       analisis={ANALISIS}
-      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sabes lo que pagas por adelantado, sin comisión por clienta nueva ni sobre tus cobros, y con un producto hecho para Pilates. Pruébalo 7 días gratis, sin tarjeta, y te traemos tus datos de Mindbody.</>}
+      veredicto={<>Tentare es la mejor opción para tu estudio de Pilates: sabes lo que pagas por adelantado, sin comisión por clienta nueva ni sobre tus cobros, y con un producto hecho para Pilates. Empieza gratis, sin tarjeta.</>}
       footnote="Basado en la información pública de Mindbody (mindbodyonline.com) a 7 de octubre de 2026. «No consta» significa que su web pública no lo indica, no que no exista. Las funciones y precios cambian con el tiempo; verifica siempre con la fuente actual. Mindbody es marca de su respectivo propietario; esta comparación es orientativa y sin ánimo de menoscabo."
       faq={FAQ}
     />

@@ -288,6 +288,30 @@ export async function emitirClaseFijaTerminaPronto(
   }
 }
 
+// Se ha quedado sin cuota y su estudio libera las clases fijas si no renueva (AVISAR_Y_LIBERAR, 20-oct-2026). El MISMO
+// evento que «termina pronto» (lo que es: sus clases fijas terminan el día X), con su propio cierre, para que la alumna no
+// tenga un interruptor más: si apagó «Tu clase fija termina pronto», tampoco recibe este. Un aviso por alumna y día.
+export async function emitirPlazaFijaSinCuota(
+  admin: SupabaseClient,
+  p: { studioId: string; socioId: string; nombre: string; liberarDesde: string },
+): Promise<void> {
+  try {
+    const { data: studio } = await admin.from('studios').select('slug').eq('id', p.studioId).maybeSingle();
+    await publish({
+      type: EVENTOS.CLASE_FIJA_TERMINA_PRONTO, studioId: p.studioId,
+      data: {
+        socioId: p.socioId, nombre: p.nombre, hasta: fechaCortaEstudio(new Date(`${p.liberarDesde}T12:00:00Z`)), slug: (studio?.slug as string | null) ?? '',
+        cierre: 'Tu plan ya no está activo: si lo renuevas antes, la conservas; si no, se cancelan sus clases, sin penalización.',
+        destino: 'mis-clases',
+      },
+      resource: { type: 'socio', id: p.socioId },
+      dedupKey: `plaza-fija-sin-cuota:${p.studioId}:${p.socioId}:${p.liberarDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirPlazaFijaSinCuota:', e instanceof Error ? e.message : e);
+  }
+}
+
 // Reserva pendiente de aprobar: avisa al mostrador (propietaria/manager/
 // recepción) de que hace falta decidir antes de que empiece la clase.
 export async function emitirReservaPendienteAprobacion(
@@ -1022,6 +1046,47 @@ export async function emitirTrialExpirado(
     });
   } catch (e) {
     console.error('[notifications] emitirTrialExpirado:', e instanceof Error ? e.message : e);
+  }
+}
+
+// La app de la App Store del estudio deja de estar pagada: empieza el margen de 30 días
+// (lib/app-nativa/apps-sin-plan.ts). dedupKey por el inicio del margen: un aviso por cada vez que
+// deja de pagarla, no uno por cada pasada del cron.
+export async function emitirAppTiendaSinPlan(
+  admin: SupabaseClient, p: { studioId: string; sinPlanDesde: string; fecha: string; publicada: boolean },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.APP_TIENDA_SIN_PLAN, studioId: p.studioId,
+      data: {
+        fecha: p.fecha,
+        consecuencia: p.publicada
+          ? 'la retiramos de la App Store. Quien ya la tenga instalada podrá seguir usándola.'
+          : 'dejamos de prepararla.',
+      },
+      dedupKey: `app-tienda-sin-plan:${p.studioId}:${p.sinPlanDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAppTiendaSinPlan:', e instanceof Error ? e.message : e);
+  }
+}
+
+// Se acabó el margen: la app queda en pausa (y, si estaba publicada, se retira de la App Store).
+export async function emitirAppTiendaPausada(
+  admin: SupabaseClient, p: { studioId: string; sinPlanDesde: string; publicada: boolean },
+): Promise<void> {
+  try {
+    await publish({
+      type: EVENTOS.APP_TIENDA_PAUSADA, studioId: p.studioId,
+      data: {
+        consecuencia: p.publicada
+          ? 'la retiramos de la App Store. Quien ya la tenga instalada puede seguir usándola.'
+          : 'dejamos de prepararla.',
+      },
+      dedupKey: `app-tienda-pausada:${p.studioId}:${p.sinPlanDesde}`,
+    });
+  } catch (e) {
+    console.error('[notifications] emitirAppTiendaPausada:', e instanceof Error ? e.message : e);
   }
 }
 

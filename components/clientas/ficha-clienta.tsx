@@ -12,7 +12,9 @@ import { useSpeechToText } from '@/lib/hooks/use-speech-to-text';
 import { enPilotoVoz } from '@/lib/piloto-ficha-viva';
 import { estructurarNotaIA } from '@/lib/ai/instructor-note-client';
 import { resumenSocio } from '@/lib/socio-resumen';
-import { saldoSesionesBono, nombrePeriodo } from '@/lib/bono-logic';
+import { saldoSesionesBono, nombrePeriodo, mesesDeCiclo } from '@/lib/bono-logic';
+import type { PlanTarifa } from '@/lib/types';
+import { diferenciaCambioPlan, prorrateoDeAlta, type DiferenciaCambioPlan } from '@/lib/billing/prorrateo';
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
 import { anularClaseSueltaPorCuota, borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
@@ -328,12 +330,17 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
   const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // Cerrojo síncrono: dos clics en el mismo tick pasan el `useState` (se lee antes de repintar).
+  const cambiandoPlanRef = useRef(false);
+  // Cambio a una cuota más cara a mitad de ciclo: la confirmación con la diferencia
+  // proporcional (la calcula `diferenciaCambioPlan`; el servidor la RECALCULA al confirmar).
+  const [cambioDiferencia, setCambioDiferencia] = useState<{ planId: string; nombrePlan: string; precioNuevo: number; dif: DiferenciaCambioPlan } | null>(null);
   // La clase suelta que ya cubre su cuota, a punto de anularse (con su confirmación).
   const [sueltaAAnular, setSueltaAAnular] = useState<SueltaQueCubreLaCuota | null>(null);
   const [anulandoSuelta, setAnulandoSuelta] = useState(false);
   // El plan que se iba a dar de alta y las ventas del TPV que ya lo cobraron sin
   // clienta. `null` = no hay nada que avisar.
-  const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[] } | null>(null);
+  const [ventaPorAsignar, setVentaPorAsignar] = useState<{ planId: string; nombrePlan: string; ventas: VentaPorAsignar[]; cobrarDiferencia?: { importe: number } } | null>(null);
   // Tras asignar una cuota: el nombre del plan mientras se pregunta si le da
   // plaza fija, y el diálogo de plaza fija si dice que sí.
   const [ofrecerPlazaFija, setOfrecerPlazaFija] = useState<string | null>(null);
@@ -742,9 +749,28 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   // Solo ASIGNA. Quitar el plan ya no pasa por aquí: `assignPlan(id, null)`
   // protege a propósito los bonos con saldo, así que como «cancelar» mentía.
   // El tipo (sin `| null`) es lo que impide que vuelva a colarse.
-  async function cambiarPlan(planId: string, nombrePlan: string, opciones: { aunqueEsteCobradoEnTPV?: boolean } = {}) {
-    if (cambiandoPlan) return;
+  // La diferencia proporcional que se podría cobrar al pasar a `p` desde la cuota
+  // activa, o null si no procede (no es cuota→cuota, no es más cara, ciclo vencido…).
+  function diferenciaAlCambiarA(p: PlanTarifa): DiferenciaCambioPlan | null {
+    if (studio?.cobroProporcionalAltaActivo !== true || !puedeCobrar || !suscripcion || suscripcion.estado !== 'ACTIVA' || plan?.tipo !== 'MENSUAL' || p.tipo !== 'MENSUAL') return null;
+    const d = diferenciaCambioPlan({
+      precioActual: plan.precio, precioNuevo: p.precio, fechaFin: suscripcion.fechaFin ?? null,
+      mesesCicloActual: mesesDeCiclo(plan), mesesCicloNuevo: mesesDeCiclo(p), hoyISO: hoyEnEstudio(),
+    });
+    return d.aplica ? d : null;
+  }
+
+  function elegirPlan(p: PlanTarifa) {
+    const dif = diferenciaAlCambiarA(p);
+    if (dif) { setCambioDiferencia({ planId: p.id, nombrePlan: p.nombre, precioNuevo: p.precio, dif }); return; }
+    void cambiarPlan(p.id, p.nombre);
+  }
+
+  async function cambiarPlan(planId: string, nombrePlan: string, opciones: { aunqueEsteCobradoEnTPV?: boolean; cobrarDiferencia?: { importe: number } } = {}) {
+    if (cambiandoPlan || cambiandoPlanRef.current) return;
+    cambiandoPlanRef.current = true;
     setCambiandoPlan(true);
+    setCambioDiferencia(null);
     try {
       // ⚠️ Antes de cobrar el plan: ¿está ya cobrado en el TPV sin clienta? El
       // 10-sep se vendió una cuota así y, un minuto después, se dio de alta el
@@ -755,18 +781,31 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         // `Array.isArray`: una respuesta con otra forma no puede tumbar el alta.
         if (!esError(r) && Array.isArray(r.ventas) && r.ventas.length > 0) {
           setShowChangePlan(false);
-          setVentaPorAsignar({ planId, nombrePlan, ventas: r.ventas });
+          setVentaPorAsignar({ planId, nombrePlan, ventas: r.ventas, cobrarDiferencia: opciones.cobrarDiferencia });
           return;
         }
       }
-      await assignPlan(id, planId);
+      // Cobrando la diferencia: lo hace el servidor (todo o nada, importe recalculado) y
+      // deja el recibo PENDIENTE en Pagos, donde se cobra con los métodos de siempre.
+      if (opciones.cobrarDiferencia && suscripcion) {
+        const r = await assignPlan(id, planId, {
+          cobrarDiferencia: { suscripcionActualId: suscripcion.id, importeConfirmado: opciones.cobrarDiferencia.importe },
+        });
+        setShowChangePlan(false);
+        setVentaPorAsignar(null);
+        setActiveTab('pagos');
+        setToast(`Plan "${nombrePlan}" asignado · diferencia de ${formatEuro(r.importeCuota)} pendiente: cóbrala aquí en Pagos`);
+        return;
+      }
+      const asignado = await assignPlan(id, planId);
       setShowChangePlan(false);
       setVentaPorAsignar(null);
-      setToast(`Plan "${nombrePlan}" asignado`);
+      setToast(asignado.avisoCuota ? `Plan "${nombrePlan}" asignado. ${asignado.avisoCuota}` : `Plan "${nombrePlan}" asignado`);
       ofrecerPlazaFijaSiCuota(planId, nombrePlan);
     } catch (e) {
       setToastError(e instanceof Error ? e.message : ERROR_GENERICO);
     } finally {
+      cambiandoPlanRef.current = false;
       setCambiandoPlan(false);
     }
   }
@@ -1244,7 +1283,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     <div data-tour="ficha-clienta" className={cn(modo === 'pagina' && 'min-h-dvh pb-24')} style={modo === 'pagina' ? { backgroundColor: 'var(--background)' } : undefined}>
       <div className={cn('space-y-4', modo === 'pagina' && 'mx-auto max-w-6xl')}>
         {modo === 'pagina' && (
-          <Link href="/clientas" onClick={volverALista} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
+          <Link href="/clientas" onClick={volverALista} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
             <ArrowLeft size={16} aria-hidden />
             Clientas
           </Link>
@@ -1411,7 +1450,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               onClick={() => setActiveTab(p.id)}
               className={panelNuevo
                 ? cn(
-                  'min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
+                  'zona-tactil min-h-10 shrink-0 whitespace-nowrap rounded-full px-4 text-[14px] font-semibold transition-colors',
                   activeTab === p.id ? 'bg-card text-foreground shadow-t-card' : 'text-muted-foreground hover:text-foreground',
                 )
                 : cn(
@@ -1543,7 +1582,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           type="button"
                           onClick={() => abrirCancelarSus()}
                           disabled={cambiandoPlan}
-                          className="mt-3 text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-40"
+                          className="zona-tactil mt-3 text-[12.5px] font-medium text-muted-foreground underline-offset-2 hover:text-destructive hover:underline disabled:opacity-40"
                         >
                           {cambiandoPlan ? 'Cancelando…' : 'Cancelar suscripción'}
                         </button>
@@ -1567,7 +1606,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                     titulo="Próximas clases"
                     icono={<CalendarCheck size={16} />}
                     accion={reservaPermitida && socio.activo !== false ? (
-                      <button type="button" onClick={() => setShowReservar(true)} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+                      <button type="button" onClick={() => setShowReservar(true)} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
                         <Plus size={14} aria-hidden /> Reservar otra
                       </button>
                     ) : undefined}
@@ -1639,7 +1678,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   titulo="Lo último"
                   icono={<Clock size={16} />}
                   accion={eventosHistoria.length > 5 ? (
-                    <button type="button" onClick={() => setActiveTab('historia')} className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
+                    <button type="button" onClick={() => setActiveTab('historia')} className="zona-tactil inline-flex items-center gap-1 text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">
                       Toda la historia <ChevronRight size={14} aria-hidden />
                     </button>
                   ) : undefined}
@@ -1670,26 +1709,28 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                   )}
 
                 <TarjetaFicha titulo="Etiquetas" icono={<Tag size={16} />}>
-                  <div className="flex flex-wrap gap-1.5">
+                  {/* `tactil:gap-4`: con el dedo, la × de 16 px crece 14 a cada lado
+                      hasta su zona de 44; con 6 de hueco se metía en la etiqueta de al lado. */}
+                  <div className="flex flex-wrap gap-1.5 tactil:gap-4">
                     {tags.map(tag => (
                       <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-[12.5px] font-medium text-foreground">
                         {tag}
                         {gestionaClientas && (
-                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="-mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="zona-tactil -mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
                             <X size={12} />
                           </button>
                         )}
                       </span>
                     ))}
                     {gestionaClientas && (
-                      <button onClick={() => setShowAddTag(true)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground">
+                      <button onClick={() => setShowAddTag(true)} className="zona-tactil inline-flex items-center gap-1 rounded-full border border-dashed border-input px-2.5 py-1 text-[12.5px] font-medium text-muted-foreground hover:border-foreground hover:text-foreground">
                         <Plus size={12} aria-hidden /> Añadir
                       </button>
                     )}
                     {tags.length === 0 && !gestionaClientas && <p className="text-[13px] text-muted-foreground">Sin etiquetas.</p>}
                   </div>
                 </TarjetaFicha>
-                <TarjetaFicha titulo={`Sobre ${t.ella}`} icono={<UserRound size={16} />} accion={gestionaClientas ? <button onClick={openEdit} className="text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">Editar</button> : undefined}>
+                <TarjetaFicha titulo={`Sobre ${t.ella}`} icono={<UserRound size={16} />} accion={gestionaClientas ? <button onClick={openEdit} className="zona-tactil text-[12.5px] font-semibold text-foreground hover:underline underline-offset-2">Editar</button> : undefined}>
                   <dl className="space-y-2.5">
                     <DatoSobreElla icono={Mail} etiqueta="Email" valor={socio.email || 'Sin email'} />
                     <DatoSobreElla icono={Phone} etiqueta="Teléfono" valor={socio.telefono ? telefonoLegible(socio.telefono) : 'Sin teléfono'} />
@@ -2697,7 +2738,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
             {planesTarifa.filter(p => p.activo).map(p => (
               <button
                 key={p.id}
-                onClick={() => cambiarPlan(p.id, p.nombre)}
+                onClick={() => elegirPlan(p)}
                 disabled={cambiandoPlan}
                 className="w-full flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold text-left transition-colors hover:bg-brand/10 disabled:opacity-40"
                 style={{
@@ -2718,6 +2759,20 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                       + {p.matricula} € de matrícula si es su primer plan
                     </p>
                   )}
+                  {/* Cobro proporcional al alta: la alumna paga hoy SOLO los días que
+                      quedan del mes. Se dice ANTES de pulsar (y queda en el recibo). Solo
+                      un alta de cuota: si sustituye a una cuota activa es un cambio. */}
+                  {(() => {
+                    if (studio?.cobroProporcionalAltaActivo !== true) return null;
+                    if (suscripcion?.estado === 'ACTIVA' && plan?.tipo === 'MENSUAL') return null;
+                    const pr = prorrateoDeAlta(p, hoyEnEstudio(), studio?.cobroProporcionalDiasMinimos);
+                    if (!pr || pr.mesCompleto) return null;
+                    return (
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {pr.frase}
+                      </p>
+                    );
+                  })()}
                 </div>
                 {suscripcion?.planId === p.id && (
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FFF2F7', color: 'var(--brand)' }}>Actual</span>
@@ -2725,6 +2780,46 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               </button>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cambio a una cuota más cara a mitad de ciclo: cobrar la diferencia proporcional.
+          El importe de aquí es solo la vista previa: el servidor lo recalcula y, si ha
+          cambiado (p. ej. pasó la medianoche), pide confirmar el nuevo. */}
+      <Dialog open={cambioDiferencia !== null && verFinanzas} onOpenChange={open => { if (!open && !cambiandoPlan) setCambioDiferencia(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">Cambiar a «{cambioDiferencia?.nombrePlan}»</DialogTitle>
+          </DialogHeader>
+          {cambioDiferencia && plan && (
+            <div className="space-y-3 mt-2">
+              <p className="text-sm text-muted-foreground">
+                Ahora tiene «{plan.nombre}» ({formatEuro(plan.precio)}) y su ciclo acaba el {suscripcion?.fechaFin ? new Date(`${suscripcion.fechaFin}T12:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' }) : '—'}.
+                El plan nuevo cuesta {formatEuro(cambioDiferencia.precioNuevo)}.
+              </p>
+              <button
+                onClick={() => void cambiarPlan(cambioDiferencia.planId, cambioDiferencia.nombrePlan, { cobrarDiferencia: { importe: cambioDiferencia.dif.importe } })}
+                disabled={cambiandoPlan}
+                className="w-full rounded-xl bg-brand px-4 py-3 text-left text-sm font-semibold text-brand-foreground disabled:opacity-40"
+              >
+                Cambiar y cobrar {formatEuro(cambioDiferencia.dif.importe)} de diferencia
+                <span className="mt-1 block text-xs font-normal opacity-90">
+                  {cambioDiferencia.dif.texto} = {formatEuro(cambioDiferencia.dif.importe)}. Mantiene la misma fecha de renovación; el siguiente cobro es el del plan nuevo entero.
+                </span>
+              </button>
+              <button
+                onClick={() => void cambiarPlan(cambioDiferencia.planId, cambioDiferencia.nombrePlan)}
+                disabled={cambiandoPlan}
+                className="w-full rounded-xl border border-border px-4 py-3 text-left text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-40"
+              >
+                Cambiar sin cobrar la diferencia
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">
+                  Como siempre: empieza una cuota nueva hoy y se anota el precio entero del plan nuevo ({formatEuro(cambioDiferencia.precioNuevo)}).
+                </span>
+              </button>
+              <p className="text-xs text-muted-foreground">La diferencia queda pendiente en Pagos y se cobra desde ahí (tarjeta guardada, efectivo…). Bajar a un plan más barato no cobra ni devuelve nada.</p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -2768,7 +2863,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               )}
               <div className="flex flex-col gap-2 pt-1">
                 <button
-                  onClick={() => void cambiarPlan(ventaPorAsignar.planId, ventaPorAsignar.nombrePlan, { aunqueEsteCobradoEnTPV: true })}
+                  onClick={() => void cambiarPlan(ventaPorAsignar.planId, ventaPorAsignar.nombrePlan, { aunqueEsteCobradoEnTPV: true, cobrarDiferencia: ventaPorAsignar.cobrarDiferencia })}
                   disabled={cambiandoPlan || asignandoVenta}
                   className="w-full rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted disabled:opacity-40"
                 >

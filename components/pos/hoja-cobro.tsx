@@ -57,7 +57,9 @@ type Fase =
   // secas para un cobro que nadie ha comprobado es la mentira que este
   // rediseño existe para quitar.
   | { f: 'exito'; venta: RespuestaVenta; entrega?: RespuestaVenta['entrega']; verificado: boolean }
-  | { f: 'fallo'; mensaje: string };
+  // `titulo`/`seguir`: el rechazo por total distinto no es «no se ha completado el
+  // cobro» (con el TPV del banco quizá sí se cobró): es «el total ha cambiado».
+  | { f: 'fallo'; mensaje: string; titulo?: string; seguir?: string };
 
 // El datáfono espera hasta minuto y medio: es lo que tarda alguien en sacar la
 // tarjeta, acercarla y teclear el PIN. Menos, y se corta a mitad de un cobro
@@ -66,9 +68,28 @@ const ESPERA_MAX_MS = 90_000;
 const INTERVALO_MS = 1_500;
 
 export function HojaCobro({
-  total, cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar, onVentaAnulada,
+  total, matricula, totalSinComprobar = false, motivoSinComprobar = null, comprobandoTotal = false, onComprobarTotal,
+  cobroDisponible, bizumPermitido, onCobrar, onHecho, onCerrar, onVentaAnulada,
 }: {
+  /**
+   * Lo que se va a registrar: el que ha contado el servidor cuando lo hay (con la
+   * matrícula). Es el que se dice, el que se afirma («Sí, he cobrado…») y sobre el
+   * que se calcula el cambio. La venta lo manda y el servidor la rechaza si no es el suyo.
+   */
   total: number;
+  /** La matrícula que la venta añade por su cuenta (primer plan de la clienta), si la hay. */
+  matricula?: { concepto: string; importe: number } | null;
+  /**
+   * El servidor no ha podido contar el total (la vista previa falló). Con el TPV del
+   * banco o una transferencia el dinero se mueve antes de confirmar: esos dos métodos
+   * se apagan hasta comprobarlo. Datáfono, Bizum y efectivo los comprueba la venta
+   * antes de que se mueva nada.
+   */
+  totalSinComprobar?: boolean;
+  /** Por qué no se pudo (un motivo de negocio, como falta de stock, o la red). */
+  motivoSinComprobar?: string | null;
+  comprobandoTotal?: boolean;
+  onComprobarTotal?: () => void;
   cobroDisponible: CatalogoPOS['cobro'];
   /**
    * ¿Se puede ofrecer Bizum para ESTE ticket? Falso si lleva una cuota: Bizum
@@ -76,8 +97,11 @@ export function HojaCobro({
    * (`lib/billing/bizum-permitido.ts`). El servidor lo rechaza igualmente.
    */
   bizumPermitido: boolean;
-  /** Registra la venta en el servidor. Devuelve lo que respondió. */
-  onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null) => Promise<RespuestaVenta | { error: string; codigo?: string }>;
+  /**
+   * Registra la venta en el servidor con el total que ESTA hoja enseña (`totalEsperado`):
+   * el que se ha dicho en voz alta y, con tarjeta del banco, el que se ha afirmado.
+   */
+  onCobrar: (metodo: MetodoPago, efectivoRecibido: number | null, totalEsperado: number) => Promise<RespuestaVenta | { error: string; codigo?: string }>;
   /** La venta quedó cobrada de verdad. Vacía el ticket. */
   onHecho: (venta: RespuestaVenta) => void;
   onCerrar: () => void;
@@ -91,6 +115,31 @@ export function HojaCobro({
 }) {
   const [fase, setFase] = useState<Fase>({ f: 'metodo' });
   const [entregado, setEntregado] = useState('');
+
+  // ── El total que se ve, congelado ─────────────────────────────────────────
+  // Si el total cambia con la hoja abierta (llega la cuenta del servidor, o la
+  // corrige tras un rechazo), no se cambia la cifra bajo un botón que ya se está
+  // leyendo («Sí, he cobrado 145» que pasa a 130 sin que nadie lo vea): se vuelve a
+  // elegir método y se dice. Con la venta ya en marcha o hecha, no se toca.
+  // Es el patrón de «guardar lo de antes en el estado» (sin efecto): se ajusta en
+  // el mismo render en que llega el valor nuevo.
+  const [vista, setVista] = useState({ total, matricula: matricula ?? null });
+  const [avisoTotal, setAvisoTotal] = useState<string | null>(null);
+  if (total !== vista.total || (matricula?.importe ?? 0) !== (vista.matricula?.importe ?? 0)) {
+    if (fase.f === 'metodo' || fase.f === 'efectivo' || fase.f === 'atestiguar' || fase.f === 'fallo') {
+      setVista({ total, matricula: matricula ?? null });
+      // Solo el rechazo por total (el que lleva `titulo`) cuenta ya el total nuevo; con
+      // cualquier otro fallo se dice al volver a elegir método.
+      if (fase.f !== 'fallo' || !fase.titulo) {
+        setAvisoTotal(`El total ha cambiado: ahora son ${formatEuro(total)}. Vuelve a elegir cómo paga.`);
+      }
+      if (fase.f !== 'fallo') setFase({ f: 'metodo' });
+    }
+  }
+  const totalVisto = vista.total;
+  const matriculaVista = vista.matricula;
+  // Mientras se vuelve a comprobar, tampoco: la respuesta fallida ya no está, pero la buena aún no.
+  const sinComprobar = totalSinComprobar || comprobandoTotal;
 
   // ── El datáfono ───────────────────────────────────────────────────────────
   // El catálogo solo sabe si hay uno guardado; esto le pregunta a su proveedor
@@ -110,8 +159,8 @@ export function HojaCobro({
   });
   const etiquetaDatafono = lectorDatafono?.etiqueta ?? null;
 
-  const cambio = calcularCambio(total, parseFloat(entregado.replace(',', '.')) || 0);
-  const sugerencias = sugerenciasEfectivo(total);
+  const cambio = calcularCambio(totalVisto, parseFloat(entregado.replace(',', '.')) || 0);
+  const sugerencias = sugerenciasEfectivo(totalVisto);
 
   // La última versión del aviso de anulación, sin meterlo en las dependencias del
   // sondeo (lo reiniciaría en cada render y la espera de 90 s no acabaría nunca).
@@ -125,8 +174,13 @@ export function HojaCobro({
     // parece muerta y se pulsa dos veces. Es la misma lección que dejó el
     // captcha invisible.
     setFase({ f: 'enviando' });
-    const r = await onCobrar(m, efectivo);
+    setAvisoTotal(null);
+    const r = await onCobrar(m, efectivo, totalVisto);
     if (esError(r)) {
+      if (r.codigo === 'IMPORTE_NO_COINCIDE') {
+        setFase({ f: 'fallo', mensaje: r.error, titulo: 'El total ha cambiado', seguir: 'Seguir con el total nuevo' });
+        return;
+      }
       // El servidor sabe que de este intento no puede entrar dinero (no llegó a
       // crearse el cobro, o está cancelado): «Probar otra vez» estrena otro. Sin
       // eso, la misma clave devolvía la venta anulada, y con el datáfono apagado y
@@ -146,7 +200,7 @@ export function HojaCobro({
       return;
     }
     setFase({ f: 'esperando', venta: r, estado: r.pagoEstado, url: r.pago?.url ?? null });
-  }, [onCobrar]);
+  }, [onCobrar, totalVisto]);
 
   // ── Esperar al proveedor ──────────────────────────────────────────────────
   // Preguntar en bucle, no confiar en nada local. El servidor relee el
@@ -245,6 +299,8 @@ export function HojaCobro({
   const disponible = (m: MetodoPago) => {
     if (m === 'DATAFONO') return estadoDatafono !== 'sin-stripe';
     if (m === 'BIZUM') return cobroDisponible.stripeConectado && bizumPermitido;
+    // Se cobran fuera de Tentare ANTES de confirmar: sin el total comprobado, no.
+    if (necesitaAtestiguar(m)) return !sinComprobar;
     return true;
   };
 
@@ -274,7 +330,7 @@ export function HojaCobro({
         direccionEstudio={datafono.estado?.direccion ?? null}
         esTest={datafono.estado?.test ?? false}
         textoVolver="Volver al cobro"
-        textoFinal={`Volver a cobrar ${formatEuro(total)}`}
+        textoFinal={`Volver a cobrar ${formatEuro(totalVisto)}`}
         stripeConectado={cobroDisponible.stripeConectado && (datafono.estado?.stripeConectado ?? true)}
         sumup={datafono.estado?.sumup}
         enCobro
@@ -300,7 +356,14 @@ export function HojaCobro({
             dice en voz alta y el que se comprueba antes de tocar nada. */}
         <div className="relative shrink-0 px-6 pt-6 pb-5 border-b border-border text-center">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Total a cobrar</p>
-          <p className="mt-1 text-[40px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(total)}</p>
+          <p className="mt-1 text-[40px] leading-none font-extrabold text-foreground tabular-nums">{formatEuro(totalVisto)}</p>
+          {/* Dicha aquí y no solo en el ticket: es la cifra que se repite en voz
+              alta, y sin esto «¿por qué 95 si el bono son 80?» no tiene respuesta. */}
+          {matriculaVista && (
+            <p data-testid="cobro-matricula" className="mt-2 text-[13px] text-muted-foreground">
+              Incluye {matriculaVista.concepto} · {formatEuro(matriculaVista.importe)}
+            </p>
+          )}
           {/* Sin esto la única salida de la pantalla de éxito era el botón
               «Nueva venta», que no dice que también sirva para cerrar. 44 px,
               que es el mínimo para un dedo en el iPad del mostrador. */}
@@ -324,6 +387,33 @@ export function HojaCobro({
               última fila de una rejilla de cinco. */}
           {fase.f === 'metodo' && (
             <div className="p-4 grid grid-cols-2 gap-3">
+              {avisoTotal && (
+                <p role="alert" data-testid="aviso-total-cambiado" className="col-span-2 rounded-xl bg-warning/10 px-3.5 py-3 text-left text-[13.5px] font-medium text-foreground text-pretty">
+                  {avisoTotal}
+                </p>
+              )}
+              {sinComprobar && (
+                <div role="alert" data-testid="aviso-total-sin-comprobar" className="col-span-2 flex items-start gap-2.5 rounded-xl bg-warning/10 px-3.5 py-3 text-left">
+                  <AlertTriangle size={17} className="mt-0.5 shrink-0 text-warning" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] text-foreground text-pretty">
+                      {comprobandoTotal || !motivoSinComprobar ? 'No hemos podido comprobar el total.' : motivoSinComprobar}
+                      {' '}No lo cobres todavía con el TPV de tu banco ni por transferencia.
+                    </p>
+                    {onComprobarTotal && (
+                      <button
+                        type="button"
+                        onClick={onComprobarTotal}
+                        disabled={comprobandoTotal}
+                        className="mt-1 -ml-1 inline-flex min-h-10 tactil:min-h-11 items-center gap-1.5 rounded-lg px-1 text-[13.5px] font-semibold text-foreground underline underline-offset-2 disabled:opacity-60"
+                      >
+                        {comprobandoTotal && <Loader2 size={14} className="animate-spin" />}
+                        {comprobandoTotal ? 'Comprobando…' : 'Volver a comprobar'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
               {avisoDatafono && estadoDatafono === 'sin-conexion' && (
                 <div role="alert" className="col-span-2 flex items-start gap-2.5 rounded-xl bg-warning/10 px-3.5 py-3 text-left">
                   <AlertTriangle size={17} className="mt-0.5 shrink-0 text-warning" />
@@ -391,7 +481,9 @@ export function HojaCobro({
                             // El motivo de verdad. «Conecta Stripe» aquí sería
                             // mandar a arreglar algo que no está roto.
                             ? 'No vale para una cuota: no deja método guardado'
-                            : 'Conecta Stripe en Configuración → Cobros y facturas'}
+                            : necesitaAtestiguar(valor)
+                              ? 'Antes, comprueba el total'
+                              : 'Conecta Stripe en Configuración → Integraciones'}
                     </span>
                   </button>
                 );
@@ -423,15 +515,15 @@ export function HojaCobro({
               </p>
               <p className="text-[13.5px] text-muted-foreground max-w-[340px] mx-auto">
                 {fase.metodo === 'TARJETA'
-                  ? `Tentare no ve los cobros del datáfono de tu banco. Confirma que has cobrado ${formatEuro(total)} y lo registramos a tu nombre.`
-                  : `Tentare no ve tu cuenta bancaria. Confirma que has recibido ${formatEuro(total)} y lo registramos a tu nombre.`}
+                  ? `Tentare no ve los cobros del datáfono de tu banco. Confirma que has cobrado ${formatEuro(totalVisto)} y lo registramos a tu nombre.`
+                  : `Tentare no ve tu cuenta bancaria. Confirma que has recibido ${formatEuro(totalVisto)} y lo registramos a tu nombre.`}
               </p>
               <div className="flex flex-col gap-2 pt-1">
                 <button
                   onClick={() => lanzar(fase.metodo, null)}
                   className="w-full h-14 rounded-xl bg-brand text-brand-foreground text-[16px] font-bold active:scale-[0.99] transition-transform"
                 >
-                  Sí, he cobrado {formatEuro(total)}
+                  Sí, he cobrado {formatEuro(totalVisto)}
                 </button>
                 <button
                   onClick={() => setFase({ f: 'metodo' })}
@@ -460,7 +552,7 @@ export function HojaCobro({
                   autoFocus
                   value={entregado}
                   onChange={(e) => setEntregado(e.target.value.replace(/[^0-9.,]/g, ''))}
-                  placeholder={total.toFixed(2)}
+                  placeholder={totalVisto.toFixed(2)}
                   className="mt-1.5 w-full h-16 rounded-2xl border-2 border-border bg-background px-4 text-[28px] font-bold text-foreground tabular-nums text-center outline-none focus:border-foreground transition-colors"
                 />
               </div>
@@ -503,7 +595,7 @@ export function HojaCobro({
                 </button>
                 <button
                   disabled={!cambio.ok}
-                  onClick={() => lanzar('EFECTIVO', parseFloat(entregado.replace(',', '.')) || total)}
+                  onClick={() => lanzar('EFECTIVO', parseFloat(entregado.replace(',', '.')) || totalVisto)}
                   className="flex-1 h-14 rounded-xl bg-brand text-brand-foreground text-[16px] font-bold disabled:opacity-40 active:scale-[0.99] transition-all"
                 >
                   Confirmar pago
@@ -617,14 +709,14 @@ export function HojaCobro({
               <div className="w-20 h-20 rounded-full bg-destructive/10 flex items-center justify-center">
                 {fase.mensaje.includes('comprueb') ? <AlertTriangle size={36} className="text-warning" /> : <XCircle size={36} className="text-destructive" />}
               </div>
-              <p className="text-[17px] font-bold text-foreground">No se ha completado el cobro</p>
+              <p className="text-[17px] font-bold text-foreground">{fase.titulo ?? 'No se ha completado el cobro'}</p>
               <p className="text-[14px] text-muted-foreground max-w-[320px]">{fase.mensaje}</p>
               <div className="flex gap-2 w-full mt-3">
                 <button onClick={onCerrar} className="flex-1 h-[52px] rounded-xl border border-border text-[15px] font-medium text-muted-foreground">
                   Cerrar
                 </button>
                 <button onClick={() => setFase({ f: 'metodo' })} className="flex-1 h-[52px] rounded-xl bg-brand text-brand-foreground text-[15px] font-bold">
-                  Probar otra vez
+                  {fase.seguir ?? 'Probar otra vez'}
                 </button>
               </div>
             </div>

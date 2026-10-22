@@ -1,6 +1,6 @@
 import { OG_IMAGE_CONTENT_TYPE, OG_IMAGE_SIZE, generarOgImage } from '@/lib/og-image';
 
-export const alt = 'Automatizaciones y avisos por WhatsApp y email — Tentare';
+export const alt = 'Automatizaciones y avisos por app, push y email — Tentare';
 export const size = OG_IMAGE_SIZE;
 export const contentType = OG_IMAGE_CONTENT_TYPE;
 

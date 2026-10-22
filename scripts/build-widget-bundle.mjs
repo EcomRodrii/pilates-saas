@@ -33,12 +33,12 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('✘ Faltan NEXT_PUBLIC_SUPABASE_URL/NEXT_PUBLIC_SUPABASE_ANON_KEY en .env.local — el widget no podría autenticar a ninguna socia.');
   process.exit(1);
 }
-// Opcional a propósito, igual que en el resto del repo (turnstile-widget.tsx):
-// sin site key, `useCaptchaWidget` no monta nada y el login/registro del
-// widget queda sin captcha propio — gotrue lo sigue exigiendo a nivel de
-// proyecto si está activado, así que no es un agujero de seguridad, solo una
-// UX peor (el error de Supabase en vez de un mensaje amable).
-const TURNSTILE_SITE_KEY = leerEnvLocal('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
+// SIN captcha en el bundle, a propósito (16-oct-2026): la site key de Turnstile
+// solo da token en tentare.app y en la web de un estudio contesta 110200. El
+// acceso lo hace la ventana de Tentare (app/widget-auth-retorno), que lleva su
+// propio captcha. La variable se define VACÍA, y no se quita, para que un
+// `process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY` que se colara en el bundle no
+// reviente con «process is not defined» en la web del estudio.
 // Fase 3 (checkout embebido): opcional a propósito, mismo criterio que
 // Turnstile arriba — sin ella, <CheckoutEmbebido> no monta Stripe Elements y
 // cae al aviso "compra no disponible ahora mismo" en vez de romper el resto
@@ -68,7 +68,7 @@ const opcionesComunes = {
     'process.env.NODE_ENV': '"production"',
     'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(SUPABASE_URL),
     'process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY': JSON.stringify(SUPABASE_ANON_KEY),
-    'process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY': JSON.stringify(TURNSTILE_SITE_KEY),
+    'process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY': '""',
     'process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY': JSON.stringify(STRIPE_PUBLISHABLE_KEY),
   },
   logLevel: 'info',

@@ -7,15 +7,20 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 const GUIA = guia('checklist-elegir-software-estudio');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/checklist-elegir-software-estudio')!;
+
 export const metadata: Metadata = {
-  title: 'Elegir software para un estudio de yoga o pilates | Tentare',
-  description: 'Checklist para elegir el software de un estudio de yoga o pilates: 10 criterios, las preguntas de la demo y las señales de alarma antes de firmar.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe('/recursos/checklist-elegir-software-estudio') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: 'Checklist: cómo elegir el software de tu estudio',
     description: 'Las señales de alarma que las reseñas públicas ya han encontrado por ti, antes de que firmes un contrato de un año.',
@@ -54,7 +59,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un software para un estudio de pilates o yoga?',
-    a: 'Depende del programa y de si publica precio. Mira siempre también las comisiones sobre tus cobros y la permanencia. Tentare publica sus planes, desde 29 € al mes con IVA y sin permanencia, en la página de precios, y la guía de mejor software compara 13 programas con lo que dice la web de cada uno.',
+    a: 'Depende del programa y de si publica precio. Mira siempre también las comisiones sobre tus cobros y la permanencia. Tentare publica sus planes en la página de precios, sin permanencia: Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes y cuesta 29 € al mes si pasas de ahí, y Estudio, 59 €, con IVA. La guía de mejor software compara 13 programas con lo que dice la web de cada uno.',
   },
   {
     q: '¿Un contrato anual es siempre una mala señal?',
@@ -196,7 +201,7 @@ export default function ChecklistSoftwarePage() {
         <RelatedLinks
           items={[
             { href: '/recursos/mejor-software-para-estudios-de-pilates', category: 'Elegir software', categoryColor: '#6E7650', title: 'Mejor software para estudios de pilates: 13 comparados' },
-            { href: '/precios', category: 'Precios', categoryColor: '#6E7650', title: 'Planes desde 29 €/mes, sin permanencia' },
+            { href: '/precios', category: 'Precios', categoryColor: '#6E7650', title: 'Planes y precios, con Founding Studio gratis' },
             { href: '/soluciones/cambiar-de-software', category: 'Cambiarte de software', categoryColor: '#4E9E7F', title: 'Cambiarte a Tentare sin perder nada' },
             { href: '/recursos/cubrir-baja-instructora', category: 'Sustituciones y equipo', categoryColor: '#3E7C86', title: 'Cómo cubrir una baja de instructora sin hacer una llamada' },
           ]}

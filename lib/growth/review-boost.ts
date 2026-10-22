@@ -69,6 +69,20 @@ export function debeMostrarModal(estudio: {
 }
 
 /**
+ * La regla de «¿le toca el modal a esta persona?»: solo la propietaria, con el estudio ya cargado
+ * y `debeMostrarModal`. La comparten el modal y el armazón del panel (que no descarga el modal
+ * hasta que le toca), para que no puedan discrepar.
+ */
+export function reviewBoostToca(estudio: {
+  reviewBoostElegibleEn: string | null;
+  reviewBoostMostradoEn: string | null;
+  reviewBoostPospuestoEn: string | null;
+  reviewBoostVecesMostrado: number;
+} | null, rol: string | null): boolean {
+  return rol === 'PROPIETARIO' && !!estudio && debeMostrarModal(estudio);
+}
+
+/**
  * Lo que se apunta en el estudio al ENSEÑAR el modal (no al cerrarlo): cuenta
  * como una vez mostrado y abre el plazo de reaparición. Así «1ª vez + 1
  * reaparición» cuenta VECES QUE SE VIO, también si se recargó o se salió con el

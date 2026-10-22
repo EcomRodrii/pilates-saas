@@ -26,7 +26,7 @@ export function ProximaClaseVacia({ huecosHoy, hrefReservar }: {
   hrefReservar: string;
 }) {
   return (
-    // ⚠️ Sin `aria-label`. `NextClassCard` —la tarjeta de VERDAD— se llama
+    // ⚠️ Sin `aria-label`. `TarjetaProximaClase` —la tarjeta de VERDAD— se llama
     // «Tu próxima clase» como región, y ponerle aquí el mismo nombre dejaba dos
     // regiones distintas llamadas igual: para un lector de pantalla, y para
     // cualquier test, «la próxima clase» pasaba a ser ambiguo. El rótulo ya se

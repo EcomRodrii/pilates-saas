@@ -8,7 +8,7 @@
 // `system[1]` (`contextoDelDia`). Un byte distinto antes del punto de caché y
 // cada pregunta paga el prefijo entero.
 //
-// ⚠️ Haiku 4.5 NO cachea prefijos de menos de 4.096 tokens, y no avisa
+// ⚠️ Haiku 4.5 (el respaldo) NO cachea prefijos de menos de 4.096 tokens (Haiku 5.5, de menos de 512), y no avisa
 // (`cache_creation_input_tokens: 0`). Herramientas + este texto tienen que
 // pasar de ahí: se mide con `node scripts/asistente-contar-prefijo.mjs`
 // (`messages.countTokens`, gratis). El juego de herramientas es UNO para todos
@@ -119,14 +119,14 @@ Configuración, por apartados:
 - Mi estudio: nombre y dirección, contacto, horario de apertura, cerrar el centro (vacaciones, puentes), salas y su aforo, sedes.
 - Mis clases y citas: tipos de clase (duración, plazas y sus propias reglas de reserva; «Solo para alumnas autorizadas» limita un tipo de clase a las alumnas a las que se lo abres desde su ficha, que es lo más parecido a clases por nivel: una reserva automática por nivel todavía no existe), servicios y horario de citas.
 - Cómo reservan mis alumnas: antelación para reservar, cancelación y recuperaciones, mínimo de asistentes, lista de espera, pasar lista y acceso con QR, penalización por cancelar tarde o no venir, clases fijas y peticiones desde su app.
-- Cobros y facturas: facturación (incluido «Facturar automáticamente», que decide si la factura sale sola al cobrar) y Veri*Factu, datos fiscales e IVA, cobro con tarjeta (Stripe), datáfono, cuándo se cobra la cuota, domiciliaciones SEPA y devoluciones.
+- Cobros y facturas: facturación (incluido «Facturar automáticamente», que decide si la factura sale sola al cobrar) y Veri*Factu, datos fiscales e IVA, cuándo se cobra la cuota, domiciliaciones SEPA y devoluciones.
 - Alta de alumnas: contrato y privacidad, compra desde tu enlace, datos extra de la ficha, valoración inicial y cuestionario de salud.
-- Cómo me comunico: correos automáticos, avisos en el móvil de tus alumnas, nombre y respuesta de tus correos, WhatsApp.
+- Cómo me comunico: correos automáticos, avisos en el móvil de tus alumnas, nombre y respuesta de tus correos.
 - Motivación: créditos, recompensas, logros, niveles, retos y códigos de descuento.
 - Marca: logo, apariencia de la app de tus alumnas (color, tipografía, portada) y sus textos.
 - Mi app y mi web: el enlace de tu página de reservas y de la app de tus alumnas con su QR, ocultar tu página, el contenido de su app y los widgets para tu web (horario, precios).
 - Mi equipo: si las instructoras crean sus clases y el enlace a la app de tus instructoras.
-- Conexiones: ClassPass, Urban Sports Club y Wellhub (apuntar sus reservas en la clase para no vender dos veces el mismo hueco, y cuántas plazas pones a la venta en cada tipo de clase), Google Calendar, Zoom, Klaviyo, Mailchimp, Zapier y la API para tu contabilidad.
+- Integraciones: cobro con tarjeta (Stripe), datáfono, WhatsApp, ClassPass, Urban Sports Club y Wellhub (apuntar sus reservas en la clase para no vender dos veces el mismo hueco, y cuántas plazas pones a la venta en cada tipo de clase), Google Calendar, Zoom, Klaviyo, Mailchimp, Zapier y la API para tu contabilidad.
 - Datos y seguridad: exportar tus datos, verificación en dos pasos para el equipo, redactar con IA.
 - Mis avisos y Tu panel: qué avisos te llegan, tu menú, tu Resumen, claro u oscuro.
 - Demo: un vídeo que configura Tentare entero, sección por sección, con un estudio de ejemplo.

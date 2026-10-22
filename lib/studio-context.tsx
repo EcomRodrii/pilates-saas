@@ -64,7 +64,8 @@ import {
   dbUpdateStudio, dbUpdateHorarioEstudio, dbUpdateStudioConfig, resolverEstudioDeLaSesion, setCurrentStudioId, getCurrentStudioId,
   setDbErrorListener, dbMisLikesComunidad,
 } from '@/lib/supabase-data';
-import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
+import { mensajeDeFalloAlGuardar, mensajeHttp, mensajeSeguro, type ResultadoEscritura, type ResultadoAlta } from '@/lib/errores';
+import { ESCRITURA_EN_VISTA_PREVIA, enVistaPreviaDelPanel } from '@/lib/reservar/vista-previa-sin-escrituras';
 
 /**
  * Lo que de verdad ha pasado al intentar reservar.
@@ -229,19 +230,21 @@ import {
 import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo, cambiarCuotaConDiferencia } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { aplicarApartadas } from '@/lib/student/aforo-fresco';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
 import { estadosDeClientas } from '@/lib/clientas/estado';
 import { tieneConsentimientoMarketingAlgunaVez } from '@/lib/marketing/consentimiento';
 import { useAuth } from '@/lib/auth-context';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { reglaActivaPara, validarCanje, aplicarCanjeCreditos } from '@/lib/engines/reward-engine';
 import { tieneFeature } from '@/lib/billing/entitlements';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado, type RachaInfo } from '@/lib/engines/streak-engine';
 import { calcularNivel, type NivelInfo } from '@/lib/engines/level-engine';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
+import { quienBajaria } from '@/lib/gamificacion/ritmo-niveles';
+import { calcularProgresoReto, retoVigente } from '@/lib/engines/challenge-engine';
 import { uid, uuidV4, hoyEnEstudio } from '@/lib/utils';
 import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import type { DatosPlazaFija, ResultadoGuardarPlazaFija } from '@/lib/plazas-fijas-reglas';
@@ -261,7 +264,20 @@ import {
   decidirPremioReferido,
   type AforoApartado,
 } from '@/lib/booking-logic';
-import { calcularReactivacion, cicloInicialDe, avisaBonoAgotado } from '@/lib/bono-logic';
+import { calcularReactivacion, avisaBonoAgotado } from '@/lib/bono-logic';
+import { cicloYCobroDeAlta, conceptoAltaProrrateada, periodoDeCuotaAnterior } from '@/lib/billing/prorrateo';
+
+/** Cambio de cuota a una más cara cobrando la diferencia proporcional (la confirma el servidor). */
+export interface OpcionesAsignarPlan {
+  cobrarDiferencia?: { suscripcionActualId: string; importeConfirmado: number };
+}
+/** `reciboCuotaId`: el recibo PENDIENTE de la cuota recién dada (alta o diferencia), o null. */
+export interface ResultadoAsignarPlan {
+  reciboCuotaId: string | null;
+  importeCuota: number;
+  /** Si hoy no se cobra nada por quedar pocos días: «Tu primera cuota (50 €) se cobra el 1 de noviembre». */
+  avisoCuota?: string | null;
+}
 import { useContentStore, type OpcionesAddPost } from '@/lib/stores/use-content-store';
 import { useDiscountCodesStore } from '@/lib/stores/use-discount-codes-store';
 import { useIntegrationsStore } from '@/lib/stores/use-integrations-store';
@@ -324,10 +340,10 @@ interface StudioContextValue {
   // algo, mismo criterio que `Instructor.valoracion` (lib/portal-tema/valoracion.ts).
   valoracionEstudio: { media: number; total: number } | null;
   updateMensajeDestacado: (mensaje: string | null) => Promise<ResultadoEscritura>;
-  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addBannerPortal: (fields: Omit<BannerPortal, 'id' | 'studioId'>) => Promise<ResultadoAlta>;
   updateBannerPortal: (id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteBannerPortal: (id: string) => Promise<ResultadoEscritura>;
-  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoEscritura>;
+  addNovedadEstudio: (fields: Omit<NovedadEstudio, 'id' | 'studioId'>) => Promise<ResultadoAlta>;
   updateNovedadEstudio: (id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteNovedadEstudio: (id: string) => Promise<ResultadoEscritura>;
   // Orden/visibilidad de los módulos de Inicio del portal (Fase 2 del editor
@@ -465,7 +481,13 @@ interface StudioContextValue {
   removeTagSocio: (socioId: string, tag: string) => Promise<ResultadoEscritura>;
 
   // Suscripciones
-  assignPlan: (socioId: string, planId: string | null) => Promise<void>;
+  /**
+   * Da un plan a una clienta. `opciones.cobrarDiferencia`: cambio de cuota a una más
+   * cara cobrando la diferencia proporcional (lo hace el servidor, todo o nada; el
+   * importe se recalcula allí). Devuelve el recibo de la cuota (el de la alta o el de
+   * la diferencia) para poder cobrarlo a continuación, o `null` si no hay nada que cobrar.
+   */
+  assignPlan: (socioId: string, planId: string | null, opciones?: OpcionesAsignarPlan) => Promise<ResultadoAsignarPlan>;
   pausarSuscripcion: (susId: string, motivo?: string) => Promise<ResultadoEscritura>;
   reanudarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   reactivarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
@@ -693,7 +715,7 @@ interface StudioContextValue {
   updateRewardCatalogItem: (id: string, changes: Partial<Omit<RewardCatalogItem, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteRewardCatalogItem: (id: string) => Promise<ResultadoEscritura>;
   canjearRecompensa: (socioId: string, catalogItemId: string) => Promise<{ ok: true } | { error: string }>;
-  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado']) => Promise<ResultadoEscritura>;
+  updateRewardRedemptionEstado: (id: string, estado: RewardRedemption['estado'], motivo?: string) => Promise<ResultadoEscritura>;
   achievementDefinitions: AchievementDefinition[];
   achievementProgress: AchievementProgress[];
   achievementHistory: AchievementHistory[];
@@ -1005,6 +1027,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   // para un único cobro. El Set bloquea el segundo disparo del MISMO recibo;
   // ids distintos (cobro masivo) siguen corriendo en paralelo sin trabas.
   const cobrosEnCursoRef = useRef<Set<string>>(new Set());
+  // Canjes en vuelo (socia + recompensa): un segundo toque no es otro canje.
+  const canjesEnCurso = useRef(new Set<string>());
   const [notasInternas, setNotasInternas] = useState<NotaInterna[]>([]);
   const [valoracionesSocias, setValoracionesSocias] = useState<ValoracionSocia[]>([]);
   const [condicionesSalud, setCondicionesSalud] = useState<CondicionSalud[]>([]);
@@ -1096,6 +1120,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, []);
+
+  // Racha única (PR 3.3, `RACHA_UNICA`): con ella encendida el logro «Semanas consecutivas» lo evalúa SOLO
+  // el servidor con la función única; aquí no se calcula con la racha de siempre (daría otro número y podría
+  // concederlo antes de tiempo). Solo en el panel autenticado: el portal no pregunta (misma petición que
+  // ya hace el panel para sus demás interruptores, cacheada).
+  const rachaUnicaEnPanel = useInterruptor('rachaUnica', publicSlug || shadowedByPublicRoute ? null : studio?.id);
 
   // El self-claim de una instructora (confirmar el correo de invitación) pasa
   // por su propia sesión/pestaña — un UPDATE de `auth_user_id` en servidor con
@@ -1530,7 +1560,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setActividadReciente(data.actividadReciente);
       content.setVideosOnDemand(data.videosOnDemand);
       content.setPostsComunidad(data.postsComunidad);
-      dbMisLikesComunidad().then(ids => content.setLikedPostIds(new Set(ids)));
+      // Se pide aquí y se aplica junto al resto de cargas tardías (un solo commit, más abajo).
+      const likesPromesa = dbMisLikesComunidad();
       integrationsStore.setIntegraciones(data.integraciones ?? []);
       integrationsStore.setActivasDelServidor(data.integracionesActivas ?? []);
       setRewardRules(data.rewardRules ?? []);
@@ -1551,16 +1582,31 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       setTextosLegalesPropios(textosPropiosDe(data.studioConfig));
       setDataLoaded(true);
 
-      // Campos personalizados y plantillas de email: no son ruta crítica (solo
-      // config + fichas), se cargan aparte sin bloquear el primer pintado.
-      dbFetchCamposPersonalizados().then(c => { setCamposPersonalizados(c); setCamposPersonalizadosCargados(true); }).catch(() => {});
-      dbFetchSegmentosClientes().then(setSegmentosClientes).catch(() => {});
-      dbFetchPlantillasEmail().then(p => { setPlantillasEmail(p); setPlantillasEmailCargadas(true); }).catch(() => {});
-      dbFetchDependencySnapshots().then(setDependencySnapshots).catch(() => {});
-      // RECEPCION/MANAGER simplemente reciben [] aquí (la RLS los excluye) —
+      // Campos personalizados, segmentos, plantillas de email, snapshots de dependencia,
+      // cuestionarios de salud y likes: no son ruta crítica (solo config + fichas), se
+      // cargan aparte sin bloquear el primer pintado. ⚠️ Se aplican TODOS en un único
+      // bloque de setState (un solo commit): antes eran siete `.then(setX)` sueltos, cada
+      // uno un render de los ~180 consumidores de `useStudio()`. Cada carga que falla se
+      // queda como estaba (sin su `*Cargadas`), igual que con el `.catch(() => {})` de antes.
+      // RECEPCION/MANAGER simplemente reciben [] en los cuestionarios (la RLS los excluye) —
       // no hace falta comprobar el rol en cliente antes de pedirlo.
-      dbFetchPlantillasCuestionarioSalud().then(p => { setPlantillasCuestionarioSalud(p); setCuestionarioSaludCargado(true); }).catch(() => {});
-      dbFetchRespuestasCuestionarioSalud().then(setRespuestasCuestionarioSalud).catch(() => {});
+      void Promise.allSettled([
+        dbFetchCamposPersonalizados(),
+        dbFetchSegmentosClientes(),
+        dbFetchPlantillasEmail(),
+        dbFetchDependencySnapshots(),
+        dbFetchPlantillasCuestionarioSalud(),
+        dbFetchRespuestasCuestionarioSalud(),
+        likesPromesa,
+      ]).then(([campos, segmentos, plantillas, snapshots, plantillasSalud, respuestasSalud, likes]) => {
+        if (campos.status === 'fulfilled') { setCamposPersonalizados(campos.value); setCamposPersonalizadosCargados(true); }
+        if (segmentos.status === 'fulfilled') setSegmentosClientes(segmentos.value);
+        if (plantillas.status === 'fulfilled') { setPlantillasEmail(plantillas.value); setPlantillasEmailCargadas(true); }
+        if (snapshots.status === 'fulfilled') setDependencySnapshots(snapshots.value);
+        if (plantillasSalud.status === 'fulfilled') { setPlantillasCuestionarioSalud(plantillasSalud.value); setCuestionarioSaludCargado(true); }
+        if (respuestasSalud.status === 'fulfilled') setRespuestasCuestionarioSalud(respuestasSalud.value);
+        if (likes.status === 'fulfilled') content.setLikedPostIds(new Set(likes.value));
+      });
 
       // 2ª ola (Fase C): historial/logs. No bloquea el primer pintado; estas
       // vistas se rellenan un instante después. Ninguna lógica de negocio las
@@ -2225,7 +2271,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     setContenidoPortal({ studioId, mensajeDestacado: mensaje });
     return res;
   }
-  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addBannerPortal(fields: Omit<BannerPortal, 'id' | 'studioId'>): Promise<ResultadoAlta> {
     // `contenido_portal_banners.id` es `uuid` de verdad (no `text` como el resto
     // de entidades de esta app) — el id de cliente tiene que ser un UUID válido,
     // no el `bp-${uid()}` habitual, o Postgres lo rechaza con 22P02. Además el
@@ -2238,7 +2284,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbInsertBannerPortal(nuevo);
     if (!res.ok) return res;
     setBannersPortal(prev => [...prev, nuevo]);
-    return res;
+    return { ok: true, id: nuevo.id };
   }
   async function updateBannerPortal(id: string, changes: Partial<Omit<BannerPortal, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateBannerPortal(id, changes);
@@ -2254,12 +2300,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   // ── Tablón (novedades_estudio) ──────────────────────────────────────────────
-  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoEscritura> {
+  async function addNovedadEstudio(fields: Omit<NovedadEstudio, 'id' | 'studioId'>): Promise<ResultadoAlta> {
     const nuevo: NovedadEstudio = { ...fields, id: uuidV4(), studioId: getCurrentStudioId() };
     const res = await dbInsertNovedadEstudio(nuevo);
     if (!res.ok) return res;
     setNovedadesEstudio(prev => [nuevo, ...prev]);
-    return res;
+    return { ok: true, id: nuevo.id };
   }
   async function updateNovedadEstudio(id: string, changes: Partial<Omit<NovedadEstudio, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
     const res = await dbUpdateNovedadEstudio(id, changes);
@@ -2518,6 +2564,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (plan) {
         planNombreAlta = plan.nombre;
         const susId = `sus-${uid()}`;
+        const cicloAlta = cicloYCobroDeAlta(plan, ahora, hoy, studio?.cobroProporcionalAltaActivo === true, studio?.cobroProporcionalDiasMinimos);
         const sus: Suscripcion = {
           id: susId,
           studioId: getCurrentStudioId(),
@@ -2529,7 +2576,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           // por días (su `validezDias` es siempre null) y salía con `fecha_fin`
           // a NULL, que aguas abajo es «no caduca nunca» — se cobraba un mes y
           // la socia seguía reservando gratis. Ver el comentario de la función.
-          ...cicloInicialDe(plan, ahora),
+          // Con «Cobrar la parte proporcional del primer mes» activo, la cuota
+          // nace con el ciclo hasta fin de mes (`cicloYCobroDeAlta`); apagado,
+          // es EXACTAMENTE `cicloInicialDe`.
+          fechaFin: cicloAlta.fechaFin,
+          sesionesRestantes: cicloAlta.sesionesRestantes,
           stripeSubscriptionId: null,
         };
         // El alta NO da por cobrado nada por su cuenta. Antes este recibo nacía
@@ -2542,14 +2593,16 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // (`cobrarEnServidor`). Un recibo no puede crearse ya cobrado desde el
         // navegador: lo impide la base de datos.
         const cobrado = cobroAlta?.pagado === true;
-        const reciboId = `rec-${uid()}`;
+        // Con el cobro proporcional, el id lleva el motivo (`rec-prorrateo-…`) y el
+        // concepto el porqué: «parte proporcional de octubre: 17 de 31 días».
+        const reciboId = `${cicloAlta.prefijoRecibo}${uid()}`;
         const reciboAlta: Recibo = {
           id: reciboId,
           studioId: getCurrentStudioId(),
           socioId: nuevaSocia.id,
           suscripcionId: susId,
-          concepto: `Alta — ${plan.nombre}`,
-          importe: plan.precio,
+          concepto: conceptoAltaProrrateada('Alta', plan.nombre, cicloAlta.prorrateo),
+          importe: cicloAlta.importe,
           estado: 'PENDIENTE',
           fechaVencimiento: hoy,
           fechaCobro: null,
@@ -2563,11 +2616,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         if (!resSus.ok) return resSus;
         setSuscripciones(prev => [...prev, sus]);
 
-        const resRec = await dbInsertRecibo(reciboAlta);
-        if (!resRec.ok) return resRec;
-        setRecibos(prev => [...prev, reciboAlta]);
-        // Lo que se cobra al final, por el servidor: el alta y, si la hay, su matrícula.
-        const recibosACobrar: string[] = [reciboAlta.id];
+        // Una parte proporcional por debajo del mínimo (0,50 €) no se cobra: sin
+        // recibo de 0 € a la vista en «Quién me debe». Solo pasa con el ajuste activo.
+        const sinCuotaQueCobrar = cicloAlta.prorrateo !== null && cicloAlta.importe <= 0;
+        if (cicloAlta.aviso) avisos.push(cicloAlta.aviso);
+        const recibosACobrar: string[] = [];
+        if (!sinCuotaQueCobrar) {
+          const resRec = await dbInsertRecibo(reciboAlta);
+          if (!resRec.ok) return resRec;
+          setRecibos(prev => [...prev, reciboAlta]);
+          // Lo que se cobra al final, por el servidor: el alta y, si la hay, su matrícula.
+          recibosACobrar.push(reciboAlta.id);
+        }
 
         // ── Matrícula ───────────────────────────────────────────────────────
         //
@@ -2627,7 +2687,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         // confirma, el alta ya está hecha y no se deshace: los recibos se quedan
         // pendientes en «Quién me debe» (que es la verdad) y se avisa. Nunca se
         // da por cobrado lo que el servidor no ha confirmado.
-        if (cobrado) {
+        if (cobrado && recibosACobrar.length > 0) {
           const desenlaces = await cobrarEnServidor(recibosACobrar, cobroAlta.metodo);
           const sinCobrar = desenlaces.filter(d => !esCobroConfirmado(d));
           if (sinCobrar.length > 0) {
@@ -2671,6 +2731,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
   async function postPublico(url: string, body: Record<string, unknown>): Promise<ResultadoEscritura & { datos?: unknown }> {
     try {
+      // La vista previa del constructor de widgets no escribe nada de verdad
+      // (lib/reservar/vista-previa-sin-escrituras.ts): el camino de fallo de
+      // siempre, con lo que pasa. El `finally` reconcilia lo optimista.
+      if (enVistaPreviaDelPanel()) return { ok: false, error: ESCRITURA_EN_VISTA_PREVIA };
       // Si hay sesión de socia (portal, magic link) se manda su Bearer: los
       // endpoints que ya exigen sesión real (canje, preferencias) derivan la
       // identidad del JWT en vez de fiarse del body. En /reservar (sin sesión
@@ -2993,7 +3057,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
   // ── Suscripciones ────────────────────────────────────────────────────────────
 
-  async function assignPlan(socioId: string, planId: string | null) {
+  async function assignPlan(socioId: string, planId: string | null, opciones: OpcionesAsignarPlan = {}): Promise<ResultadoAsignarPlan> {
+    // Cambio a una cuota más cara cobrando la diferencia: lo hace el SERVIDOR (cuota
+    // nueva + recibo PENDIENTE + baja de la antigua, en una sola transacción) y la
+    // pantalla refleja solo lo que contesta. Nada de esto se escribe desde aquí.
+    if (opciones.cobrarDiferencia && planId) {
+      return cambiarConDiferencia(socioId, planId, opciones.cobrarDiferencia);
+    }
     // Un bono con sesiones sin gastar es DINERO QUE LA CLIENTA YA PAGÓ. Antes,
     // asignarle cualquier otro plan cancelaba TODAS sus suscripciones activas sin
     // mirar si les quedaba algo dentro y sin avisar: venderle un bono de mat de
@@ -3021,6 +3091,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       s => s.socioId === socioId && s.estado === 'ACTIVA' && !conservaSaldo(s),
     );
     const plan = planId ? planesTarifa.find(p => p.id === planId) : null;
+    const ahoraAlta = new Date().toISOString();
+    // La parte proporcional es de un ALTA de cuota. Si esta clienta tiene una cuota
+    // activa que se sustituye, esto es un CAMBIO (ya pagó su mes con la antigua):
+    // se queda como siempre (el cambio cobrando la diferencia es otra vía, la que
+    // confirma y recalcula el servidor).
+    const sustituyeCuotaActiva = aDesactivar.some(s => planesTarifa.find(p => p.id === s.planId)?.tipo === 'MENSUAL');
+    const hoyAlta = hoyEnEstudio(new Date(ahoraAlta));
+    // Cancelar y volver a apuntarla el mismo mes no cobra dos veces el mismo periodo.
+    const periodoAnterior = plan && studio?.cobroProporcionalAltaActivo === true && !sustituyeCuotaActiva
+      ? periodoDeCuotaAnterior({ socioId, suscripciones, recibos, planes: planesTarifa, hoyISO: hoyAlta })
+      : null;
+    const cicloAlta = plan
+      ? cicloYCobroDeAlta(plan, ahoraAlta, hoyAlta, studio?.cobroProporcionalAltaActivo === true && !sustituyeCuotaActiva, studio?.cobroProporcionalDiasMinimos, periodoAnterior)
+      : null;
     const nueva: Suscripcion | null = plan ? {
       id: `sus-${uid()}`,
       studioId: getCurrentStudioId(),
@@ -3030,8 +3114,10 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // P-9 (auditoría 21ª pasada): `fecha_inicio` es `date`, no `timestamptz`.
       fechaInicio: hoyEnEstudio(),
       // Mismo motivo que en `addSocio`: un MENSUAL nacía sin fecha de fin y no
-      // se renovaba nunca. Ver `cicloInicialDe`.
-      ...cicloInicialDe(plan, new Date().toISOString()),
+      // se renovaba nunca. Ver `cicloInicialDe` (y `cicloYCobroDeAlta`, que es lo
+      // mismo salvo con «Cobrar la parte proporcional del primer mes» activo).
+      fechaFin: cicloAlta?.fechaFin ?? null,
+      sesionesRestantes: cicloAlta?.sesionesRestantes ?? null,
       stripeSubscriptionId: null,
     } : null;
 
@@ -3089,14 +3175,18 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // 2) Si el recibo falla, el plan YA está asignado: fingir que no ha pasado
     //    nada sería otra mentira. Se sigue adelante y se avisa de qué falta.
     let reciboPlan: Recibo | null = null;
-    if (nueva && plan && plan.precio > 0) {
+    // `cicloAlta.importe`: el precio de siempre, o la parte proporcional del mes en
+    // curso si el estudio lo activó (0 = por debajo del mínimo: sin recibo).
+    const importeCuota = cicloAlta?.importe ?? 0;
+    if (nueva && plan && importeCuota > 0) {
       const rec: Recibo = {
-        id: `rec-${uid()}`,
+        id: `${cicloAlta?.prefijoRecibo ?? 'rec-'}${uid()}`,
         studioId: getCurrentStudioId(),
         socioId,
         suscripcionId: nueva.id,
-        concepto: plan.nombre,
-        importe: plan.precio,
+        concepto: cicloAlta?.prorrateo && !cicloAlta.prorrateo.mesCompleto
+          ? `${plan.nombre} · ${cicloAlta.prorrateo.texto}` : plan.nombre,
+        importe: importeCuota,
         estado: 'PENDIENTE',
         fechaVencimiento: nueva.fechaInicio,
         fechaCobro: null,
@@ -3105,7 +3195,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       };
       const res = await dbInsertRecibo(rec);
       if (res.ok) reciboPlan = rec;
-      else fallos.push(`El plan se ha asignado, pero el cobro de ${plan.precio} € no ha quedado anotado en "Quién me debe": añádelo a mano.`);
+      else fallos.push(`El plan se ha asignado, pero el cobro de ${importeCuota} € no ha quedado anotado en "Quién me debe": añádelo a mano.`);
     }
 
     // 2b) La matrícula, si es su primer plan aquí. Recibo APARTE del de la
@@ -3174,6 +3264,49 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
 
     // Lo que sí ha quedado guardado ya está en pantalla; lo que no, se cuenta.
     if (fallos.length > 0) throw new Error(fallos.join(' '));
+    return {
+      reciboCuotaId: reciboPlan?.id ?? null, importeCuota: reciboPlan?.importe ?? 0,
+      avisoCuota: cicloAlta?.aviso ?? null,
+    };
+  }
+
+  // «Cambiar plan» a una cuota más cara cobrando la diferencia proporcional. El
+  // servidor hace el cambio entero (cuota nueva con la MISMA fecha de renovación,
+  // recibo PENDIENTE de la diferencia y baja de la antigua) o no hace nada, y
+  // recalcula el importe: el que se manda es solo el que la persona vio. Si
+  // contesta que no, aquí NO se ha tocado nada y el error llega tal cual.
+  async function cambiarConDiferencia(
+    socioId: string, planId: string,
+    d: { suscripcionActualId: string; importeConfirmado: number },
+  ): Promise<ResultadoAsignarPlan> {
+    const r = await cambiarCuotaConDiferencia({
+      socioId, suscripcionActualId: d.suscripcionActualId, planNuevoId: planId, importeConfirmado: d.importeConfirmado,
+    });
+    if (!r.ok) throw new Error(r.error);
+    // La pantalla, DESPUÉS de la respuesta y con lo que hay guardado: se relee el
+    // recibo (y con él la cuota nueva) en vez de imitar lo que hizo el servidor.
+    setSuscripciones(prev => prev.map(s => s.id === d.suscripcionActualId ? { ...s, estado: 'CANCELADA' as const } : s));
+    const releido = await dbReleerTrasCobro([r.reciboId]);
+    if (releido) {
+      const recPorId = new Map(releido.recibos.map(x => [x.id, x]));
+      setRecibos(prev => [...prev.filter(x => !recPorId.has(x.id)), ...releido.recibos]);
+      const susPorId = new Map(releido.suscripciones.map(x => [x.id, x]));
+      setSuscripciones(prev => [...prev.filter(x => !susPorId.has(x.id)), ...releido.suscripciones]);
+    } else {
+      // El servidor SÍ lo hizo; solo falta releerlo. Se dice, para que no parezca «sin plan».
+      toastAviso.show('El cambio se ha guardado, pero no se ha podido refrescar la ficha. Recárgala para verlo.');
+    }
+    // La cuota antigua se canceló: su plaza fija pierde la cuota si la nueva no cubre.
+    await soltarClasesPlazaFijaSinCuota(socioId);
+    const socio = socios.find(x => x.id === socioId);
+    const planNuevo = planesTarifa.find(p => p.id === planId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      `${actorNombre ?? 'Alguien'} cambió a "${planNuevo?.nombre ?? 'otro plan'}" a ${socio?.nombre ?? 'una socia'} cobrando la diferencia proporcional (${r.importe} €)`,
+      socioId,
+      `/socios/${socioId}`,
+    );
+    return { reciboCuotaId: r.reciboId, importeCuota: r.importe };
   }
 
   // I7 + F2 (B2.8): pausar = congelar. La RPC registra la ventana de congelación
@@ -4179,10 +4312,28 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     evaluarRetosSocio(reserva.socioId, reservasActualizadas);
     // Racha: si esta es la primera clase de la semana, se premia "semana
     // completa" — refId por semana evita otorgarlo dos veces la misma semana.
-    const racha = calcularRacha(reservasActualizadas.filter(r => r.socioId === reserva.socioId), sesiones, new Date());
-    if (racha.semanas > 0) {
-      otorgarCreditos(reserva.socioId, 'SEMANA_COMPLETA', `${reserva.socioId}:${racha.claveSemanaActual}`);
-    }
+    // Racha única (PR 3.3-B): con `RACHA_UNICA` encendida, el SERVIDOR decide y paga «semana completa» con la
+    // misma función que la app de la alumna; el navegador solo avisa. Quien contesta es el servidor (`unica`),
+    // no lo que el navegador sepa del interruptor al cargar. Si contesta que no (apagado) o no se le puede
+    // preguntar, sigue el camino de siempre — que el RPC valida igual en la base.
+    const socioDeLaSemana = reserva.socioId;
+    const reservasDeLaSocia = reservasActualizadas.filter(r => r.socioId === socioDeLaSemana);
+    void (async () => {
+      let unica = false;
+      try {
+        const resp = await fetch('/api/gamificacion/semana-completa', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+          body: JSON.stringify({ reservaId }),
+        });
+        if (resp.ok) unica = ((await resp.json().catch(() => null)) as { unica?: boolean } | null)?.unica === true;
+      } catch { /* sin red: camino de siempre */ }
+      if (unica) return;
+      const racha = calcularRacha(reservasDeLaSocia, sesiones, new Date());
+      if (racha.semanas > 0) {
+        otorgarCreditos(socioDeLaSemana, 'SEMANA_COMPLETA', `${socioDeLaSemana}:${racha.claveSemanaActual}`);
+      }
+    })();
     // Objetivo mensual (I-1, auditoria 49a): se dispara desde el mismo punto
     // que SEMANA_COMPLETA -- la RPC revalida objetivo+recuento en servidor,
     // esto solo evita una llamada inutil cuando aun no lo alcanzo.
@@ -4255,8 +4406,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       // Clienta de baja: tampoco se le genera la renovación (el cron cancela su
       // cuota en vez de renovarla, `repartirVencidas`).
       if (socio?.activo === false) return;
+      // Alinear al día 1 cobrando la parte proporcional: el recibo de esa alumna lo crea el
+      // cron con su importe parcial. Uno entero de aquí ganaría y la alumna pagaría como en el modo A.
+      if (studio?.cobroDia1Activo && studio.cobroDia1Modo === 'PROPORCIONAL') return;
       const yaHayReciboPendiente = recibos.some(
-        r => r.socioId === sus.socioId && r.suscripcionId === sus.id && r.estado === 'PENDIENTE'
+        r => r.socioId === sus.socioId && r.suscripcionId === sus.id && (r.estado === 'PENDIENTE' || r.estado === 'EN_CURSO')
       );
       if (yaHayReciboPendiente) return;
       const nombreSocio = socio ? `${socio.nombre} ${socio.apellidos}` : 'Socia';
@@ -4841,6 +4995,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   ): Promise<{ ok: true; inicio: string; fin: string } | { error: string }> {
     const cpub = ctxPublico();
     if (!cpub) return { error: 'La reserva de citas solo está disponible desde el portal público' };
+    // La vista previa del constructor de widgets no reserva nada de verdad.
+    if (enVistaPreviaDelPanel()) return { error: ESCRITURA_EN_VISTA_PREVIA };
     try {
       const auth = await portalAuthHeader();
       const res = await fetch('/api/public/citas', {
@@ -5185,7 +5341,21 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return res;
   }
 
+  // Un segundo toque mientras el canje sigue en vuelo NO es otro canje: se
+  // rechaza aquí, antes de pedir nada. (El servidor además es idempotente por
+  // clave en el portal; esta es la primera barrera, la de la propia pantalla.)
   async function canjearRecompensa(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
+    const clave = `${socioId}:${catalogItemId}`;
+    if (canjesEnCurso.current.has(clave)) return { error: 'Este canje ya se está procesando.' };
+    canjesEnCurso.current.add(clave);
+    try {
+      return await canjearRecompensaUnaVez(socioId, catalogItemId);
+    } finally {
+      canjesEnCurso.current.delete(clave);
+    }
+  }
+
+  async function canjearRecompensaUnaVez(socioId: string, catalogItemId: string): Promise<{ ok: true } | { error: string }> {
     const item = rewardCatalog.find(c => c.id === catalogItemId);
     // Validación pura y testeada (reward-engine): disponibilidad, vigencia,
     // límite por clienta, stock y saldo. Es un PRE-filtro para dar el mensaje
@@ -5218,7 +5388,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // fallaba) y un INSERT final cuyo error nadie miraba. Entre el débito y ese
     // INSERT cabía el peor de los finales: sin créditos y sin canje. La RPC lo
     // hace todo en una transacción y devuelve el código.
-    (async () => {
+    return await (async (): Promise<{ ok: true } | { error: string }> => {
       const res = await dbCanjearRecompensa(redemptionId, catalogItemId, studioId, socioId);
       if ('error' in res) {
         const msg = res.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
@@ -5227,8 +5397,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
               : res.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
                 : res.error === 'SALDO_INSUFICIENTE' ? 'Saldo insuficiente para este canje.'
                   : 'No se pudo completar el canje.';
-        setDbError({ msg, key: Date.now() });
-        return;
+        // Se DEVUELVE: antes iba a un `setDbError` y la llamada ya había
+        // contestado `{ ok: true }`, así que quien llamaba creía haber canjeado.
+        return { error: msg };
       }
 
       // La UI se aplica sobre lo YA confirmado en base de datos, con el código
@@ -5250,23 +5421,24 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       if (item.stock != null) {
         setRewardCatalog(prev => prev.map(c => c.id === catalogItemId ? { ...c, stock: (c.stock ?? 1) - 1 } : c));
       }
+      return { ok: true };
     })();
-
-    return { ok: true };
   }
 
-  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado']): Promise<ResultadoEscritura> {
+  async function updateRewardRedemptionEstado(id: string, estado: RewardRedemption['estado'], motivo?: string): Promise<ResultadoEscritura> {
     // CANCELADO no es un estado más: devuelve créditos y stock. Eso va por la
     // RPC `cancelar_canje`, que hace las tres escrituras en una transacción —
     // hacerlas aquí sueltas dejaría a la socia sin recompensa y sin créditos si
     // fallara la segunda. ENTREGADO sí es solo un cambio de estado.
     if (estado === 'CANCELADO') {
       const socioId = rewardRedemptions.find(r => r.id === id)?.socioId ?? null;
-      const res = await dbCancelarCanje(id, getCurrentStudioId());
+      const res = await dbCancelarCanje(id, getCurrentStudioId(), motivo);
       if ('error' in res) return { ok: false, error: res.error };
       // La RPC es idempotente y responde con el estado REAL: si alguien lo
       // había entregado ya desde otra pestaña, se refleja eso y no 'CANCELADO'.
-      setRewardRedemptions(prev => prev.map(r => r.id === id ? { ...r, estado: res.estado } : r));
+      setRewardRedemptions(prev => prev.map(r => r.id === id
+        ? { ...r, estado: res.estado, ...(res.estado === 'CANCELADO' ? { canceladoEn: new Date().toISOString(), canceladoMotivo: motivo?.trim() || null } : {}) }
+        : r));
       if (socioId) {
         setMemberCredits(prev => prev.map(m => m.socioId === socioId ? { ...m, saldo: res.saldo } : m));
       }
@@ -5322,7 +5494,13 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     achievementDefinitions.filter(def => def.activo).forEach(def => {
       const progresoExistente = achievementProgress.find(p => p.socioId === socioId && p.achievementId === def.id);
       if (progresoExistente?.completado) return; // ya conseguido, no se re-evalúa
+      // Con la racha única encendida la evalúa el servidor (ver `rachaUnicaEnPanel`).
+      if (def.metric === 'SEMANAS_CONSECUTIVAS' && rachaUnicaEnPanel) return;
 
+      // PR 3.4: «mes completo sin faltas» no se evalúa aquí (concedía tras la primera clase
+      // del mes): lo decide el barrido mensual del servidor al cerrarse el mes. Se salta (no
+      // se escribe un 0) para no pisar con `completado: false` lo que el barrido ya concedió.
+      if (def.metric === 'ASISTENCIA_MENSUAL_COMPLETA') return;
       const valor = calcularMetrica(def.metric, { reservas: misReservas, sesiones, socio, now, todosLosSocios: socios });
       const completadoAhora = valor >= def.umbral;
       const progresoActualizado: AchievementProgress = progresoExistente
@@ -5408,8 +5586,30 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return calcularNivel(levelDefinitions, totalGanado);
   }
 
+  // ⚠️ NADIE BAJA, también por esta vía (la del editor antiguo, que escribe con el
+  // cliente): si el cambio dejaría a alguna alumna con algo ganado sin su nivel o en
+  // uno más bajo, no se guarda. La ruta nueva (`/api/estudio/niveles`) hace lo mismo
+  // en servidor; aquí es la misma regla con los totales que el panel ya tiene.
+  function nivelesBajarian(despues: LevelDefinition[]): number {
+    // Sin los créditos cargados no se sabe quién bajaría: se bloquea, no se deja pasar.
+    // Y tampoco si pueden faltar filas (el snapshot del panel se corta en 1000): mejor no guardar que bajar a alguien.
+    if (!gamificacionCargada || memberCredits.length >= 1000) return -1;
+    return quienBajaria(memberCredits.map(m => m.totalGanado), levelDefinitions, despues);
+  }
+  const umbralOcupado = (umbral: number, id: string | null) =>
+    levelDefinitions.some(l => l.activo && l.id !== id && l.umbralCreditos === umbral);
+  const textoBajarian = (n: number) =>
+    n < 0 ? 'No se han podido comprobar los créditos de todas tus alumnas (aún cargan, o son demasiadas para este editor), y no se baja a nadie de nivel a ciegas. Espera un momento y reintenta; si sigue, avísanos.' : `Con este cambio ${n === 1 ? '1 alumna bajaría' : `${n} alumnas bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`;
+  /** `orden` = posición por umbral (solo presentación): panel y app ordenan por umbral. */
+  const ordenDeUmbral = (umbral: number, id: string | null) =>
+    levelDefinitions.filter(l => l.activo && l.id !== id && l.umbralCreditos < umbral).length;
+
   async function addLevelDefinition(fields: Omit<LevelDefinition, 'id' | 'studioId' | 'creadoEn'>): Promise<ResultadoEscritura> {
-    const nuevo: LevelDefinition = { ...fields, id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    const nuevo: LevelDefinition = { ...fields, orden: ordenDeUmbral(fields.umbralCreditos, null), id: `lvl-${uid()}`, studioId: getCurrentStudioId(), creadoEn: new Date().toISOString() };
+    if (nuevo.activo && umbralOcupado(nuevo.umbralCreditos, null)) return { ok: false, error: 'Ya hay un nivel activo que empieza en ese punto.' };
+    // Un nivel nuevo solo añade: nunca baja a nadie, pero se comprueba igual por si trae umbral 0 ya ocupado.
+    const bajarian = nivelesBajarian([...levelDefinitions, nuevo]);
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
     const res = await dbInsertLevelDefinition(nuevo);
     if (!res.ok) return res;
     setLevelDefinitions(prev => [...prev, nuevo]);
@@ -5417,13 +5617,23 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }
 
   async function updateLevelDefinition(id: string, changes: Partial<Omit<LevelDefinition, 'id' | 'studioId'>>): Promise<ResultadoEscritura> {
-    const res = await dbUpdateLevelDefinition(id, changes);
+    const actual = levelDefinitions.find(l => l.id === id);
+    const cambios = actual
+      ? { ...changes, orden: ordenDeUmbral(changes.umbralCreditos ?? actual.umbralCreditos, id) }
+      : changes;
+    const resultante = actual ? { ...actual, ...cambios } : null;
+    if (resultante?.activo && umbralOcupado(resultante.umbralCreditos, id)) return { ok: false, error: 'Ya hay un nivel activo que empieza en ese punto.' };
+    const bajarian = nivelesBajarian(levelDefinitions.map(l => l.id === id ? { ...l, ...cambios } : l));
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
+    const res = await dbUpdateLevelDefinition(id, cambios);
     if (!res.ok) return res;
-    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...changes } : l));
+    setLevelDefinitions(prev => prev.map(l => l.id === id ? { ...l, ...cambios } : l));
     return res;
   }
 
   async function deleteLevelDefinition(id: string): Promise<ResultadoEscritura> {
+    const bajarian = nivelesBajarian(levelDefinitions.filter(l => l.id !== id));
+    if (bajarian !== 0) return { ok: false, error: textoBajarian(bajarian) };
     const res = await dbDeleteLevelDefinition(id);
     if (!res.ok) return res;
     setLevelDefinitions(prev => prev.filter(l => l.id !== id));
@@ -5464,8 +5674,11 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const socio = socios.find(s => s.id === socioId);
     const misReservas = (reservasOverride ?? reservas).filter(r => r.socioId === socioId);
 
+    // Solo los retos «del estudio» (cuentan todas). Los de INSCRIPCION los evalúa el
+    // servidor, que es quien sabe quién se apuntó y cuándo: calcularlos aquí para
+    // todas las alumnas las inscribía sin pedirlo (y desde el inicio del reto).
     challengeDefinitions
-      .filter(reto => reto.activo && new Date(reto.fechaInicio) <= now && now <= new Date(reto.fechaFin))
+      .filter(reto => reto.activo && reto.alcance === 'ESTUDIO' && retoVigente(reto, now))
       .forEach(reto => {
         const progresoExistente = challengeProgress.find(p => p.socioId === socioId && p.challengeId === reto.id);
         if (progresoExistente?.completado) return;

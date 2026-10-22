@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ESTADOS_APP, LETRAS_BAJO_EL_ICONO, bundleDeSlug, esEstadoApp, nombreSugerido, textoDeEstado, urlTiendaValida, validarNombreApp,
+  bloqueoParaPedir, idDeTienda,
+  ESTADOS_APP, LETRAS_BAJO_EL_ICONO, bundleDeSlug, bundlesCandidatos, esCupo, esEstadoApp, nombreSugerido, textoDeEstado, urlTiendaValida, validarNombreApp,
 } from './pedir-app.ts';
 import { esBundleDeEstudio } from './app-estudio.ts';
 
@@ -47,8 +48,63 @@ test('los estados: todos tienen texto, sin plazos ni avisos prometidos', () => {
 });
 
 test('solo un enlace de la App Store vale como enlace de la tienda', () => {
-  assert.equal(urlTiendaValida('https://apps.apple.com/es/app/marta/id123'), true);
+  assert.equal(urlTiendaValida('https://apps.apple.com/es/app/marta/id6822491721'), true);
   for (const malo of ['http://apps.apple.com/x', 'https://evil.com/https://apps.apple.com/x', 'javascript:alert(1)', '', 5, 'https://apps.apple.com/ x']) {
     assert.equal(urlTiendaValida(malo), false, String(malo));
   }
+});
+
+test('primero el hueco del lote; si no hay, los del slug', () => {
+  assert.deepEqual(bundlesCandidatos('app.tentare.cupo-003', 'luz', 2), ['app.tentare.cupo-003', 'app.tentare.luz', 'app.tentare.luz-2']);
+  assert.deepEqual(bundlesCandidatos(null, 'luz', 2), ['app.tentare.luz', 'app.tentare.luz-2']);
+  // Un slug que no da identificador deja solo el hueco.
+  assert.deepEqual(bundlesCandidatos('app.tentare.cupo-001', '___', 3), ['app.tentare.cupo-001']);
+  assert.deepEqual(bundlesCandidatos(null, '___', 3), []);
+});
+
+test('se reconoce un hueco del lote', () => {
+  assert.equal(esCupo('app.tentare.cupo-001'), true);
+  assert.equal(esCupo('app.tentare.marta'), false);
+  assert.equal(esCupo('app.tentare.cupo-1'), false);
+});
+
+test('el slug nunca da el identificador de un hueco del lote', () => {
+  assert.equal(bundleDeSlug('cupo-001'), null);
+  assert.equal(bundleDeSlug('cupo-00', 2), 'app.tentare.cupo-00-2');
+  assert.deepEqual(bundlesCandidatos(null, 'cupo-007', 1), []);
+});
+
+test('pedir la app: solo con Estudio o Cadena pagado, y en una cadena desde la sede principal', () => {
+  const base = { planIncluye: true, estado: 'active', esSedeSecundaria: false };
+  assert.equal(bloqueoParaPedir(base), null);
+  assert.equal(bloqueoParaPedir({ ...base, planIncluye: false }), 'plan');
+  assert.equal(bloqueoParaPedir({ ...base, estado: 'trialing' }), 'prueba');
+  for (const e of ['past_due', 'unpaid', 'incomplete']) assert.equal(bloqueoParaPedir({ ...base, estado: e }), 'cobro', e);
+  for (const e of ['gratis', 'canceled', 'trial_expirado', null]) assert.equal(bloqueoParaPedir({ ...base, estado: e }), 'sin-plan', String(e));
+  assert.equal(bloqueoParaPedir({ ...base, esSedeSecundaria: true }), 'sede');
+});
+
+test('nombres con caracteres que no se ven o que parten un emoji', () => {
+  for (const raro of ['Luz\u200bPilates', 'Pilates\u202eLuz', 'Luz\u0007']) {
+    assert.equal(validarNombreApp(raro).ok, false, JSON.stringify(raro));
+  }
+  // Un salto de línea Unicode es un espacio más: se normaliza, no se cuela.
+  assert.deepEqual(validarNombreApp('Luz\u2028Pilates'), { ok: true, nombre: 'Luz Pilates' });
+  // 30 letras con un emoji al final: es válido (Apple cuenta letras, no unidades de código).
+  assert.equal(validarNombreApp('a'.repeat(29) + '🧘').ok, true);
+  // El sugerido nunca parte un emoji ni deja un nombre inválido.
+  const sug = nombreSugerido('a'.repeat(29) + '🧘🧘');
+  assert.equal([...sug].length, 30);
+  assert.equal(validarNombreApp(sug).ok, true);
+  assert.equal(nombreSugerido('\u200b'), 'Mi estudio');
+});
+
+test('el enlace de la tienda es el de la ficha de una app, y de él sale su id', () => {
+  assert.equal(urlTiendaValida('https://apps.apple.com/app/id6822491721'), true);
+  for (const malo of ['https://apps.apple.com/a', 'https://apps.apple.com/es/developer/x/id6822491721', 'https://apps.apple.com/es/app/x/id12']) {
+    assert.equal(urlTiendaValida(malo), false, malo);
+  }
+  assert.equal(idDeTienda('https://apps.apple.com/es/app/marta/id6822491721'), '6822491721');
+  assert.equal(idDeTienda('https://apps.apple.com/a'), null);
+  assert.equal(idDeTienda(null), null);
 });

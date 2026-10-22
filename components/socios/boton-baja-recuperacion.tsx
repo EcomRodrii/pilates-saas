@@ -62,7 +62,7 @@ export function BotonBajaRecuperacion({ reserva, socio }: { reserva: Reserva; so
       <button
         onClick={() => setOpen(true)}
         title="No puede venir → dar recuperación y avisar por WhatsApp"
-        className="text-[11px] font-bold px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-background transition-colors shrink-0 inline-flex items-center gap-1"
+        className="zona-tactil text-[11px] font-bold px-2.5 py-1 rounded-full border border-border text-muted-foreground hover:text-foreground hover:bg-background transition-colors shrink-0 inline-flex items-center gap-1"
       >
         <CalendarX size={12} /> No puede
       </button>

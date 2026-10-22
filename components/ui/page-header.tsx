@@ -24,6 +24,7 @@ function PageHeader({
   actions,
   back,
   badge,
+  tutorialAbreSolo = true,
   className,
   ...props
 }: React.ComponentProps<"header"> & {
@@ -40,6 +41,8 @@ function PageHeader({
   back?: { href: string; label: string }
   /** Contador o estado junto al título: "12 vídeos", nº de no leídos. */
   badge?: React.ReactNode
+  /** `false`: su tutorial no se abre solo (la pantalla aún no tiene lo que enseña). Ver `BotonTutorial`. */
+  tutorialAbreSolo?: boolean
 }) {
   return (
     <header
@@ -75,7 +78,7 @@ function PageHeader({
             href={back.href}
             aria-label={back.label}
             data-slot="page-header-back"
-            className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="zona-tactil mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ArrowLeftIcon className="size-4" aria-hidden="true" />
           </Link>
@@ -84,7 +87,10 @@ function PageHeader({
             principal de cada sección; con el interruptor apagado no pinta nada. */}
         {!back && <span className="mt-0.5 hidden sm:block sm:empty:hidden"><IconoSeccion /></span>}
         <div className="flex min-w-0 flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
+          {/* `tactil:gap-3`: con el dedo, el ⓘ (20 px) crece 12 px a cada lado hasta
+              los 44 de su zona táctil; con 8 de hueco se metía 4 px en la del
+              «Cómo funciona» de al lado. Con 12, se tocan sin pisarse. */}
+          <div className="flex flex-wrap items-center gap-2 tactil:gap-3">
             <h1
               data-slot="page-header-title"
               // text-foreground explícito, no heredado: `body` vive FUERA del
@@ -103,7 +109,7 @@ function PageHeader({
                 (los importadores) no lo pintan porque no tienen ficha. */}
             <AyudaDePantalla />
             {/* El «?» del tutorial de la pantalla (P1.1): como el ⓘ, por la ruta. */}
-            <BotonTutorial />
+            <BotonTutorial abrirSolo={tutorialAbreSolo} />
             {badge}
             {/* «Ampliar a toda la pantalla»: como el ⓘ, se resuelve por la ruta
                 (lib/panel/ampliar.ts, PANTALLAS_AMPLIABLES) y no por prop. */}

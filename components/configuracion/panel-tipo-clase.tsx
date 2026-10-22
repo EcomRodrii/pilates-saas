@@ -1138,8 +1138,8 @@ export function PanelTipoClase({
                 {zoomConectado
                   ? 'Cada sesión tendrá su propio enlace de Zoom, generado automáticamente.'
                   : reglasDeDinero
-                    ? 'Necesitas conectar tu cuenta de Zoom en Configuración → Conexiones.'
-                    : 'La cuenta de Zoom la conecta la propietaria en Configuración → Conexiones.'}
+                    ? 'Necesitas conectar tu cuenta de Zoom en Configuración → Integraciones.'
+                    : 'La cuenta de Zoom la conecta la propietaria en Configuración → Integraciones.'}
               </p>
             </div>
             <div className="shrink-0 pt-0.5">

@@ -7,9 +7,13 @@
 // canje lo valida `/api/public/canje`. Esto solo ORDENA y presenta lo que el
 // payload ya trae: si el estudio no ha configurado nada, no hay nada que pintar.
 
+import { vistaDeNivel } from '../gamificacion/ritmo-niveles.ts';
+
 export interface NivelDef { id: string; nombre: string; orden: number; umbralCreditos: number; color: string; icono: string; beneficios: string | null; activo?: boolean }
 export interface LogroDef { id: string; nombre: string; descripcion: string | null; umbral: number; icono: string; creditosRecompensa: number; activo: boolean }
-export interface RetoDef { id: string; nombre: string; descripcion: string | null; icono: string; objetivo: number; fechaInicio: string; fechaFin: string; creditosRecompensa: number; activo?: boolean }
+export interface RetoDef { id: string; nombre: string; descripcion: string | null; icono: string; objetivo: number; fechaInicio: string; fechaFin: string; creditosRecompensa: number; activo?: boolean;
+  /** ESTUDIO = cuentan todas, sin botón; cualquier otra cosa (o nada) = con inscripción. */
+  alcance?: string }
 export interface ProgresoMin { achievementId?: string; challengeId?: string; progresoActual: number; completado: boolean; completadoEn: string | null }
 export interface RecompensaDef {
   id: string; nombre: string; descripcion: string | null; costeCreditos: number;
@@ -34,24 +38,8 @@ export interface NivelVista {
  * nunca hace bajar de nivel (es la regla que el propio panel enuncia).
  */
 export function nivelDe(totalGanado: number, niveles: NivelDef[]): NivelVista {
-  const orden = [...niveles].sort((a, b) => a.umbralCreditos - b.umbralCreditos || a.orden - b.orden);
-  if (orden.length === 0) return { actual: null, siguiente: null, faltan: null, progreso: 0 };
-  let actual: NivelDef | null = null;
-  let siguiente: NivelDef | null = null;
-  for (const n of orden) {
-    if (totalGanado >= n.umbralCreditos) actual = n;
-    else { siguiente = n; break; }
-  }
-  if (!siguiente) return { actual, siguiente: null, faltan: null, progreso: 1 };
-  const desde = actual?.umbralCreditos ?? 0;
-  const tramo = siguiente.umbralCreditos - desde;
-  const avance = totalGanado - desde;
-  return {
-    actual,
-    siguiente,
-    faltan: Math.max(0, siguiente.umbralCreditos - totalGanado),
-    progreso: tramo > 0 ? Math.min(1, Math.max(0, avance / tramo)) : 0,
-  };
+  // Una sola función para panel, app y servidor: ritmo-niveles.ts.
+  return vistaDeNivel(totalGanado, niveles);
 }
 
 export interface LogroVista extends LogroDef { progresoActual: number; completado: boolean; completadoEn: string | null }
@@ -78,7 +66,25 @@ export function logrosDe(defs: LogroDef[], progreso: ProgresoMin[]): LogroVista[
     });
 }
 
-export interface RetoVista extends RetoDef { progresoActual: number; completado: boolean; apuntada: boolean; diasRestantes: number }
+export interface RetoVista extends RetoDef {
+  progresoActual: number; completado: boolean; apuntada: boolean; diasRestantes: number;
+  /** Hay que apuntarse para que cuente (y entonces el botón «Me apunto» existe). */
+  conInscripcion: boolean;
+}
+
+const FORMATO_DIA_MADRID = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Madrid' });
+
+/**
+ * El día de calendario de Madrid de una fecha de reto. El panel guarda el inicio
+ * como medianoche UTC y la base la devuelve como instante: comparar ese texto con
+ * «hoy» a pelo escondía el reto durante todo su primer día (`'2026-10-17T00:00…'
+ * <= '2026-10-17'` es falso).
+ */
+export function diaDeReto(fecha: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return fecha;
+  const d = new Date(fecha);
+  return Number.isNaN(d.getTime()) ? fecha.slice(0, 10) : FORMATO_DIA_MADRID.format(d);
+}
 
 /**
  * Solo los retos VIGENTES hoy: un reto tiene fecha de inicio y fin, y enseñar
@@ -88,7 +94,7 @@ export function retosDe(defs: RetoDef[], progreso: ProgresoMin[], apuntados: str
   const porId = new Map(progreso.filter((p) => p.challengeId).map((p) => [p.challengeId as string, p]));
   const apuntada = new Set(apuntados);
   return defs
-    .filter((d) => d.activo !== false && d.fechaInicio <= hoyISO && d.fechaFin >= hoyISO)
+    .filter((d) => d.activo !== false && diaDeReto(d.fechaInicio) <= hoyISO && diaDeReto(d.fechaFin) >= hoyISO)
     .map((d) => {
       const p = porId.get(d.id);
       return {
@@ -96,7 +102,8 @@ export function retosDe(defs: RetoDef[], progreso: ProgresoMin[], apuntados: str
         progresoActual: p?.progresoActual ?? 0,
         completado: p?.completado ?? false,
         apuntada: apuntada.has(d.id),
-        diasRestantes: diasEntre(hoyISO, d.fechaFin),
+        conInscripcion: d.alcance !== 'ESTUDIO',
+        diasRestantes: diasEntre(hoyISO, diaDeReto(d.fechaFin)),
       };
     })
     .sort((a, b) => a.diasRestantes - b.diasRestantes);
@@ -289,7 +296,9 @@ export interface CanjeVista {
 
 export interface CanjeCrudo {
   id: string;
-  catalogItemId: string;
+  /** NULL si la recompensa se eliminó del catálogo (entonces vale `recompensaNombre`). */
+  catalogItemId: string | null;
+  recompensaNombre?: string | null;
   estado: string;
   codigo?: string | null;
   creditosGastados?: number;
@@ -321,7 +330,7 @@ export function canjesDe(
   return canjes
     .map((c) => ({
       id: c.id,
-      recompensa: nombre.get(c.catalogItemId) ?? 'Recompensa retirada del catálogo',
+      recompensa: (c.catalogItemId ? nombre.get(c.catalogItemId) : undefined) ?? c.recompensaNombre ?? 'Recompensa retirada del catálogo',
       creditos: c.creditosGastados ?? 0,
       fecha: c.creadoEn ?? '',
       estado: (c.estado === 'ENTREGADO' || c.estado === 'CANCELADO' ? c.estado : 'PENDIENTE') as CanjeVista['estado'],

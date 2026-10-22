@@ -212,8 +212,8 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
           <p className="text-[12.5px] font-semibold text-foreground mb-1">API pública</p>
           <p className="text-[12px] text-muted-foreground mb-2">
             {apiPublica.activa
-              ? `Activada${apiPublica.activadaEn ? ` el ${dia(apiPublica.activadaEn)}` : ''} · ${apiPublica.clavesActivas} ${apiPublica.clavesActivas === 1 ? 'clave activa' : 'claves activas'}. Desactivarla REVOCA sus claves (también las de toda su cadena, si la tiene) y desactiva sus webhooks al momento; si se vuelve a activar, tendrá que crear claves nuevas y reactivar sus webhooks. Zapier no depende de esto.`
-              : 'Sin activar. Con la API activada, la propietaria puede crear claves y webhooks para su contabilidad en Configuración → Conexiones.'}
+              ? `Activa (la tienen todos los estudios) · ${apiPublica.clavesActivas} ${apiPublica.clavesActivas === 1 ? 'clave activa' : 'claves activas'}. Es el interruptor de apagado de este estudio: desactivarla REVOCA sus claves (también las de toda su cadena, si la tiene) y desactiva sus webhooks al momento; si se vuelve a activar, tendrá que crear claves nuevas y reactivar sus webhooks. Zapier no depende de esto.`
+              : 'Desactivada a mano para este estudio: no puede crear claves ni webhooks y las que tenía están revocadas. Volver a activarla no resucita nada: la propietaria crea claves nuevas en Configuración → Integraciones.'}
           </p>
           <button type="button" disabled={ocupado}
             onClick={() => ejecutar(
@@ -223,7 +223,7 @@ export function AccionesEstudio({ id, plan, suspendido, motivo, reviewBoost, api
             className={apiPublica.activa
               ? 'px-3 py-1.5 rounded-lg text-[12.5px] font-semibold border border-border text-foreground hover:bg-muted disabled:opacity-50'
               : 'px-3 py-1.5 rounded-lg text-[12.5px] font-bold bg-brand text-brand-foreground disabled:opacity-50'}>
-            {apiPublica.activa ? 'Desactivar la API' : 'Activar la API'}
+            {apiPublica.activa ? 'Desactivar la API de este estudio' : 'Volver a activar la API'}
           </button>
         </div>
         )}

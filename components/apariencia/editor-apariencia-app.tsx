@@ -23,9 +23,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, ExternalLink, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronRight, ExternalLink, EyeOff, RotateCcw } from 'lucide-react';
+import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
+import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo } from '@/components/dashboard/vivo';
+import { BOTON_DESTACADO, BOTON_VIVO, BotonVivo, FONDO_VISTA_MOVIL } from '@/components/dashboard/vivo';
+import { MarcoIphone, PANTALLA_IPHONE, useEscalaIphone } from '@/components/ui/marco-iphone';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
@@ -42,15 +45,15 @@ import {
   type AparienciaApp, type EncuadrePortada,
 } from '@/lib/student/apariencia';
 import { TITULO_ACCESO_POR_DEFECTO } from '@/lib/student/titulo-acceso';
+import { TEXTO_RESERVAS_Y_WIDGET, TEXTO_SECUNDARIO } from '@/lib/student/textos-apariencia';
 import { MuestraEstilo } from './muestra-estilo';
 import { AppEnElMovil } from './app-en-el-movil';
 import { MiAppDeTienda } from './mi-app-de-tienda';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
+import { PALETAS } from '@/lib/apariencia/paletas';
+import { pintarBorrador } from '@/lib/apariencia/borrador-en-marco';
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const ID_ESTILO_BORRADOR = 'apariencia-borrador';
-/** Tamaño lógico del móvil de la vista previa: un iPhone de 390 pt. */
-const MOVIL = { ancho: 390, alto: 800 };
 
 interface Borrador { primary: string; secondary: string; app: AparienciaApp }
 
@@ -61,18 +64,9 @@ function borradorDe(t: ThemeConfig): Borrador {
 const mismaApp = (a: AparienciaApp, b: AparienciaApp) =>
   a.estilo === b.estilo && a.tipografia === b.tipografia && a.marca === b.marca && a.boton === b.boton && a.encuadre === b.encuadre;
 
-/** Pinta el borrador dentro de la app del iframe. Mismo origen: se escribe en su `<head>`. */
-function pintarBorrador(iframe: HTMLIFrameElement | null, css: string) {
-  const doc = iframe?.contentDocument;
-  if (!doc?.head) return;
-  let el = doc.getElementById(ID_ESTILO_BORRADOR);
-  if (!el) {
-    el = doc.createElement('style');
-    el.id = ID_ESTILO_BORRADOR;
-    doc.head.appendChild(el);
-  }
-  el.textContent = css;
-}
+// El borrador se pinta dentro de la app del iframe con `pintarBorrador`
+// (lib/apariencia/borrador-en-marco.ts): el mismo mecanismo que usa el paso
+// «Tu marca» del alta nueva.
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
@@ -110,15 +104,8 @@ const PASOS: { id: PasoAsistente; corto: string; titulo: string; sub: string }[]
   { id: 'instalar', corto: 'Tu app', titulo: 'Tu app en el móvil de tus alumnas', sub: 'Cómo la instalan y cómo se la haces llegar.' },
 ];
 
-/** Paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas). Son un color de marca como cualquier otro: al publicar pasan el mismo control que uno elegido a mano. */
-const PALETAS: { nombre: string; color: string }[] = [
-  { nombre: 'Salvia', color: '#5E7A5A' },
-  { nombre: 'Terracota', color: '#A85A3E' },
-  { nombre: 'Lavanda', color: '#6E62A8' },
-  { nombre: 'Océano', color: '#2F6F8F' },
-  { nombre: 'Rosa empolvado', color: '#A85C72' },
-  { nombre: 'Tinta', color: '#2E3440' },
-];
+// Las paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas)
+// viven en lib/apariencia/paletas.ts: las comparte el paso «Tu marca» del alta.
 
 function LineaDePasos({ pasos, paso, onPaso }: { pasos: typeof PASOS; paso: PasoAsistente; onPaso: (p: PasoAsistente) => void }) {
   const actual = pasos.findIndex(p => p.id === paso);
@@ -212,8 +199,35 @@ const PANTALLAS = [
 ] as const;
 type PantallaId = (typeof PANTALLAS)[number]['id'];
 
-function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
-  slug: string; css: string; recarga: number; pantalla: PantallaId; onPantalla: (p: PantallaId) => void;
+/**
+ * Con la página oculta, la app del iframe enseña el cartel «Estamos preparando
+ * esta página» y no el borrador: se dice encima, en vez de dejar que parezca
+ * que el estilo no se aplica.
+ *
+ * ⚠️ No se abre la app «solo para la vista previa»: el cierre lo decide el
+ * SERVIDOR en el layout de la app y en cada ruta que lee o escribe
+ * (lib/publico/pagina-cerrada-peticion.ts), y la sesión del panel no viaja en
+ * cookie (va en el `Authorization` de cada llamada), así que el layout no
+ * tiene cómo saber que quien mira es la propietaria. Una excepción por URL o
+ * por galleta nueva sería una puerta para enseñar una página oculta, que es
+ * justo lo que la dueña ha pedido que no pase.
+ */
+function AvisoPaginaOculta() {
+  return (
+    <div role="note" data-testid="aviso-pagina-oculta-apariencia" className="mb-3 flex max-w-[332px] items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-foreground">
+      <EyeOff size={15} className="mt-0.5 shrink-0 text-warning" aria-hidden />
+      <p className="text-pretty">
+        <strong className="font-semibold">Tu página está oculta</strong>, así que aquí (y a tus alumnas) se ve «Estamos preparando esta página» en vez de tu app. Lo que publiques se verá en cuanto la hagas visible.{' '}
+        <Link href={hrefDeTarjeta('pagina-publica')} className="inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          Cambiarlo<ArrowUpRight size={12} aria-hidden />
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = false }: {
+  slug: string; css: string; recarga: number; pantalla: PantallaId; onPantalla: (p: PantallaId) => void; paginaOculta?: boolean;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [cargando, setCargando] = useState(true);
@@ -223,10 +237,12 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
   // dé el salto de blanco → app.
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setCargando(true); }, [pantalla, recarga]);
-  const escala = 0.8;
   const ruta = PANTALLAS.find(p => p.id === pantalla)?.ruta ?? '';
+  // La app se pinta a 402 × 874, como en un iPhone 17, y el marco la reduce a lo que cabe.
+  const escala = useEscalaIphone();
   return (
     <div className="flex flex-col items-center">
+      {paginaOculta && <AvisoPaginaOculta />}
       <div className="mb-3">
         <Segmentado
           etiqueta="Pantalla de la vista previa"
@@ -235,20 +251,17 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla }: {
           onChange={onPantalla}
         />
       </div>
-      <div
-        className="overflow-hidden rounded-[38px] border-[10px] border-neutral-900 bg-neutral-900 shadow-xl"
-        style={{ width: MOVIL.ancho * escala + 20, height: MOVIL.alto * escala + 20 }}
-      >
+      <MarcoIphone escala={escala} tinta="auto" indicador="auto">
         <iframe
           key={`${recarga}-${pantalla}`}
           ref={ref}
           title="Vista previa de la app de tus alumnas"
           src={`/portal/${encodeURIComponent(slug)}${ruta}`}
           onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
-          className="origin-top-left rounded-[28px] bg-white transition-opacity duration-300"
-          style={{ width: MOVIL.ancho, height: MOVIL.alto, transform: `scale(${escala})`, border: 0, opacity: cargando ? 0.35 : 1 }}
+          className="bg-white transition-opacity duration-300"
+          style={{ width: PANTALLA_IPHONE.ancho, height: PANTALLA_IPHONE.alto, border: 0, opacity: cargando ? 0.35 : 1 }}
         />
-      </div>
+      </MarcoIphone>
       <a
         href={`/portal/${encodeURIComponent(slug)}${ruta}`}
         target="_blank"
@@ -286,6 +299,17 @@ export function EditorAparienciaApp() {
   const irAPaso = (p: PasoAsistente) => { setPasoEstado(p); setPantalla(p === 'entrada' ? 'entrada' : 'inicio'); };
   // Sin dirección de la app (sin slug) no hay nada que instalar: ese paso no sale.
   const pasos = studio?.slug ? PASOS : PASOS.filter(p => p.id !== 'instalar');
+  // `?paso=instalar` abre directamente un paso: lo usa la fila «Tu app en la App Store» de
+  // Configuración (MI_WEB_NUEVA). Se lee una vez, al tener el estudio, y solo si ese paso existe.
+  const pasoDeLaUrl = useRef(false);
+  useEffect(() => {
+    if (pasoDeLaUrl.current || !studio) return;
+    pasoDeLaUrl.current = true;
+    const pedido = new URLSearchParams(window.location.search).get('paso');
+    const valido = pasos.find(p => p.id === pedido);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La URL solo se puede leer tras montar.
+    if (valido) irAPaso(valido.id);
+  }, [studio, pasos]);
 
   useEffect(() => {
     let vivo = true;
@@ -296,9 +320,18 @@ export function EditorAparienciaApp() {
   }, [intento]);
 
   const soyPropietaria = rol === 'PROPIETARIO';
+  // Solo la propietaria puede leerlo (`/api/pagina-publica`); sin respuesta, no
+  // se dice nada (nunca un aviso a ciegas). Mismo criterio que los widgets.
+  const [paginaOculta, setPaginaOculta] = useState(false);
+  useEffect(() => {
+    if (!soyPropietaria) return;
+    let vivo = true;
+    void leerPaginaPublica().then(e => { if (vivo) setPaginaOculta(e?.oculta === true); });
+    return () => { vivo = false; };
+  }, [soyPropietaria]);
   const incluidoEnPlan = !!studio && tieneFeature(studio, 'marca');
   const css = useMemo(
-    () => (borrador ? temaAppCssText(HEX.test(borrador.primary) ? borrador.primary : publicado?.primary, borrador.app, '.student-app.student-app') : ''),
+    () => (borrador ? temaAppCssText(HEX.test(borrador.primary) ? borrador.primary : publicado?.primary, borrador.app, '.student-app.student-app', { completo: true }) : ''),
     [borrador, publicado],
   );
 
@@ -385,18 +418,17 @@ export function EditorAparienciaApp() {
         <h1 className="text-[22px] font-bold text-foreground">Apariencia de tu app</h1>
         {panelNuevo ? (
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-            Nadie lo ve hasta que publiques. Cambia también tu página de reservas y el widget de tu web.
+            Nadie lo ve hasta que publiques. {TEXTO_RESERVAS_Y_WIDGET}
           </p>
         ) : (<>
         <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
           Cómo ven tus alumnas su app: el estilo, tu color, la tipografía y tus fotos. Pruébalo aquí y mira el
           resultado en el móvil de la derecha; nadie lo ve hasta que publiques.
         </p>
-        {/* Desde el 27-sep-2026 /reservar toma este mismo estilo (lib/reservar/tema-app.ts):
-            publicar aquí también cambia la página de reservas y el widget de su web. */}
+        {/* Desde el 27-sep-2026 /reservar toma este mismo estilo (lib/reservar/tema-app.ts),
+            pero no todo: ver `TEXTO_RESERVAS_Y_WIDGET`. */}
         <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-          También se aplica a tu página de reservas y al widget de tu web (salvo los colores o la letra que le
-          pongas al widget).
+          {TEXTO_RESERVAS_Y_WIDGET}
         </p>
         </>)}
         {!soyPropietaria && (
@@ -507,12 +539,12 @@ export function EditorAparienciaApp() {
                   opciones={[{ valor: 'tinta', texto: 'Oscuro' }, { valor: 'marca', texto: 'En tu color' }]}
                   onChange={boton => setApp({ boton })}
                 />
-                <p className="text-[12px] leading-relaxed text-muted-foreground">«Reservar», «Comprar», la pestaña activa…</p>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">«Reservar», «Comprar», la pestaña activa… de tu app. En tu página de reservas los botones van siempre en tu color.</p>
               </div>
               <details className="group">
                 <summary className="flex cursor-pointer list-none items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground">
                   <ChevronRight size={14} className="transition-transform group-open:rotate-90" aria-hidden />
-                  Color secundario (solo tu panel y tu página de reservas)
+                  {TEXTO_SECUNDARIO}
                 </summary>
                 <div className="mt-3">
                   <CampoColor
@@ -674,19 +706,21 @@ export function EditorAparienciaApp() {
               <AppEnElMovil
                 nombre={studio.nombre}
                 slug={studio.slug}
-                colorPrimario={studio.colorPrimario}
+                // El color del icono real (el manifest de su app) es el del tema publicado, no la
+                // columna `color_primario` del alta, que en casi todos los estudios es otro.
+                colorPrimario={publicado.primary ?? studio.colorPrimario}
                 faviconUrl={publicado.faviconUrl ?? null}
                 logoUrl={studio.logoUrl}
               />
             </Seccion>
           )}
 
-          {pedirApp && studio.id && (
+          {pedirApp && studio.id && (!panelNuevo || paso === 'instalar') && (
             <Seccion
               enAsistente={panelNuevo}
               titulo="Tu app en la App Store"
               orden={6}
-              detalle="Una app con el nombre y el icono de tu estudio, publicada en la App Store."
+              detalle="Una app con el nombre y el icono de tu estudio, para la App Store."
             >
               <MiAppDeTienda studioId={studio.id} />
             </Seccion>
@@ -725,14 +759,14 @@ export function EditorAparienciaApp() {
             // Como Bonsai: el móvil sobre un panel grande de color, con los tonos del logo.
             <div
               className="flex min-h-[560px] items-center justify-center rounded-[28px] px-4 py-8 sm:px-8"
-              style={{ backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))' }}
+              style={FONDO_VISTA_MOVIL}
             >
               {studio.slug
-                ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
+                ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} paginaOculta={paginaOculta} />
                 : <p className="max-w-xs rounded-2xl bg-card/90 p-4 text-[13px] text-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>}
             </div>
           ) : (studio.slug
-            ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} />
+            ? <VistaPrevia slug={studio.slug} css={css} recarga={recarga} pantalla={pantalla} onPantalla={setPantalla} paginaOculta={paginaOculta} />
             : <p className="max-w-xs text-[13px] text-muted-foreground">Tu estudio aún no tiene dirección propia, así que no hay app que enseñar. Se la pones en «Mi app y mi web».</p>)}
         </div>
       </div>

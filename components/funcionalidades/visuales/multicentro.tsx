@@ -32,7 +32,7 @@ export function SelectorDeSede() {
           >
             <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: s.activa ? '#D9C29E' : 'rgba(255,255,255,.18)' }} />
             <span style={{ fontSize: 14.5, fontWeight: 700, color: '#fff' }}>{s.n}</span>
-            <span className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.06em', textTransform: 'uppercase', color: s.activa ? '#D9C29E' : 'rgba(255,255,255,.42)', marginLeft: 'auto' }}>{s.rol}</span>
+            <span style={{ fontWeight: 600, fontSize: 11.5, color: s.activa ? '#D9C29E' : 'rgba(255,255,255,.42)', marginLeft: 'auto' }}>{s.rol}</span>
           </div>
         ))}
       </div>
@@ -64,7 +64,7 @@ export function QueSeCompartYQueNo() {
           <thead>
             <tr>
               {['', 'Alcance', ''].map((c, i) => (
-                <th key={i} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: i === 0 ? 190 : 120 }}>{c}</th>
+                <th key={i} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: i === 0 ? 190 : 120 }}>{c}</th>
               ))}
             </tr>
           </thead>
@@ -75,7 +75,7 @@ export function QueSeCompartYQueNo() {
                 <tr key={f}>
                   <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #F0F0EA', fontWeight: 600, color: '#1A1A1A' }}>{f}</td>
                   <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #F0F0EA' }}>
-                    <span className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.05em', textTransform: 'uppercase', color: cadena ? '#3E7C86' : '#5A6142', background: cadena ? '#EDF3F4' : '#F1F2EA', padding: '4px 9px', borderRadius: 6, whiteSpace: 'nowrap' }}>{a}</span>
+                    <span style={{ fontWeight: 600, fontSize: 11.5, color: cadena ? '#3E7C86' : '#5A6142', background: cadena ? '#EDF3F4' : '#F1F2EA', padding: '4px 9px', borderRadius: 6, whiteSpace: 'nowrap' }}>{a}</span>
                   </td>
                   <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #F0F0EA', color: MUTED, lineHeight: 1.45 }}>{d}</td>
                 </tr>

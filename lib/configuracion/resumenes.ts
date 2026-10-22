@@ -29,6 +29,8 @@ import type { FaseTrial } from '../billing/trial.ts';
 import { SECCIONES, seccionDeTarjeta, tarjetaVisible, type HerramientaId, type RolConfiguracion, type SeccionId, type TarjetaId } from './secciones.ts';
 import { nombreCreditos } from '../creditos-nombre.ts';
 import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '../plataformas/venta-externa.ts';
+import { tarjetasEnLaApp, type BannerDelEstudio } from '../student/descubre.ts';
+import { hoyEnEstudio } from '../utils.ts';
 
 export const MAX_RESUMEN = 44;
 /** Las filas de «Cómo reservan mis alumnas»: a dos líneas (ver `resumenRegla`). */
@@ -188,9 +190,9 @@ const NOMBRE_INTEGRACION: Record<TipoIntegracion, string> = {
 };
 
 /**
- * La fila donde se arregla cada integración. Todas tienen la suya desde el
- * 15-sep (v2): Stripe en Cobros, el remitente, WhatsApp y Gmail en Cómo me
- * comunico y el resto en Conexiones. La usan «Revisa esto» y el aviso de la home.
+ * La fila donde se arregla cada integración. Todas viven en Integraciones desde
+ * el 16-oct-2026, salvo el remitente de los correos (Cómo me comunico). La usan
+ * «Revisa esto» y el aviso de la home.
  */
 export const TARJETA_DE_INTEGRACION: Readonly<Record<TipoIntegracion, TarjetaId>> = {
   STRIPE: 'integracion-stripe',
@@ -319,13 +321,9 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
       return unir([cancelar, espera]);
     }
 
-    case 'cobros': {
-      const stripe = s.stripeAccountId === undefined ? null
-        : s.stripeAccountId ? 'Stripe conectado'
-        : d.stripeDisponible ? 'Stripe sin conectar' : 'Stripe no disponible todavía';
-      const iva = typeof s.ivaPorDefecto === 'number' ? `IVA ${numero(s.ivaPorDefecto)} %` : null;
-      return unir([stripe, iva]);
-    }
+    // Stripe se conecta en Integraciones desde el 16-oct-2026: aquí solo el IVA.
+    case 'cobros':
+      return typeof s.ivaPorDefecto === 'number' ? `IVA ${numero(s.ivaPorDefecto)} %` : null;
 
     case 'altas':
       return unir([
@@ -336,16 +334,9 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
           : s.valoracionInicialActiva === false ? 'sin valoración inicial' : null,
       ]);
 
-    case 'comunicacion': {
-      let whatsapp: string | null = null;
-      if (d.integraciones) {
-        const estado = salud(d.integraciones.find(i => i.tipo === 'WHATSAPP')).estado;
-        whatsapp = estado === 'FUNCIONA' ? 'WhatsApp funcionando'
-          : estado === 'SIN_PROBAR' ? 'WhatsApp sin probar'
-          : estado === 'FALLANDO' ? 'WhatsApp con problemas' : 'WhatsApp sin conectar';
-      }
-      return unir([whatsapp, s.gmailEmail ? 'Gmail sin uso' : null]);
-    }
+    // WhatsApp y Gmail se gestionan en Integraciones desde el 16-oct-2026.
+    case 'comunicacion':
+      return null;
 
     case 'equipo':
       if (s.instructorasCreanClases === undefined) return null;
@@ -373,6 +364,8 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
       // Solo lo que se SABE conectado. Zapier se pide aparte al abrir la sección:
       // por eso nunca se dice «nada conectado» ni se da un total.
       const nombres: string[] = [];
+      if (s.stripeAccountId) nombres.push('Stripe');
+      if (d.integraciones?.some(i => i.tipo === 'WHATSAPP' && i.activo)) nombres.push('WhatsApp');
       if (s.googleCalendarEmail) nombres.push('Google Calendar');
       if (s.zoomEmail) nombres.push('Zoom');
       if (s.klaviyoAccountName) nombres.push('Klaviyo');
@@ -391,7 +384,6 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
     case 'motivacion':
     case 'avisos':
     case 'datos':
-    case 'demo':
       return null;
   }
 }
@@ -419,8 +411,6 @@ export function resumenesDeConfiguracion(
 export const CORREOS_AUTOMATICOS = ['bienvenida', 'reserva', 'recordatorio', 'cancelacion', 'promocion', 'impago'] as const;
 
 /** Algo que se ve entre dos fechas, o siempre si no las tiene. */
-type ConVigencia = { activo: boolean; fechaInicio?: string | null; fechaFin?: string | null };
-
 export interface DatosHerramientas {
   numTiposClase?: number | null;
   salas?: {
@@ -431,15 +421,20 @@ export interface DatosHerramientas {
   } | null;
   /** Las filas de `plantillas_email`. Sin fila, el correo se envía. */
   correos?: readonly { tipo: string; enviar?: boolean | null }[] | null;
+  /** Las tarjetas de «Descubre» (los banners), tal cual las tiene el panel. */
   contenido?: {
-    mensajeDestacado: string | null;
-    tarjetas: readonly ConVigencia[];
-    avisos: readonly ConVigencia[];
+    tarjetas: readonly BannerDelEstudio[];
     ahoraMs: number;
+    /**
+     * El mensaje destacado, SOLO si su app lo enseña (`MI_WEB_NUEVA`): sin el
+     * interruptor no sale en ninguna pantalla y la fila no lo cuenta.
+     */
+    mensaje?: string | null;
   } | null;
   /** Las webs donde está autorizada la integración nativa del horario. */
   widgetDominios?: readonly string[] | null;
-  motivacion?: { recompensas: number; logros: number; niveles: number; retos: number } | null;
+  /** Canjes que esperan entrega. `null` = sin cargar. */
+  canjesPendientes?: number | null;
   codigosDescuento?: number | null;
   /**
    * «Mis avisos»: cuántos tipos puede configurar este rol, cuántos le llegan por
@@ -453,13 +448,6 @@ export interface DatosHerramientas {
   } | null;
   /** «Avisos en el móvil»: antelación del recordatorio y cuántos textos reescribió (`null` = sin leer). */
   avisosMovil?: { largoHoras: number; cortoMinutos: number; textosPropios: number | null } | null;
-}
-
-function enVigor(x: ConVigencia, ahoraMs: number): boolean {
-  if (!x.activo) return false;
-  if (x.fechaInicio && Date.parse(x.fechaInicio) > ahoraMs) return false;
-  if (x.fechaFin && Date.parse(x.fechaFin) < ahoraMs) return false;
-  return true;
 }
 
 /** La línea de la fila de una herramienta, o `null` si no se sabe cómo está. */
@@ -495,22 +483,26 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
 
     case 'contenido-de-tu-app': {
       if (!d.contenido) return null;
-      const { mensajeDestacado, tarjetas, avisos, ahoraMs } = d.contenido;
-      const nTarjetas = tarjetas.filter(t => enVigor(t, ahoraMs)).length;
-      const nAvisos = avisos.filter(a => enVigor(a, ahoraMs)).length;
-      return unir([
-        mensajeDestacado?.trim() ? 'con mensaje destacado' : 'sin mensaje destacado',
-        // Solo las que se ven hoy: publicadas y dentro de sus fechas.
-        nTarjetas > 0 ? contar(nTarjetas, 'tarjeta', 'tarjetas') : null,
-        nAvisos > 0 ? contar(nAvisos, 'aviso', 'avisos') : null,
-      ]);
+      const { tarjetas, ahoraMs } = d.contenido;
+      // Lo que sale HOY en su app, con la misma regla que la app: publicada, en el
+      // inicio (es lo que filtra el servidor), con foto y dentro de sus fechas, que
+      // son inclusivas y del día de Madrid (`tarjetasEnLaApp`). Antes contaba una
+      // tarjeta sin foto, que la app descarta, y la quitaba el último día a las 02:00.
+      // Ni el mensaje destacado ni el tablón: ninguna pantalla de su app los enseña,
+      // y «con mensaje destacado · 1 aviso» prometía que sí.
+      const hoy = hoyEnEstudio(new Date(ahoraMs));
+      const n = tarjetasEnLaApp(tarjetas, hoy).length;
+      const conMensaje = !!d.contenido.mensaje?.trim();
+      if (n === 0) return conMensaje ? 'Un mensaje destacado y ninguna tarjeta en su app' : 'Ninguna tarjeta en su app';
+      return unir([contar(n, 'tarjeta en su app', 'tarjetas en su app'), conMensaje ? 'con mensaje destacado' : null]);
     }
 
     case 'widgets': {
       // No se sabe qué widgets tiene pegados en su web: solo dónde autorizó la
       // integración nativa. Sin ninguna, la fila cuenta qué hay dentro.
       const n = d.widgetDominios?.length ?? 0;
-      return n > 0 ? contar(n, 'web con el widget nativo', 'webs con el widget nativo') : null;
+      // Con el nombre de la herramienta («Ponerlo sin marco»), no con la jerga de dentro.
+      return n > 0 ? contar(n, 'web autorizada para ponerlo sin marco', 'webs autorizadas para ponerlo sin marco') : null;
     }
 
     case 'avisos-del-movil': {
@@ -539,16 +531,9 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
       ]);
     }
 
-    case 'recompensas-y-logros': {
-      if (!d.motivacion) return null;
-      const { recompensas, logros, niveles, retos } = d.motivacion;
-      if (recompensas + logros + niveles + retos === 0) return 'Sin recompensas ni logros todavía';
-      return unir([
-        recompensas > 0 ? contar(recompensas, 'recompensa', 'recompensas') : 'sin recompensas',
-        logros > 0 ? contar(logros, 'logro', 'logros') : null,
-        retos > 0 ? contar(retos, 'reto', 'retos') : null,
-        niveles > 0 ? contar(niveles, 'nivel', 'niveles') : null,
-      ]);
+    case 'canjes': {
+      if (d.canjesPendientes == null) return null;
+      return d.canjesPendientes === 0 ? 'Ninguno por entregar' : `${d.canjesPendientes} por entregar`;
     }
 
     case 'codigos-descuento': {
@@ -817,9 +802,11 @@ export function resumenAlCancelarCuota(
 }
 
 /** «Cada alumna en su aniversario» o «Todas el día 1 de cada mes». */
-export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo'>>): string | null {
+export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo' | 'cobroDia1Modo'>>): string | null {
   if (s.cobroDia1Activo === undefined) return null;
-  return s.cobroDia1Activo ? 'Todas el día 1 de cada mes' : 'Cada alumna en su aniversario';
+  const base = s.cobroDia1Activo ? 'Todas el día 1 de cada mes' : 'Cada alumna en su aniversario';
+  const conAlta = s.cobroProporcionalAltaActivo ? `${base} · parte proporcional al alta` : base;
+  return s.cobroDia1Activo && s.cobroDia1Modo === 'PROPORCIONAL' ? `${conAlta} · parte proporcional a las actuales` : conAlta;
 }
 
 /**
@@ -978,7 +965,8 @@ export function resumenRegla(
     case 'si-se-queda-sin-cuota':
       return u([
         // Cortos a propósito: con «12 tipos lo cambian» detrás tiene que caber en MAX_RESUMEN.
-        r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
+        r.plazaFijaSinCuota === 'AVISAR_Y_LIBERAR' ? 'aviso y se liberan'
+          : r.plazaFijaSinCuota === 'LIBERAR' ? 'se liberan sus clases'
           : r.plazaFijaSinCuota === 'MANTENER_SIN_PENALIZAR' ? 'conserva, sin cargo'
           : 'conserva sus clases',
         excepciones,
@@ -1408,14 +1396,18 @@ export function estadoDelPlan(e: { enTuPlan: boolean; activo: boolean; planMinim
  * semana». Lo que no se ha tocado, como lo aplica el servidor: «créditos», no
  * caducan y la racha pide 1 clase. `null` = sin cargar.
  */
-export function resumenReglasCreditos(s: Partial<Pick<Studio, 'creditosNombre' | 'creditosCaducanMeses' | 'rachaClasesSemana'>>): string | null {
+export function resumenReglasCreditos(
+  s: Partial<Pick<Studio, 'creditosNombre' | 'creditosCaducanMeses' | 'rachaClasesSemana'>>,
+  /** Con la racha única (`RACHA_UNICA`) la meta es fija (1 clase por semana) y deja de ser un ajuste: no se resume. */
+  opciones: { sinRacha?: boolean } = {},
+): string | null {
   if (s.creditosNombre === undefined) return null;
   const meses = s.creditosCaducanMeses ?? null;
   const racha = s.rachaClasesSemana && s.rachaClasesSemana > 1 ? s.rachaClasesSemana : 1;
   return unir([
     `se llaman ${nombreCreditos(s.creditosNombre)}`,
     meses ? `caducan a los ${contar(meses, 'mes', 'meses')} sin ganar` : 'no caducan',
-    `racha de ${contar(racha, 'clase', 'clases')} por semana`,
+    ...(opciones.sinRacha ? [] : [`racha de ${contar(racha, 'clase', 'clases')} por semana`]),
   ], 90);
 }
 

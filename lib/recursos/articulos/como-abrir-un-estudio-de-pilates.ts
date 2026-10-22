@@ -3,12 +3,13 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-abrir-un-estudio-de-pilates',
   titulo: 'Cómo abrir un estudio de pilates: guía paso a paso, de la idea a la primera semana abierta',
-  tituloSeo: 'Cómo abrir un estudio de pilates en 2026: guía paso a paso',
+  tituloSeo: 'Cómo abrir un estudio de pilates en 2026: guía',
   descripcion: 'De la idea a la primera clase: inversión, local, máquinas, trámites, precios y equipo para abrir tu estudio de pilates en España. Con checklist.',
   resumen: 'La guía completa para montar un estudio de pilates en España: concepto, números, local, reformers, trámites, precios, equipo, reservas y los primeros 90 días, con una checklist de todo el proceso.',
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cómo abrir un estudio de pilates',
   consultas: [
     'montar un estudio de pilates',
@@ -214,11 +215,11 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Es lo que hace [Tentare](/funcionalidades/reservas-online): tus alumnas reservan y cancelan desde el móvil e instalan la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática; hay bonos con caducidad, cuotas mensuales y clases sueltas, con reglas por tipo de clase; y los cobros recurrentes con Stripe (tarjeta y SEPA) se reintentan dos veces si fallan y te avisan. Cuesta 29, 59 o 149 € al mes con IVA según el plan, sin permanencia ([precios](/precios)). Si ya tienes web, las reservas se ponen dentro con un widget: [reservas en tu web](/recursos/reservas-en-tu-web).',
+          texto: 'Es lo que hace [Tentare](/funcionalidades/reservas-online): tus alumnas reservan y cancelan desde el móvil e instalan la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática; hay bonos con caducidad, cuotas mensuales y clases sueltas, con reglas por tipo de clase; y los cobros recurrentes con tarjeta y Stripe se reintentan dos veces si fallan y te avisan; la domiciliación va por remesa SEPA, que presentas en tu banco. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia ([precios](/precios)). Si ya tienes web, las reservas se ponen dentro con un widget: [reservas en tu web](/recursos/reservas-en-tu-web).',
         },
         {
           t: 'llamada',
-          texto: 'Que tus alumnas reserven, tengan su bono y paguen desde el móvil el día que abres es cosa de dejarlo configurado antes: Tentare lo trae de serie, desde 29 €/mes y sin permanencia.',
+          texto: 'Que tus alumnas reserven, tengan su bono y paguen desde el móvil el día que abres es cosa de dejarlo configurado antes: Tentare lo trae de serie, gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.',
         },
       ],
     },
@@ -322,7 +323,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Abre con las reservas y los cobros resueltos',
-    texto: 'Tentare deja listos las reservas, los bonos, la lista de espera y los cobros de tu estudio antes de la primera clase. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Tentare deja listos las reservas, los bonos, la lista de espera y los cobros de tu estudio antes de la primera clase. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Precios de reformers y esterillas (Elina Pilates, Aerobic y Fitness) consultados el 25-sep-2026: cambian a menudo, revisarlos antes de publicar.',

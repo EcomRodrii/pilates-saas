@@ -8,7 +8,9 @@ import { capturar } from '@/lib/analytics';
 import { supabase } from '@/lib/db/supabase';
 import { configLegalDeFila, tieneTextoPropio } from '@/lib/legal-textos';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { logroMensualCerradoEncendido, rachaUnicaEncendida } from '@/lib/interruptor-por-estudio';
 import { tokenCoincideConHash } from '@/lib/token-hash';
+import { claveCanjeValida, idCanjeDeClave, esViolacionUnica, leerResultadoClaseGratis } from '@/lib/canje-idempotencia';
 import { exigirLectura } from '@/lib/exigir-lectura';
 import { conCacheCatalogo, claveCatalogoPublico } from '@/lib/cache/catalogo-estudio';
 import { leerCatalogoCompleto } from '@/lib/migracion/catalogo';
@@ -18,7 +20,7 @@ import { getLayout } from '@/lib/layout-data';
 import { puertaPublica, catalogoPaginaOculta } from '@/lib/publico/acceso-pagina';
 import { getThemePublicado } from '@/lib/theme-data';
 import { enviarEmailTransaccional, type DatosClaseEmail } from '@/lib/emails/send-server';
-import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio } from '@/lib/utils';
+import { uid, fechaLargaEstudio, horaEstudio, franjaLocalDe, hoyEnEstudio, inicioDelDiaEstudio, finDelDiaEstudio, masDias } from '@/lib/utils';
 import { cierreAperturaSuave, MENSAJE_APERTURA_SUAVE } from '@/lib/opening/apertura-suave';
 import { escaparLike } from '@/lib/escapar-like';
 import {
@@ -29,6 +31,8 @@ import { ordenarTipos } from '@/lib/tipos-clase/orden-y-archivo';
 import { valoracionEstudio } from '@/lib/portal-tema/valoracion';
 import { agregadoPublicable, type VotoValoracion } from '@/lib/valoraciones/agregado';
 import { primerError } from '@/lib/db/primer-error';
+import { miWebNuevaPara } from '@/lib/estudio/mi-web-nueva';
+import { mensajeParaLaApp } from '@/lib/student/mensaje-destacado';
 import { MENSAJE_CLASE_YA_EMPEZADA } from '@/lib/calendario-estado';
 import { esCodigoReserva, mensajeDeErrorReserva, MENSAJE_RESERVA_RPC } from '@/lib/reservas/errores-rpc';
 import {
@@ -67,13 +71,14 @@ import {
   avisoTopeAutomatico, cuotaParaPlazaFija, cupoAutomatico, motivoNoAutomatica, superaLimiteSemanal, TOPE_AUTOMATICO_POR_DEFECTO_PCT,
   type AprobacionPlazaFija, type DatosPlazaFija, type ResultadoGuardarPlazaFija,
 } from '@/lib/plazas-fijas-reglas';
-import { duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
+import { agruparTerminanPronto, duracionPedida, etiquetaDuracion, plazasVencidasQueEstorban } from '@/lib/clases-fijas-reglas';
+import { DIAS_PARA_RENOVAR_PLAZA_FIJA } from '@/lib/plazas-fijas-sin-cuota';
 import { estadoPausa, sesionEnPausa, validarPausa, type Pausa } from '@/lib/plazas-fijas-pausa';
 import {
   decidirVueltaDePausa, fechaLimiteDecidirVuelta, textoMotivoVuelta, tocaLiberarSitio,
   type HuecoParaVolver, type MotivoVueltaPendiente, type PoliticaFinPausa,
 } from '@/lib/plazas-fijas-solicitudes';
-import type { EstadoReserva, PlanTarifa, PlazaFija as PlazaFijaServidor } from '@/lib/types';
+import type { AchievementMetric, EstadoReserva, PlanTarifa, PlazaFija as PlazaFijaServidor } from '@/lib/types';
 import { coberturaDeClase } from '@/lib/reservar/cobertura';
 import type { CubiertaPor, VentaClaseSuelta } from '@/lib/reservas/reserva-mostrador';
 import {
@@ -88,19 +93,23 @@ import type { FormaPegada } from '@/lib/widgets/pegado';
 import { validarCanje } from '@/lib/engines/reward-engine';
 import { sesionesQueSeDanPorAsistidas } from '@/lib/checkin/pasar-lista';
 import { calcularMetrica } from '@/lib/engines/achievement-engine';
-import { calcularProgresoReto } from '@/lib/engines/challenge-engine';
+import { calcularProgresoReto, retoVigente } from '@/lib/engines/challenge-engine';
+import { leCuentaElReto, puedeApuntarse } from '@/lib/engines/alcance-reto';
+import { cargarRachaUnica } from '@/lib/gamificacion/racha-unica-servidor';
+import { esDiaDeBarridoMensual, evaluarMesCompleto, MIN_CLASES_LOGRO_MENSUAL, ultimoMesCerrado, type HechoClaseMes } from '@/lib/gamificacion/asistencia-del-mes';
 import { calcularRacha, claveMesActual, objetivoMensualAlcanzado } from '@/lib/engines/streak-engine';
 import { decidirPremioReferido, type AforoApartado } from '@/lib/booking-logic';
 import { evaluarFeature } from '@/lib/billing/billing-rules';
 import { recordatoriosRevision, textoRecordatorioRevision } from '@/lib/ficha-clinica';
 import { planMasElegido } from '@/lib/estudio-publico';
-import { esRetoKeyValida } from '@/lib/retos-portal';
+import { esRetoKeyValida, RETO_KEYS } from '@/lib/retos-portal';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import type {
   RowCitasServicios,
   RowCitasDisponibilidad,
   RowFavoritosClase,
+  RowChallengeDefinitions,
   RowRetoParticipaciones,
   RowContenidoPortal,
   RowContenidoPortalBanners,
@@ -448,6 +457,9 @@ function studioPublico(r: RowStudios) {
     // La racha de la alumna se calcula en su app: sin esto usaría siempre 1 y
     // el ajuste del estudio no tendría efecto donde se ve.
     rachaClasesSemana: (r as { racha_clases_semana?: number | null }).racha_clases_semana ?? null,
+    // Semana y racha únicas (PR 3.3): si está encendida para este estudio la app pide la racha al
+    // servidor (`/api/public/racha`) y deja de calcularla con el historial. Apagada = como siempre.
+    rachaUnica: rachaUnicaEncendida(r.id),
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
     // El importe de la penalización ya va dentro de los términos que se
     // enseñan (arriba); viaja también suelto para que quien recomponga el texto
@@ -635,7 +647,7 @@ export async function fetchAforoPublico(slug: string): Promise<
   const [{ data: aforoReservas, error: errAforo }, aforoApartadas] = await Promise.all([
     fetchAllRows(studioId, 'reservas', (from, to) =>
       admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIds).range(from, to)),
+        .eq('studio_id', studioId).in('sesion_id', sesionIds).order('id').range(from, to)),
     aforoApartadasDe(admin as never, studioId, sesionIds),
   ]);
   exigirLectura(errAforo, 'leyendo el aforo de las clases');
@@ -796,7 +808,7 @@ export async function fetchPublicStudioData(
         // Conteo REAL de apuntadas por reto, del estudio ENTERO — mismo motivo
         // que planMasElegidoId: calcularlo en el cliente con solo lo que ve una
         // socia daría un número parcial, no el real.
-        admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId),
+        admin.from('reto_participaciones').select('reto_key').eq('studio_id', studioId).in('reto_key', RETO_KEYS),
         // El horario de apertura del estudio (`studio_horario`, migr
         // 20260804213940), para «Información del centro» del portal.
         //
@@ -929,6 +941,12 @@ export async function fetchPublicStudioData(
       citasServicios: (citasServiciosRes.data ?? []).map((r) => mapServicioCita(r as RowCitasServicios)),
       citasDisponibilidad: (citasDisponibilidadRes.data ?? []).map((r) => mapDisponibilidadCita(r as RowCitasDisponibilidad)),
       contenidoPortal: contenidoPortalRes?.data ? mapContenidoPortal(contenidoPortalRes.data as RowContenidoPortal) : null,
+      // La franja de arriba del inicio de su app (decisión 11A, «Mi app y mi web» v2): el texto
+      // que pinta, o `null` = no hay franja. Solo con `MI_WEB_NUEVA`: el panel de antes dice
+      // «hoy su app no enseña el mensaje destacado», y los dos tienen que decir lo mismo.
+      mensajeDestacado: miWebNuevaPara(studioId, process.env)
+        ? mensajeParaLaApp((contenidoPortalRes?.data as RowContenidoPortal | null | undefined)?.mensaje_destacado)
+        : null,
       bannersPortal: (bannersPortalRes?.data ?? []).map((r) => mapBannerPortal(r as RowContenidoPortalBanners)),
       novedadesEstudio: (novedadesRes?.data ?? []).map((r) => mapNovedadEstudio(r as RowNovedadesEstudio)),
       // `portalHome`/`reservar`/`homeBloques`/`bloquesClases`/`bloquesBonos`/
@@ -1099,14 +1117,14 @@ export async function fetchPublicStudioData(
   // ids resueltos primero.
   const { data: sesionesData, error: errSesiones } = await fetchAllRows(studioId, 'sesiones', (from, to) =>
     admin.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, precio_puntual, google_event_id, serie_id, zoom_meeting_id')
-      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).range(from, to));
+      .eq('studio_id', studioId).gte('fin', new Date().toISOString()).order('id').range(from, to));
   if (errSesiones) throw new Error(`catálogo público: sesiones: ${errSesiones.message}`);
   const sesionIdsVigentes = (sesionesData ?? []).map(s => s.id as string);
   const { data: reservasAforo, error: errReservas } = sesionIdsVigentes.length === 0
     ? { data: [] as { id: string; sesion_id: string; estado: string; spot_id: string | null }[], error: null }
     : await fetchAllRows(studioId, 'reservas', (from, to) =>
       admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).range(from, to));
+        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).order('id').range(from, to));
   // Mismo criterio que el catálogo: un horario o un aforo truncados por un
   // fallo no se sirven como si fueran completos.
   if (errReservas) throw new Error(`catálogo público: reservas: ${errReservas.message}`);
@@ -1264,7 +1282,8 @@ export async function fetchPublicStudioData(
       citas: (citasRes.data ?? []).map(mapCita),
       plazasFijas: (plazasRes.data ?? []).map(mapPlazaFija),
       favoritos: (favRes.data ?? []).map((r) => mapFavoritoClase(r as RowFavoritosClase)),
-      retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones).retoKey),
+      retosApuntados: (retoRes.data ?? []).map((r) => mapRetoParticipacion(r as RowRetoParticipaciones))
+        .filter((p) => !p.bajaEn).map((p) => p.retoKey),
       recuperaciones: (recupRes.data ?? []).map(mapRecuperacion),
       peticionesPlazaFija: (peticionesRes.data ?? []).map(p => ({
         id: p.id, tipo: p.tipo as 'CREAR' | 'PAUSAR', plazaId: p.plaza_id ?? null,
@@ -2895,6 +2914,13 @@ export async function comprobarPlazaAntesDeCobrar(admin: SupabaseClient, p: {
 // bono si queda CONFIRMADA. Valida identidad de la socia y el derecho a reservar
 // (C-4: plan/bono activo y tope de reservas simultáneas, si el estudio lo exige).
 
+/** ¿Le queda alguna recuperación sin usar y sin caducar? Mismo criterio que `evaluar_reserva` (el día del estudio). */
+async function tieneRecuperacionDisponible(admin: SupabaseClient, studioId: string, socioId: string): Promise<boolean> {
+  const { count } = await admin.from('recuperaciones').select('id', { count: 'exact', head: true })
+    .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'DISPONIBLE').gte('caduca_el', hoyEnEstudio());
+  return (count ?? 0) > 0;
+}
+
 export async function crearReservaPublica(params: {
   studioId: string; sesionId: string; socioId: string; authUserId: string | null; spotId?: string | null;
   /**
@@ -3003,9 +3029,11 @@ export async function crearReservaPublica(params: {
     // suposición: la RPC recibe el ajuste tal cual y decide ella, como siempre.
     // Cerrado, no abierto.
     exigirPlanEnRpc = errorPlanes ? exigirPlanResuelto : exigirPlan;
+    // Sin plan que la cubra, una recuperación DISPONIBLE paga la clase (migr 20261020134420): esa la decide la RPC, que es
+    // quien la gasta. Aquí solo no se corta antes de llegar (antes pedía pagar a quien tenía recuperaciones).
     if (exigirPlan && !tieneEntitlementActivo(
       params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyEnEstudio(), tipoDeLaClase,
-    )) {
+    ) && !(await tieneRecuperacionDisponible(admin, params.studioId, params.socioId))) {
       const tieneAlgunPlan = tieneEntitlementActivo(
         params.socioId, (susRows ?? []).map(mapSuscripcion), planesGate, hoyEnEstudio(),
       );
@@ -5313,6 +5341,13 @@ async function retirarReservasFuturasPlazaFija(
 export async function soltarReservasPlazaFijaSinCuota(
   admin: SupabaseClient, filtro: { studioId?: string; socioId?: string } = {},
 ): Promise<{ canceladas: string[]; fallidas: number }> {
+  // AVISAR_Y_LIBERAR: antes de soltar nada, se avisa a quien acaba de quedarse sin cuota (y se borra el aviso de quien
+  // renovó). Best-effort: un fallo aquí no avisa, pero tampoco libera (sin aviso apuntado no se libera nada).
+  try {
+    await avisarPlazaFijaSinCuota(admin, filtro);
+  } catch (e) {
+    capturarExcepcion(e instanceof Error ? e : new Error(String(e)), { tags: { area: 'plazas-fijas' }, extra: { paso: 'avisar-sin-cuota' } });
+  }
   const { data, error } = await admin.rpc('reservas_plaza_fija_sin_cuota', {
     p_studio_id: filtro.studioId ?? null, p_socio_id: filtro.socioId ?? null,
   });
@@ -5336,6 +5371,65 @@ export async function soltarReservasPlazaFijaSinCuota(
     }
   }
   return { canceladas, fallidas };
+}
+
+/**
+ * AVISAR_Y_LIBERAR (20-oct-2026): a quien tiene clases fijas reservadas que su cuota ya no cubre se le apunta el día
+ * desde el que se liberan (hoy + DIAS_PARA_RENOVAR_PLAZA_FIJA, en el día del estudio) y se le avisa UNA vez; quien ya no
+ * está en esa situación (renovó, o ya se liberaron) pierde el apunte, para que una pérdida futura vuelva a avisar. Lo que
+ * se libera lo decide después `reservas_plaza_fija_sin_cuota` con ese apunte.
+ */
+async function avisarPlazaFijaSinCuota(admin: SupabaseClient, filtro: { studioId?: string; socioId?: string }): Promise<void> {
+  const { data, error } = await admin.rpc('socias_plaza_fija_sin_cuota', {
+    p_studio_id: filtro.studioId ?? null, p_socio_id: filtro.socioId ?? null,
+  });
+  if (error) throw new Error(`socias_plaza_fija_sin_cuota: ${error.message}`);
+  const sinCuota = (data as { studio_id: string; socio_id: string; politica: string }[] | null) ?? [];
+  const clave = (s: string, a: string) => `${s}:${a}`;
+  const ahora = new Set(sinCuota.map((f) => clave(f.studio_id, f.socio_id)));
+
+  let lectura = admin.from('plaza_fija_sin_cuota_avisos').select('studio_id, socio_id');
+  if (filtro.studioId) lectura = lectura.eq('studio_id', filtro.studioId);
+  if (filtro.socioId) lectura = lectura.eq('socio_id', filtro.socioId);
+  const { data: avisos, error: errAvisos } = await lectura;
+  if (errAvisos) throw new Error(`plaza_fija_sin_cuota_avisos: ${errAvisos.message}`);
+  const avisadas = new Set((avisos ?? []).map((a) => clave(a.studio_id as string, a.socio_id as string)));
+
+  for (const a of avisos ?? []) {
+    if (ahora.has(clave(a.studio_id as string, a.socio_id as string))) continue;
+    await admin.from('plaza_fija_sin_cuota_avisos').delete().eq('studio_id', a.studio_id).eq('socio_id', a.socio_id);
+  }
+
+  const liberarDesde = masDias(hoyEnEstudio(), DIAS_PARA_RENOVAR_PLAZA_FIJA);
+  for (const f of sinCuota) {
+    if (f.politica !== 'AVISAR_Y_LIBERAR' || avisadas.has(clave(f.studio_id, f.socio_id))) continue;
+    // `ignoreDuplicates`: si dos pasadas llegan a la vez, solo la que lo apunta avisa.
+    const { data: nuevo, error: errIns } = await admin.from('plaza_fija_sin_cuota_avisos')
+      .upsert({ studio_id: f.studio_id, socio_id: f.socio_id, liberar_desde: liberarDesde }, { onConflict: 'studio_id,socio_id', ignoreDuplicates: true })
+      .select('socio_id');
+    if (errIns) throw new Error(`plaza_fija_sin_cuota_avisos: ${errIns.message}`);
+    if (!nuevo?.length) continue;
+    const nombre = await nombreDeSusPlazasFijas(admin, f.studio_id, f.socio_id, liberarDesde);
+    const { emitirPlazaFijaSinCuota } = await import('@/lib/notifications/emit');
+    await emitirPlazaFijaSinCuota(admin, { studioId: f.studio_id, socioId: f.socio_id, nombre, liberarDesde });
+  }
+}
+
+/** «Reformer · martes 18:00», «A y B» o «4 clases fijas»: el mismo nombre que el aviso de «termina pronto». */
+async function nombreDeSusPlazasFijas(admin: SupabaseClient, studioId: string, socioId: string, hasta: string): Promise<string> {
+  const { data: plazas } = await admin.from('plazas_fijas').select('id, dia_semana, hora_inicio, tipo_clase_id')
+    .eq('studio_id', studioId).eq('socio_id', socioId).eq('estado', 'ACTIVA');
+  const ids = [...new Set((plazas ?? []).map((p) => p.tipo_clase_id as string | null).filter((x): x is string => !!x))];
+  const tipos = new Map<string, string>();
+  if (ids.length) {
+    const { data } = await admin.from('tipos_clase').select('id, nombre').eq('studio_id', studioId).in('id', ids);
+    for (const t of data ?? []) tipos.set(t.id as string, t.nombre as string);
+  }
+  const grupo = agruparTerminanPronto((plazas ?? []).map((p) => ({
+    id: p.id as string, socioId, vigenciaHasta: hasta, diaSemana: p.dia_semana as number, horaInicio: p.hora_inicio as string,
+    tipo: p.tipo_clase_id ? tipos.get(p.tipo_clase_id as string) ?? null : null,
+  })))[0];
+  return grupo?.nombre ?? 'Tu clase fija';
 }
 
 async function aplicarEstadoPlazaFija(
@@ -6883,17 +6977,24 @@ export async function historialAsistidasPublico(params: {
   }));
 }
 
-// Apunta/desapunta a la socia autenticada de un reto del carrusel de Inicio
-// (tema Bloom). `retoKey` se valida contra RETOS_PORTAL (contenido fijo de
-// código, no una tabla) — el CHECK de la migración es la segunda barrera.
+// Apunta/desapunta a la socia autenticada de un reto. Hay DOS clases de reto:
+//  · los del carrusel de Inicio (tema Bloom): claves fijas de código (`core`,
+//    `cara`), solo participación; «Ya no participo» borra la fila.
+//  · los del estudio (`challenge_definitions`): `retoKey` es el id del reto. Solo
+//    los que son «con inscripción» admiten apuntarse; en uno «del estudio» cuentan
+//    todas y no hay nada que apuntar. La inscripción guarda su fecha (created_at) y
+//    «Ya no participo» no borra la fila sino que marca `baja_en`: así volver a
+//    apuntarse conserva la fecha original y no se puede recuperar lo ya hecho
+//    dando de baja y de alta.
 // `socioId` sale de `socioAutenticado`, nunca del body, mismo criterio que
-// toggleFavoritoPublico.
+// toggleFavoritoPublico. El reto se busca SIEMPRE dentro del estudio de la socia:
+// el id de un reto de otro estudio responde igual que uno inexistente.
 export async function toggleRetoParticipacion(params: {
   studioId: string; socioId: string; retoKey: string; accion: 'marcar' | 'desmarcar';
 }): Promise<{ ok: true } | { error: string }> {
   const admin = getSupabaseAdmin();
   if (!admin) return { error: 'Service role no configurada' };
-  if (!esRetoKeyValida(params.retoKey)) return { error: 'Ese reto no existe.' };
+  if (!esRetoKeyValida(params.retoKey)) return toggleInscripcionRetoEstudio(admin, params);
   if (params.accion === 'marcar') {
     const { error } = await admin.from('reto_participaciones').upsert(
       { studio_id: params.studioId, socio_id: params.socioId, reto_key: params.retoKey },
@@ -6905,6 +7006,47 @@ export async function toggleRetoParticipacion(params: {
   const { error } = await admin.from('reto_participaciones').delete()
     .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
   if (error) return { error: 'No se ha podido quitar tu apunte al reto.' };
+  return { ok: true };
+}
+
+async function toggleInscripcionRetoEstudio(
+  admin: SupabaseClient,
+  params: { studioId: string; socioId: string; retoKey: string; accion: 'marcar' | 'desmarcar' },
+): Promise<{ ok: true } | { error: string }> {
+  const { data: defRow, error: defError } = await admin.from('challenge_definitions').select('*')
+    .eq('id', params.retoKey).eq('studio_id', params.studioId).maybeSingle();
+  if (defError) return { error: 'No se ha podido guardar tu apunte al reto.' };
+  if (!defRow) return { error: 'Ese reto no existe.' };
+
+  const { data: fila, error: filaError } = await admin.from('reto_participaciones').select('baja_en')
+    .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey).maybeSingle();
+  if (filaError) return { error: 'No se ha podido guardar tu apunte al reto.' };
+
+  if (params.accion === 'desmarcar') {
+    // Idempotente y siempre permitido (también con el reto ya terminado).
+    if (!fila || fila.baja_en) return { ok: true };
+    const { error } = await admin.from('reto_participaciones').update({ baja_en: new Date().toISOString() })
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
+    if (error) return { error: 'No se ha podido quitar tu apunte al reto.' };
+    return { ok: true };
+  }
+
+  const reto = mapChallengeDefinition(defRow as RowChallengeDefinitions);
+  const puede = puedeApuntarse(reto, new Date());
+  if (!puede.ok) return { error: puede.error };
+  if (fila && !fila.baja_en) return { ok: true }; // ya estaba apuntada
+  if (fila) {
+    // Vuelve a apuntarse: conserva su fecha de inscripción original.
+    const { error } = await admin.from('reto_participaciones').update({ baja_en: null })
+      .eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('reto_key', params.retoKey);
+    if (error) return { error: 'No se ha podido guardar tu apunte al reto.' };
+    return { ok: true };
+  }
+  const { error } = await admin.from('reto_participaciones').insert(
+    { studio_id: params.studioId, socio_id: params.socioId, reto_key: params.retoKey },
+  );
+  // 23505: dos pulsaciones a la vez; la otra ya la apuntó.
+  if (error && error.code !== '23505') return { error: 'No se ha podido guardar tu apunte al reto.' };
   return { ok: true };
 }
 
@@ -7143,11 +7285,58 @@ export async function actualizarSociaPublica(params: {
 
 export async function canjearRecompensaPublica(params: {
   studioId: string; socioId: string; authUserId: string; catalogItemId: string;
+  /**
+   * Clave que genera la pantalla al empezar el canje y reutiliza en cada
+   * reintento. Con ella, un doble toque (o un reintento tras red lenta) es UN
+   * canje: el id del canje sale de la clave y la base rechaza el segundo.
+   * Sin clave (clientes antiguos) se comporta como siempre.
+   */
+  idempotencyKey?: string;
 }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
   const socia = await validarSociaPublica(admin, params.studioId, params.socioId, params.authUserId);
   if (!socia) return { error: 'No autorizado' as const };
+
+  const clave = claveCanjeValida(params.idempotencyKey) ? params.idempotencyKey : null;
+  const redemptionId = clave
+    ? idCanjeDeClave({ studioId: params.studioId, socioId: params.socioId, catalogItemId: params.catalogItemId, clave })
+    : `rwd-${uid()}`;
+
+  // El canje que ya existe con ESTA clave (repetición): se contesta con él, sin
+  // volver a validar saldo, límite ni stock — que ya no dirían lo mismo.
+  const repeticion = async () => {
+    if (!clave) return null;
+    const { data } = await admin.from('reward_redemptions')
+      .select('id, socio_id, estado, codigo')
+      .eq('id', redemptionId).eq('studio_id', params.studioId).maybeSingle();
+    if (!data || data.socio_id !== params.socioId) return null;
+    if (data.estado === 'CANCELADO') {
+      return { error: 'Este canje se ha cancelado. Vuelve a intentarlo.' as const };
+    }
+    const { data: it } = await admin.from('reward_catalog').select('efecto, nombre')
+      .eq('id', params.catalogItemId).eq('studio_id', params.studioId).maybeSingle();
+    // Si la primera petición confirmó el canje y murió antes de conceder la
+    // clase, el reintento la concede (la RPC es idempotente por estado: si ya
+    // estaba entregado, no hace nada). Sin esto, el éxito sería falso.
+    if (it?.efecto === 'CLASE_GRATIS' && data.estado === 'PENDIENTE') {
+      const { data: r } = await admin.rpc('entregar_canje_clase_gratis', {
+        p_studio_id: params.studioId, p_redemption_id: redemptionId,
+        p_recuperacion_id: `rec-${uid()}`, p_motivo: `Canje de recompensa: ${it.nombre}`,
+      });
+      const lect = leerResultadoClaseGratis(r);
+      if (lect === 'TOPE') {
+        return { error: 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const };
+      }
+      if (!lect) return { error: 'No hemos podido completar tu canje. Inténtalo de nuevo.' as const };
+    }
+    return {
+      ok: true as const, redemptionId, codigo: data.codigo as string,
+      efecto: (it?.efecto === 'CLASE_GRATIS' ? 'CLASE_GRATIS' : 'MANUAL') as 'CLASE_GRATIS' | 'MANUAL',
+    };
+  };
+  const yaHecho = await repeticion();
+  if (yaHecho) return yaHecho;
 
   const [{ data: itemRow }, { data: credRow }, { count: canjesPrevios }] = await Promise.all([
     admin.from('reward_catalog').select('*').eq('id', params.catalogItemId).eq('studio_id', params.studioId).maybeSingle(),
@@ -7167,8 +7356,6 @@ export async function canjearRecompensaPublica(params: {
   if ('error' in validacion) return validacion;
   if (!item) return { error: 'Esta recompensa ya no está disponible.' as const };
 
-  const redemptionId = `rwd-${uid()}`;
-
   // ⚠️ UNA sola llamada, y no por elegancia. Antes eran tres seguidas —reservar
   // stock, descontar créditos, insertar la fila— y la tercera ni siquiera
   // miraba su error: un fallo ahí dejaba a la socia sin créditos y sin canje.
@@ -7179,6 +7366,13 @@ export async function canjearRecompensaPublica(params: {
     p_studio_id: params.studioId, p_socio_id: params.socioId,
   });
   if (canjeErr) {
+    // Dos peticiones con la misma clave a la vez: la segunda choca con la PK y
+    // la transacción se deshace entera (ni créditos ni stock). El canje que
+    // existe es el de la primera.
+    if (clave && esViolacionUnica(canjeErr)) {
+      const r = await repeticion();
+      if (r) return r;
+    }
     const m = canjeErr.message;
     if (m.includes('SIN_STOCK')) return { error: 'Esta recompensa está agotada.' as const };
     if (m.includes('LIMITE_ALCANZADO')) return { error: 'Ya has canjeado esta recompensa el máximo de veces.' as const };
@@ -7193,36 +7387,45 @@ export async function canjearRecompensaPublica(params: {
   // inventa un vale nuevo — la alumna la gasta reservando por el camino de
   // siempre, cuenta contra su tope y caduca con la política del estudio.
   if (item.efecto === 'CLASE_GRATIS') {
+    // Comprobar que sigue PENDIENTE, conceder la clase y marcar ENTREGADO es UNA
+    // transacción con el canje bloqueado (`entregar_canje_clase_gratis`): el
+    // mostrador no puede cancelarlo a medias, y sin cupo (TOPE) la base lo
+    // cancela y devuelve los créditos ella misma. Antes eran tres llamadas con
+    // el deshacer sin mirar su resultado.
     const recuperacionId = `rec-${uid()}`;
-    const { data: resultado, error: recupErr } = await admin.rpc('crear_recuperacion', {
-      p_id: recuperacionId,
+    const { data: resultado, error: recupErr } = await admin.rpc('entregar_canje_clase_gratis', {
       p_studio_id: params.studioId,
-      p_socio_id: params.socioId,
-      p_origen_reserva_id: null,
+      p_redemption_id: redemptionId,
+      p_recuperacion_id: recuperacionId,
       p_motivo: `Canje de recompensa: ${item.nombre}`,
-      p_caduca_el: null,
     });
+    const lectura = leerResultadoClaseGratis(resultado);
 
-    // 'TOPE' = ya tiene 4 recuperaciones vivas y no le cabe otra. NO se le
-    // puede cobrar por algo que no va a recibir, así que se deshace el canje
-    // entero — créditos y stock — por el camino que ya existe y es atómico.
-    // Sin esto, el fallo sería el peor de todos: pagar y no recibir nada.
-    if (recupErr || resultado === 'TOPE') {
-      await admin.rpc('cancelar_canje', { p_redemption_id: redemptionId, p_studio_id: params.studioId });
-      return {
-        error: resultado === 'TOPE'
-          ? 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const
-          : 'No se ha podido activar tu clase. No se te han descontado créditos.' as const,
-      };
+    if (recupErr || !lectura) {
+      // La transacción se deshizo entera: el canje sigue PENDIENTE y gastado.
+      // Se cancela (devuelve créditos y stock) COMPROBANDO el resultado: si
+      // tampoco eso funciona, no se le dice a la socia que no se le ha cobrado.
+      const { data: cancel, error: cancelErr } = await admin.rpc('cancelar_canje_con_motivo', {
+        p_redemption_id: redemptionId, p_studio_id: params.studioId, p_motivo: 'clase_gratis_error',
+      });
+      const fila = (Array.isArray(cancel) ? cancel[0] : cancel) as { estado?: string } | null;
+      if (cancelErr || fila?.estado !== 'CANCELADO') {
+        capturarMensaje('[canje] clase gratis: no se pudo conceder ni deshacer el canje', 'error', {
+          tags: { area: 'gamificacion' },
+          extra: { redemptionId, studioId: params.studioId, recupErr: recupErr?.message, cancelErr: cancelErr?.message, estadoTrasCancelar: fila?.estado },
+        });
+        return { error: 'No hemos podido completar tu canje. El estudio lo revisará y te lo resolverá.' as const };
+      }
+      return { error: 'No se ha podido activar tu clase. Se han devuelto tus créditos.' as const };
     }
-
-    // No hay nada que entregar en mostrador: el canje nace resuelto. Y se
-    // GUARDA la recuperación concedida — hasta ahora el único rastro era la
-    // frase «Canje de recompensa: X» en `motivo`, así que para saber si una
-    // clase se pagó con una recompensa había que leer castellano.
-    await admin.from('reward_redemptions')
-      .update({ estado: 'ENTREGADO', entregado_en: new Date().toISOString(), recuperacion_id: recuperacionId })
-      .eq('id', redemptionId);
+    if (lectura === 'TOPE') {
+      return { error: 'Ya tienes el máximo de clases pendientes de recuperar. Usa alguna antes de canjear esta.' as const };
+    }
+    if (lectura === 'NO_PENDIENTE') {
+      // El estudio lo canceló (o ya estaba resuelto) entre medias: no se
+      // concedió ninguna clase, y lo que pasó con los créditos lo dice el canje.
+      return { error: 'Este canje ya no está activo.' as const };
+    }
   }
 
   // El portal le promete a la socia «El estudio te avisará». Sin esto, no se
@@ -7341,20 +7544,34 @@ async function cargarContextoGamificacion(
 }
 
 
+interface OpcionesLogros {
+  /** Evalúa solo los logros de esta métrica (el barrido mensual). */
+  soloMetrica?: AchievementMetric;
+  /** Valor ya calculado por quien sabe más que `calcularMetrica` (el barrido mensual). */
+  valores?: Partial<Record<AchievementMetric, number>>;
+}
+
 async function evaluarLogrosServidor(
   admin: SupabaseClient, studioId: string, socioId: string, ctx: ContextoGamificacion,
+  opciones: OpcionesLogros = {},
 ): Promise<void> {
   const [{ data: defRows }, { data: progRows }] = await Promise.all([
     admin.from('achievement_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
     admin.from('achievement_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
   ]);
-  const definiciones = (defRows ?? []).map(mapAchievementDefinition);
+  const definiciones = (defRows ?? []).map(mapAchievementDefinition)
+    .filter(d => !opciones.soloMetrica || d.metric === opciones.soloMetrica);
   if (definiciones.length === 0) return;
 
   const progresos = (progRows ?? []).map(mapAchievementProgress);
   const { socio, reservas, sesiones, referidas } = ctx;
+  // PR 3.4: con el interruptor encendido, «mes completo sin faltas» NO se evalúa
+  // en cada acción (concedía tras la primera clase del mes) sino al cerrar el mes,
+  // en `barrerLogroMensual`. Aquí vale 0 salvo que el barrido traiga su veredicto.
+  const mensualSoloAlCerrar = logroMensualCerradoEncendido(studioId);
 
   const now = new Date();
+  let rachaUnicaEvaluacion: ReturnType<typeof cargarRachaUnica> | null = null;
   // Cada logro es independiente de los demás (progreso/historial/crédito solo
   // tocan filas propias de ese achievement_id, y reward_actions se protege con
   // su UNIQUE) — se evalúan en paralelo en vez de un `for` con awaits
@@ -7364,7 +7581,22 @@ async function evaluarLogrosServidor(
     const existente = progresos.find(p => p.achievementId === def.id);
     if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
-    const valor = calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas });
+    // «Semanas consecutivas» con `RACHA_UNICA`: la función única (misma que la app de la alumna), no la
+    // racha de siempre. Se carga UNA vez por evaluación aunque haya varios logros de esta métrica.
+    let valor: number;
+    if (def.metric === 'SEMANAS_CONSECUTIVAS' && rachaUnicaEncendida(studioId)) {
+      rachaUnicaEvaluacion ??= cargarRachaUnica(admin, studioId, socioId, now);
+      try {
+        valor = (await rachaUnicaEvaluacion).semanas;
+      } catch (err) {
+        // Un fallo de lectura no se disfraza de racha 0 (que escribiría un progreso falso): no se evalúa.
+        reportDbError('[evaluarLogrosServidor] racha única', err);
+        return;
+      }
+    } else {
+      valor = opciones.valores?.[def.metric]
+        ?? calcularMetrica(def.metric, { reservas, sesiones, socio, now, todosLosSocios: referidas, mensualSoloAlCerrar });
+    }
     const completadoAhora = valor >= def.umbral;
 
     if (!completadoAhora) {
@@ -7445,12 +7677,21 @@ async function evaluarRetosServidor(
   admin: SupabaseClient, studioId: string, socioId: string, ctx: ContextoGamificacion,
 ): Promise<void> {
   const now = new Date();
-  const [{ data: defRows }, { data: progRows }] = await Promise.all([
+  const [{ data: defRows }, { data: progRows }, { data: inscRows }] = await Promise.all([
     admin.from('challenge_definitions').select('*').eq('studio_id', studioId).eq('activo', true),
     admin.from('challenge_progress').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
+    admin.from('reto_participaciones').select('*').eq('studio_id', studioId).eq('socio_id', socioId),
   ]);
+  // Inscripciones por id de reto (las claves del carrusel no son ids de reto y no estorban).
+  const inscripciones = new Map((inscRows ?? []).map((r) => {
+    const p = mapRetoParticipacion(r as RowRetoParticipaciones);
+    return [p.retoKey, p] as const;
+  }));
+  // «Vigente» es el calendario de Madrid, y un reto CON INSCRIPCION solo se evalúa para
+  // quien se apuntó: sin esto cada reserva creaba progreso a todas las alumnas.
   const retos = (defRows ?? []).map(mapChallengeDefinition)
-    .filter(r => new Date(r.fechaInicio) <= now && now <= new Date(r.fechaFin));
+    .filter(r => retoVigente(r, now))
+    .filter(r => leCuentaElReto(r.alcance, inscripciones.get(r.id) ? { creadaEn: inscripciones.get(r.id)!.creadoEn, bajaEn: inscripciones.get(r.id)!.bajaEn } : null));
   if (retos.length === 0) return;
 
   const progresos = (progRows ?? []).map(mapChallengeProgress);
@@ -7462,7 +7703,9 @@ async function evaluarRetosServidor(
     const existente = progresos.find(p => p.challengeId === reto.id);
     if (existente?.completado) return; // ya conseguido, no se re-evalúa
 
-    const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now);
+    // Con inscripción cuenta desde que se apuntó; «del estudio», desde el inicio del reto.
+    const inscritaEn = reto.alcance === 'INSCRIPCION' ? inscripciones.get(reto.id)?.creadoEn ?? null : null;
+    const valor = calcularProgresoReto(reto, reservas, sesiones, socio, referidas, now, inscritaEn);
     const completadoAhora = valor >= reto.objetivo;
 
     if (!completadoAhora) {
@@ -7508,6 +7751,21 @@ async function evaluarRetosServidor(
   }));
 }
 
+/**
+ * «Semana completa» con la racha única: paga SOLO si esta semana (lunes–domingo, hora del estudio) ya tiene una
+ * asistencia válida (`ASISTIDA`, clase no cancelada). La meta es el mínimo FIJO del estudio (1), nunca una meta
+ * personal. La clave es la de siempre (`socio:lunes`): el UNIQUE de `reward_actions` impide pagarla dos veces y el
+ * RPC revalida la asistencia en la base. Devuelve si la semana estaba completa (no si se concedió).
+ */
+export async function pagarSemanaCompletaUnica(
+  admin: SupabaseClient, studioId: string, socioId: string, now: Date = new Date(),
+): Promise<boolean> {
+  const r = await cargarRachaUnica(admin, studioId, socioId, now);
+  if (r.semanaEnCurso.estado !== 'hecha') return false;
+  await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${r.claveSemanaActual}`);
+  return true;
+}
+
 // Punto de entrada único: carga el contexto UNA vez y evalúa ambos sistemas.
 // Best-effort de verdad: si la gamificación falla, la reserva o el check-in que
 // la disparó siguen adelante — perder un logro es mucho menos malo que perder
@@ -7537,9 +7795,16 @@ async function evaluarGamificacionServidor(
     // UPDATE). Mismo ref_id que el cliente (`socioId:claveSemanaActual`) —
     // el UNIQUE de `reward_actions` es lo que evita otorgarla dos veces la
     // misma semana, tanto si la da el panel como si la da el servidor.
-    const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
-    if (racha.semanas > 0) {
-      await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+    if (rachaUnicaEncendida(studioId)) {
+      // Racha única (PR 3.3-B, D12): se paga por SEMANA COMPLETA (la asistencia válida de esta semana, con el
+      // mínimo del estudio), no porque haya racha de semanas anteriores. Misma clave de siempre.
+      // Su propio try: una lectura fallida no puede saltarse el objetivo mensual de abajo.
+      await pagarSemanaCompletaUnica(admin, studioId, socioId).catch((err) => reportDbError('[evaluarGamificacionServidor] semana completa', err));
+    } else {
+      const racha = calcularRacha(ctx.reservas, ctx.sesiones, new Date());
+      if (racha.semanas > 0) {
+        await otorgarCreditosServidor(admin, studioId, socioId, 'SEMANA_COMPLETA', `${socioId}:${racha.claveSemanaActual}`);
+      }
     }
     // Objetivo mensual (I-1, auditoria 49a): mismo punto que SEMANA_COMPLETA
     // arriba -- mismo motor puro sobre el mismo ctx ya cargado.
@@ -7549,6 +7814,137 @@ async function evaluarGamificacionServidor(
   } catch (err) {
     reportDbError('[evaluarGamificacionServidor]', err);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logro «Un mes completo sin ninguna falta» (PR 3.4, D7/D8).
+//
+// Lo evalúa el barrido diario de no-shows (mismo cron, SIN cron nuevo) los días 1
+// y 2 de cada mes en hora del estudio, sobre el último mes natural CERRADO. Va
+// DESPUÉS de los no-shows a propósito: así las clases del último día ya están
+// resueltas (`ASISTIDA`/`NO_ASISTIO`) cuando se mira. Solo estudios con el
+// interruptor `GAMIFICACION_LOGRO_MENSUAL_CERRADO` y con el logro activo.
+//
+// Idempotente por alumna+mes: el logro se concede una sola vez en la vida (el
+// guard de `completado` de `evaluarLogrosServidor` y el UNIQUE de `reward_actions`
+// del crédito), así que repetir el barrido —o el día 2 tras el día 1— no paga
+// dos veces. NO es retroactivo: solo se mira el último mes cerrado.
+// Solo trae a las candidatas (≥ N asistencias el mes pasado y sin el logro ya
+// conseguido); el veredicto lo da `evaluarMesCompleto`.
+// ─────────────────────────────────────────────────────────────────────────────
+const METRICA_MENSUAL: AchievementMetric = 'ASISTENCIA_MENSUAL_COMPLETA';
+const CONCURRENCIA_LOGRO_MENSUAL = 5;
+
+interface FilaClaseMes {
+  sesion_id: string;
+  estado: string;
+  cancelada_tardia: boolean | null;
+  sesiones: { inicio: string; cancelada: boolean } | { inicio: string; cancelada: boolean }[] | null;
+}
+
+async function hechosDelMes(
+  admin: SupabaseClient, studioId: string, socioId: string, mes: { desde: string; hasta: string },
+): Promise<HechoClaseMes[]> {
+  const { data, error } = await admin.from('reservas')
+    .select('sesion_id, estado, cancelada_tardia, sesiones!inner(inicio, cancelada)')
+    .eq('studio_id', studioId).eq('socio_id', socioId)
+    .gte('sesiones.inicio', mes.desde).lt('sesiones.inicio', mes.hasta);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as unknown as FilaClaseMes[];
+  const sesionDe = (f: FilaClaseMes) => (Array.isArray(f.sesiones) ? f.sesiones[0] : f.sesiones);
+  // «Se pasó lista» = en esa clase alguien figura ASISTIDA. Solo hace falta
+  // preguntarlo por las clases donde ella figura NO_ASISTIO.
+  const sesionesDeFalta = [...new Set(filas
+    .filter(f => f.estado === 'NO_ASISTIO' && sesionDe(f) && !sesionDe(f)!.cancelada)
+    .map(f => f.sesion_id))];
+  const conLista = new Set<string>();
+  if (sesionesDeFalta.length > 0) {
+    // Una pregunta por sesión (limit 1) y no «todas las asistidas»: con clases grandes las filas
+    // pasarían del tope de PostgREST y una sesión con lista se leería como sin lista (concedería de más).
+    await mapLimit(sesionesDeFalta, 5, async (sesionId) => {
+      const { data: una, error: errLista } = await admin.from('reservas')
+        .select('id').eq('studio_id', studioId).eq('sesion_id', sesionId).eq('estado', 'ASISTIDA').limit(1);
+      if (errLista) throw new Error(errLista.message);
+      if ((una ?? []).length > 0) conLista.add(sesionId);
+    });
+  }
+  const hechos: HechoClaseMes[] = [];
+  for (const f of filas) {
+    const ses = sesionDe(f);
+    if (!ses) continue;
+    hechos.push({
+      inicio: ses.inicio, estado: f.estado, sesionCancelada: ses.cancelada === true,
+      canceladaTardia: f.cancelada_tardia, sesionConLista: conLista.has(f.sesion_id),
+    });
+  }
+  return hechos;
+}
+
+export async function barrerLogroMensual(nowISO: string) {
+  const now = new Date(nowISO);
+  if (!esDiaDeBarridoMensual(now)) return { evaluado: false as const };
+  const admin = getSupabaseAdmin();
+  if (!admin) throw new Error('Service role no configurada');
+  const mes = ultimoMesCerrado(now);
+
+  const { data: defs, error: defErr } = await admin.from('achievement_definitions')
+    .select('id, studio_id').eq('metric', METRICA_MENSUAL).eq('activo', true);
+  if (defErr) throw new Error(defErr.message);
+  const defsPorEstudio = new Map<string, string[]>();
+  for (const d of defs ?? []) {
+    const sid = d.studio_id as string;
+    if (!logroMensualCerradoEncendido(sid)) continue;
+    defsPorEstudio.set(sid, [...(defsPorEstudio.get(sid) ?? []), d.id as string]);
+  }
+
+  let candidatas = 0;
+  let cumplen = 0;
+  let truncado = false;
+  for (const [studioId, defIds] of defsPorEstudio) {
+    if (await evaluarFeature(admin, studioId, 'gamificacion')) continue;
+
+    const { filas, truncado: corto } = await leerCatalogoCompleto<{ socio_id: string }>(
+      (desde, hasta) => admin.from('reservas')
+        .select('id, socio_id, sesiones!inner(inicio, cancelada)')
+        .eq('studio_id', studioId).eq('estado', 'ASISTIDA')
+        .eq('sesiones.cancelada', false)
+        .gte('sesiones.inicio', mes.desde).lt('sesiones.inicio', mes.hasta)
+        .order('id', { ascending: true }).range(desde, hasta),
+    );
+    if (corto) {
+      truncado = true;
+      capturarMensaje('barrerLogroMensual: se alcanzó el tope de paginación, quedan candidatas sin mirar', 'warning', { tags: { area: 'logro-mensual' }, extra: { studioId } });
+    }
+    const asistidas = new Map<string, number>();
+    for (const f of filas) asistidas.set(f.socio_id, (asistidas.get(f.socio_id) ?? 0) + 1);
+
+    const { filas: hechas } = await leerCatalogoCompleto<{ socio_id: string }>(
+      (desde, hasta) => admin.from('achievement_progress')
+        .select('id, socio_id').eq('studio_id', studioId).eq('completado', true)
+        .in('achievement_id', defIds).order('id', { ascending: true }).range(desde, hasta),
+    );
+    const yaLoTienen = new Set(hechas.map(h => h.socio_id));
+    const lista = [...asistidas].filter(([socio, n]) => n >= MIN_CLASES_LOGRO_MENSUAL && !yaLoTienen.has(socio)).map(([socio]) => socio);
+    candidatas += lista.length;
+
+    await mapLimit(lista, CONCURRENCIA_LOGRO_MENSUAL, async (socioId) => {
+      try {
+        const veredicto = evaluarMesCompleto(await hechosDelMes(admin, studioId, socioId, mes), mes, now);
+        if (!veredicto.cumple) return;
+        const ctx = await cargarContextoGamificacion(admin, studioId, socioId);
+        if (!ctx) return;
+        cumplen++;
+        await evaluarLogrosServidor(admin, studioId, socioId, ctx, {
+          soloMetrica: METRICA_MENSUAL, valores: { [METRICA_MENSUAL]: 1 },
+        });
+      } catch (err) {
+        // `mapLimit` exige que la tarea no lance; una alumna que falla no frena a las demás
+        // y se reintenta el día siguiente.
+        capturarExcepcion(err, { tags: { area: 'logro-mensual' }, extra: { studioId } });
+      }
+    });
+  }
+  return { evaluado: true as const, mes: mes.clave, estudios: defsPorEstudio.size, candidatas, cumplen, truncado };
 }
 
 // C-2: valida el token de dispositivo de kiosko de un estudio. Sin token

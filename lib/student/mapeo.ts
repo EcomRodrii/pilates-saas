@@ -24,6 +24,7 @@ import {
 import { canjesDe, creditosPorAsistir, formasDeGanar, hayGamificacion, logrosDe, nivelDe as nivelDeCreditos, recompensasDe, retosDe, type LogroDef, type NivelDef, type ProgresoMin, type RecompensaDef, type ReglaDef, type RetoDef } from './gamificacion.ts';
 import type { Alumna, Bono, Clase, EstadoBono, EstadoPago, EstadoReserva, GamificacionVista, HuellaSocia, Instructora, NivelClase, Pago, PlazaFijaVista, RecuperacionesVista, Reserva, TipoPlanBono } from './tipos.ts';
 import { generoDe } from '../genero.ts';
+import { resolverObjetivos } from '../reservar/objetivos.ts';
 import type { PlazaCalendario, ReservaCalendario, SesionCalendario } from '../plazas-fijas-calendario.ts';
 import type { RenovacionPorPagar } from '../billing/renovacion-sin-tarjeta.ts';
 import type { CobroDeReciboAlumna } from '../billing/cobro-recibo-alumna.ts';
@@ -313,7 +314,7 @@ export interface PayloadMin {
     tipoClaseId: string; salaId: string; instructorId: string;
     cancelada: boolean; precioPuntual: number | null;
   }[];
-  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null; requiereAprobacion?: boolean | null; requiereAutorizacion?: boolean | null; reservaExigirPlan?: boolean | null }[];
+  tiposClase?: { id: string; nombre: string; color?: string | null; nivel?: string | null; fotoUrl?: string | null; logoUrl?: string | null; descripcion?: string | null; objetivos?: string[] | null; ventanaCancelacionHoras?: number | null; permiteListaEspera?: boolean | null; reservaAntelacionMaximaDias?: number | null; reservaVentanaMinimaMinutos?: number | null; orden?: number | null; penalizacionImporteEur?: number | null; requiereAprobacion?: boolean | null; requiereAutorizacion?: boolean | null; reservaExigirPlan?: boolean | null }[];
   /** Los sitios de cada sala (`mapSpot`). Viajan desde siempre; la hoja de la ficha los usa para elegir sitio. */
   spots?: { id: string; salaId: string; activo?: boolean | null }[];
   levelDefinitions?: NivelDef[];
@@ -370,7 +371,8 @@ export interface PayloadMin {
     // viaja el canje entero. Mismo motivo que `caducaEl`: sin nombrarlo aquí
     // llegaría `undefined` en silencio.
     rewardRedemptions?: {
-      id: string; catalogItemId: string; estado: string;
+      id: string; catalogItemId: string | null; estado: string;
+      recompensaNombre?: string | null;
       codigo?: string | null; creditosGastados?: number; creadoEn?: string;
       // La recuperación que le dio esta recompensa, si era una clase gratis.
       // Es lo que permite decirle CUÁL de sus clases se ganó con créditos.
@@ -551,6 +553,9 @@ export function proyectarClases(d: PayloadMin, fecha?: string): Clase[] {
       // El logo NO hereda: ver el comentario en `Clase.logoUrl`.
       logoUrl: tipo?.logoUrl ?? undefined,
       descripcion: tipo?.descripcion ?? undefined,
+      // Las etiquetas de la ficha (decisión del fundador, 19-oct-2026): los objetivos que el estudio ya marca en el tipo
+      // de clase, de la lista FIJA. Nada de etiquetas libres: limpios y en el orden del catálogo.
+      objetivos: resolverObjetivos(tipo?.objetivos),
     });
   }
 
@@ -623,7 +628,7 @@ export function proyectarGamificacion(d: PayloadMin, hoyISO: string): Gamificaci
   // volver a canjearla.
   const canjesPorItem: Record<string, number> = {};
   for (const r of d.socia?.rewardRedemptions ?? []) {
-    if (r.estado === 'CANCELADO') continue;
+    if (r.estado === 'CANCELADO' || !r.catalogItemId) continue;
     canjesPorItem[r.catalogItemId] = (canjesPorItem[r.catalogItemId] ?? 0) + 1;
   }
   const recompensas = recompensasDe(d.rewardCatalog ?? [], saldo, hoyISO, canjesPorItem);

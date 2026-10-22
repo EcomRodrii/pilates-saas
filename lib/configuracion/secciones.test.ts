@@ -16,8 +16,8 @@ import { TARJETAS_REGLAS } from './reglas-reserva.ts';
 
 const todas = SECCIONES.flatMap(s => s.tarjetas as readonly TarjetaConfiguracion[]);
 
-test('quince secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
-  assert.equal(SECCIONES.length, 15);
+test('catorce secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
+  assert.equal(SECCIONES.length, 14);
   const ids = [...SECCIONES.map(s => s.id), ...todas.map(t => t.id)];
   assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], 'ids repetidos');
   for (const t of todas) assert.match(t.id, /^[a-z0-9][a-z0-9_-]*$/, `«${t.id}» no sirve como ancla de URL`);
@@ -52,9 +52,9 @@ test('la propietaria ve todas las secciones y todas las tarjetas', () => {
 
 // Una tarjeta sin `roles` es de la propietaria: lo nuevo nace cerrado, y abrir
 // algo a otro rol es una decisión que se escribe. La cerradura es la RLS.
-test('lo que ve la gerencia son las cinco tarjetas de la operación de su sede y la demo en vídeo, y nada más', () => {
+test('lo que ve la gerencia son las cinco tarjetas de la operación de su sede, y nada más', () => {
   const suyas = todas.filter(t => rolesDeTarjeta(t).includes('MANAGER')).map(t => t.id);
-  assert.deepEqual(suyas, ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas', 'video-de-la-demo']);
+  assert.deepEqual(suyas, ['horario', 'cerrar-el-centro', 'salas', 'tipos-de-clase', 'horario-de-citas']);
   // Ni recepción ni la instructora entran en ninguna.
   for (const rol of ['RECEPCION', 'INSTRUCTOR'] as const) {
     assert.deepEqual(todas.filter(t => rolesDeTarjeta(t).includes(rol)), [], rol);
@@ -75,7 +75,7 @@ test('los roles de una sección son los de sus tarjetas, juntos: ni una sección
 test('una herramienta se abre si este rol ve alguna de sus tarjetas', () => {
   assert.equal(herramientaVisible('salas', 'MANAGER'), true);
   assert.equal(herramientaVisible('tipos-de-clase', 'MANAGER'), true);
-  for (const id of ['correos-automaticos', 'recompensas-y-logros', 'codigos-descuento', 'contenido-de-tu-app', 'widgets'] as const) {
+  for (const id of ['correos-automaticos', 'canjes', 'codigos-descuento', 'contenido-de-tu-app', 'widgets'] as const) {
     assert.equal(herramientaVisible(id, 'MANAGER'), false, id);
     assert.equal(herramientaVisible(id, 'PROPIETARIO'), true, id);
   }
@@ -175,8 +175,8 @@ test('las filas que llevan a otra pantalla: «Plan de Tentare» a /suscripcion y
   }
 });
 
-test('siete grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
-  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conexiones y datos', 'Aprende', 'Tu cuenta']);
+test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
+  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']);
   const enGrupos = GRUPOS.flatMap(g => g.secciones);
   // En el mismo orden que SECCIONES: la columna de la izquierda y el inicio no
   // pueden contar dos órdenes distintos.
@@ -194,7 +194,7 @@ test('siete grupos en el inicio: cada sección en uno solo, y la lista en su mis
 
 test('nueve herramientas con pantalla propia, cada una de UNA sección y con sus tarjetas seguidas', () => {
   assert.deepEqual(HERRAMIENTAS.map(h => h.id), [
-    'salas', 'tipos-de-clase', 'correos-automaticos', 'recompensas-y-logros', 'codigos-descuento', 'contenido-de-tu-app', 'widgets',
+    'salas', 'tipos-de-clase', 'codigos-descuento', 'correos-automaticos', 'canjes', 'contenido-de-tu-app', 'widgets',
     'tus-avisos', 'avisos-del-movil',
   ]);
   for (const h of HERRAMIENTAS) {
@@ -222,9 +222,13 @@ test('nueve herramientas con pantalla propia, cada una de UNA sección y con sus
     assert.equal(h.titulo, tarjetaPorId(t).titulo);
     assert.equal(h.frase, tarjetaPorId(t).frase);
   }
-  assert.deepEqual(tarjetasDeHerramienta('recompensas-y-logros'), ['recompensas', 'canjes', 'logros', 'niveles', 'retos']);
-  // Las reglas de los créditos son un ajuste: se quedan en la sección.
-  assert.equal(herramientaDeTarjeta('reglas'), null);
+  // Motivación es una sola pantalla (20-oct): los catálogos viven en la sección y
+  // solo los canjes, que son trabajo, tienen pantalla propia.
+  for (const t of ['reglas', 'creditos-por-accion', 'recompensas', 'logros', 'niveles', 'retos'] as const) {
+    assert.equal(herramientaDeTarjeta(t), null, t);
+  }
+  assert.deepEqual(herramientasDeSeccion('motivacion').map(h => h.id), ['canjes']);
+  assert.equal(seccionDeTarjeta('codigos-descuento'), 'cobros');
   assert.deepEqual(herramientasDeSeccion('web').map(h => h.id), ['contenido-de-tu-app', 'widgets']);
   assert.deepEqual(herramientasDeSeccion('reservas'), []);
 });
@@ -286,4 +290,15 @@ test('panel nuevo: cada sección está en un grupo y solo en uno, y las otras pa
     assert.ok(g.frase.length > 0 && g.frase.length <= 80, `${g.id}: una frase corta de qué hay dentro`);
     assert.ok(g.frase.endsWith('.'), g.id);
   }
+});
+
+test('«Mi app y mi web» v2: la frase nueva cabe, y solo cambia con el interruptor', async () => {
+  const { FRASE_MI_WEB_NUEVA, herramientaParaMostrar, herramientaPorId } = await import('./secciones.ts');
+  for (const [id, frase] of Object.entries(FRASE_MI_WEB_NUEVA)) {
+    assert.ok(frase!.length <= 120, `${id}: ${frase!.length} caracteres`);
+    assert.equal(herramientaParaMostrar(id as never, true).frase, frase);
+    assert.equal(herramientaParaMostrar(id as never, false).frase, herramientaPorId(id as never).frase);
+  }
+  // La de antes dice que el mensaje no sale; la nueva no puede decirlo.
+  assert.doesNotMatch(FRASE_MI_WEB_NUEVA['contenido-de-tu-app']!, /no sale|tablón/i);
 });

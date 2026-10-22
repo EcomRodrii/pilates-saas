@@ -68,7 +68,7 @@ export function textoInstalacion(e: EstadoInstalacion, nombreEstudio: string): T
       return {
         titulo: `Instala la app de ${nombreEstudio}`,
         resumen: 'Tenla en tu pantalla de inicio',
-        cuerpo: 'En iPhone se hace desde Safari, en tres toques. Además, los avisos de plaza libre y recordatorios solo llegan desde la app instalada.',
+        cuerpo: 'En iPhone se hace desde Safari, en tres toques. Además, los avisos al móvil de plaza libre y de recordatorio solo llegan con la app instalada.',
         pasos: [
           'Toca el botón Compartir, el cuadrado con una flecha hacia arriba.',
           'Elige «Añadir a pantalla de inicio».',
@@ -97,6 +97,14 @@ export function textoInstalacion(e: EstadoInstalacion, nombreEstudio: string): T
 /** ¿Se ofrece algo en la pantalla? Si no, ni siquiera se pinta la fila. */
 export const seOfrece = (e: EstadoInstalacion | null): boolean =>
   e === 'instalable' || e === 'ios-guia' || e === 'ios-incrustado';
+
+/**
+ * Con la app del estudio PUBLICADA en la App Store, en un iPhone se ofrece esa (con su enlace) en
+ * vez de «Añadir a pantalla de inicio»: es la de verdad, con avisos y Entrar con Apple. Dentro de
+ * la app nativa o ya instalada, nada; en Android y escritorio sigue la web app (no hay app para ellos).
+ */
+export const ofreceTienda = (e: EstadoInstalacion | null, hayAppPublicada: boolean): boolean =>
+  hayAppPublicada && (e === 'ios-guia' || e === 'ios-incrustado');
 
 /** La respuesta del navegador a «¿quieres instalarla?», en lo que la alumna necesita saber. */
 export type ResultadoInstalacion = 'aceptada' | 'rechazada' | 'no-disponible';

@@ -169,6 +169,10 @@ export interface Studio {
   stripeCustomerId: string | null;
   subscriptionId: string | null;
   subscriptionStatus: string | null;
+  /** Paga Founding con los complementos aparte (lib/billing/entitlements.ts). Solo lo escribe el webhook. */
+  regimenAddons?: boolean | null;
+  /** Complementos contratados (`ADDONS`), leídos de la suscripción de Stripe. */
+  addons?: string[] | null;
   currentPeriodEnd: string | null;
   /** Fin de la prueba gratuita LOCAL de 7 días (sin tarjeta). null = sin prueba
    *  local. Lo fija un trigger de la BD al crear el estudio, nunca el cliente. */
@@ -318,6 +322,18 @@ export interface Studio {
   // cada renovación se realinea al día 1, sin tocar el alta ni prorratear
   // (ver `proximoFinAlineadoDia1`, lib/bono-logic.ts). Apagado de serie.
   cobroDia1Activo: boolean;
+  // Cobro proporcional al alta (migr `cobro_proporcional_alta`): con esto activo,
+  // una cuota MENSUAL nueva dada de alta POR EL PANEL a mitad de mes cobra solo
+  // la parte del mes que queda y se renueva el día 1 por la cuota entera (ver
+  // lib/billing/prorrateo.ts). Apagado de serie.
+  cobroProporcionalAltaActivo: boolean;
+  // Días mínimos restantes del mes para prorratear (0..10, de serie 3): con ese número o menos, la primera cuota se cobra el día 1 del mes siguiente.
+  cobroProporcionalDiasMinimos: number;
+  // Cómo se alinean al día 1 las alumnas que YA tiene el estudio (migr `cobro_dia_1_modo_alineacion`;
+  // solo con `cobroDia1Activo`). ENTERA (de serie) = cuota entera en su renovación y cubierta hasta
+  // fin del mes siguiente; PROPORCIONAL = solo los días hasta fin de mes y el día 1 la entera.
+  // SOLO LECTURA desde el navegador: la cambia `/api/cobros/alineacion-dia1` tras la vista previa.
+  cobroDia1Modo: 'ENTERA' | 'PROPORCIONAL';
   // true (default) = comportamiento de siempre: alguien del estudio marca su
   // asistencia (escaneando su QR de acceso o en la lista de la clase) antes de que
   // la reserva cuente como asistida. false = el estudio confía en que quien
@@ -1071,6 +1087,8 @@ export interface RetoParticipacion {
   socioId: string;
   retoKey: string;
   creadoEn: string;
+  /** Se dio de baja («Ya no participo»); conserva su fecha original de inscripción. */
+  bajaEn: string | null;
 }
 
 // Valores cerrados a propósito: evita que aparezcan variantes libres tipo
@@ -1089,7 +1107,12 @@ export interface BannerPortal {
   imagenUrl: string;
   titulo: string | null;
   texto: string | null;
-  linkTipo: 'interno' | 'externo';
+  /**
+   * `ninguno` (con `linkValor` vacío): la tarjeta no lleva a ningún sitio. Es lo de
+   * serie al crearla en «Contenido de tu app» v2 (decisión 13, 15-oct-2026); la
+   * base de datos lo admite desde la migración `…_tarjeta_sin_enlace`.
+   */
+  linkTipo: 'interno' | 'externo' | 'ninguno';
   linkValor: string;
   ubicacion: UbicacionBannerPortal[];
   activo: boolean;
@@ -1324,11 +1347,12 @@ export type EstadoPenalizacion =
 
 /**
  * Qué pasa con las reservas de plaza fija ya hechas cuando la alumna se queda
- * sin cuota. LIBERAR = se liberan sus clases futuras sin penalización;
+ * sin cuota. AVISAR_Y_LIBERAR (por defecto desde el 20-oct-2026) = se le avisa y,
+ * si no renueva en DIAS_PARA_RENOVAR_PLAZA_FIJA, se liberan; LIBERAR = se liberan sus clases futuras sin penalización;
  * MANTENER_SIN_PENALIZAR = las conserva y no se le cobra si falta; MANTENER =
- * como siempre (por defecto).
+ * como siempre.
  */
-export type PoliticaPlazaFijaSinCuota = 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
+export type PoliticaPlazaFijaSinCuota = 'AVISAR_Y_LIBERAR' | 'LIBERAR' | 'MANTENER_SIN_PENALIZAR' | 'MANTENER';
 /** Al acabar una pausa que soltó su sitio: vuelve sola si sigue libre, o se pregunta al estudio. */
 export type PoliticaFinPausa = 'RECUPERAR_SI_LIBRE' | 'PENDIENTE_CONFIRMAR';
 
@@ -1826,7 +1850,11 @@ export type TipoActividad =
   | 'DOBLE_FACTOR_QUITADO'
   // Recepción liberó una plaza apartada para ClassPass («La he cerrado en
   // ClassPass»). Solo /api/plataformas/liberar-apartada.
-  | 'PLAZA_PLATAFORMA_LIBERADA';
+  | 'PLAZA_PLATAFORMA_LIBERADA'
+  // Una venta de la Caja cobrada sin ficha se asignó a una alumna que ya había usado su
+  // código de descuento: la venta queda como se cobró y esto deja constancia. Solo la
+  // escribe la RPC `asignar_venta_pos_a_socia` (migr 20261016140551), con origen TENTARE.
+  | 'CODIGO_REPETIDO_AL_ASIGNAR';
 
 export interface ActividadReciente {
   id: string;
@@ -2082,7 +2110,8 @@ export interface RewardRedemption {
   id: string;
   studioId: string;
   socioId: string;
-  catalogItemId: string;
+  /** NULL cuando la recompensa se eliminó del catálogo: el canje sobrevive con `recompensaNombre`. */
+  catalogItemId: string | null;
   creditosGastados: number;
   estado: EstadoCanje;
   creadoEn: string;
@@ -2102,6 +2131,12 @@ export interface RewardRedemption {
   entregadoPor?: string | null;
   /** La recuperación que se le concedió, si la recompensa era CLASE_GRATIS. */
   recuperacionId?: string | null;
+  /** Nombre de la recompensa guardado al eliminarla del catálogo. NULL mientras existe. */
+  recompensaNombre?: string | null;
+  /** Quién, cuándo y por qué se canceló. NULL si no está cancelado (y en los cancelados antiguos). */
+  canceladoEn?: string | null;
+  canceladoPor?: string | null;
+  canceladoMotivo?: string | null;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────
@@ -2194,6 +2229,12 @@ export interface ChallengeDefinition {
   fechaFin: string;
   creditosRecompensa: number;
   activo: boolean;
+  /**
+   * ESTUDIO: cuentan todas las alumnas, sin botón «Me apunto».
+   * INSCRIPCION: solo las que se apuntan, y solo lo posterior a apuntarse.
+   * Un reto nuevo nace con INSCRIPCION (lib/engines/alcance-reto.ts).
+   */
+  alcance: 'ESTUDIO' | 'INSCRIPCION';
   creadoEn: string;
 }
 

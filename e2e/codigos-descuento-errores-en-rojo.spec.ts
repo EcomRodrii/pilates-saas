@@ -27,7 +27,7 @@ test('si el código no se puede desactivar, se dice en rojo y sigue activo', asy
     }
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([CODIGO]) });
   });
-  await ir(page, 'configuracion?tab=motivacion&abrir=codigos-descuento');
+  await ir(page, 'configuracion?tab=cobros&abrir=codigos-descuento');
 
   await expect(page.getByText('OTONO10')).toBeVisible({ timeout: 60_000 });
   await page.getByRole('button', { name: 'Desactivar' }).first().click();

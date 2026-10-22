@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { resumirActivacion, type FilaEmbudo } from '../lib/alta/embudo.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tres señales que ya se estaban escribiendo y no las leía nadie.
@@ -150,34 +151,17 @@ test.describe('Crecimiento no deja que una señal se pierda ni infla las que hay
   });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// El bug que motivó la migración 0136, con su propio guardia.
-//
-// La ruta pública del concierge hacía: `if (!apiKey) return {ok: true, skipped}`.
-// Es decir, sin `RESEND_API_KEY` el lead desaparecía y la visitante leía
-// "Recibido, te escribimos en menos de 24h". El único canal de entrada de leads
-// del producto, mintiendo en silencio.
-//
-// En CI no hay ni Resend ni una Supabase de verdad, así que la ruta no puede
-// capturar el lead por ningún lado — que es exactamente el escenario del bug.
-// Lo que se fija aquí es que en ese caso DIGA que no lo ha recogido.
-// ─────────────────────────────────────────────────────────────────────────────
-test.describe('El concierge de la landing no puede perder un lead en silencio', () => {
-  test('si no lo guarda ni lo puede avisar, lo dice en vez de responder ok', async ({ request }) => {
+// El concierge de migración se retiró el 21-oct-2026: el formulario «Te la
+// hacemos nosotros» prometía que Tentare hacía la migración, y nadie la hace.
+// La ruta se queda contestando 410 para una pestaña vieja, sin guardar ningún
+// lead ni avisar a nadie. Los que ya entraron siguen en Crecimiento.
+test.describe('El concierge de migración está retirado', () => {
+  test('contesta 410 y dice cuál es la vía que existe', async ({ request }) => {
     const res = await request.post('/api/public/migracion-concierge', {
-      data: { email: 'propietaria@ejemplo.com', software: 'Momence' },
+      data: { email: 'propietaria@example.com', software: 'Momence' },
     });
-
-    expect(res.ok(), 'un lead que no se ha recogido no puede responder 2xx').toBe(false);
-    expect(res.status()).toBe(503);
-    const cuerpo = await res.json();
-    // Y con una salida para la persona, no un "error" a secas.
-    expect(cuerpo.error).toContain('hola@tentare.app');
-  });
-
-  test('un email inválido se sigue rechazando antes de tocar nada', async ({ request }) => {
-    const res = await request.post('/api/public/migracion-concierge', { data: { email: 'no-es-email' } });
-    expect(res.status()).toBe(400);
+    expect(res.status()).toBe(410);
+    expect((await res.json()).error).toContain('importador');
   });
 });
 
@@ -232,8 +216,115 @@ test.describe('Crecimiento enseña dónde se quedó cada alta de estudio', () =>
     await seedSesion(page);
     await page.goto('/interno/crecimiento');
 
-    await expect(page.getByRole('heading', { name: 'Crecimiento' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Altas y prospectos' })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => pedidas).toBeGreaterThan(0);
     await expect(page.getByTestId('altas-sin-terminar')).toHaveCount(0);
+  });
+});
+
+// Activación de estudios nuevos (PR-1 del alta nueva, «medir primero»): el
+// embudo del alta y sus cohortes por semana. La lógica está en
+// lib/alta/embudo.test.ts; aquí, lo que decide si la pantalla dice la verdad:
+// que un fallo de lectura se ve como «Faltan datos» y nunca como ceros, y que
+// lo que todavía no se mide sale «—».
+test.describe('Activación de estudios nuevos no inventa cifras', () => {
+  // La respuesta se construye con la MISMA función que usa la ruta: si la
+  // forma cambia, este test cambia con ella.
+  const masHoras = (iso: string, h: number) => new Date(Date.parse(iso) + h * 3_600_000).toISOString();
+  const estudio = (i: number, diaAlta: string, o: Partial<FilaEmbudo> = {}): FilaEmbudo => ({
+    studioId: `st-${i}`, semana: diaAlta, diaAlta, version: 'v1', llegada: null,
+    altaIniciadaEn: null, emailConfirmadoEn: null, estudioCreadoEn: `${diaAlta}T10:00:00Z`,
+    tieneTipoClase: true, tieneClase: false, primeraClaseEn: null, tieneTarifaActiva: false, primeraReservaEn: null,
+    pasos: {}, diasPanel: [], medidoDesde: {}, ...o,
+  });
+  // Once estudios de antes del alta nueva, cuatro con clase (mediana 23,9 h) y dos con reserva.
+  const horas = [5, 18.5, 29.3, 40];
+  const filas = Array.from({ length: 11 }, (_, i) => {
+    const base = estudio(i, i < 4 ? '2026-09-10' : '2026-10-08');
+    if (i >= 4) return base;
+    const creado = base.estudioCreadoEn ?? '';
+    return {
+      ...base, tieneClase: true, primeraClaseEn: masHoras(creado, horas[i]),
+      primeraReservaEn: i < 2 ? masHoras(creado, 50 + i * 200) : null,
+    };
+  });
+  const RESUMEN = resumirActivacion(filas, '2026-10-21');
+
+  test('si la lectura falla (500), «Faltan datos» y ni una cifra; el resto de la pantalla sigue', async ({ page }) => {
+    let intentos = 0;
+    await mockPanel(page, {});
+    // Después de mockPanel: su `crecimiento**` también casa con esta ruta.
+    await page.route('**/api/interno/crecimiento/activacion', route => {
+      intentos += 1;
+      return json(route, { error: 'No se ha podido leer el embudo del alta' }, 500);
+    });
+    await seedSesion(page);
+    await page.goto('/interno/crecimiento');
+
+    const seccion = page.getByTestId('activacion-estudios-nuevos');
+    await expect(seccion.getByRole('alert')).toContainText('Faltan datos', { timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    await expect(seccion.getByTestId('cohortes-alta')).toHaveCount(0);
+    await expect(seccion.getByTestId('embudo-alta')).toHaveCount(0);
+    await expect(seccion.getByText(/\b\d+\s*\/\s*\d+\b/)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Altas y prospectos' })).toBeVisible();
+  });
+
+  test('una respuesta sin la forma esperada también es «Faltan datos», no ceros', async ({ page }) => {
+    let intentos = 0;
+    await mockPanel(page, {});
+    await page.route('**/api/interno/crecimiento/activacion', route => { intentos += 1; return json(route, {}); });
+    await seedSesion(page);
+    await page.goto('/interno/crecimiento');
+
+    const seccion = page.getByTestId('activacion-estudios-nuevos');
+    await expect(seccion.getByRole('alert')).toContainText('Faltan datos', { timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+  });
+
+  test('con datos: las cifras de la auditoría, y «—» en lo que aún no se mide', async ({ page }) => {
+    let intentos = 0;
+    await mockPanel(page, {});
+    await page.route('**/api/interno/crecimiento/activacion', route => { intentos += 1; return json(route, RESUMEN); });
+    await seedSesion(page);
+    await page.goto('/interno/crecimiento');
+
+    const seccion = page.getByTestId('activacion-estudios-nuevos');
+    await expect(seccion).toContainText('4/11', { timeout: 30_000 });
+    expect(intentos).toBeGreaterThan(0);
+    await expect(seccion).toContainText('23,9 h');
+    await expect(seccion).toContainText('Mediana, n = 4');
+    await expect(seccion).toContainText('2/11');
+    await expect(seccion).toContainText('No se mide todavía.');
+    await expect(seccion.getByRole('alert')).toHaveCount(0);
+
+    // Los pasos que se apuntan desde este cambio, sin datos: «—» y no 0.
+    const embudo = seccion.getByTestId('embudo-alta');
+    for (const paso of ['config_completada', 'clase_reservable', 'enlace_compartido']) {
+      const fila = embudo.getByTestId(`paso-${paso}`);
+      await expect(fila).toContainText('—');
+      await expect(fila).toContainText('sin datos todavía');
+    }
+
+    const tabla = seccion.getByTestId('cohortes-alta');
+    const antes = tabla.getByRole('row', { name: /Antes del alta nueva/ });
+    await expect(antes.getByRole('cell')).toHaveText(['Antes del alta nueva · sep-oct', '11', '4', '2', '23,9 h', '— · — · —', '2']);
+    const semana1 = tabla.getByRole('row', { name: /Semana 1 con el alta nueva/ });
+    await expect(semana1.getByRole('cell')).toHaveText(['Semana 1 con el alta nueva', '—', '—', '—', '—', '— · — · —', '—']);
+  });
+
+  test('sin permiso (403) la sección no sale y el resto de la pantalla sigue', async ({ page }) => {
+    let intentos = 0;
+    await mockPanel(page, {});
+    await page.route('**/api/interno/crecimiento/activacion', route => {
+      intentos += 1;
+      return json(route, { error: 'Te falta el permiso "growth.read" para hacer esto.' }, 403);
+    });
+    await seedSesion(page);
+    await page.goto('/interno/crecimiento');
+
+    await expect(page.getByRole('heading', { name: 'Altas y prospectos' })).toBeVisible({ timeout: 30_000 });
+    await expect.poll(() => intentos).toBeGreaterThan(0);
+    await expect(page.getByTestId('activacion-estudios-nuevos')).toHaveCount(0);
   });
 });

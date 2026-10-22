@@ -3,12 +3,13 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-abrir-un-estudio-de-yoga',
   titulo: 'Cómo abrir un estudio de yoga: estilos, local, material, trámites, titulación y precios',
-  tituloSeo: 'Cómo abrir un estudio de yoga en 2026: requisitos y costes',
+  tituloSeo: 'Abrir un estudio de yoga: requisitos y costes',
   descripcion: 'Qué pide cada estilo al local (aéreo, sala caliente), material con precios reales, epígrafe e IVA, titulación oficial y lo que cobran 14 estudios españoles.',
   resumen: 'Lo propio de montar un estudio de yoga en España: qué pide cada estilo al local, material con precios, epígrafe, CNAE e IVA, titulación oficial y lo que cobran 14 estudios.',
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cómo abrir un estudio de yoga',
   consultas: [
     'qué necesito para abrir un estudio de yoga',
@@ -148,7 +149,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Lo que sí puede obligar es tu comunidad: varias tienen ley de profesiones del deporte, y si el yoga entra y con qué título depende de cada texto. Pregúntalo en su dirección general de deportes antes de contratar. Y si buscas profesoras, [Tentare Network](/network) es un directorio público y gratuito de instructoras de pilates y yoga en España.',
+          texto: 'Lo que sí puede obligar es tu comunidad: varias tienen ley de profesiones del deporte, y si el yoga entra y con qué título depende de cada texto. Pregúntalo en su dirección general de deportes antes de contratar.',
         },
       ],
     },
@@ -219,11 +220,11 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con Stripe (tarjeta o SEPA), con dos reintentos si un cobro falla. Cuesta 29, 59 o 149 € al mes con IVA, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
+          texto: 'Tus alumnas tienen que poder reservar y cancelar sin escribirte, y los bonos, descontarse y caducar sin hojas de cálculo. En Tentare reservan y cancelan desde el móvil, con la app del estudio en su pantalla de inicio con tu nombre y tu icono; la lista de espera es automática, y las cuotas se cobran con tarjeta a través de Stripe, con dos reintentos si un cobro falla, o por domiciliación con la remesa SEPA para tu banco. Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia: [Tentare para estudios de yoga](/soluciones/estudio-de-yoga).',
         },
         {
           t: 'llamada',
-          texto: 'Tentare funciona igual para yoga que para pilates: reservas, bonos, cuotas y lista de espera, desde 29 €/mes con IVA y sin permanencia.',
+          texto: 'Tentare funciona igual para yoga que para pilates: reservas, bonos, cuotas y lista de espera, gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.',
         },
       ],
     },
@@ -309,7 +310,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Abre tu estudio de yoga con las reservas resueltas',
-    texto: 'Tentare deja listos las reservas, los bonos, las cuotas y la lista de espera de tu estudio antes de la primera clase, con la app del estudio para tus alumnas. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Tentare deja listos las reservas, los bonos, las cuotas y la lista de espera de tu estudio antes de la primera clase, con la app del estudio para tus alumnas. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Precios de material (Yogaes y Zafuki) y tarifas de los 14 estudios consultados el 25-sep-2026: cambian a menudo, revisarlos antes de publicar. La mayoría de los estudios no dice si sus precios incluyen IVA.',

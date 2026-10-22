@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import Stripe from 'stripe';
 import {
   cadenaPagaSusSedes, leerCadenaDeLaSede, decidirIndividualEnCadena, consultarCadenaAntesDeIndividual,
-  checkoutsAbiertosDeLasSedes, caducarCheckouts, clienteDelPortal,
+  checkoutsAbiertosDeLasSedes, caducarCheckouts, clienteDelPortal, cancelarSueltasDeLasSedes,
+  decidirPlanSuelto, MENSAJE_SEDE_SOLO_CADENA, MENSAJE_SEDE_INCLUIDA_EN_CADENA,
 } from './sede-incluida-en-cadena.ts';
+import { cancelarSuscripciones } from './cancelar-suscripcion-anterior.ts';
 
 const ESTADOS_VIVOS = ['active', 'trialing', 'past_due', 'unpaid'];
 const ESTADOS_MUERTOS = ['canceled', 'incomplete', 'incomplete_expired', 'trial_expirado'];
@@ -23,6 +26,44 @@ test('checkout de cadena abandonado (sin estado): la sede puede contratar su pla
 
 test('cadena que ya no está viva: la sede puede contratar su plan', () => {
   for (const estado of ESTADOS_MUERTOS) assert.equal(cadenaPagaSusSedes(estado), false, estado);
+});
+
+// ── Plan suelto en una sede: solo la principal (decisión del fundador, 15-oct-2026) ──
+
+test('estudio suelto (sin cadena): puede contratar un plan suelto, como siempre', () => {
+  assert.deepEqual(decidirPlanSuelto(null), { accion: 'seguir' });
+});
+
+test('sede SECUNDARIA de una cadena que no paga: no puede contratar un plan suelto, se reabre con Cadena', () => {
+  // Con la cadena sin pagar, a medio pagar o con un Checkout de Cadena abandonado.
+  for (const estado of [null, ...ESTADOS_MUERTOS]) {
+    const d = decidirPlanSuelto({ estado, esPrincipal: false });
+    assert.equal(d.accion, 'bloquear', String(estado));
+    assert.equal(d.accion === 'bloquear' && d.motivo, 'solo-cadena', String(estado));
+    assert.equal(d.accion === 'bloquear' && d.mensaje, MENSAJE_SEDE_SOLO_CADENA);
+  }
+});
+
+test('sede PRINCIPAL de una cadena que no paga: puede contratar un plan suelto (es «un estudio»)', () => {
+  for (const estado of [null, ...ESTADOS_MUERTOS]) {
+    assert.deepEqual(decidirPlanSuelto({ estado, esPrincipal: true }), { accion: 'seguir' }, String(estado));
+  }
+});
+
+test('sede de una cadena que paga, principal o no: ya está incluida, nada de plan suelto', () => {
+  for (const estado of ESTADOS_VIVOS) {
+    for (const esPrincipal of [true, false]) {
+      const d = decidirPlanSuelto({ estado, esPrincipal });
+      assert.equal(d.accion === 'bloquear' && d.motivo, 'incluida-en-cadena', `${estado} ${esPrincipal}`);
+      assert.equal(d.accion === 'bloquear' && d.mensaje, MENSAJE_SEDE_INCLUIDA_EN_CADENA);
+    }
+  }
+});
+
+test('el mensaje de la secundaria dice qué hacer y por qué, sin jerga', () => {
+  assert.match(MENSAJE_SEDE_SOLO_CADENA, /plan Cadena/);
+  assert.match(MENSAJE_SEDE_SOLO_CADENA, /sede principal/);
+  assert.doesNotMatch(MENSAJE_SEDE_SOLO_CADENA, /secundaria|409|checkout/i);
 });
 
 // ── Lo que dice Stripe del cliente de la cadena ─────────────────────────────
@@ -151,7 +192,7 @@ test('Checkouts abiertos de las sedes: cada cliente una vez, sin el de la cadena
     (await checkoutsAbiertosDeLasSedes(admin, stripe, 'cadena-1', 'cus_cadena')).sort(),
     ['cs_base_sede1', 'cs_estudio_sede2'],
   );
-  assert.deepEqual(consultas, ['studios:stripe_customer_id:cadena_id=cadena-1']);
+  assert.deepEqual(consultas, ['studios:id, stripe_customer_id:cadena_id=cadena-1']);
   assert.ok(!listados.some(l => l.endsWith('cus_cadena')), 'el cliente de la cadena lo gobierna checkoutPrevio');
 });
 
@@ -200,12 +241,30 @@ test('/api/billing/checkout, rama individual: mira la cadena (BD y Stripe) con s
   const bloque = checkout.indexOf('if (studio.cadena_id) {');
   assert.ok(bloque > 0, 'falta el bloque de la sede de cadena en la rama individual');
   let anterior = bloque;
-  for (const paso of ['cerrarCadena(studio.cadena_id', 'leerCadenaDeLaSede(admin, studio.cadena_id', 'consultarCadenaAntesDeIndividual(', 'caducarCheckouts(stripe, enStripe.expirar)']) {
+  // La principal la elige `leerCadenaParaGratis` (convertir-a-gratis.ts): la misma que pasa al plan gratis.
+  for (const paso of ['cerrarCadena(studio.cadena_id', 'leerCadenaParaGratis(admin, studio)', 'decidirPlanSuelto(', "decision.accion === 'bloquear'", 'consultarCadenaAntesDeIndividual(', 'caducarCheckouts(stripe, enStripe.expirar)']) {
     const i = checkout.indexOf(paso, bloque);
     assert.ok(i > anterior, `${paso} fuera de orden o ausente`);
     anterior = i;
   }
   assert.ok(anterior < clienteSede && anterior < sesionSede, 'la cadena se mira antes de crear el cliente y la sesión de la sede');
+});
+
+test('/api/billing/checkout: la regla de la sede secundaria va en la rama individual, nunca en la de Cadena', () => {
+  const ramaCadena = checkout.slice(checkout.indexOf("if (plan === 'CADENA') {"), checkout.indexOf('if (studio.cadena_id) {'));
+  assert.ok(ramaCadena.length > 0);
+  assert.doesNotMatch(ramaCadena, /decidirPlanSuelto\(/, 'una sede secundaria tiene que poder contratar Cadena');
+});
+
+test('/api/billing/status: las opciones de plan salen de las mismas reglas que el checkout, y solo para quien no paga', () => {
+  const status = readFileSync(join(raiz, 'app', 'api', 'billing', 'status', 'route.ts'), 'utf8');
+  assert.match(status, /decidirPlanSuelto\(cadena && \{ estado: cadena\.subscriptionStatus, esPrincipal: cadena\.esPrincipal \}\)/);
+  assert.match(status, /leerCadenaParaGratis\(admin, studio\)/);
+  assert.match(status, /sueltosQueCancelaCadena\(/);
+  // Solo la propietaria (es quien contrata): ni gerencia ni recepción reciben los planes de las sedes hermanas.
+  assert.match(status, /if \(studio && sesion\.rol === 'PROPIETARIO' && !pagaPlan\(\{ subscriptionStatus, subscriptionId: studio\.subscription_id \}\)\) \{\s*opciones = await opcionesDePlan\(/);
+  // Un fallo al leer no tumba el gate: la pantalla lo dice en condicional.
+  assert.match(status, /opcionesDePlan\([^;]*\.catch\(\(\) => null\)/s);
 });
 
 test('/api/billing/checkout, rama CADENA: cerrojo de cadena y caducar los individuales de las sedes antes de su checkoutPrevio', () => {
@@ -225,4 +284,126 @@ test('/api/billing/portal elige el cliente con clienteDelPortal', () => {
   const portal = readFileSync(join(raiz, 'app', 'api', 'billing', 'portal', 'route.ts'), 'utf8');
   assert.match(portal, /clienteDelPortal\(studio\.stripe_customer_id/);
   assert.match(portal, /customer: customerId/);
+});
+
+// ── F1: al confirmarse la cadena, las sueltas de TODAS sus sedes se cancelan ──
+
+type SubFalsa = { id: string; status: string; metadata?: Record<string, string> };
+
+/** Stripe con estado: las suscripciones de cada cliente cambian al cancelarlas, como en Stripe. */
+function stripeConSuscripciones(porCliente: Record<string, SubFalsa[]>, opciones: { clienteRoto?: string } = {}) {
+  const canceladas: string[] = [];
+  const comentarios: (string | undefined)[] = [];
+  const stripe = {
+    subscriptions: {
+      list: async ({ customer }: { customer: string }) => {
+        if (customer === opciones.clienteRoto) throw new Error('No such customer');
+        return { data: (porCliente[customer] ?? []).map(s => ({ ...s })) };
+      },
+      cancel: async (id: string, params?: { cancellation_details?: { comment?: string } }) => {
+        for (const subs of Object.values(porCliente)) for (const s of subs) if (s.id === id) s.status = 'canceled';
+        canceladas.push(id);
+        comentarios.push(params?.cancellation_details?.comment);
+        return {} as never;
+      },
+    },
+  };
+  return { stripe: stripe as never, canceladas, comentarios };
+}
+
+const SEDES = [
+  { id: 'sede-principal', stripe_customer_id: 'cus_principal' },
+  { id: 'sede-secundaria', stripe_customer_id: null },
+  { id: 'sede-cadena', stripe_customer_id: 'cus_cadena' },
+];
+const viva = (status = 'active') => ({ id: 'cadena-1', clienteStripe: 'cus_cadena', suscripcion: { id: 'sub_cadena', status } });
+
+test('Cadena contratada desde una sede secundaria con la principal pagando suelto: la suelta se cancela al confirmarse', async () => {
+  const { admin } = adminFalso({ data: SEDES, error: null });
+  const { stripe, canceladas, comentarios } = stripeConSuscripciones({
+    cus_principal: [
+      { id: 'sub_suelta_principal', status: 'active', metadata: { studioId: 'sede-principal', plan: 'BASE' } },
+      { id: 'sub_vieja', status: 'canceled', metadata: { studioId: 'sede-principal' } },
+    ],
+    cus_cadena: [{ id: 'sub_cadena', status: 'active', metadata: { cadenaId: 'cadena-1' } }],
+  });
+  assert.deepEqual(await cancelarSueltasDeLasSedes(admin, stripe, viva()), { canceladas: ['sub_suelta_principal'], errores: [], revisar: [] });
+  assert.deepEqual(canceladas, ['sub_suelta_principal'], 'nunca la de la cadena ni una ya cancelada');
+  assert.ok(comentarios[0]?.includes('cadena'), 'el motivo queda en Stripe');
+
+  // Evento repetido (Stripe reenvía, o llega el `updated` tras el `created`): ni falla ni cancela dos veces.
+  assert.deepEqual(await cancelarSueltasDeLasSedes(admin, stripe, viva()), { canceladas: [], errores: [], revisar: [] });
+  assert.deepEqual(canceladas, ['sub_suelta_principal']);
+});
+
+test('una suelta a medio pagar (incomplete) también se cancela; con la cadena sin mandar en sus sedes, nada', async () => {
+  const { admin } = adminFalso({ data: SEDES, error: null });
+  const { stripe, canceladas } = stripeConSuscripciones({ cus_principal: [{ id: 'sub_3ds', status: 'incomplete', metadata: { studioId: 'sede-principal' } }] });
+  // 'unpaid' tampoco: `propagar_plan_cadena` no pisaría la sede, que se quedaría sin plan pagado.
+  for (const status of ['incomplete', 'incomplete_expired', 'canceled', 'unpaid']) {
+    assert.deepEqual(await cancelarSueltasDeLasSedes(admin, stripe, viva(status)), { canceladas: [], errores: [], revisar: [] }, status);
+  }
+  assert.deepEqual(canceladas, []);
+  assert.deepEqual((await cancelarSueltasDeLasSedes(admin, stripe, viva('past_due'))).canceladas, ['sub_3ds']);
+});
+
+test('solo se cancela el plan suelto de una sede de ESTA cadena: lo demás vivo se deja y se avisa', async () => {
+  const { admin } = adminFalso({ data: SEDES, error: null });
+  const { stripe, canceladas } = stripeConSuscripciones({
+    cus_principal: [
+      { id: 'sub_otra_cadena', status: 'active', metadata: { cadenaId: 'cadena-otra' } },
+      { id: 'sub_sin_metadata', status: 'active' },
+      { id: 'sub_estudio_ajeno', status: 'active', metadata: { studioId: 'studio-de-otra-cadena' } },
+      { id: 'sub_suelta', status: 'active', metadata: { studioId: 'sede-principal' } },
+    ],
+  });
+  const r = await cancelarSueltasDeLasSedes(admin, stripe, viva());
+  assert.deepEqual(r.canceladas, ['sub_suelta']);
+  assert.deepEqual(r.revisar.sort(), ['sub_estudio_ajeno', 'sub_otra_cadena', 'sub_sin_metadata']);
+  assert.deepEqual(canceladas, ['sub_suelta']);
+});
+
+test('un cliente que no se puede leer no frena a las demás sedes: va a errores', async () => {
+  const { admin } = adminFalso({
+    data: [{ id: 'sede-a', stripe_customer_id: 'cus_borrado' }, { id: 'sede-b', stripe_customer_id: 'cus_b' }],
+    error: null,
+  });
+  const { stripe, canceladas } = stripeConSuscripciones(
+    { cus_b: [{ id: 'sub_b', status: 'active', metadata: { studioId: 'sede-b' } }] },
+    { clienteRoto: 'cus_borrado' },
+  );
+  const r = await cancelarSueltasDeLasSedes(admin, stripe, viva());
+  assert.deepEqual(canceladas, ['sub_b']);
+  assert.deepEqual(r.errores.map(e => e.id), ['cus_borrado']);
+});
+
+test('si no se pueden leer las sedes, lanza (el webhook lo avisa y sigue)', async () => {
+  const { admin } = adminFalso({ data: null, error: { message: 'timeout' } });
+  const { stripe } = stripeConSuscripciones({});
+  await assert.rejects(cancelarSueltasDeLasSedes(admin, stripe, viva()), /leer sedes: timeout/);
+});
+
+test('cancelarSuscripciones: lo que Stripe no deja cancelar vuelve en errores, sin lanzar; lo que ya no existe cuenta como hecho', async () => {
+  const llamadas: string[] = [];
+  const stripe = {
+    subscriptions: {
+      cancel: async (id: string) => {
+        llamadas.push(id);
+        if (id === 'sub_desaparecida') throw new Stripe.errors.StripeError({ code: 'resource_missing', type: 'invalid_request_error' });
+        if (id === 'sub_rota') throw new Error('rate limited');
+        return {} as never;
+      },
+    },
+  };
+  const r = await cancelarSuscripciones(stripe as never, ['sub_ok', 'sub_desaparecida', 'sub_rota', 'sub_ok']);
+  assert.deepEqual(llamadas, ['sub_ok', 'sub_desaparecida', 'sub_rota'], 'cada una una sola vez');
+  assert.deepEqual(r.canceladas, ['sub_ok', 'sub_desaparecida']);
+  assert.deepEqual(r.errores.map(e => e.id), ['sub_rota']);
+});
+
+test('el webhook, en la rama de la cadena, cancela las sueltas de las sedes DESPUÉS de escribir la cadena', () => {
+  const webhook = readFileSync(join(raiz, 'app', 'api', 'billing', 'webhook', 'route.ts'), 'utf8');
+  const escribe = webhook.indexOf("aplicarSiNoDesordenado(admin, 'cadenas', 'id'");
+  const cancela = webhook.indexOf('cancelarSueltasDeLasSedes(admin, stripe');
+  assert.ok(escribe > 0 && cancela > escribe, 'la cadena tiene que estar viva en la BD antes de cancelar nada');
 });

@@ -45,6 +45,8 @@ export interface DatosClaveCheckoutEmbebido {
   // al mismo código (mayúsculas/espacios) deben seguir siendo el MISMO
   // intento.
   codigoDescuentoId: string | null;
+  /** Cobro proporcional: otro importe o fin de ciclo = otro cobro (ver `DatosClaveCheckoutPlan.prorrateo`). */
+  prorrateo?: { importeCentimos: number; cicloFin: string } | null;
 }
 
 /**
@@ -115,6 +117,12 @@ export interface DatosClaveCheckoutPlan {
   // minuto): la inmensa mayoría de las llamadas a este endpoint siguen siendo
   // compra suelta de bono, sin clase.
   sesionId?: string | null;
+  /**
+   * Cobro proporcional: importe y fin de ciclo que se cobran. Con otro importe es OTRO cobro:
+   * sin esto, un reintento tras medianoche mandaría un importe distinto con la misma clave y
+   * Stripe respondería `idempotency_error`. Ausente = la clave de siempre (las compras en vuelo no cambian).
+   */
+  prorrateo?: { importeCentimos: number; cicloFin: string } | null;
 }
 
 export function claveCheckoutPlanModoA(
@@ -135,6 +143,7 @@ export function claveCheckoutPlanModoA(
   } else {
     partes.push(String(Math.floor(ahoraMs / 60000)));
   }
+  if (datos.prorrateo) partes.push(`p${datos.prorrateo.importeCentimos}-${datos.prorrateo.cicloFin}`);
   return partes.join('-');
 }
 
@@ -175,5 +184,6 @@ export function claveCheckoutEmbebido(
     // una mitigación parcial para este caso concreto.
     partes.push(String(Math.floor(ahoraMs / 60000)));
   }
+  if (datos.prorrateo) partes.push(`p${datos.prorrateo.importeCentimos}-${datos.prorrateo.cicloFin}`);
   return partes.join('-');
 }

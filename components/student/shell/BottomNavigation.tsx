@@ -21,27 +21,16 @@ import { vibrar } from '@/lib/nativo/puente';
 // `ui/Icono.tsx`, con los del resto de la app.
 type Tab = { ruta: string; label: string; icono: NombreIcono };
 
+// La barra de la maqueta de los cuatro iPhones, copiada tal cual (fundador, 19-oct-2026: «copia exacta»):
+// Inicio · Reservar · Actividad · Comunidad · Perfil. Mi plan sale de la barra y se abre desde su baldosa de Inicio
+// (y desde Perfil); «Actividad» es la pantalla de siempre de sus clases (/mis-reservas). Comunidad está para todas las
+// alumnas de todos los estudios: no hay ajuste del estudio que la apague.
 const TABS: Tab[] = [
-  {
-    ruta: '', label: 'Inicio',
-    icono: 'inicio',
-  },
-  {
-    ruta: '/reservar', label: 'Reservar',
-    icono: 'reservar',
-  },
-  {
-    ruta: '/mis-reservas', label: 'Mis clases',
-    icono: 'mis-clases',
-  },
-  {
-    ruta: '/bonos', label: 'Mi plan',
-    icono: 'bono',
-  },
-  {
-    ruta: '/perfil', label: 'Perfil',
-    icono: 'perfil',
-  },
+  { ruta: '', label: 'Inicio', icono: 'inicio' },
+  { ruta: '/reservar', label: 'Reservar', icono: 'calendario' },
+  { ruta: '/mis-reservas', label: 'Actividad', icono: 'actividad' },
+  { ruta: '/comunidad', label: 'Comunidad', icono: 'instructoras' },
+  { ruta: '/perfil', label: 'Perfil', icono: 'perfil' },
 ];
 
 // La misma barra para la instructora (decisión del 14-sep-2026: una sola app),
@@ -73,7 +62,7 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
       // Ancla de las transiciones de pantalla: la barra no se mueve (student.css).
       data-vt-ancla="nav"
       style={{
-        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'var(--velo)', backdropFilter: 'blur(16px)', borderTop: '1px solid var(--muted)',
+        position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 40, background: 'var(--velo)', borderTop: '1px solid var(--muted)',
         // ⚠️ Antes: `var(--safe-bottom)` ENTERA + 10 px de relleno + el aire del
         // botón de 48. En un iPhone con barra de inicio eran ~50 px en blanco bajo
         // las etiquetas, y el fundador lo vio como una barra mal hecha (15-sep).
@@ -112,9 +101,11 @@ export function BottomNavigation({ badgeReservas = 0, modo = 'alumna' }: {
               // encima del icono), así que el nombre accesible lo lleva entero:
               // VoiceOver leía «Mis clases» y se callaba que había algo nuevo.
               aria-label={conNumero ? `${t.label}, ${badgeReservas}` : undefined}
-              style={{ position: 'relative', minWidth: 56, minHeight: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? 'var(--foreground)' : 'var(--subtle-foreground)', transition: 'color .2s' }}
+              style={{ position: 'relative', minWidth: 56, minHeight: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, color: on ? 'var(--accent)' : 'var(--subtle-foreground)', transition: 'color .2s' }}
             >
-              <Icono nombre={t.icono} tamano={22} />
+              {/* Activa: el icono en una píldora del color del estudio (maqueta de oct-2026). Misma caja encendida o no:
+                  la barra no se mueve al cambiar de pestaña. */}
+              <span aria-hidden className={'nav-icono' + (on ? ' nav-icono--on' : '')}><Icono nombre={t.icono} tamano={22} /></span>
               {/* Con tope: cinco pestañas en 375 px no aguantan «Mis clases» a más de 13 px. */}
               <span style={{ fontSize: 'min(var(--t-micro), 13px)', fontWeight: 800, whiteSpace: 'nowrap' }}>{t.label}</span>
               {conNumero && (

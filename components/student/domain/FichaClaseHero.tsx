@@ -20,7 +20,10 @@ import { Icono } from '@/components/student/ui/Icono';
  * (decisión del fundador, 6-oct-2026): una sola fila de controles sobre la foto, no dos. Por eso la tinta de la barra
  * de estado de iOS la pone esta pieza, que es la que ahora está debajo de la hora y la batería.
  */
-export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl'>; derecha?: React.ReactNode }) {
+export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl'> & Partial<Pick<Clase, 'tipo' | 'nombre'>>; derecha?: React.ReactNode }) {
+  // La píldora del tipo sobre la foto (maqueta de oct-2026: «Reformer» sobre «Pilates Reformer»). Solo si dice algo que
+  // el título no dice: hoy el nombre de la clase ES el de su tipo, y repetirlo encima no aporta nada.
+  const pildora = clase.tipo && clase.nombre && clase.tipo.trim().toLowerCase() !== clase.nombre.trim().toLowerCase() ? clase.tipo : null;
   const volver = useVolver();
   const { estudio } = useEstudio();
   const fondoOscuro = estiloPorId(estudio.apariencia.estilo).oscuro === true;
@@ -37,7 +40,7 @@ export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl
     // tinta que el kit pone bajo la foto del layout de acceso (`.st-auth-hero`).
     <section
       data-testid="ficha-heroe"
-      style={{ position: 'relative', height: 'calc(290px + var(--safe-top))', overflow: 'hidden', background: '#0F0F0C' }}
+      style={{ position: 'relative', height: 'calc(314px + var(--safe-top))', overflow: 'hidden', background: '#0F0F0C' }}
     >
       <Foto
         src={clase.fotoUrl}
@@ -45,7 +48,7 @@ export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl
         alto={290}
         sizes="(min-width:1024px) 1040px, (min-width:768px) 640px, 100vw"
         prioritaria
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', animation: 'apKen 18s ease-in-out infinite' }}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
       />
       {/* Solo el velo de ARRIBA: el que necesitan la barra de estado y los círculos. Abajo ya no hay texto que leer. */}
       <div
@@ -62,6 +65,7 @@ export function FichaClaseHero({ clase, derecha }: { clase: Pick<Clase, 'fotoUrl
         <Icono nombre="flecha-izquierda" tamano={18} />
       </button>
       {derecha && <div style={{ position: 'absolute', top: 'calc(12px + var(--safe-top))', right: 14 }}>{derecha}</div>}
+      {pildora && <span className="pildora-foto" style={{ position: 'absolute', left: 16, bottom: 40, fontSize: 'var(--t-small)', fontWeight: 700 }}>{pildora}</span>}
     </section>
   );
 }

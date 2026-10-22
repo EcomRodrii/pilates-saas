@@ -26,9 +26,9 @@ export function ReglasQueSeHeredan() {
         <table style={{ width: '100%', minWidth: 520, borderCollapse: 'separate', borderSpacing: 0, fontSize: 13.5 }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: 200 }}>Regla</th>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#8E8E86', borderBottom: '1px solid #E7E7E0' }}>Tu estudio</th>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 10.5, fontWeight: 600, letterSpacing: '.06em', textTransform: 'uppercase', color: '#343825', background: '#F1F2EA', borderBottom: '1px solid #E1E5D4' }}>Reformer avanzado</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: 200 }}>Regla</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0' }}>Tu estudio</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#343825', background: '#F1F2EA', borderBottom: '1px solid #E1E5D4' }}>Reformer avanzado</th>
             </tr>
           </thead>
           <tbody>
@@ -103,12 +103,12 @@ export function EsperaSinPlazo() {
     <PanelOscuro titulo="Dos formas de gestionar la cola">
       <div style={{ display: 'grid', gap: 12 }}>
         <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 12, padding: '15px 16px' }}>
-          <div className="lp-mono" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: '#A8B080', marginBottom: 8 }}>Por defecto</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8B080', marginBottom: 8 }}>Por defecto</div>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: '#fff', marginBottom: 5 }}>Promoción instantánea</div>
           <div style={{ fontSize: 13, lineHeight: 1.5, color: 'rgba(255,255,255,.65)' }}>La plaza se confirma sola a la primera de la cola. Rápido, y nadie se queda sin cubrir el hueco.</div>
         </div>
         <div style={{ background: 'rgba(217,194,158,.1)', border: '1px solid rgba(217,194,158,.22)', borderRadius: 12, padding: '15px 16px' }}>
-          <div className="lp-mono" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: '#D9C29E', marginBottom: 8 }}>Con plazo</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#D9C29E', marginBottom: 8 }}>Con plazo</div>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: '#fff', marginBottom: 5 }}>Oferta con tiempo para aceptar</div>
           <div style={{ fontSize: 13, lineHeight: 1.5, color: 'rgba(255,255,255,.65)' }}>Evita meter a alguien en una clase de dentro de una hora sin que se haya enterado — y que después no aparezca.</div>
         </div>

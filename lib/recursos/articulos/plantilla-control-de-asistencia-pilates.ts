@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'plantilla-control-de-asistencia-pilates',
   titulo: 'Plantilla de control de asistencia para clases de pilates (Excel gratis)',
-  tituloSeo: 'Plantilla de control de asistencia para clases (Excel)',
+  tituloSeo: 'Plantilla de control de asistencia (Excel)',
   descripcion:
     'Descarga gratis la plantilla en Excel para llevar la asistencia y los bonos de tu estudio: cómo usarla paso a paso, qué calcula sola y dónde se queda corta.',
   resumen:
@@ -11,6 +11,7 @@ const articulo: Articulo = {
   categoria: 'operacion',
   seccion: 'Operación',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'plantilla de control de asistencia para clases',
   consultas: [
     'control de asistencia a clases en Excel',
@@ -184,7 +185,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'En ese punto, un programa hace lo mismo sin que lo teclees. Tentare, por ejemplo, tiene [check-in y control de asistencia](/funcionalidades/control-de-asistencia), bonos con caducidad y lista de espera automática, y tus alumnas reservan y cancelan solas desde el móvil. Si ya tienes a tus alumnas en esta plantilla, su importador lee Excel. Y si todavía no quieres pagar, mira qué más puedes montar con [software de pilates gratis](/recursos/software-pilates-gratis).',
+            'En ese punto, un programa hace lo mismo sin que lo teclees. Tentare, por ejemplo, tiene [check-in y control de asistencia](/funcionalidades/control-de-asistencia), bonos con caducidad y lista de espera automática, y tus alumnas reservan y cancelan solas desde el móvil. Si ya tienes a tus alumnas en esta plantilla, su importador lee Excel. Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes; y si prefieres otras herramientas sin coste, mira qué más puedes montar con [software de pilates gratis](/recursos/software-pilates-gratis).',
         },
       ],
     },
@@ -228,7 +229,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Cuando la hoja se te quede pequeña',
     texto:
-      'Prueba Tentare 7 días gratis y sin tarjeta con el plan que elijas: check-in y control de asistencia, bonos con caducidad y lista de espera automática. Si vienes de esta plantilla, puedes importar tu Excel.',
+      'Empieza gratis con Tentare, sin tarjeta: check-in y control de asistencia, bonos con caducidad y lista de espera automática. Si vienes de esta plantilla, puedes importar tu Excel.',
   },
   revision: [
     'El texto se ha cotejado con public/recursos/plantillas/control-asistencia-pilates.xlsx tal como estaba el 25-sep-2026 (hojas, columnas, fórmulas de «Sesiones usadas», «Estado», «Reservas», «Asistencias», «Ocupación %» y «Descuenta sesión»). Si se regenera la plantilla, volver a cotejarlo.',

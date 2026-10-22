@@ -11,13 +11,15 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { hrefDeLugar, resolverDestino, resolverHref, seccionesVisibles } from '@/lib/configuracion/destino';
 import {
-  esTarjetaId, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
+  esTarjetaId, herramientaParaMostrar, herramientaPorId, herramientaVisible, seccionPorId, tarjetaVisible,
   type HerramientaId, type SeccionId, type TarjetaId,
 } from '@/lib/configuracion/secciones';
 import { ContextoNavegacionConfig, type NavegacionConfig } from './contexto';
 import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
 import { TONO_SECCION_CONFIG, TonoConfigContext } from './tono-config';
+import { presentarSeccion, seccionVisual } from '@/lib/configuracion/mi-web-nueva';
+import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
 import { CabeceraHerramienta } from './cabecera-herramienta';
 import { idFilaHerramienta } from './fila-herramienta';
 import { InicioConfiguracion } from './inicio-configuracion';
@@ -44,7 +46,7 @@ import { escucharEnlacesAConfiguracion } from './ir-a-configuracion';
 //     `replaceState`: no llena el historial. (Por qué la API nativa y no el
 //     router: ver `irA`.)
 //   · una HERRAMIENTA grande (`?tab=web&abrir=widgets`: widgets, correos, tipos
-//     de clase, salas, contenido de tu app, recompensas y logros) se abre desde
+//     de clase, salas, contenido de tu app, canjes…) se abre desde
 //     la fila de su sección a pantalla propia y a todo el ancho, sin la columna,
 //     con «volver» a su sección. Volver —con el botón o con el atrás— deja el
 //     foco en su fila. Pintadas dentro de la sección, «Mi app y mi web» medía
@@ -73,7 +75,6 @@ const COMPONENTES: Record<SeccionId, ComponentType<PropsSeccion>> = {
   motivacion: dynamic(() => import('@/components/configuracion/secciones/seccion-motivacion').then(m => m.SeccionMotivacion), { loading: cargando }),
   conexiones: dynamic(() => import('@/components/configuracion/secciones/seccion-conexiones').then(m => m.SeccionConexiones), { loading: cargando }),
   datos: dynamic(() => import('@/components/configuracion/secciones/seccion-datos').then(m => m.SeccionDatos), { loading: cargando }),
-  demo: dynamic(() => import('@/components/configuracion/secciones/seccion-demo').then(m => m.SeccionDemo), { loading: cargando }),
   avisos: dynamic(() => import('@/components/configuracion/secciones/seccion-avisos').then(m => m.SeccionAvisos), { loading: cargando }),
   panel: dynamic(() => import('@/components/configuracion/secciones/seccion-panel').then(m => m.SeccionPanel), { loading: cargando }),
 };
@@ -84,7 +85,7 @@ const COMPONENTES_HERRAMIENTA: Record<HerramientaId, ComponentType<PropsSeccion>
   salas: dynamic(() => import('@/components/configuracion/herramientas/herramienta-salas').then(m => m.HerramientaSalas), { loading: cargando }),
   'tipos-de-clase': dynamic(() => import('@/components/configuracion/herramientas/herramienta-tipos-de-clase').then(m => m.HerramientaTiposDeClase), { loading: cargando }),
   'correos-automaticos': dynamic(() => import('@/components/configuracion/herramientas/herramienta-correos-automaticos').then(m => m.HerramientaCorreosAutomaticos), { loading: cargando }),
-  'recompensas-y-logros': dynamic(() => import('@/components/configuracion/herramientas/herramienta-recompensas-y-logros').then(m => m.HerramientaRecompensasYLogros), { loading: cargando }),
+  canjes: dynamic(() => import('@/components/configuracion/herramientas/herramienta-canjes').then(m => m.HerramientaCanjes), { loading: cargando }),
   'contenido-de-tu-app': dynamic(() => import('@/components/configuracion/herramientas/herramienta-contenido-de-tu-app').then(m => m.HerramientaContenidoDeTuApp), { loading: cargando }),
   widgets: dynamic(() => import('@/components/configuracion/herramientas/herramienta-widgets').then(m => m.HerramientaWidgets), { loading: cargando }),
   'avisos-del-movil': dynamic(() => import('@/components/configuracion/herramientas/herramienta-avisos-del-movil').then(m => m.HerramientaAvisosDelMovil), { loading: cargando }),
@@ -113,6 +114,7 @@ export function ConfigShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rol = useRol();
+  const miWebNueva = useMiWebNueva();
   const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
   // Auditoría 15-sep (C-4): las secciones ya podían avisar de un fallo, pero el
   // toast no distinguía color/aria de un éxito — este wrapper es lo único que
@@ -407,7 +409,7 @@ export function ConfigShell() {
 
   if (!abierto) return null;
 
-  const visibles = seccionesVisibles(rol);
+  const visibles = seccionesVisibles(rol).map(s => presentarSeccion(s, miWebNueva));
   const permitida = tab !== null && visibles.some(s => s.id === tab);
   // Sin sección en la URL (o con una que este rol no abre): el inicio.
   const mostrada = permitida ? tab : null;
@@ -439,7 +441,7 @@ export function ConfigShell() {
         router.back();
         return;
       }
-      irA(mostrada, { modo: 'replace' });
+      irA(seccionVisual(mostrada, herramienta, miWebNueva), { modo: 'replace' });
       return;
     }
     // Si se llegó desde el inicio con un solo paso, «volver» es el atrás de
@@ -494,8 +496,10 @@ export function ConfigShell() {
                 className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-48"
               >
                 <CabeceraHerramienta
-                  herramienta={herramientaPorId(herramienta)}
-                  seccion={seccionPorId(mostrada)}
+                  // «Mi app y mi web» v2: la frase de las herramientas rehechas (`FRASE_MI_WEB_NUEVA`)
+                  // y la sección con su nombre nuevo («Tu app» / «Tu web»).
+                  herramienta={herramientaParaMostrar(herramienta, miWebNueva)}
+                  seccion={presentarSeccion(seccionPorId(seccionVisual(mostrada, herramienta, miWebNueva)), miWebNueva)}
                   tituloRef={tituloRef}
                   onVolver={volver}
                 />
@@ -511,7 +515,7 @@ export function ConfigShell() {
                 // reglas de reserva baja a dos líneas y tapaba un píxel del campo.
                 className="tab-content-in space-y-5 [&_:is(input,select,textarea)]:scroll-mb-48"
               >
-                <CabeceraSeccion seccion={seccionPorId(mostrada)} tituloRef={tituloRef} onVolver={volver} />
+                <CabeceraSeccion seccion={presentarSeccion(seccionPorId(mostrada), miWebNueva)} tituloRef={tituloRef} onVolver={volver} />
                 <Seccion showToast={showToast} />
               </section>
             ) : visibles.length > 0 && (

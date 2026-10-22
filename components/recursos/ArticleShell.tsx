@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { ACC } from '@/components/landing/theme';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { SiteNav } from './SiteNav';
-import { SiteFooter } from './SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { mesCorto } from '@/lib/recursos/guias';
 
 export type TocItem = { id: string; label: string };
@@ -15,8 +14,6 @@ export function ArticleShell({
   intro,
   readTime,
   actualizado,
-  backHref,
-  backLabel,
   children,
 }: {
   category: string;
@@ -35,7 +32,9 @@ export function ArticleShell({
   actualizado?: string;
   /** Ya no se pinta un índice lateral; los anclajes de cada sección siguen. */
   toc?: TocItem[];
+  /** Ya no se pinta: la isla (components/web/IslaWeb.tsx) no lleva «volver». */
   backHref?: string;
+  /** Ya no se pinta, como `backHref`. */
   backLabel?: string;
   children: React.ReactNode;
 }) {
@@ -51,9 +50,19 @@ export function ArticleShell({
           ninguna Organization/WebSite — auditoría SEO 2026-08-18. Un único
           punto, no 10 imports repetidos. */}
       <OrganizationStructuredData />
-      <SiteNav {...(backHref ? { backHref, backLabel } : {})} />
+      <IslaWeb />
 
       <header className="art-head">
+        {/* Migas visibles (fase 3, 20-oct-2026): las mismas tres del BreadcrumbList
+            del JSON-LD (Inicio › Recursos › el artículo). Ninguna de las tres
+            referencias las tiene en el blog. */}
+        <nav aria-label="Migas de pan" className="art-migas">
+          <ol>
+            <li><Link href="/">Inicio</Link></li>
+            <li><Link href="/recursos">Recursos</Link></li>
+            <li aria-current="page"><span>{title}</span></li>
+          </ol>
+        </nav>
         <p className="art-kicker"><Link href="/recursos">{category}</Link></p>
         <h1>{title}</h1>
         <p className="art-dek">{intro}</p>
@@ -63,37 +72,61 @@ export function ArticleShell({
         <p className="art-byline">
           {/* El nombre lleva a quién hay detrás y a cómo se escriben y se
               comprueban las guías (7-oct-2026): la autoría con su método. */}
-          Por <Link href="/sobre-tentare#quien" className="art-autor"><strong>Marcos Roca</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? mesCorto(actualizado) : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
+          Por <Link href="/sobre-tentare#quien" className="art-autor"><strong>Marcos Roca</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? <time dateTime={actualizado}>{mesCorto(actualizado)}</time> : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
         </p>
       </header>
 
       <article className="art-body">{children}</article>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
-        .art-head { max-width: 720px; margin: 0 auto; padding: clamp(40px,6vw,72px) clamp(20px,4vw,24px) 8px; }
+        .art-head { max-width: calc(var(--w-lectura) + 48px); margin: 0 auto; padding: clamp(40px,6vw,72px) clamp(20px,4vw,24px) 8px; }
+        /* Migas: una línea, la última cortada con puntos si no cabe. */
+        .art-migas ol { list-style: none; display: flex; align-items: center; gap: 0; margin: 0 0 22px; padding: 0; font-size: var(--w-fs-mini); color: var(--w-texto-3); min-width: 0; }
+        .art-migas li { display: flex; align-items: center; white-space: nowrap; }
+        .art-migas li + li::before { content: '›'; margin: 0 8px; color: var(--w-texto-3); }
+        .art-migas li:last-child { min-width: 0; }
+        .art-migas li:last-child span { overflow: hidden; text-overflow: ellipsis; }
+        .art-migas a { color: var(--w-texto-2); text-decoration: none; }
+        .art-migas a:hover { text-decoration: underline; text-underline-offset: 3px; }
         .art-kicker { margin: 0 0 14px; font-size: 14px; font-weight: 600; }
-        .art-kicker a { color: ${ACC}; text-decoration: none; }
+        .art-kicker a { color: var(--w-olive); text-decoration: none; }
         .art-kicker a:hover { text-decoration: underline; text-underline-offset: 3px; }
-        .art-head h1 { font-weight: 800; font-size: clamp(30px,4.6vw,46px); line-height: 1.08; letter-spacing: -.03em; color: #1A1A1A; margin: 0 0 18px; }
-        .art-dek { font-size: clamp(18px,1.7vw,20px); line-height: 1.55; color: #4A4A44; margin: 0 0 22px; }
-        .art-byline { font-size: 14px; color: #6B6B63; margin: 0; padding-bottom: 28px; border-bottom: 1px solid #E1E1D9; }
-        .art-byline strong { color: #1A1A1A; font-weight: 600; }
-        .art-byline .art-autor { color: inherit; text-decoration: underline; text-decoration-color: #CFCFC6; text-underline-offset: 3px; }
+        .art-head h1 { font-weight: var(--w-peso-titular); font-size: clamp(32px,4.4vw,48px); line-height: var(--w-alto-titular); letter-spacing: var(--w-track-h1); color: var(--w-texto); margin: 0 0 18px; text-wrap: balance; }
+        .art-dek { font-size: clamp(18px,1.7vw,20px); line-height: 1.55; color: var(--w-texto-2); margin: 0 0 22px; }
+        .art-byline { font-size: var(--w-fs-pequeno); color: var(--w-texto-3); margin: 0; padding-bottom: 28px; border-bottom: 1px solid var(--w-linea); }
+        .art-byline strong { color: var(--w-texto); font-weight: 600; }
+        .art-byline .art-autor { color: inherit; text-decoration: underline; text-decoration-color: var(--w-linea-fuerte); text-underline-offset: 3px; }
         .art-byline .art-autor:hover { text-decoration-color: currentColor; }
-        .art-body { max-width: 720px; margin: 0 auto; padding: 28px clamp(20px,4vw,24px) clamp(60px,8vw,96px); }
-        .art-body h2 { font-weight: 800; font-size: clamp(24px,3vw,30px); line-height: 1.15; letter-spacing: -.025em; color: #1A1A1A; margin: 48px 0 14px; scroll-margin-top: 96px; }
-        .art-body h3 { font-weight: 700; font-size: 19px; letter-spacing: -.01em; margin: 28px 0 8px; }
-        .art-body p { font-size: 18px; line-height: 1.7; color: #33332D; margin: 0 0 20px; }
-        .art-body li { font-size: 18px; line-height: 1.65; color: #33332D; }
-        .art-body strong { color: #1A1A1A; font-weight: 700; }
-        .art-body a { color: ${ACC}; text-decoration: underline; text-underline-offset: 3px; }
-        .art-lead { font-size: 20px !important; line-height: 1.6 !important; color: #1A1A1A !important; }
+        .art-body { max-width: calc(var(--w-lectura) + 48px); margin: 0 auto; padding: 28px clamp(20px,4vw,24px) clamp(60px,8vw,96px); }
+        .art-body h2 { font-weight: var(--w-peso-titular); font-size: clamp(24px,3vw,32px); line-height: 1.15; letter-spacing: var(--w-track-h2); color: var(--w-texto); margin: 48px 0 14px; scroll-margin-top: 96px; }
+        .art-body h3 { font-weight: var(--w-peso-titular); font-size: 20px; letter-spacing: var(--w-track-h3); color: var(--w-texto); margin: 28px 0 8px; }
+        .art-body p { font-size: 18px; line-height: 1.7; color: var(--w-texto); margin: 0 0 20px; }
+        .art-body li { font-size: 18px; line-height: 1.65; color: var(--w-texto); }
+        .art-body strong { color: var(--w-texto); font-weight: 600; }
+        .art-body a { color: var(--w-olive); text-decoration: underline; text-underline-offset: 3px; }
+        .art-lead { font-size: 20px !important; line-height: 1.6 !important; color: var(--w-texto) !important; }
         .art-cta2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .art-related-card { transition: transform .2s, box-shadow .2s; }
         .art-related-card:hover { transform: translateY(-4px); box-shadow: 0 26px 50px -30px rgba(26,26,26,.3); }
         @media (max-width: 900px) { .art-cta2 { grid-template-columns: 1fr; } }
+        /* Llamada a mitad de texto hacia un recurso: un filete a la izquierda,
+           como las notas. Sin caja ni color de fondo. */
+        .art-body .art-recurso { border-left: 3px solid var(--w-olive); padding: 2px 0 2px 18px; margin: 26px 0; }
+        .art-body .art-recurso p { margin: 0; font-size: 17px; line-height: 1.65; }
+        .art-body .art-recurso a { font-weight: 700; }
+        /* «Sigue leyendo» (ArticulosRelacionados): tarjetas sencillas, una bajo
+           otra, sin color por categoría ni letra de máquina de escribir. */
+        .art-body .art-rel { margin-top: 56px; }
+        .art-body .art-rel h2 { margin: 0 0 16px; }
+        .art-body .art-rel-lista { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+        .art-body a.art-rel-tarjeta { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--w-linea); border-radius: 16px; background: var(--w-papel); color: var(--w-texto); text-decoration: none; }
+        .art-body a.art-rel-tarjeta:hover .art-rel-titulo { text-decoration: underline; text-underline-offset: 3px; }
+        .art-rel-cat, .art-rel-min { font-size: var(--w-fs-mini); line-height: 1.4; color: var(--w-texto-3); }
+        .art-rel-cat { font-weight: 600; }
+        .art-rel-titulo { font-size: 17px; font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
+        .art-body .art-rel-mas { margin: 18px 0 0; font-size: 15px; line-height: 1.8; color: var(--w-texto-2); }
         /* Tablas de más de tres columnas (ArticuloDatos): en escritorio, con su
            ancho mínimo; en el móvil, una tarjeta por fila con la etiqueta de
            cada columna, en vez de deslizar la tabla de lado. */
@@ -105,7 +138,7 @@ export function ArticleShell({
           .art-tabla--ancha tr { padding: 12px 16px; }
           .art-tabla--ancha td { padding: 2px 0 !important; font-size: 14.5px; }
           .art-tabla--ancha td:first-child { font-size: 15.5px; margin-bottom: 6px; }
-          .art-tabla--ancha td[data-columna]:not(:first-child)::before { content: attr(data-columna); display: block; margin-top: 6px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #6B6B63; }
+          .art-tabla--ancha td[data-columna]:not(:first-child)::before { content: attr(data-columna); display: block; margin-top: 6px; font-size: var(--w-fs-mini); font-weight: 600; color: var(--w-texto-3); }
         }
       `}</style>
     </>

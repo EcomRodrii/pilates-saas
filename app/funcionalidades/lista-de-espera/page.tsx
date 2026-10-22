@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Cómo se entera la alumna de que tiene plaza?',
-    a: 'Por aviso en la app y notificación al móvil, que es lo que llega a tiempo. Un email para algo que caduca en dos horas no sirve.',
+    a: 'Por aviso en la app, notificación al móvil y email.',
   },
 ];
 

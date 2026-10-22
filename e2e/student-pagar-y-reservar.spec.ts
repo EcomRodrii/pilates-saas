@@ -74,7 +74,7 @@ async function montar(page: Page, o: {
 
 async function abrirPago(page: Page) {
   await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 45_000 });
+  await page.getByRole('button', { name: /^Reservar clase$/ }).first().click({ timeout: 45_000 });
   await page.locator('[role="dialog"]').last().getByRole('button', { name: 'Ver cómo venir · desde 15 €' }).click();
 }
 

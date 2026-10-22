@@ -36,6 +36,9 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
+import { PonEnMarchaTarjeta } from '@/components/guia/pon-en-marcha';
+import { TuPlanTarjeta } from '@/components/guia/tu-plan-tarjeta';
+import { useAltaNuevaPropia } from '@/components/guia/use-pon-en-marcha';
 import { GraficaArea } from '@/components/dashboard/grafica-area';
 import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import {
@@ -120,12 +123,25 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
 
   const conGraficas = visible('kpis');
   const slug = studio?.slug ?? null;
+  // El alta nueva (PR-5): su «Pon en marcha tu estudio» va LO PRIMERO, antes de
+  // las cifras (en un estudio recién abierto son ceros, y lo que toca es la
+  // lista), con «Tu plan, sin sorpresas» al lado tras la primera reserva. Sin
+  // ella, la tarjeta de siempre en su sitio; mientras se pregunta, ninguna.
+  const altaNueva = useAltaNuevaPropia().activo;
+  const conPrimerosPasos = props.verPrimerosPasos && visible('onboarding');
 
   return (
     <div className="flex flex-col gap-5" data-testid="resumen-nuevo">
       <PageHeader title={props.titulo} description={props.fecha} />
 
       {props.avisos}
+
+      {conPrimerosPasos && altaNueva === true && (
+        <div className="flex flex-col gap-5 empty:hidden xl:flex-row xl:items-start [&>*]:min-w-0 xl:[&>*:first-child]:flex-[7] xl:[&>*:last-child:not(:first-child)]:flex-[5]">
+          <PonEnMarchaTarjeta />
+          <TuPlanTarjeta />
+        </div>
+      )}
 
       {/* ── Cifras ──────────────────────────────────────────────────────────── */}
       {visible('kpis') && (
@@ -174,7 +190,7 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
       <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* Hoy */}
         <div className="flex min-w-0 flex-col gap-5">
-          {props.verPrimerosPasos && visible('onboarding') && <PrimerosPasosTarjeta />}
+          {conPrimerosPasos && altaNueva === false && <PrimerosPasosTarjeta />}
           {props.bandeja}
           {visible('accion') && props.centroDeControl}
           {visible('hoy') && <HoyEnElEstudio nueva />}
@@ -366,7 +382,7 @@ function Actividad({ actividad, verTodo }: { actividad: ActividadResumen[]; verT
         titulo="Lo último"
         id="actividad-titulo"
         derecha={verTodo ? (
-          <Link href="/notificaciones" className="inline-flex shrink-0 items-center gap-1 pt-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
+          <Link href="/notificaciones" className="zona-tactil inline-flex shrink-0 items-center gap-1 pt-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
             Ver todo <ArrowRight size={14} aria-hidden />
           </Link>
         ) : null}

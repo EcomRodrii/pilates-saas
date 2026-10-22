@@ -8,8 +8,8 @@ import { AyudaBreadcrumbs } from '@/components/ayuda/AyudaBreadcrumbs';
 import { AyudaBreadcrumbStructuredData } from '@/components/ayuda/AyudaStructuredData';
 import { AyudaCTASoporte } from '@/components/ayuda/AyudaCTASoporte';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ categoria
   const categoria = categoriaDe(slug);
   if (!categoria) return {};
   return {
-    title: `${categoria.titulo} | Centro de Ayuda de Tentare`,
+    title: `${categoria.titulo} | Ayuda de Tentare`,
     description: categoria.descripcion,
     alternates: { canonical: urlDe(`/ayuda/${categoria.slug}`) },
   };
@@ -41,7 +41,7 @@ export default async function CategoriaPage({ params }: { params: Promise<{ cate
     <PageShell>
       <OrganizationStructuredData />
       <AyudaBreadcrumbStructuredData items={migas} />
-      <SiteNav backHref="/ayuda" backLabel="Centro de Ayuda" />
+      <IslaWeb />
 
       <header style={{ maxWidth: 900, margin: '0 auto', padding: 'clamp(32px,5vw,56px) clamp(20px,4vw,44px) 8px' }}>
         <AyudaBreadcrumbs items={migas} />
@@ -87,7 +87,7 @@ export default async function CategoriaPage({ params }: { params: Promise<{ cate
         <AyudaCTASoporte />
       </div>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`.ayuda-cat-item{transition:border-color .15s,transform .15s}.ayuda-cat-item:hover{border-color:${ACC};transform:translateY(-2px)}`}</style>
     </PageShell>

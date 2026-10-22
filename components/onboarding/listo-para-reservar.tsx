@@ -20,11 +20,19 @@
 //      iframe carga `/reservar/[slug]`, el mismo sitio al que va a entrar su
 //      alumna. Si algo no está bien, lo ve aquí y no cuando ya lo ha mandado.
 //   3. El enlace, listo para pegar donde ella ya habla con sus alumnas.
+//
+// Y es el paso 7 del alta nueva (PR-4, «¡Listo! Tu clase … ya está
+// publicada»), con props opcionales que el Calendario no pasa (y no ve):
+// `nombreClase` cambia el titular, `veredicto` trae la respuesta del servidor
+// que acaba de publicar (no se vuelve a preguntar), y con el SÍ salen
+// «Comprobado: una alumna nueva puede reservar» y el aviso del correo. El QR,
+// con `conQr`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, ArrowRight, Check, Copy, ExternalLink, MessageCircle, Share2 } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, CircleCheck, Copy, ExternalLink, MessageCircle, Share2 } from 'lucide-react';
+import { BotonQr } from '@/components/configuracion/dialogo-qr';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
 import { avisoVentaOnline } from '@/lib/onboarding';
@@ -34,6 +42,8 @@ import {
 import { authHeader } from '@/lib/api-client';
 import { anfitrionPortal } from '@/lib/panel-portal';
 import { capturarEvento } from '@/lib/posthog-cliente';
+import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
+import { useRol } from '@/lib/permisos';
 // ⚠️ TentiDiferido y NUNCA '@/components/tenti/tenti': este componente lo
 // importa sin diferir /calendario, y un import directo metería
 // el motor de la mascota en cada carga del calendario, para todos los roles.
@@ -52,11 +62,32 @@ export function ListoParaReservar({
   nombreEstudio,
   clasesCreadas,
   onSeguir,
+  nombreClase,
+  veredicto,
+  correoEnviado = false,
+  conQr = false,
+  textoSeguir = 'Ver mi calendario',
+  errorSeguir = null,
 }: {
   slug: string;
   nombreEstudio: string;
   clasesCreadas: number;
   onSeguir: () => void;
+  /** Paso 7 del alta nueva: «¡Listo! Tu clase «…» ya está publicada». */
+  nombreClase?: string | null;
+  /**
+   * La respuesta de `puedeReservarEnServidor` que ya trae quien publicó la
+   * clase. Con ella no se vuelve a preguntar; sin ella (`undefined`), se
+   * pregunta como siempre.
+   */
+  veredicto?: RespuestaPuedeReservar;
+  /** El servidor ha mandado (o está mandando) «Ya puedes recibir reservas». */
+  correoEnviado?: boolean;
+  /** «Descargar el QR» de su página, para recepción. */
+  conQr?: boolean;
+  textoSeguir?: string;
+  /** Si seguir ha fallado (sellar el alta), qué ha pasado: esta pantalla tapa todo lo demás. */
+  errorSeguir?: string | null;
 }) {
   const [copiado, setCopiado] = useState(false);
   const [cargada, setCargada] = useState(false);
@@ -65,6 +96,9 @@ export function ListoParaReservar({
   // a poder (exige bono, hay tarifas activas y no hay Stripe), se dice aquí
   // mismo, antes de que copie el enlace y lo mande (evaluación del 13-sep).
   const { studio, planesTarifa } = useStudio();
+  // El embudo del alta es el de la propietaria (app/api/alta/paso solo la
+  // admite a ella): quien no lo es no manda nada que se vaya a rechazar.
+  const esPropietaria = useRol() === 'PROPIETARIO';
   const aviso = studio ? avisoVentaOnline({
     stripeAccountId: studio.stripeAccountId,
     reservaExigirPlan: studio.reservaExigirPlan ?? true,
@@ -78,8 +112,10 @@ export function ListoParaReservar({
   // que Stripe aún no cobra. Quien lo decide ahora es el servidor, con las mismas
   // reglas que la reserva de verdad; el aviso del cliente solo se queda mientras
   // contesta, o si no ha podido comprobarlo.
-  const [srv, setSrv] = useState<RespuestaPuedeReservar | null>(null);
+  const [srv, setSrv] = useState<RespuestaPuedeReservar | null>(veredicto ?? null);
+  const traeVeredicto = veredicto !== undefined;
   useEffect(() => {
+    if (traeVeredicto) return;
     const ctrl = new AbortController();
     authHeader()
       .then(headers => fetch('/api/onboarding/puede-reservar', { headers, signal: ctrl.signal }))
@@ -87,9 +123,16 @@ export function ListoParaReservar({
       .catch(() => leerRespuestaPuedeReservar(null))
       .then(r => { if (!ctrl.signal.aborted) setSrv(r); });
     return () => ctrl.abort();
-  }, []);
+  }, [traeVeredicto]);
   const avisoFinal = avisoListo(srv, aviso);
   const finalParrafo = finalDelParrafo(srv, aviso);
+  // El paso 7 del alta: el titular nombra la clase. «Publicada» salvo con la
+  // página oculta, donde no la ve nadie de fuera (lo explica el aviso).
+  const comprobado = srv?.estado === 'SI';
+  const oculta = srv?.estado === 'NO' && srv.motivo === 'PAGINA_OCULTA';
+  const titular = nombreClase
+    ? `¡Listo! Tu clase «${nombreClase}» ya está ${oculta ? 'creada' : 'publicada'}`
+    : 'Tu estudio ya puede recibir reservas';
 
   // Tenti celebra ('hecho') con TRES condiciones y ninguna menos: que el
   // servidor haya dicho que una alumna nueva puede reservar (la MISMA respuesta
@@ -120,6 +163,7 @@ export function ListoParaReservar({
     setError(null);
     if (await copiarAlPortapapeles(url)) {
       capturarEvento('enlace_compartido', { via: 'copiar' });
+      if (esPropietaria) apuntarEnlaceCompartido('copiar');
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2200);
       return;
@@ -128,7 +172,7 @@ export function ListoParaReservar({
     // Safari fuera de un gesto y en contextos no seguros, y decir «Copiado»
     // con el portapapeles vacío es peor que no decir nada.
     setError('No hemos podido copiar. Selecciona el enlace y cópialo a mano.');
-  }, [url]);
+  }, [url, esPropietaria]);
 
   // La hoja nativa de compartir (WhatsApp, Instagram, Mensajes…) solo donde es
   // lo natural: un móvil o una tableta. En escritorio existe a medias y un
@@ -147,12 +191,13 @@ export function ListoParaReservar({
         url,
       });
       capturarEvento('enlace_compartido', { via: 'nativo' });
+      if (esPropietaria) apuntarEnlaceCompartido('compartir');
     } catch (e) {
       // Cerrar la hoja sin elegir nada NO es un fallo, y no cuenta como compartido.
       if (e instanceof DOMException && e.name === 'AbortError') return;
       setError('No hemos podido abrir el menú de compartir. Copia el enlace y pégalo donde quieras.');
     }
-  }, [url, nombreEstudio]);
+  }, [url, nombreEstudio, esPropietaria]);
 
   const textoWhatsApp = encodeURIComponent(
     `¡Ya puedes reservar tus clases en ${nombreEstudio}! Entra aquí y elige la que quieras: ${url}`,
@@ -191,7 +236,11 @@ export function ListoParaReservar({
     // 390 px la pantalla medía 444: el titular salía cortado y el enlace no se
     // truncaba — justo en el móvil, que es donde sale «Compartir mi enlace».
     createPortal(
-    <div className="fixed inset-0 z-[60] grid grid-cols-[minmax(0,1fr)] place-items-center overflow-y-auto bg-background">
+    // ⚠️ Con el QR (`conQr`, el paso 7 del alta), z-50 y no z-[60]: el diálogo
+    // del cartel (`BotonQr`) es un Dialog de z-50 que se monta DESPUÉS en el
+    // mismo anfitrión, y a z-[60] se abría por debajo de esta pantalla, sin
+    // verse. El Calendario no pasa `conQr` y sigue como estaba.
+    <div className={`fixed inset-0 ${conQr ? 'z-50' : 'z-[60]'} grid grid-cols-[minmax(0,1fr)] place-items-center overflow-y-auto bg-background`}>
       <div className="mx-auto w-full max-w-[820px] px-5 py-10 sm:py-14">
       <div className="text-center">
         {/* Caja FIJA de 80×80, con Tenti o con el Check: que llegue el chunk, o
@@ -201,7 +250,7 @@ export function ListoParaReservar({
           <TentiDiferido estado={estadoTenti} tamano={80} sigueCursor reserva={<CuadroListo />} />
         </div>
         <h2 className="text-[24px] font-bold tracking-tight text-foreground sm:text-[28px]">
-          Tu estudio ya puede recibir reservas
+          {titular}
         </h2>
         <p className="mx-auto mt-2 max-w-[520px] text-[14px] leading-relaxed text-muted-foreground">
           {clasesCreadas > 0 && (
@@ -209,9 +258,18 @@ export function ListoParaReservar({
           )}
           {/* La promesa, solo cuando es verdad (`finalDelParrafo`): con un no se
               queda en «abierta», salvo con la página oculta, que lo cuenta el
-              aviso; y mientras el servidor contesta, ni lo uno ni lo otro. */}
-          {finalParrafo}
+              aviso; y mientras el servidor contesta, ni lo uno ni lo otro. En el
+              paso 7 del alta, con el SÍ, la frase de la maqueta. */}
+          {nombreClase && comprobado
+            ? 'Cualquiera con tu enlace puede reservarla desde el móvil, sin descargarse nada. Mándaselo a tus alumnas: así llega tu primera reserva.'
+            : finalParrafo}
         </p>
+        {nombreClase && comprobado && (
+          <p className="mx-auto mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground" data-testid="comprobado-reservar">
+            <CircleCheck size={16} className="text-success" aria-hidden />
+            Comprobado: una alumna nueva puede reservar
+          </p>
+        )}
         {avisoFinal && (
           <p className="mx-auto mt-3 flex max-w-[560px] items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2.5 text-left text-[13px] leading-snug text-foreground">
             <AlertTriangle size={15} className="mt-[1px] shrink-0 text-warning" aria-hidden />
@@ -259,7 +317,10 @@ export function ListoParaReservar({
               href={`https://wa.me/?text=${textoWhatsApp}`}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => capturarEvento('enlace_compartido', { via: 'whatsapp' })}
+              onClick={() => {
+                capturarEvento('enlace_compartido', { via: 'whatsapp' });
+                if (esPropietaria) apuntarEnlaceCompartido('whatsapp');
+              }}
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-medio hover:underline"
             >
               <MessageCircle size={14} aria-hidden />
@@ -276,19 +337,42 @@ export function ListoParaReservar({
             </a>
           </div>
 
+          {conQr && (
+            <div className="mt-3">
+              <BotonQr
+                destino="reservas"
+                url={url}
+                slug={slug}
+                estudio={nombreEstudio}
+                nombreEnlace="Página de reservas"
+                onDescargado={() => { if (esPropietaria) apuntarEnlaceCompartido('qr'); }}
+              />
+              <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre tu página.</p>
+            </div>
+          )}
+
           <p className="mt-5 text-[12.5px] leading-relaxed text-muted-foreground">
             Pégalo en tu Instagram, en el grupo de WhatsApp o donde ya hablas con tus alumnas.
             No hace falta que se descarguen nada.
           </p>
+          {/* Solo si el servidor lo ha mandado de verdad: sale una vez y con el SÍ. */}
+          {correoEnviado && comprobado && (
+            <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground" data-testid="aviso-correo-reservas">
+              Te lo mandamos también por correo, con el QR, para tenerlo a mano.
+            </p>
+          )}
 
           <button
             type="button"
             onClick={onSeguir}
             className="mt-6 inline-flex h-11 items-center gap-2 rounded-full bg-brand px-5 text-[14.5px] font-bold text-brand-foreground transition-all hover:brightness-95"
           >
-            Ver mi calendario
+            {textoSeguir}
             <ArrowRight size={16} strokeWidth={2.5} aria-hidden />
           </button>
+          {errorSeguir && (
+            <p role="alert" className="mt-2 text-[12.5px] leading-snug text-destructive">{errorSeguir}</p>
+          )}
         </div>
 
         {/* Su página DE VERDAD, no una ilustración. */}

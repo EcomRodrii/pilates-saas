@@ -11,7 +11,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'precios-reformer-mat',
   titulo: 'Reformer vs. mat: cuánto cuesta cada plaza, cuánto factura una máquina y qué precio ponerle',
-  tituloSeo: 'Reformer vs mat: coste por plaza y cuánto factura un reformer',
+  tituloSeo: 'Reformer vs mat: coste por plaza y facturación',
   descripcion: 'Cuánto cuesta ofrecer una plaza de reformer y una de mat, cuánto factura una máquina al mes y qué diferencia de precio cobran 32 estudios españoles.',
   resumen: 'La cuenta de una plaza de reformer frente a una de suelo, lo que factura cada máquina según la ocupación y la diferencia de precio que cobran los estudios españoles.',
   categoria: 'rentabilidad',
@@ -166,7 +166,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'El reformer y el mat, cada uno con su precio y sus reglas',
-          texto: 'En Tentare los bonos y las cuotas pueden ser de un tipo de clase concreto, si defines los puestos de la sala la alumna elige su reformer al reservar, y la plaza que se libera pasa sola a la primera de la lista de espera. Desde 29 €/mes con IVA y sin permanencia.',
+          texto: 'En Tentare los bonos y las cuotas pueden ser de un tipo de clase concreto, si defines los puestos de la sala la alumna elige su reformer al reservar, y la plaza que se libera pasa sola a la primera de la lista de espera. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia.',
         },
       ],
     },
@@ -208,7 +208,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Cada formato con su precio, y ninguna plaza perdida.',
-    texto: 'Bonos y cuotas por tipo de clase, reserva por reformer y lista de espera automática. 7 días gratis, sin tarjeta y sin permanencia.',
+    texto: 'Bonos y cuotas por tipo de clase, reserva por reformer y lista de espera automática. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Precios de Elina Pilates y de la muestra de 32 estudios: 25-sep-2026.',

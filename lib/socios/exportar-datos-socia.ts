@@ -97,6 +97,8 @@ export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida:
   bajas_clienta: { seccion: 'otros' },
   // Lo que preguntó antes de ser clienta, enlazado a su ficha (migr 20261001105825).
   consultas_contacto: { seccion: 'otros' },
+  plaza_fija_sin_cuota_avisos: { excluida: 'Un apunte interno de cuándo se le avisó de que sus clases fijas se liberaban sin cuota y desde qué día; el aviso en sí ya lo recibió ella.' },
+  rastro_gratis: { excluida: 'Solo un HMAC de su correo y de su móvil para que un estudio no salte de cuenta en el plan gratis; no se puede leer sin la clave, que solo tiene la base de datos, y se borra al suprimir su ficha.' },
   socios_qr_acceso: { excluida: 'Solo la huella del código de su QR de acceso, que no se puede leer ni contiene nada suyo; su QR lo ve siempre en su app.' },
   consentimientos_salud_eventos: { seccion: 'consentimientos' },
   aceptaciones_contrato_eventos: { seccion: 'consentimientos' },
@@ -283,7 +285,8 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     // El IBAN va cifrado (2-oct-2026): sale enmascarado desde sus 4 últimos dígitos.
     tabla('mandatos_sepa', 'id, iban_ultimos4, ref_mandato, fecha_firma, estado, creada_en'),
     // Sin `studio_id` en la tabla: se acota por la socia (ids globales únicos).
-    leer(db, 'codigos_descuento_consumos', 'recibo_id, consumido_en', [['eq', 'socio_id', socioId]], 'consumido_en'),
+    // Un consumo es de un recibo (online) o de una venta de la Caja (16-oct-2026).
+    leer(db, 'codigos_descuento_consumos', 'recibo_id, venta_pos_id, consumido_en', [['eq', 'socio_id', socioId]], 'consumido_en'),
     tabla('citas', 'id, instructor_id, tipo, inicio, fin, estado, precio, pagada, notas'),
     tabla('plazas_fijas', 'id, dia_semana, hora_inicio, sala_id, tipo_clase_id, vigencia_desde, vigencia_hasta, estado, pausa_desde, pausa_hasta, creada_en'),
     // Lo que pidió sobre su plaza fija y qué le contestó el estudio, con el motivo

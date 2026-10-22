@@ -12,14 +12,13 @@ export function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-export type RespuestaAyuda = (route: Route, cuerpo: Record<string, unknown>) => Promise<void> | void;
-
 export async function montarAlta(
   page: Page,
-  { estudio = {}, ayuda, antes }: { estudio?: Record<string, unknown>; ayuda?: RespuestaAyuda; antes?: (page: Page) => Promise<void> } = {},
+  { estudio = {}, antes }: { estudio?: Record<string, unknown>; antes?: (page: Page) => Promise<void> } = {},
 ) {
   const peticiones = {
-    /** Cada POST a /api/onboarding/ayuda-alta, con su cuerpo. */
+    /** Cada POST a /api/onboarding/ayuda-alta. El asistente ya no la llama
+     *  (21-oct-2026): se cuenta para poder exigir que siga en cero. */
     ayuda: [] as Record<string, unknown>[],
     /** Cada PATCH a studios (sellar el alta, guardar respuestas, logo). */
     patches: [] as Record<string, unknown>[],
@@ -63,10 +62,8 @@ export async function montarAlta(
     return json(route, { ok: true, salas: 1, tiposClase: 2, planes: 0 });
   });
   await page.route('**/api/onboarding/ayuda-alta', async route => {
-    const cuerpo = route.request().postDataJSON() as Record<string, unknown>;
-    peticiones.ayuda.push(cuerpo);
-    if (ayuda) return ayuda(route, cuerpo);
-    return json(route, { ok: true, guardada: cuerpo.ayuda === 'Prefiero que me llamen' });
+    peticiones.ayuda.push((route.request().postDataJSON() ?? {}) as Record<string, unknown>);
+    return json(route, { error: 'Retirada' }, 410);
   });
 
   if (antes) await antes(page);

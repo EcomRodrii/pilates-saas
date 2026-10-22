@@ -32,11 +32,15 @@ import { cn } from '@/lib/utils';
 import { BotonVivo, CabeceraTarjeta, PantallaVacia, TONOS, TarjetaCifra, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
-import { PLAN_INFO, planMinimoPara } from '@/lib/billing/entitlements';
+import { ADDONS, PLAN_INFO, planMinimoPara } from '@/lib/billing/entitlements';
 
 // El plan más barato con Autónomo y Vacaciones, del entitlement: escrito a mano
 // decía «Estudio» también cuando Founding Studio pasó a incluirlos (15-oct-2026).
 const PLAN_AUTONOMIA = PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre;
+// En Founding con complementos aparte se activa sin cambiar de plan.
+const motivoBloqueo = (complemento: boolean) => complemento
+  ? `Con el complemento «${ADDONS.sustituciones.nombre}» (+${ADDONS.sustituciones.precioMes}€/mes)`
+  : `Incluido a partir del plan ${PLAN_AUTONOMIA}`;
 
 type EstadoMeta = { label: string; cls: string; activa: boolean };
 // Panel nuevo (14-oct-2026): los cuatro modos como tarjetas que se eligen, con lo
@@ -102,6 +106,7 @@ export default function SustitucionesPage() {
   // Guarda a quién preseleccionar (null = cerrado).
   const [marcandoPara, setMarcandoPara] = useState<string | null>(null);
   const [modo, setModo] = useState('asistido');               // modo_autonomia del estudio
+  const [autonomiaComplemento, setAutonomiaComplemento] = useState(false);
   const [autonomiaOk, setAutonomiaOk] = useState(false);      // plan incluye autónomo/vacaciones
   const panelNuevo = usePanelNuevo();
 
@@ -110,11 +115,11 @@ export default function SustitucionesPage() {
 
   async function recargar() {
     const r = await listarSustituciones();
-    setItems(r.items); setAvisar(r.avisarAlumnas); setModo(r.modoAutonomia); setAutonomiaOk(r.autonomiaDisponible); setEquipo(r.equipo); setCargando(false);
+    setItems(r.items); setAvisar(r.avisarAlumnas); setModo(r.modoAutonomia); setAutonomiaOk(r.autonomiaDisponible); setAutonomiaComplemento(!!r.autonomiaEsComplemento); setEquipo(r.equipo); setCargando(false);
   }
   useEffect(() => {
     let vivo = true;
-    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setModo(r.modoAutonomia); setAutonomiaOk(r.autonomiaDisponible); setEquipo(r.equipo); setCargando(false); } });
+    listarSustituciones().then(r => { if (vivo) { setItems(r.items); setAvisar(r.avisarAlumnas); setModo(r.modoAutonomia); setAutonomiaOk(r.autonomiaDisponible); setAutonomiaComplemento(!!r.autonomiaEsComplemento); setEquipo(r.equipo); setCargando(false); } });
     resumenValoraciones().then(r => { if (vivo) setValoraciones(r); });
     return () => { vivo = false; };
   }, []);
@@ -367,7 +372,7 @@ export default function SustitucionesPage() {
                   aria-checked={activo}
                   onClick={() => cambiarModo(m.val)}
                   disabled={bloqueado}
-                  title={bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}` : undefined}
+                  title={bloqueado ? motivoBloqueo(autonomiaComplemento) : undefined}
                   className={cn(
                     'flex items-start gap-3 rounded-2xl border p-3 text-left transition-[transform,box-shadow] disabled:cursor-not-allowed',
                     !bloqueado && 'hover:-translate-y-0.5 hover:shadow-md',
@@ -384,12 +389,17 @@ export default function SustitucionesPage() {
                       {activo && <Check size={14} style={{ color: TONOS[m.tono] }} aria-hidden />}
                       {bloqueado && <Lock size={12} className="text-muted-foreground" aria-hidden />}
                     </span>
-                    <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}.` : m.que}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">{bloqueado ? `${motivoBloqueo(autonomiaComplemento)}.` : m.que}</span>
                   </span>
                 </button>
               );
             })}
           </div>
+          {!cargando && !autonomiaOk && autonomiaComplemento && (
+            <Link href="/suscripcion#complementos" className="mt-3 inline-block text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--t-text-link)' }}>
+              Activar «{ADDONS.sustituciones.nombre}» por {ADDONS.sustituciones.precioMes}€/mes
+            </Link>
+          )}
           {!cargando && (
             <div className="mt-4 border-t border-border pt-4">
               {puedeGestionarEquipo(rolPanel) ? (
@@ -401,7 +411,7 @@ export default function SustitucionesPage() {
                   {seccionesVisibles(rolPanel).some(s => s.id === 'reservas') && (
                     <Link
                       href="/configuracion?tab=reservas#ajuste-avisar-alumnas"
-                      className="text-[12.5px] font-semibold underline-offset-2 hover:underline"
+                      className="zona-tactil text-[12.5px] font-semibold underline-offset-2 hover:underline"
                       style={{ color: 'var(--t-text-link)' }}
                     >
                       Qué más pasa cuando una clase cambia
@@ -457,7 +467,7 @@ export default function SustitucionesPage() {
                 key={val}
                 onClick={() => cambiarModo(val)}
                 disabled={bloqueado}
-                title={bloqueado ? `Incluido a partir del plan ${PLAN_AUTONOMIA}` : undefined}
+                title={bloqueado ? motivoBloqueo(autonomiaComplemento) : undefined}
                 className={`px-3 py-1 rounded-full text-[12px] font-bold transition-all disabled:opacity-45 disabled:cursor-not-allowed ${modo === val ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {bloqueado ? `🔒 ${label}` : label}

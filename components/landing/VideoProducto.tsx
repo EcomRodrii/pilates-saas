@@ -1,6 +1,6 @@
 // El vídeo de producto («Ver cómo funciona» en el hero): el resumen de 78 s
 // del panel REAL de Tentare con datos de un estudio de prueba inventado —
-// bajas que se cubren solas, la semana entera en el calendario, reservas,
+// quién cubre una baja, la semana entera en el calendario, reservas,
 // cobros— narrado con tipografía y avisos sobre el propio producto.
 //
 // Hasta el 17-sep-2026 este hueco era un bucle mudo en autoplay (dos cortes,
@@ -28,7 +28,7 @@
 
 const ANCHO = 1920;
 const ALTO = 1080;
-const ALT = 'Tentare por dentro: bajas que se cubren solas, la semana entera en el calendario, reservas online y los cobros del mes.';
+const ALT = 'Tentare por dentro: quién cubre una baja, la semana entera en el calendario, reservas online y los cobros del mes.';
 
 export function VideoProducto() {
   return (
@@ -42,12 +42,10 @@ export function VideoProducto() {
       </div>
 
       <style>{`
-        /* Justo después del héroe, montado 72 px sobre él (el fundador lo
-           quiere ahí, encima de «¿Te suena?»: es la prueba inmediata de la
-           promesa). El fondo oscuro de «¿Te suena?» empieza por debajo, así
-           que el vídeo queda a caballo entre la promesa y el problema. */
-        .v5-prod { position: relative; z-index: 2; max-width: 1180px; margin: -72px auto 0;
-          padding: 0 clamp(20px,4vw,48px); }
+        /* Desde la home nueva (fase 2.2) va al final de la sección de producto
+           (components/web/home/PestanasProducto.tsx), dentro de su contenedor:
+           sin solaparse con nada y sin relleno propio. */
+        .v5-prod { position: relative; max-width: 1180px; margin: 0 auto; }
         /* El marco: esquinas redondeadas, un borde muy tenue y una sombra
            larga. Nada de barra de navegador ni de puntos de ventana — lo que
            se enseña es el producto, no una captura de pantalla. */
@@ -57,7 +55,6 @@ export function VideoProducto() {
         .v5-prod-marco video { display: block; width: 100%; height: auto; }
 
         @media (max-width: 760px) {
-          .v5-prod { margin-top: -24px; padding: 0 12px; }
           .v5-prod-marco { border-radius: 14px; }
         }
       `}</style>

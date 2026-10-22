@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   const r = await exigirGestorWebhooks(req);
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
   const { g } = r;
-  if (!g.activada) return NextResponse.json({ error: 'La API no está activada para tu estudio. Escríbenos y la activamos.' }, { status: 403 });
+  if (!g.activada) return NextResponse.json({ error: 'Tentare ha desactivado la API en tu estudio. Escríbenos y lo revisamos.' }, { status: 403 });
   if (!g.conAcceso) return NextResponse.json({ error: SIN_ACCESO }, { status: 403 });
 
   const v = validarNuevoWebhook(await req.json().catch(() => null), g.tipos);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizarSlug, motivoSlugInvalido, SLUG_MAX } from './slug.ts';
+import { normalizarSlug, motivoSlugInvalido, slugify, SLUG_MAX } from './slug.ts';
 
 // La dirección pública se generaba al crear el estudio y no se podía tocar
 // nunca más: quien se rebautizaba se quedaba con la vieja para siempre.
@@ -48,4 +48,12 @@ test('lo ya normalizado pasa la validación: las dos reglas encajan', () => {
 test('lo que se normaliza a nada se explica, no se acepta en silencio', () => {
   assert.equal(normalizarSlug('¿¿¿!!!'), '');
   assert.match(motivoSlugInvalido(normalizarSlug('¿¿¿!!!')) ?? '', /Escribe/);
+});
+
+test('slugify: la base con la que nace un estudio, y «estudio» si del nombre no queda nada', () => {
+  // La misma que usaba dbCreateStudio: el alta nueva la enseña mientras se escribe.
+  assert.equal(slugify('Estudio Alba Pilates'), 'estudio-alba-pilates');
+  assert.equal(slugify('Pilates Málaga'), normalizarSlug('Pilates Málaga'));
+  assert.equal(slugify('!!!'), 'estudio');
+  assert.equal(slugify(''), 'estudio');
 });

@@ -236,7 +236,7 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
             <button
               type="button"
               onClick={onVerPendiente}
-              className="text-[12.5px] font-semibold underline underline-offset-2"
+              className="zona-tactil text-[12.5px] font-semibold underline underline-offset-2"
               style={{ color: 'var(--brand-secondary)' }}
             >
               {SIGUE_EN_EL_DETALLE}
@@ -269,7 +269,7 @@ export function VeredictoDelDia({ veredicto, onAprobar, onYaContactada, onYaLoSe
         <button
           type="button"
           onClick={() => setPorQueAbierto(v => !v)}
-          className="w-fit text-[12px] font-semibold underline underline-offset-2"
+          className="zona-tactil w-fit text-[12px] font-semibold underline underline-offset-2 tactil:my-1.5"
           style={{ color: 'var(--brand-secondary)' }}
         >
           {porQueAbierto ? 'Ocultar evidencia' : '¿Por qué?'}

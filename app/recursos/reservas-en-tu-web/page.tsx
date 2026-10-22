@@ -5,9 +5,10 @@ import { fechaModificada, guia } from '@/lib/recursos/guias';
 import { openGraphGuia } from '@/lib/recursos/schema';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
+import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 // Guía de DECISIÓN (por qué no redirigir y qué opciones hay). La de INSTALACIÓN
 // —WordPress, Wix, Squarespace— es /recursos/widget-vs-iframe-reservas-pilates.
@@ -18,13 +19,16 @@ const SLUG = 'reservas-en-tu-web';
 
 const GUIA = guia('reservas-en-tu-web');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/reservas-en-tu-web')!;
+
 export const metadata: Metadata = {
-  // El <title> responde a lo que se busca (cómo poner reservas en la web); el
-  // titular de la página sigue siendo el de la guía.
-  title: 'Reservas en la web de tu estudio: widget, plugin o API — Tentare',
-  description: 'Cuando la alumna sale de tu web para reservar, casi siempre no vuelve. Qué se pierde con la redirección y qué opciones tienes: widget, plugin de WordPress o API.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: TITLE,
     description: 'Por qué redirigir a otra plataforma cuesta reservas, y las tres formas reales de evitarlo.',
@@ -61,11 +65,11 @@ export default function ReservasEnTuWebPage() {
         <p style={{ fontSize: 19, lineHeight: 1.6, color: '#1A1A1A' }}>La alumna llega a tu web. Ha visto tu Instagram, le gusta tu estudio, quiere apuntarse. Pulsa «Reservar» y de repente aparece en una pantalla con otros colores, otro logo y una interfaz que no reconoce. No sabe si ha salido de tu web o si eso es tuyo. La mayoría cierra esa ventana y no vuelve.</p>
         <p>Eso no es un problema de diseño: es una fuga de confianza. Y en un sector donde la relación entre alumna y estudio es tan personal como el Pilates, esa fricción cuesta reservas, cuesta fidelización y cuesta reputación. ¿Puedes integrar reservas de Pilates en tu web sin redirigir a otra plataforma? Sí, y en este artículo te explicamos exactamente cómo hacerlo. Redirigir a una plataforma externa no es una decisión técnica neutral: tiene consecuencias directas en tu negocio.</p>
         <p>Si ya sabes que quieres integrarlo y buscas cómo instalarlo, tienes la <Link href="/recursos/widget-vs-iframe-reservas-pilates" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>guía de instalación paso a paso en WordPress, Wix y Squarespace</Link>.</p>
-        <p>Tienes opciones concretas para resolver esto. Soluciones como Tentare permiten a estudios de Pilates en España tener un <Link href="/funcionalidades/reservas-online" style={{ color: ACC }}>sistema de reservas completamente integrado</Link> en su propia web, sin que la alumna salga en ningún momento. A continuación encontrarás las distintas opciones técnicas comparadas, los pasos para implementarlas y una guía de proveedores para tomar una decisión con criterio.</p>
+        <p>Tienes opciones concretas para resolver esto. Soluciones como Tentare permiten a estudios de Pilates en España tener un <Link href="/funcionalidades/reservas-online" style={{ color: ACC }}>sistema de reservas integrado</Link> en su propia web: con la sesión iniciada, la alumna reserva sin salir de ella; la primera vez, la reserva se termina en la página del estudio en Tentare. A continuación encontrarás las distintas opciones técnicas comparadas, los pasos para implementarlas y una guía de proveedores para tomar una decisión con criterio.</p>
 
         <h2 id="s1">Por qué perder a la alumna en la redirección sale caro</h2>
         <p>El flujo tiene lógica desde la perspectiva del proveedor de software, pero ninguna desde la de tu alumna. Ella entra en tu web, percibe tu marca, tu estilo, tu propuesta. Cuando pulsa el botón de reserva y aterriza en otra plataforma con otro nombre y otro diseño, su cerebro registra una discontinuidad: algo no cuadra. En móvil el problema se amplifica, porque la carga es más lenta, el diseño ajeno desorienta más y el proceso parece interminable.</p>
-        <p>Los datos generales de abandono en reservas online rondan el 80&nbsp;%. Una parte significativa de ese abandono ocurre en ese momento de ruptura, cuando el usuario percibe que ha salido del entorno de confianza donde empezó. No es que tu alumna sea difícil: es que el proceso le pide más esfuerzo del que estaba dispuesta a dar.</p>
+        <p>Parte del abandono en las reservas online ocurre en ese momento de ruptura, cuando el usuario percibe que ha salido del entorno de confianza donde empezó. No es que tu alumna sea difícil: es que el proceso le pide más esfuerzo del que estaba dispuesta a dar.</p>
 
         <Callout title="Lo que no se ve a primera vista" bg="#F1F2EA" border="#E0E5D0" iconColor={ACC} textColor="#3E4430">
           Además de perder la reserva inmediata, el estudio pierde cosas que no se ven a primera vista. Cuando la transacción ocurre fuera de tu dominio, tu analítica web no la registra como conversión propia, y tus datos de rendimiento quedan distorsionados. Si hay una incidencia, la alumna la asocia con esa pantalla extraña, no contigo; pero si algo va bien, el mérito también se diluye. La fidelización se construye en cada punto de contacto con tu marca, y la reserva es uno de los más importantes. Si ese momento vive en la plataforma de un tercero, el vínculo emocional con tu estudio se debilita.
@@ -99,8 +103,8 @@ export default function ReservasEnTuWebPage() {
           Si quieres entender por qué un iframe puede romperse en Safari de iPhone y cuánta conversión pierde cada método, la comparativa técnica completa está en <Link href="/recursos/widget-vs-iframe-reservas-pilates" style={{ color: '#5C4A22', fontWeight: 700 }}>cómo integrar reservas online en la web de tu estudio de pilates</Link>.
         </Callout>
 
-        <h3>El widget de Tentare: sin código, sin redirección, en minutos</h3>
-        <p><Link href="/" style={{ color: ACC }}>El widget de Tentare</Link> está diseñado específicamente para estudios de Pilates. Se instala copiando un único fragmento de código en cualquier web, sin plugins adicionales ni conocimientos técnicos. La alumna completa toda la reserva dentro de tu propia web, selecciona la clase, elige el reformer concreto que quiere y paga, sin salir en ningún momento del dominio.</p>
+        <h3>El widget de Tentare: sin código, en minutos</h3>
+        <p><Link href="/" style={{ color: ACC }}>El widget de Tentare</Link> está diseñado específicamente para estudios de Pilates. Se instala copiando un único fragmento de código en cualquier web, sin plugins adicionales ni conocimientos técnicos. Con la sesión iniciada, la alumna reserva dentro de tu propia web; la primera vez, la reserva se termina en la página de tu estudio en Tentare, donde elige el reformer concreto, si la sala tiene sus puestos definidos, y paga.</p>
         <p>El diseño del widget se adapta a los colores y la identidad visual de tu estudio, y en todos los planes la app de tus alumnas lleva tu nombre, tu logo y tus colores; Tentare solo aparece en una línea discreta de «Reservas seguras con Tentare».</p>
 
         <h2 id="s4">Pagos y RGPD: lo que debes resolver antes de activar las reservas</h2>
@@ -123,19 +127,19 @@ export default function ReservasEnTuWebPage() {
         <h2 id="s6">Proveedores para estudios de Pilates en España</h2>
 
         <h3>Tentare: una solución orientada a la realidad de un estudio de Pilates</h3>
-        <p>Tentare es una solución del mercado español diseñada específicamente para estudios de Pilates. Gestiona por reformer individual, no solo por aforo general, lo que marca una diferencia real en la operativa diaria. Su sistema de listas de espera es automático y las sustituciones de instructoras se resuelven sin que la propietaria escriba un solo mensaje: le basta con dar el visto bueno a la candidata, o ni eso en modo autónomo.</p>
-        <p>Su widget de reservas se instala en cualquier web en minutos, mantiene la identidad visual del estudio en todo momento y permite a la alumna reservar clase, elegir reformer y pagar sin salir del dominio. Está disponible desde 29&nbsp;€/mes sin permanencia, y la app con la marca del estudio va incluida en todos los planes.</p>
+        <p>Tentare es una solución del mercado español diseñada específicamente para estudios de Pilates. Gestiona por reformer individual, no solo por aforo general, lo que marca una diferencia real en la operativa diaria. Su sistema de listas de espera es automático y las sustituciones de instructoras se resuelven sin que la propietaria escriba un solo mensaje: le basta con dar el visto bueno a la candidata, o ni eso en modo autónomo (en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes).</p>
+        <p>Su widget de reservas se instala en cualquier web en minutos, mantiene la identidad visual del estudio y, con la sesión iniciada, la alumna reserva dentro de tu web; la primera vez, la reserva se termina en la página de tu estudio en Tentare. Está disponible gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y la app con la marca del estudio va incluida en todos los planes.</p>
 
         <h3>Otras opciones a conocer para tener contexto</h3>
-        <p>Soluciones como Mindbody o <Link href="/comparativa/tentare-vs-glofox" style={{ color: ACC }}>Glofox</Link> son herramientas pensadas para gimnasios y centros de fitness en general. En sus planes estándar pueden no cubrir funcionalidades específicas como la gestión por reformer individual o las sustituciones automatizadas, y sus precios suelen superar los 200&nbsp;€/mes. Para un estudio de Pilates con necesidades concretas, es importante verificar qué incluye exactamente cada plan antes de comprometerse.</p>
+        <p>Soluciones como Mindbody o <Link href="/comparativa/tentare-vs-glofox" style={{ color: ACC }}>Glofox</Link> son herramientas pensadas para gimnasios y centros de fitness en general. En sus planes estándar pueden no cubrir funcionalidades específicas como la gestión por reformer individual o las sustituciones automatizadas, y sus planes empiezan en 99&nbsp;€/mes (Mindbody) y 99&nbsp;USD/mes (Glofox), según sus webs. Para un estudio de Pilates con necesidades concretas, es importante verificar qué incluye exactamente cada plan antes de comprometerse.</p>
         <p>Plataformas como EasyWeek o Setmore ofrecen widgets embebibles a precios más bajos y son accesibles para empezar. Sin embargo, carecen de funcionalidades específicas para Pilates: sin gestión de reformers, sin listas de espera automáticas, sin sustituciones. Son suficientes en un momento inicial, pero pueden limitar la operativa cuando el estudio crece. <Link href="/recursos/checklist-elegir-software-estudio" style={{ color: ACC }}>Antes de elegir cualquier proveedor</Link>, comprueba al menos estos puntos: que permita integrar las reservas de Pilates en tu web sin redirigir a otra plataforma, que incluya pasarela de pago integrada y que no obligue a la alumna a crear una cuenta en el sistema del tercero.</p>
 
         <h2 id="conclusion">La decisión que parece pequeña y no lo es</h2>
         <p>Integrar las reservas directamente en tu web no es una mejora cosmética. Es una decisión que afecta a la conversión, a la fidelización y a la imagen profesional de tu estudio. Cada alumna que llega a tu web y completa la reserva sin salir de tu dominio vive una experiencia coherente con tu marca de principio a fin.</p>
         <p>Para la mayoría de estudios, la opción más práctica es el widget embebido: sin desarrollo a medida, sin redirigir a la alumna, con tu marca presente en todo momento. No necesitas un presupuesto de desarrollo ni conocimientos técnicos avanzados para conseguirlo. En resumen: sí puedes integrar las reservas de Pilates en tu web sin redirigir a otra plataforma, y el widget embebido es, en la mayoría de los casos, la forma más rápida y rentable de hacerlo.</p>
-        <p>Si quieres ver cómo funciona en la práctica, Tentare ofrece una demostración sin compromiso. Desde 29&nbsp;€/mes y sin permanencia, puedes tener un sistema de reservas completamente integrado en tu web antes de que acabe la semana.</p>
+        <p>Si quieres ver cómo funciona en la práctica, puedes probarlo gratis. Gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia, puedes tener un sistema de reservas integrado en tu web antes de que acabe la semana.</p>
 
-        <CtaBlock title="Un sistema de reservas dentro de tu web, esta semana" body="Sin redirección, sin código complejo, con tu marca en todo momento. Desde 29€/mes, sin permanencia." />
+        <CtaBlock title="Un sistema de reservas dentro de tu web, esta semana" body={`Sin código complejo y con tu marca. ${GRATIS_CON_LIMITES}, sin permanencia.`} />
 
         <RelatedLinks
           items={[

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -126,7 +126,7 @@ export default function BonosPage() {
         <p>
           Definir el plan es la mitad; la otra es que el dinero entre sin que persigas a nadie. Las cuotas se renuevan y se
           cobran solas con la tarjeta guardada, los bonos se pueden comprar desde el portal de la alumna, y todo lo que se
-          cobra —salvo el efectivo— genera su factura si activas la facturación.
+          cobra —salvo el efectivo— genera su factura: la facturación viene encendida.
         </p>
         <p>
           El detalle de cómo se cobra, qué pasa cuando una tarjeta falla y cómo se generan las remesas SEPA está en{' '}

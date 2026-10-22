@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  accesoProducto, tieneFeature, entitlementsDe, ENTITLEMENTS_GRATIS, PLAN_ENTITLEMENTS, PLAN_INFO, PLANES, planMinimoPara,
+  accesoProducto, tieneFeature, entitlementsDe, ENTITLEMENTS_GRATIS, PLAN_ENTITLEMENTS, PLAN_INFO, PLANES, planMinimoPara, BASE_COMPLETO,
 } from './entitlements.ts';
 
 test('accesoProducto: solo con suscripción activa (sin trial)', () => {
@@ -13,8 +13,9 @@ test('accesoProducto: solo con suscripción activa (sin trial)', () => {
 });
 
 test('plan desconocido/ausente cae a BASE', () => {
-  assert.deepEqual(entitlementsDe({ plan: null }), PLAN_ENTITLEMENTS.BASE);
-  assert.deepEqual(entitlementsDe({ plan: 'RANDOM' }), PLAN_ENTITLEMENTS.BASE);
+  // Sin régimen de complementos, el Founding de siempre (lo trae todo).
+  assert.deepEqual(entitlementsDe({ plan: null }), BASE_COMPLETO);
+  assert.deepEqual(entitlementsDe({ plan: 'RANDOM' }), BASE_COMPLETO);
   assert.deepEqual(entitlementsDe({ plan: 'CADENA' }), PLAN_ENTITLEMENTS.CADENA);
 });
 
@@ -32,11 +33,11 @@ test('tieneFeature: exige suscripción activa Y que el plan la incluya', () => {
 });
 
 test('planMinimoPara: el plan más barato que ya incluye la feature', () => {
-  // Desde el 15-oct-2026 Founding Studio (BASE) lo incluye todo menos varias sedes.
   assert.equal(planMinimoPara('gamificacion'), 'BASE');
   assert.equal(planMinimoPara('marketing'), 'BASE');
-  assert.equal(planMinimoPara('ia'), 'BASE');
-  assert.equal(planMinimoPara('decisiones'), 'BASE');
+  // Desde el 19-oct-2026 van de serie en Estudio; en Founding, como complemento.
+  assert.equal(planMinimoPara('ia'), 'ESTUDIO');
+  assert.equal(planMinimoPara('decisiones'), 'ESTUDIO');
   assert.equal(planMinimoPara('multiCentro'), 'CADENA'); // solo CADENA la tiene
 });
 

@@ -5,10 +5,18 @@
 export const MAX_HERRAMIENTAS = 5;
 /** Peticiones a Anthropic por pregunta. */
 export const MAX_LLAMADAS = 6;
-/** Si se pasa y aún pide herramientas, se para («demasiado amplia»). = 5 unidades. */
-export const COSTE_MAX_PREGUNTA_USD = 0.15;
-/** Con más contexto que esto (medido con el `usage` real), «empieza una conversación nueva». */
-export const MAX_CONTEXTO_TOKENS = 40_000;
+/**
+ * Si se pasa y aún pide herramientas, se para («demasiado amplia»). ≈ 2 unidades (ceil(0,05 / 0,03)).
+ * Con las tarifas de Haiku 5.5 una consulta típica cuesta ~0,001 $ y el peor caso con los topes de
+ * abajo ~0,008 $: 0,05 $ sigue sin cortar nada legítimo y vuelve a frenar un bucle (con 0,15 $ era letra
+ * muerta). También es lo que se reserva antes de llamar y lo que se cobra si se aborta la petición.
+ */
+export const COSTE_MAX_PREGUNTA_USD = 0.05;
+/**
+ * Con más contexto que esto (medido con el `usage` real), «empieza una conversación nueva». 52.000 con el
+ * tokenizador de Haiku 5.5 (~30 % más tokens) cabe lo mismo que 40.000 con el de Haiku 4.5.
+ */
+export const MAX_CONTEXTO_TOKENS = 52_000;
 /** Lo que vuelve de una herramienta al modelo (~3K tokens). */
 export const MAX_CHARS_RESULTADO = 9_000;
 /** Filas de una lista hacia el modelo; el resto va como `total` + `truncado`. */

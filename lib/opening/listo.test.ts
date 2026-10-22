@@ -75,7 +75,7 @@ test('antelación: avisa si la primera clase aún no se puede reservar, sin bloq
 });
 
 test('sin permiso para la pantalla que lo arregla, el punto sale sin enlace', () => {
-  const cs = evaluarListo(listo({ stripe: 'NO_PUEDE' }), now, h => !h.includes('tab=cobros'));
+  const cs = evaluarListo(listo({ stripe: 'NO_PUEDE' }), now, h => !h.includes('tab=conexiones'));
   assert.equal(cs.find(c => c.id === 'stripe')!.href, null);
   assert.equal(cs.find(c => c.id === 'clases')!.href, '/calendario');
 });

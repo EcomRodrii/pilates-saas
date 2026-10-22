@@ -1,0 +1,542 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Home nueva de tentare.app (fase 2.2, 19-oct-2026).
+
+   Lenguaje visual de Mariana Tek (calma tipográfica, foto a sangre con
+   fragmentos del producto encima), bsport (el producto dibujado en un bento de
+   radio 24, sin sombra, que sale por el borde de cada tarjeta) y Momence
+   (producto por resultados, filas alternas), con la identidad de Tentare.
+
+   Todo cuelga de `.wh` (el envoltorio de LandingCliente) y lleva el prefijo
+   `wh-`: este CSS es global en Next (se queda al navegar) y no puede pisar nada
+   fuera de la home.
+
+   Tokens: los de la web (`--w-*`, fase 2.1) llegan en paralelo; hasta fusionar,
+   la paleta va aquí con los MISMOS valores (Olive, Sand, Cream, Ink).
+   Contraste calculado (WCAG, AA): --wh-tinta sobre --wh-crema 14,0:1; --wh-gris
+   sobre --wh-crema 6,4:1 y sobre blanco 7,1:1; --wh-gris-suave sobre blanco
+   5,2:1; --wh-ocre sobre --wh-crema 5,7:1; --wh-arena sobre --wh-oliva 7,0:1 y
+   sobre --wh-tinta 8,9:1; las pastillas de estado, ≥ 5:1 sobre su tinte.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.wh {
+  --wh-oliva: #343825;
+  --wh-oliva-hondo: #2A2D1E;
+  --wh-arena: #D9C29E;
+  --wh-crema: #F6F4EF;
+  --wh-tinta: #22261F;
+  --wh-blanco: #FFFFFF;
+  /* Casi blancos de la misma familia (las tarjetas del bento alternan). */
+  --wh-piedra: #EFECE4;
+  --wh-arena-50: #F3EBDD;
+  --wh-arena-25: rgba(217, 194, 158, .32);
+  --wh-gris: #565A4C;
+  --wh-gris-suave: #6A6E5F;
+  /* Acento cálido para iconos y antetítulos (el Sand no llega a 3:1 sobre claro). */
+  --wh-ocre: #7A5B24;
+  --wh-linea: rgba(34, 38, 31, .1);
+  --wh-ok: #2F6B4F;
+  --wh-ok-fondo: rgba(47, 107, 79, .12);
+  --wh-aviso: #8A5A12;
+  --wh-aviso-fondo: rgba(196, 140, 40, .16);
+  --wh-error: #A23B2E;
+  --wh-error-fondo: rgba(162, 59, 46, .1);
+  /* Sombras: dos y ninguna más (la flotante de bsport y la larga de Momence). */
+  --wh-sombra: 0 2px 32px rgba(34, 38, 31, .1);
+  --wh-sombra-larga: 0 40px 80px -36px rgba(34, 38, 31, .38), 0 6px 18px rgba(34, 38, 31, .06);
+  --wh-radio: 24px;
+  --wh-radio-control: 14px;
+  --wh-ancho: 1240px;
+  --wh-margen: clamp(16px, 4vw, 48px);
+  --wh-aire: clamp(72px, 9vw, 128px);
+
+  background: var(--wh-crema);
+  color: var(--wh-tinta);
+}
+
+.wh-oculto { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Las anclas de la página no aterrizan debajo de la isla (sticky, 58 px + 14). */
+.wh section[id], .wh article[id] { scroll-margin-top: 88px; }
+
+/* ── Armazón de sección y tipografía ───────────────────────────────────────── */
+.wh-seccion { padding: var(--wh-aire) 0; }
+.wh-contenedor { max-width: calc(var(--wh-ancho) + 2 * var(--wh-margen)); margin: 0 auto; padding: 0 var(--wh-margen); }
+.wh-cabecera { max-width: 760px; margin-bottom: clamp(36px, 4.5vw, 64px); }
+.wh-cabecera-centro { margin-inline: auto; text-align: center; }
+.wh-cabecera-fila { max-width: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.wh-cabecera-fila > div { max-width: 720px; }
+
+/* Calma tipográfica (Mariana Tek): titulares grandes en peso regular, sin
+   negritas; la jerarquía la da el tamaño. Tracking negativo (bsport). */
+.wh-h2 { margin: 0; font-size: clamp(32px, 4.1vw, 56px); font-weight: 400; line-height: 1.05; letter-spacing: -.035em;
+  color: var(--wh-tinta); text-wrap: balance; }
+.wh-h3 { margin: 0; font-size: clamp(20px, 1.7vw, 24px); font-weight: 500; line-height: 1.22; letter-spacing: -.02em;
+  color: var(--wh-tinta); text-wrap: balance; }
+.wh-h3 a { color: inherit; text-decoration: none; }
+.wh-h3 a:hover { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.wh-lead { margin: 18px 0 0; font-size: clamp(17px, 1.35vw, 19px); line-height: 1.55; color: var(--wh-gris); text-wrap: pretty; }
+.wh-cabecera-centro .wh-lead { margin-inline: auto; max-width: 60ch; }
+.wh-texto { margin: 10px 0 0; font-size: 16.5px; line-height: 1.6; color: var(--wh-gris); text-wrap: pretty; }
+
+.wh a:focus-visible, .wh button:focus-visible, .wh summary:focus-visible, .wh [tabindex]:focus-visible {
+  outline: 2px solid var(--wh-oliva); outline-offset: 3px; border-radius: 6px; }
+
+/* ── Botones: UN sistema (píldora, frase normal, sin mayúsculas) ───────────── */
+.wh-boton { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 28px;
+  border-radius: 999px; font-size: 16px; font-weight: 600; letter-spacing: -.005em; white-space: nowrap; text-decoration: none;
+  border: 1.5px solid transparent; transition: background .2s, color .2s, border-color .2s, transform .2s; }
+.wh-boton:active { transform: scale(.98); }
+.wh-boton-primario { background: var(--wh-oliva); color: var(--wh-arena); }
+.wh-boton-primario:hover { background: var(--wh-oliva-hondo); }
+.wh-boton-secundario { background: transparent; color: var(--wh-tinta); border-color: rgba(34, 38, 31, .35); }
+.wh-boton-secundario:hover { border-color: var(--wh-tinta); background: rgba(34, 38, 31, .04); }
+.wh-boton-arena { background: var(--wh-arena); color: var(--wh-oliva); }
+.wh-boton-arena:hover { filter: brightness(1.05); }
+.wh .lp-boton-bloque { font-weight: 600; font-size: 16px; padding: 15px 28px; box-shadow: none; }
+.wh-enlace-flecha { display: inline-flex; gap: 6px; align-items: baseline; font-size: 15.5px; font-weight: 600; color: var(--wh-oliva);
+  text-decoration: none; }
+.wh-enlace-flecha:hover { text-decoration: underline; text-underline-offset: 4px; }
+.wh-enlace-flecha span { transition: transform .2s; }
+.wh-enlace-flecha:hover span { transform: translateX(3px); }
+
+/* ── Tratamiento común de las fotos: velo cálido suave y grano muy leve ──────
+   El mismo en TODAS las fotos de la home, para que fotos de procedencias
+   distintas parezcan de la misma sesión (Mariana Tek). Nada de degradados ni
+   del azul-magenta del logo. */
+.wh-foto { position: relative; display: block; overflow: hidden; isolation: isolate; }
+.wh-foto picture, .wh-foto img { display: block; width: 100%; height: 100%; }
+.wh-foto img { object-fit: cover; }
+.wh-foto::before, .wh-foto::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 1; }
+.wh-foto::before { background: #D9C29E; mix-blend-mode: multiply; opacity: .12; }
+.wh-foto::after { opacity: .09; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E"); }
+
+/* ── Piezas de UI (piezas.tsx) ─────────────────────────────────────────────── */
+.wh-escena { margin: 0; position: relative; }
+.wh-escena-piezas { position: relative; height: 100%; }
+
+.wh-pastilla { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px;
+  font-weight: 600; white-space: nowrap; line-height: 1.3; }
+.wh-pastilla-ok { background: var(--wh-ok-fondo); color: var(--wh-ok); }
+.wh-pastilla-aviso { background: var(--wh-aviso-fondo); color: var(--wh-aviso); }
+.wh-pastilla-error { background: var(--wh-error-fondo); color: var(--wh-error); }
+.wh-pastilla-neutro { background: rgba(34, 38, 31, .07); color: var(--wh-gris); }
+.wh-pastilla-arena { background: var(--wh-arena-25); color: #5B4720; }
+
+.wh-ini { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; font-size: 11px;
+  font-weight: 700; letter-spacing: .02em; color: var(--wh-tinta); }
+.wh-ini-a { background: #EADCC4; } .wh-ini-b { background: #DCE3D3; } .wh-ini-c { background: #E7E1EA; }
+
+.wh-panel { background: var(--wh-blanco); border-radius: 18px; padding: 16px; box-shadow: var(--wh-sombra); color: var(--wh-tinta);
+  font-size: 13.5px; line-height: 1.35; text-align: left; }
+.wh-panel b { font-weight: 600; }
+.wh-panel-cab { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 2px 2px 12px;
+  border-bottom: 1px solid var(--wh-linea); }
+.wh-panel-cab b { font-size: 14.5px; }
+.wh-panel-cab > span { font-size: 12px; color: var(--wh-gris-suave); white-space: nowrap; }
+.wh-panel-cab-2 { margin-top: 16px; }
+.wh-filas { list-style: none; margin: 0; padding: 0; }
+.wh-fila { display: flex; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid var(--wh-linea); }
+.wh-fila:last-child { border-bottom: 0; }
+.wh-fila-cuerpo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.wh-fila-cuerpo span { font-size: 12px; color: var(--wh-gris-suave); }
+.wh-fila-dcha { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+.wh-aviso { display: flex; gap: 10px; align-items: flex-start; width: 300px; max-width: 100%; padding: 12px 14px; border-radius: 18px;
+  -webkit-backdrop-filter: blur(18px) saturate(1.4); backdrop-filter: blur(18px) saturate(1.4);
+  background: rgba(255, 255, 255, .9); box-shadow: var(--wh-sombra); color: var(--wh-tinta); text-align: left; }
+.wh-aviso-icono { flex-shrink: 0; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--wh-blanco);
+  box-shadow: 0 0 0 1px var(--wh-linea); }
+.wh-aviso-cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.wh-aviso-fila { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.wh-aviso-fila b { font-weight: 600; }
+.wh-aviso-fila time { font-size: 11.5px; color: var(--wh-gris-suave); }
+.wh-aviso-texto { font-size: 12.5px; line-height: 1.38; color: var(--wh-gris); }
+
+.wh-ficha { display: flex; flex-direction: column; gap: 3px; width: 270px; max-width: 100%; padding: 13px 15px; border-radius: 18px;
+  background: var(--wh-blanco); box-shadow: var(--wh-sombra); color: var(--wh-tinta); text-align: left; }
+.wh-ficha-fila { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.wh-ficha-etiqueta { font-size: 12px; font-weight: 600; color: var(--wh-gris-suave); }
+.wh-ficha-titulo { font-size: 14.5px; font-weight: 600; letter-spacing: -.01em; }
+.wh-ficha-nota { font-size: 12.5px; color: var(--wh-gris); }
+
+/* Tarjeta de cristal sobre la foto (Mariana Tek): translúcida, borde blanco de
+   1 px, radio 24, con el estado de una clase como dato de interfaz. */
+.wh-cristal { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 24px; color: var(--wh-tinta);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+  background: rgba(255, 255, 255, .62); border: 1px solid rgba(255, 255, 255, .85); box-shadow: var(--wh-sombra); }
+.wh-cristal-et { font-size: 12.5px; font-weight: 600; color: var(--wh-gris); }
+.wh-cristal-dato { font-size: 40px; font-weight: 400; letter-spacing: -.04em; line-height: 1; }
+.wh-cristal-pie { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+.wh-punto { width: 8px; height: 8px; border-radius: 50%; background: #B8892F; }
+
+/* Agenda del día. */
+.wh-agenda-lista { list-style: none; margin: 0; padding: 0; }
+.wh-agenda-clase { display: flex; align-items: center; gap: 12px; padding: 11px 2px; border-bottom: 1px solid var(--wh-linea); }
+.wh-agenda-clase:last-child { border-bottom: 0; }
+.wh-agenda-hora { flex-shrink: 0; width: 44px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.wh-agenda-cuerpo { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.wh-agenda-cuerpo span { font-size: 12px; color: var(--wh-gris-suave); }
+.wh-agenda-plazas { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.wh-agenda-llena { background: var(--wh-arena-50); border-radius: 12px; padding-inline: 10px; margin-inline: -8px; border-bottom-color: transparent; }
+
+/* Sustituciones. */
+.wh-susti-cab { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 2px 2px 12px; border-bottom: 1px solid var(--wh-linea); }
+.wh-susti-cab > span:first-child { display: flex; flex-direction: column; }
+.wh-susti-cab > span:first-child span { font-size: 12px; color: var(--wh-gris-suave); }
+.wh-susti-et { margin: 12px 2px 0; font-size: 11.5px; font-weight: 600; color: var(--wh-gris-suave); }
+.wh-encaje { width: 72px; height: 6px; border-radius: 99px; background: rgba(34, 38, 31, .08); overflow: hidden; }
+.wh-encaje span { display: block; height: 100%; border-radius: inherit; background: var(--wh-oliva); }
+.wh-susti-acciones { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 12px; }
+.wh-boton-ui { display: inline-flex; align-items: center; padding: 8px 14px; border-radius: 999px; background: var(--wh-tinta); color: #fff;
+  font-size: 12.5px; font-weight: 600; }
+.wh-boton-ui-claro { background: transparent; color: var(--wh-tinta); box-shadow: 0 0 0 1px rgba(34, 38, 31, .2) inset; }
+
+/* Informes: datos redibujados en la paleta (Mariana Tek), nunca capturas. */
+.wh-barras { display: flex; align-items: flex-end; gap: 10px; height: 150px; padding: 14px 4px 0; }
+.wh-barra { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+.wh-barra > span { width: 100%; border-radius: 8px 8px 3px 3px; background: #D8CDB7; }
+.wh-barra-ultima > span { background: var(--wh-oliva); }
+.wh-barra small { font-size: 11px; color: var(--wh-gris-suave); }
+.wh-ocupacion { list-style: none; margin: 0; padding: 12px 2px 0; display: flex; flex-direction: column; gap: 10px; }
+.wh-ocupacion li { display: grid; grid-template-columns: 1fr 120px 42px; gap: 10px; align-items: center; font-size: 12.5px; }
+.wh-ocupacion-ancha li { grid-template-columns: minmax(0, 1fr) minmax(90px, 1fr); }
+.wh-ocupacion li b { text-align: right; font-variant-numeric: tabular-nums; }
+.wh-ocupacion-barra { height: 8px; border-radius: 99px; background: rgba(34, 38, 31, .07); overflow: hidden; }
+.wh-ocupacion-barra span { display: block; height: 100%; border-radius: inherit; background: var(--wh-oliva); }
+.wh-check { flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--wh-ok-fondo); position: relative; }
+.wh-check::after { content: ''; position: absolute; left: 5px; top: 3px; width: 4px; height: 7px; border: solid var(--wh-ok); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+
+/* ── 1. Héroe: banda oscura a sangre (Mariana Tek + bsport) ──────────────────
+   La foto, con vida: volteada para que la alumna y sus manos en la barra queden a
+   la derecha (donde flota el producto) y teñida de oliva al 50 %. Para leer el
+   texto, una capa de UN solo color (Ink) que va de más a menos opaca de izquierda
+   a derecha: es la única transición de la home, y sin colores nuevos.
+   Contraste, calculado sobre el píxel más claro posible de la foto (blanco puro):
+   en la columna del texto (hasta la mitad de la banda) el fondo queda en L ≤ 0,08,
+   así que el blanco da ≥ 8:1 y el blanco al 86 % de la frase y la nota ≥ 6:1. */
+.wh-heroe { --wh-barra: 58px; position: relative; z-index: 2; margin-top: calc(-1 * var(--wh-barra));
+  min-height: clamp(720px, 100svh, 960px); display: flex; flex-direction: column; overflow: hidden;
+  background: var(--wh-tinta); color: #fff; }
+.wh-heroe-foto { position: absolute; inset: 0; z-index: 0; }
+.wh-heroe-foto picture, .wh-heroe-foto img { display: block; width: 100%; height: 100%; }
+/* Home v2 (20-oct-2026, fundador: «foto a sangre más clara»): la foto a su luz, sin
+   el velo oliva que la apagaba entera. Solo la columna del texto lleva un degradado
+   (para que se lea en blanco) y la franja de logos, un poco de sombra debajo; el resto
+   de la foto se ve tal cual. */
+.wh-heroe-foto img { object-fit: cover; object-position: 50% 30%; }
+.wh-heroe-foto::before { content: ''; position: absolute; inset: auto 0 0 0; height: 26%; z-index: 1;
+  background: linear-gradient(0deg, rgba(34, 38, 31, .55), rgba(34, 38, 31, 0)); }
+.wh-heroe-foto::after { content: ''; position: absolute; inset: 0; z-index: 2;
+  background: linear-gradient(90deg, rgba(34, 38, 31, .74) 0%, rgba(34, 38, 31, .58) 30%, rgba(34, 38, 31, .2) 50%, rgba(34, 38, 31, 0) 64%); }
+.wh-heroe-wrap { position: relative; z-index: 3; flex: 1; width: 100%; max-width: calc(var(--wh-ancho) + 2 * var(--wh-margen)); margin: 0 auto;
+  padding: calc(var(--wh-barra) + clamp(44px, 7vh, 96px)) var(--wh-margen) clamp(16px, 3vh, 40px);
+  display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: clamp(24px, 4vw, 64px); align-items: center; }
+.wh-heroe-h1 { margin: 0; font-size: 13.5px; font-weight: 600; line-height: 1.4; letter-spacing: .02em; color: rgba(255, 255, 255, .86); }
+.wh-heroe-promesa { display: block; margin-top: 18px; font-size: clamp(46px, 5.6vw, 84px); font-weight: 400; line-height: .98;
+  letter-spacing: -.045em; color: #fff; text-wrap: balance; }
+.wh-heroe-lead { margin: 26px 0 0; max-width: 44ch; font-size: clamp(17px, 1.4vw, 20px); line-height: 1.5; color: rgba(255, 255, 255, .86); text-wrap: pretty; }
+.wh-heroe-acciones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+.wh-boton-contorno-claro { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .55); }
+.wh-boton-contorno-claro:hover { border-color: #fff; background: rgba(255, 255, 255, .08); }
+.wh-heroe .wh-boton:focus-visible, .wh-heroe a:focus-visible { outline-color: var(--wh-arena); }
+.wh-heroe-nota { margin: 24px 0 0; font-size: 13.5px; line-height: 1.6; color: rgba(255, 255, 255, .86); }
+.wh-heroe-g2 { color: #fff; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.wh-heroe-g2 span { color: var(--wh-arena); letter-spacing: 1px; }
+.wh-heroe-g2:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* El producto flotando a la derecha: el móvil en perspectiva y dos fichas. */
+.wh-heroe-escena { position: relative; height: clamp(540px, 64vh, 620px); }
+.wh-heroe-escena .wh-escena-piezas { position: absolute; inset: 0; }
+/* La alumna de la foto ocupa el centro-derecha: el móvil va pegado al borde derecho del
+   contenido (no fuera de la pantalla) para no taparle la cara. */
+.wh-heroe-tel-marco { position: absolute; right: 0; top: 50%; transform: translateY(-50%); perspective: 1200px; }
+/* La captura de la app ya trae el hueco de la barra de estado (iPhone 17 Pro a 1206×2622): el marco dibuja encima la hora y la isla. */
+.wh-heroe-pantalla { height: 100%; background: #F4EEE5; }
+.wh-heroe-pantalla picture, .wh-heroe-pantalla img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.wh-heroe-tel { transform: rotateY(-9deg) rotateX(3deg); transform-origin: 50% 50%; filter: drop-shadow(0 40px 50px rgba(0, 0, 0, .45)); }
+.wh-heroe .wh-ficha { box-shadow: 0 24px 50px -20px rgba(0, 0, 0, .5); }
+.wh-heroe-logos { position: relative; z-index: 3; padding: 0 var(--wh-margen) clamp(20px, 3vh, 36px); }
+.wh-heroe .v7-logos-t { margin-bottom: 14px; }
+.wh-heroe-logos:empty { display: none; }
+.wh-heroe .v7-logos { padding: 18px 0 0; border-top: 1px solid rgba(255, 255, 255, .14); max-width: var(--wh-ancho); margin: 0 auto; }
+.wh-heroe .v7-logos-t { color: rgba(255, 255, 255, .7); }
+/* Cada logo, en una tarjeta clara (20-oct-2026). Los logos los sube cada estudio y
+   muchos traen fondo blanco: el `brightness(0) invert(1)` de antes pintaba de blanco
+   TODO píxel opaco y esos logos salían como rectángulos grises sobre la banda oscura
+   (pasó en producción con 3 de los 5). Sobre arena clara, en gris y con `multiply`, el
+   fondo blanco del logo desaparece en la tarjeta y se ve el dibujo, sea cual sea el
+   archivo. Al pasar el ratón, vuelve su color. */
+.wh-heroe .v7-logos-item { box-sizing: border-box; width: 172px; height: 58px; padding: 9px 16px; border-radius: 14px; background: rgba(246, 244, 239, .94); }
+@media (max-width: 560px) {
+  /* El logo mide 96 × 30 en el móvil (FranjaLogos): la tarjeta, lo mismo más su aire. */
+  .wh-heroe .v7-logos-item { width: 124px; height: 44px; padding: 7px 14px; }
+}
+.wh-heroe .v7-logos-item img { filter: grayscale(1) contrast(1.15); mix-blend-mode: multiply; opacity: 1; }
+.wh-heroe .v7-logos-item:hover img { filter: none; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes wh-entra { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .wh-heroe-tel-marco { animation: wh-entra .7s cubic-bezier(.2, .7, 0, 1) both; }
+  .wh-heroe-tel-marco { animation-name: wh-entra-centro; }
+  @keyframes wh-entra-centro { from { opacity: 0; transform: translate(-50%, calc(-50% + 14px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+}
+
+/* ── 3. «Tú das la clase» (rejilla de iconos de bsport) ────────────────────── */
+.wh-resto-rejilla { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(36px, 6vw, 96px); align-items: start; }
+.wh-resto-intro { position: sticky; top: 110px; }
+.wh-cierre-linea { margin-top: 32px; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
+.wh-cierre-linea p { margin: 0; font-size: 17px; font-weight: 500; color: var(--wh-tinta); }
+.wh-resto-lista { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--wh-linea); }
+.wh-resto-item { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 20px; padding: 28px 0; border-bottom: 1px solid var(--wh-linea); }
+.wh-resto { background: var(--wh-crema); }
+/* Icono sin baldosa, en el color de la marca (lo hacen las cinco referencias). */
+.wh-baldosa { display: block; padding-top: 2px; color: var(--wh-oliva); }
+
+/* ── 5. Pestañas por resultado (Momence) ───────────────────────────────────── */
+.wh-tabs-seccion { background: var(--wh-blanco); }
+.wh-tabs-lista { display: inline-flex; gap: 4px; padding: 5px; border-radius: 999px; background: var(--wh-crema);
+  box-shadow: 0 0 0 1px var(--wh-linea) inset; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.wh-tabs-lista::-webkit-scrollbar { display: none; }
+.wh-tab { flex-shrink: 0; min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  font: inherit; font-size: 15px; font-weight: 600; color: var(--wh-gris); transition: background .2s, color .2s; }
+.wh-tab:hover { color: var(--wh-tinta); }
+.wh-tab[aria-selected='true'] { background: var(--wh-tinta); color: #fff; }
+.wh-tabpanel { margin-top: 28px; border-radius: 28px; }
+.wh-tabpanel[hidden] { display: none; }
+.wh-tab-cuerpo { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: clamp(28px, 4vw, 64px); align-items: center;
+  padding: clamp(28px, 4vw, 56px); border-radius: 28px; background: var(--wh-crema); }
+.wh-tab-h3 { font-size: clamp(24px, 2.4vw, 34px); font-weight: 400; letter-spacing: -.03em; }
+.wh-puntos { list-style: none; margin: 22px 0 26px; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.wh-puntos li { position: relative; padding-left: 30px; font-size: 16px; line-height: 1.55; color: var(--wh-gris); }
+.wh-puntos li::before { content: ''; position: absolute; left: 0; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--wh-arena-25); }
+.wh-puntos li::after { content: ''; position: absolute; left: 6.5px; top: 7px; width: 4px; height: 8px; border: solid var(--wh-oliva); border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+.wh-tab-escena { position: relative; min-height: 380px; display: grid; place-items: center; padding: 36px 28px; border-radius: 22px;
+  background: var(--wh-arena-50); overflow: hidden; }
+.wh-tab-escena .wh-escena-piezas { width: 100%; display: grid; place-items: center; }
+.wh-tab-ui { width: min(100%, 470px); }
+.wh-tab-escena:has(.wh-tab-flota) { padding-bottom: 132px; }
+.wh-tab-flota { position: absolute; right: 24px; bottom: -112px; }
+.wh-tab-escena .wh-escena-piezas { position: relative; }
+.wh-tab-escena:has(.wh-tab-captura) { place-items: center start; padding-right: 0; }
+/* La captura real, más grande que su caja y cortada por la derecha: sale por el borde (bsport). */
+.wh-tab-captura { display: block; width: 150%; max-width: none; }
+.wh-tab-captura img { display: block; width: 100%; height: auto; border-radius: 16px; box-shadow: var(--wh-sombra); }
+.wh-video { max-width: 980px; margin: clamp(56px, 6vw, 88px) auto 0; }
+.wh-video-titulo { margin: 0 0 18px; text-align: center; font-size: 17px; font-weight: 500; color: var(--wh-tinta); }
+
+/* ── Bandas oscuras (Momentos y cierre) ─────────────────────────────────────── */
+.wh-oscura { background: var(--wh-tinta); color: #fff; }
+.wh-oscura .wh-h2 { color: #fff; }
+.wh-oscura .wh-lead { color: rgba(255, 255, 255, .72); }
+
+/* ── 8. Etapas ─────────────────────────────────────────────────────────────── */
+.wh-etapas-rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.wh-etapa { display: flex; flex-direction: column; border-radius: var(--wh-radio); overflow: hidden; background: var(--wh-blanco); }
+.wh-etapa-foto { aspect-ratio: 4 / 3; }
+.wh-etapa-cuerpo { display: flex; flex-direction: column; flex: 1; padding: 26px 28px 30px; }
+.wh-etapa-et { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; color: var(--wh-ocre); }
+.wh-etapa-enlaces { margin: auto 0 0; padding-top: 20px; display: flex; flex-direction: column; gap: 8px; }
+.wh-etapa-vienes { margin: auto 0 0; padding-top: 20px; font-size: 14.5px; line-height: 1.7; color: var(--wh-gris); }
+.wh-etapa-vienes a { color: var(--wh-oliva); font-weight: 600; text-underline-offset: 3px; }
+
+/* ── 9. Precio ─────────────────────────────────────────────────────────────── */
+.wh-precio { background: var(--wh-blanco); }
+.wh-precio-rejilla { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.wh-plan { display: flex; flex-direction: column; padding: 34px 32px 32px; border-radius: var(--wh-radio); background: var(--wh-crema); }
+.wh-plan-oscuro { background: var(--wh-tinta); color: #fff; }
+.wh-plan-nombre { margin: 0; font-size: 15px; font-weight: 600; color: var(--wh-gris); }
+.wh-plan-oscuro .wh-plan-nombre { color: var(--wh-arena); }
+.wh-plan-precio { margin: 14px 0 0; font-size: 52px; font-weight: 400; letter-spacing: -.04em; line-height: 1; }
+.wh-plan-precio span { font-size: 16px; letter-spacing: 0; color: var(--wh-gris); margin-left: 4px; }
+.wh-plan-oscuro .wh-plan-precio span { color: rgba(255, 255, 255, .7); }
+.wh-plan-frase { margin: 12px 0 0; font-size: 16px; font-weight: 500; color: var(--wh-tinta); }
+.wh-plan-desc { margin: 10px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--wh-gris); }
+.wh-plan-oscuro .wh-plan-desc { color: rgba(255, 255, 255, .72); }
+.wh-plan-lista { list-style: none; margin: 22px 0 0; padding: 20px 0 0; border-top: 1px solid var(--wh-linea); display: flex; flex-direction: column; gap: 11px; flex: 1; }
+.wh-plan-oscuro .wh-plan-lista { border-top-color: rgba(255, 255, 255, .14); }
+.wh-plan-lista li { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 1.45; }
+.wh-plan-lista svg { flex-shrink: 0; margin-top: 2px; color: var(--wh-oliva); }
+.wh-plan-oscuro .wh-plan-lista svg { color: var(--wh-arena); }
+.wh-plan-cta { margin-top: 28px; width: 100%; }
+.wh-plan-oscuro .wh-boton-secundario { color: #fff; border-color: rgba(255, 255, 255, .4); }
+.wh-precio-nota { margin: 28px 0 0; text-align: center; font-size: 13.5px; color: var(--wh-gris); }
+.wh-precio-g2 { margin: 18px 0 0; text-align: center; font-size: 14.5px; color: var(--wh-gris); }
+.wh-precio-g2 a { color: var(--wh-tinta); font-weight: 600; text-decoration: none; }
+.wh-precio-g2 a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.wh-precio-g2 span { color: #8A6418; letter-spacing: 1px; }
+.wh-precio-salida { margin: 10px 0 0; text-align: center; }
+
+/* ── 10. Preguntas ─────────────────────────────────────────────────────────── */
+.wh-faq-rejilla { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+.wh-faq-que { margin-top: 32px; }
+.wh-faq-intro .wh-texto a { color: var(--wh-oliva); font-weight: 600; text-underline-offset: 3px; }
+.wh-faq-datos { margin: 22px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.wh-faq-datos div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; font-size: 14.5px; line-height: 1.5; }
+.wh-faq-datos dt { font-weight: 600; color: var(--wh-tinta); }
+.wh-faq-datos dd { margin: 0; color: var(--wh-gris); }
+.wh-faq-datos a { color: var(--wh-oliva); font-weight: 600; }
+.wh-faq-lista { border-top: 1px solid var(--wh-linea); }
+.wh-faq-item { border-bottom: 1px solid var(--wh-linea); }
+.wh-faq-pregunta { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 2px; cursor: pointer;
+  font-size: 17px; font-weight: 500; line-height: 1.4; color: var(--wh-tinta); }
+.wh-faq-pregunta::-webkit-details-marker { display: none; }
+.wh-faq-signo { position: relative; flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--wh-arena-25); }
+.wh-faq-signo::before, .wh-faq-signo::after { content: ''; position: absolute; left: 50%; top: 50%; width: 11px; height: 1.6px; background: var(--wh-oliva);
+  transform: translate(-50%, -50%); transition: transform .25s; }
+.wh-faq-signo::after { transform: translate(-50%, -50%) rotate(90deg); }
+.wh-faq-item[open] .wh-faq-signo::after { transform: translate(-50%, -50%) rotate(0deg); }
+.wh-faq-respuesta { margin: 0; padding: 0 44px 24px 2px; font-size: 16px; line-height: 1.65; color: var(--wh-gris); max-width: 66ch; }
+
+/* ── 12. Cierre: banda oscura a sangre con foto y un botón ────────────────── */
+.wh-cierre { position: relative; overflow: hidden; display: flex; align-items: center; min-height: clamp(520px, 44vw, 640px);
+  /* A sangre y sin redondear (home v2): la tarjeta redondeada con margen chocaba
+     contra el pie oscuro; así foto y pie se leen como un solo cierre. */
+  margin: var(--wh-aire) 0 0; padding: clamp(64px, 8vw, 112px) var(--wh-margen); }
+.wh-cierre-foto { position: absolute; inset: 0; z-index: 0; }
+.wh-cierre-foto picture, .wh-cierre-foto img { display: block; width: 100%; height: 100%; }
+.wh-cierre-foto img { object-fit: cover; object-position: 50% 60%; filter: saturate(.7) brightness(.62) contrast(1.04); }
+.wh-cierre-foto::before { content: ''; position: absolute; inset: 0; background: var(--wh-oliva); mix-blend-mode: multiply; opacity: .78; }
+.wh-cierre-foto::after { content: ''; position: absolute; inset: 0; background: rgba(20, 22, 17, .34); }
+.wh-cierre-cuerpo { position: relative; z-index: 2; width: 100%; max-width: var(--wh-ancho); margin: 0 auto; }
+.wh-cierre-cuerpo .wh-h2 { max-width: 14ch; font-size: clamp(38px, 5vw, 72px); }
+.wh-cierre-cuerpo .wh-lead { max-width: 52ch; color: rgba(255, 255, 255, .8); }
+.wh-cierre-acciones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+
+/* ── Tableta ───────────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .wh-tab-cuerpo { grid-template-columns: minmax(0, 1fr); }
+  .wh-tab-flota { display: none; }
+  .wh-tab-escena:has(.wh-tab-flota) { padding-bottom: 36px; }
+}
+
+/* ── Móvil: se QUITA, no se encoge (Mariana Tek) ───────────────────────────── */
+@media (max-width: 900px) {
+  .wh-heroe { min-height: 0; }
+  /* En vertical, el texto va arriba y el producto debajo: la capa, uniforme. */
+  .wh-heroe-foto::after { background: rgba(34, 38, 31, .62); }
+  .wh-heroe-foto img { transform: none; object-position: 50% 40%; }
+  .wh-heroe-wrap { display: block; padding: calc(var(--wh-barra) + 52px) var(--wh-margen) 0; }
+  .wh-heroe-texto { width: 100%; max-width: 600px; }
+  .wh-heroe-h1 { font-size: 12px; }
+  .wh-heroe-promesa { margin-top: 12px; font-size: clamp(40px, 11vw, 58px); letter-spacing: -.04em; }
+  .wh-heroe-lead { margin-top: 16px; font-size: 16.5px; }
+  .wh-heroe-acciones { margin-top: 24px; flex-direction: column; gap: 10px; }
+  .wh-heroe-acciones .wh-boton { width: 100%; }
+  .wh-heroe-nota { margin-top: 16px; font-size: 13px; }
+  .wh-heroe-escena { height: 500px; margin-top: 36px; }
+  /* En el móvil, como Mariana Tek: el héroe es titular, frase y botones; el iPhone no va aquí. */
+  .wh-heroe-escena { display: none; }
+  /* Y la foto no va DETRÁS del texto (le caería encima de la cara): la banda es un campo oscuro
+     liso y la foto pasa a una tarjeta redondeada debajo de los botones, con un dato en cristal. */
+  /* Orden de Mariana Tek en el móvil: banda oscura con el texto → franja de logos que corre, aún
+     en oscuro → y ya sobre crema, la foto en una tarjeta con el dato en cristal. */
+  .wh-heroe { background: var(--wh-crema); }
+  .wh-heroe-wrap { order: 1; background: var(--wh-tinta); padding-bottom: 36px; }
+  .wh-heroe-logos { order: 2; background: var(--wh-tinta); padding-top: 4px; padding-bottom: 28px; }
+  .wh-heroe .v7-logos { border-top: 0; padding-top: 0; }
+  .wh-heroe-foto { order: 3; position: relative; inset: auto; height: 460px; margin: 40px var(--wh-margen) 8px; border-radius: 24px; overflow: hidden; }
+  .wh-heroe-foto::after { background: none; }
+  .wh-heroe-tel-marco { top: 0; left: 50%; right: auto; transform: translateX(-50%); }
+  .wh-heroe-tel { transform: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .wh-heroe-tel-marco { animation-name: wh-entra-movil; }
+    @keyframes wh-entra-movil { from { opacity: 0; transform: translate(-50%, 14px); } to { opacity: 1; transform: translateX(-50%); } }
+  }
+
+  .wh-resto-rejilla, .wh-faq-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-resto-intro { position: static; }
+  .wh-etapas-rejilla, .wh-precio-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-cierre { min-height: 0; padding: 64px 20px; }
+  .wh-cierre-acciones { flex-direction: column; }
+  .wh-cierre-acciones .wh-boton { width: 100%; }
+}
+
+@media (max-width: 760px) {
+  .wh-tabs-lista { display: flex; }
+  .wh-tab { padding: 0 16px; font-size: 14.5px; }
+  .wh-tab-cuerpo { padding: 22px 18px; border-radius: 22px; }
+  .wh-tab-escena { min-height: 0; padding: 22px 14px; }
+  .wh-ocupacion li { grid-template-columns: 1fr 70px 36px; }
+}
+
+/* ── Momentos (home v2, 20-oct-2026): personas a sangre, un verbo y una frase ── */
+.wh-mom-rejilla { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.wh-mom-tarjeta { position: relative; overflow: hidden; border-radius: 24px; aspect-ratio: 3 / 4.2; background: #2d3128; }
+.wh-mom-tarjeta picture, .wh-mom-tarjeta img { display: block; width: 100%; height: 100%; }
+.wh-mom-tarjeta img { object-fit: cover; transition: transform .8s cubic-bezier(.2, .7, 0, 1); }
+.wh-mom-tarjeta:hover img { transform: scale(1.03); }
+.wh-mom-tarjeta::after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(20, 22, 18, .82) 0%, rgba(20, 22, 18, .35) 42%, rgba(20, 22, 18, 0) 64%); }
+.wh-mom-texto { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; padding: 22px 22px 24px; }
+.wh-mom-verbo { margin: 0 0 6px; font-size: clamp(26px, 2.4vw, 34px); font-weight: 400; letter-spacing: -.035em; line-height: 1; color: #fff; }
+.wh-mom-frase { margin: 0; font-size: 15px; line-height: 1.45; color: rgba(255, 255, 255, .86); text-wrap: pretty; }
+@media (max-width: 1000px) { .wh-mom-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) {
+  .wh-mom-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-mom-tarjeta { aspect-ratio: 4 / 4.6; }
+}
+@media (prefers-reduced-motion: reduce) { .wh-mom-tarjeta img { transition: none; } }
+
+/* Al pasar el ratón (como Mariana Tek, 21-oct-2026): en reposo, la foto y el verbo;
+   encima, la tarjeta se vuelve un panel oscuro con el verbo arriba y la frase debajo.
+   Solo con ratón: en el móvil no hay «encima», y ahí la frase se queda siempre a la
+   vista (las reglas de arriba). La frase sigue en el HTML para los lectores de pantalla. */
+@media (hover: hover) and (pointer: fine) {
+  .wh-mom-tarjeta::after { background: linear-gradient(0deg, rgba(20, 22, 18, .72) 0%, rgba(20, 22, 18, 0) 38%); }
+  .wh-mom-tarjeta::before { content: ''; position: absolute; inset: 0; z-index: 1; background: rgba(34, 38, 31, .9);
+    opacity: 0; transition: opacity .35s cubic-bezier(.2, .7, 0, 1); }
+  .wh-mom-texto { top: 0; z-index: 2; display: flex; flex-direction: column; justify-content: flex-end; padding: 26px 24px; }
+  .wh-mom-frase { opacity: 0; max-height: 0; transform: translateY(8px);
+    transition: opacity .35s cubic-bezier(.2, .7, 0, 1), transform .35s cubic-bezier(.2, .7, 0, 1); }
+  .wh-mom-tarjeta:hover::before { opacity: 1; }
+  .wh-mom-tarjeta:hover .wh-mom-texto { justify-content: flex-start; }
+  .wh-mom-tarjeta:hover .wh-mom-verbo { margin-bottom: 14px; }
+  .wh-mom-tarjeta:hover .wh-mom-frase { opacity: 1; max-height: none; transform: none; font-size: 16px; line-height: 1.5; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: reduce) {
+  .wh-mom-tarjeta::before, .wh-mom-frase { transition: none; }
+}
+
+
+/* ── Antes / con Tentare (21-oct-2026): el deslizador de Mariana Tek, WhatsApp frente a la app ── */
+.wh-ad { background: var(--wh-blanco); }
+.wh-ad-rejilla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 96px); align-items: center; }
+.wh-ad-visual { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.wh-ad-tel { position: relative; touch-action: pan-y; }
+.wh-ad-pantalla { position: relative; width: 100%; height: 100%; overflow: hidden; background: #FAF9F5; }
+.wh-ad-app, .wh-ad-app img { display: block; width: 100%; height: 100%; }
+.wh-ad-app img { object-fit: cover; object-position: 50% 0; }
+.wh-ad-antes { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--pos)) 0 0); }
+.wh-ad-linea { position: absolute; top: 0; bottom: 0; left: var(--pos); width: 2px; margin-left: -1px; background: var(--wh-tinta); z-index: 3; pointer-events: none; }
+.wh-ad-asa { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px;
+  border-radius: 999px; background: var(--wh-tinta); color: #fff; font-size: 17px; letter-spacing: 2px; box-shadow: 0 8px 22px rgba(20, 22, 18, .28); }
+/* El rango, invisible y encima del móvil entero: se arrastra desde cualquier punto. */
+.wh-ad-rango { position: absolute; inset: 0; z-index: 5; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: ew-resize; -webkit-appearance: none; appearance: none; }
+.wh-ad-tel:has(.wh-ad-rango:focus-visible) { outline: 2px solid var(--wh-oliva); outline-offset: 8px; border-radius: 48px; }
+.wh-ad-etiquetas { display: flex; justify-content: space-between; width: min(100%, 300px); }
+.wh-ad-etiquetas span { padding: 7px 14px; border-radius: 999px; background: var(--wh-tinta); color: #fff; font-size: 13.5px; font-weight: 600; }
+.wh-ad-etiquetas span:last-child { background: var(--wh-oliva); color: var(--wh-arena); }
+.wh-ad-texto { max-width: 520px; }
+.wh-ad-pista { margin: 22px 0 0; font-size: 14.5px; font-weight: 600; color: var(--wh-gris); }
+
+/* El chat: un dibujo genérico de mensajería, sin el logo de ninguna app. */
+.wh-ad-chat { display: flex; flex-direction: column; height: 100%; padding-top: 54px; background: #EFE9E1; font-size: 15px; color: #111; }
+.wh-ad-chat-cab { display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px; background: #F7F5F2; border-bottom: 1px solid rgba(0, 0, 0, .06); }
+.wh-ad-chat-atras { font-size: 30px; line-height: 1; color: #1A7F5A; margin-top: -3px; }
+.wh-ad-chat-avatar { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 999px; background: #55603F; color: #fff; font-weight: 700; }
+.wh-ad-chat-nombre { display: flex; flex-direction: column; line-height: 1.2; }
+.wh-ad-chat-nombre b { font-size: 16px; }
+.wh-ad-chat-nombre span { font-size: 12.5px; color: #667; }
+.wh-ad-chat-fecha { align-self: center; margin: 14px 0 6px; padding: 4px 10px; border-radius: 8px; background: #fff; font-size: 12px; color: #556; }
+.wh-ad-chat-lista { list-style: none; margin: 0; padding: 4px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.wh-ad-burbuja { position: relative; align-self: flex-start; max-width: 80%; padding: 8px 12px 20px; border-radius: 14px 14px 14px 4px; background: #fff;
+  line-height: 1.35; box-shadow: 0 1px 1px rgba(0, 0, 0, .06); }
+.wh-ad-burbuja-ella { align-self: flex-end; border-radius: 14px 14px 4px 14px; background: #D9F7CF; }
+.wh-ad-hora { position: absolute; right: 10px; bottom: 4px; font-size: 11px; color: #6B7466; }
+.wh-ad-chat-pie { padding: 10px 12px 34px; }
+.wh-ad-chat-pie span { display: block; padding: 11px 16px; border-radius: 999px; background: #fff; color: #889; font-size: 15px; }
+
+@media (max-width: 900px) {
+  .wh-ad-rejilla { grid-template-columns: minmax(0, 1fr); }
+  .wh-ad-texto { order: -1; max-width: none; }
+}

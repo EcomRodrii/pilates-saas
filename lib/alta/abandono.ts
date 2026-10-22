@@ -17,8 +17,23 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { TRIAL_DIAS } from '../billing/trial.ts';
+import { VERSIONES_ALTA, type VersionAlta } from './embudo.ts';
 
 export type OrigenAlta = 'registro' | 'con_sesion';
+
+/**
+ * ¿Es el alta nueva (registro en una pantalla, sin elegir plan)? Su correo no
+ * puede hablar de «elegir el plan» ni de «dos pasos, el nombre y el plan»: en
+ * esa alta no existen. 'v1' (o desconocida) = el alta de siempre.
+ */
+export function esAltaNueva(version: string | null | undefined): boolean {
+  return version === 'v2' || version === 'v2_prueba';
+}
+
+/** `altas_estudio.version` leída de una fila, con 'v1' para lo que no se reconozca. */
+export function versionDeFila(v: unknown): VersionAlta {
+  return (VERSIONES_ALTA as readonly unknown[]).includes(v) ? (v as VersionAlta) : 'v1';
+}
 
 /** Dónde está cada alta, en el orden en que se recorre el alta. */
 export const PASOS_ABANDONO = [
@@ -59,6 +74,8 @@ export interface AltaEstudio {
   recordatorioPaso: string | null;
   recordatorioIntentos: number;
   recordatorioDescartado: string | null;
+  /** Con qué alta empezó (`altas_estudio.version`): cambia lo que se le puede decir. */
+  version: VersionAlta;
 }
 
 /** El último paso alcanzado y desde cuándo está ahí. */
@@ -162,12 +179,22 @@ export interface ContenidoRecordatorio {
  */
 export function contenidoRecordatorio(
   paso: Exclude<PasoAbandono, 'terminada' | 'formulario_estudio'>,
-  alta: Pick<AltaEstudio, 'estudioNombre' | 'origen'>,
+  alta: Pick<AltaEstudio, 'estudioNombre' | 'origen'> & { version?: VersionAlta | null },
   baseUrl: string,
+  /** Founding Studio gratis para las altas nuevas (lib/alta/founding-gratis-alta.ts):
+   *  ya no hay prueba ni plan que elegir, se empieza gratis. */
+  { foundingGratis = false }: { foundingGratis?: boolean } = {},
 ): ContenidoRecordatorio {
   const estudio = alta.estudioNombre?.trim() || 'tu estudio';
   const href = `${baseUrl.replace(/\/+$/, '')}/login`;
   const nota = 'Es el único correo que te mandamos sobre esto. Si no fuiste tú, ignóralo.';
+  // El alta nueva (PR-2) no tiene paso del plan: es una pantalla con el nombre,
+  // el email y la contraseña. Con la sesión ya abierta, ni eso: solo el nombre.
+  // Así que a quien empezó por ella no se le habla de «elegir el plan» ni de
+  // «dos pasos». Tampoco se le cuentan pasos: con el interruptor en «prueba»,
+  // /login la puede llevar al alta de siempre, que sí tiene dos.
+  const nueva = esAltaNueva(alta.version);
+  const terminarlo = 'Entra con tu cuenta y te llevamos al alta para terminarlo.';
 
   switch (paso) {
     case 'email_sin_confirmar':
@@ -203,12 +230,42 @@ export function contenidoRecordatorio(
           `Pulsaste para montar ${estudio} y algo falló de nuestro lado. Fue un fallo nuestro, no tuyo.`,
           alta.origen === 'registro'
             ? 'Entra con tu cuenta y lo intentamos de nuevo solos, con lo que ya nos contaste: no tienes que rellenar nada otra vez.'
-            : 'Entra con tu cuenta y te llevamos al alta: son dos pasos, el nombre y el plan.',
+            : nueva ? terminarlo : 'Entra con tu cuenta y te llevamos al alta: son dos pasos, el nombre y el plan.',
         ],
         boton: { href, texto: 'Entrar y terminarlo' },
         nota,
       };
     case 'formulario_plan':
+      if (nueva) {
+        // Con la sesión abierta pulsó «Crear mi estudio» y no llegó a montarse
+        // (cerró antes de que terminara). Ni plan ni pasos que contar.
+        return {
+          asunto: `Te falta un paso para montar ${estudio}`,
+          preheader: foundingGratis ? 'Empiezas gratis, sin tarjeta.' : `Son ${TRIAL_DIAS} días gratis, sin tarjeta.`,
+          titular: 'Te falta un paso',
+          parrafos: [
+            `Empezaste a montar ${estudio} en Tentare, pero no llegaste a terminar el alta.`,
+            foundingGratis
+              ? `Empiezas gratis, con todo menos varias sedes, sin tarjeta y sin permanencia. ${terminarlo}`
+              : `Son ${TRIAL_DIAS} días gratis, sin tarjeta y sin permanencia. ${terminarlo}`,
+          ],
+          boton: { href, texto: 'Terminar el alta' },
+          nota,
+        };
+      }
+      if (foundingGratis) {
+        return {
+          asunto: `Te falta un paso para montar ${estudio}`,
+          preheader: 'Empiezas gratis, sin tarjeta.',
+          titular: 'Te falta un paso',
+          parrafos: [
+            `Empezaste a montar ${estudio} en Tentare, pero no llegaste a terminar el alta.`,
+            'Empiezas gratis, con todo menos varias sedes, sin tarjeta y sin permanencia. Entra con tu cuenta y te llevamos al alta: son dos pasos, el nombre y el plan.',
+          ],
+          boton: { href, texto: 'Terminar el alta' },
+          nota,
+        };
+      }
       return {
         asunto: `Te falta elegir plan para ${estudio}`,
         preheader: `Son ${TRIAL_DIAS} días gratis, sin tarjeta.`,
@@ -227,13 +284,38 @@ export function contenidoRecordatorio(
 
 export type EventoProgreso = 'inicio' | 'plan' | 'error_estudio';
 
-/** Valida el cuerpo de `/api/alta/progreso`. Nada de PII: un evento y, si acaso, el nombre del estudio. */
-export function leerEventoProgreso(cuerpo: unknown): { evento: EventoProgreso; estudio: string | null } | null {
+/** La forma de `altas_estudio.condiciones_version` (el mismo patrón que el CHECK de 20261021102626). */
+export const FORMATO_CONDICIONES = /^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+
+export interface EventoProgresoLeido {
+  evento: EventoProgreso;
+  estudio: string | null;
+  /**
+   * Con la sesión ya abierta (sin signUp, así que sin trigger de auth.users):
+   * con qué alta empezó, solo si es la nueva. La de siempre no lo manda y la
+   * fila se queda con su 'v1' de serie.
+   */
+  version: 'v2' | 'v2_prueba' | null;
+  /** La versión de los textos legales que aceptó al pulsar «Crear mi estudio» (alta nueva). */
+  condiciones: string | null;
+}
+
+/**
+ * Valida el cuerpo de `/api/alta/progreso`. Nada de PII: un evento y, si acaso,
+ * el nombre del estudio, la versión del alta y la de los textos legales. Lo que
+ * no tiene su forma se tira (null), nunca rompe el evento.
+ */
+export function leerEventoProgreso(cuerpo: unknown): EventoProgresoLeido | null {
   if (!cuerpo || typeof cuerpo !== 'object') return null;
-  const { evento, estudio } = cuerpo as { evento?: unknown; estudio?: unknown };
+  const { evento, estudio, version, condiciones } = cuerpo as Record<string, unknown>;
   if (evento !== 'inicio' && evento !== 'plan' && evento !== 'error_estudio') return null;
   const nombre = typeof estudio === 'string' ? estudio.trim().slice(0, 120) : '';
-  return { evento, estudio: nombre || null };
+  return {
+    evento,
+    estudio: nombre || null,
+    version: version === 'v2' || version === 'v2_prueba' ? version : null,
+    condiciones: typeof condiciones === 'string' && FORMATO_CONDICIONES.test(condiciones) ? condiciones : null,
+  };
 }
 
 // ── Para /interno ───────────────────────────────────────────────────────────
@@ -304,5 +386,8 @@ export function altaDesdeFila(f: Record<string, unknown>): AltaEstudio {
     recordatorioPaso: s(f.recordatorio_paso),
     recordatorioIntentos: Number(f.recordatorio_intentos ?? 0),
     recordatorioDescartado: s(f.recordatorio_descartado),
+    // `altas_estudio_detalle()` no la devuelve todavía: la pone quien la lee de
+    // la propia fila (el cron, al reclamarla). Sin ella, el alta de siempre.
+    version: versionDeFila(f.version),
   };
 }

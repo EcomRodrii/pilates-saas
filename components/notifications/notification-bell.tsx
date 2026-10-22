@@ -289,7 +289,7 @@ export function NotificationBell() {
       <button
         onClick={() => setAbierto(o => !o)}
         aria-label="Notificaciones"
-        className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+        className="zona-tactil relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
       >
         <Bell size={18} className="text-muted-foreground" />
         {/* ⚠️ `red-600` y no `red-500`: el contador va en 10 px, y blanco sobre

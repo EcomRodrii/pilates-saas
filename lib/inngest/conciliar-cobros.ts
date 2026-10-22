@@ -709,12 +709,12 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
   const { data: cobrados } = await fetchAllRows<{ id: string; studio_id: string; fecha_cobro: string | null; metodo_cobro: string | null; factura_pendiente_sellar: boolean | null }>(
     '(global)', 'recibos',
     (from, to) => admin
-      .from('recibos').select('id, studio_id, fecha_cobro, metodo_cobro, factura_pendiente_sellar').eq('estado', 'COBRADO').range(from, to),
+      .from('recibos').select('id, studio_id, fecha_cobro, metodo_cobro, factura_pendiente_sellar').eq('estado', 'COBRADO').order('id').range(from, to),
   );
   const { data: facturadas } = await fetchAllRows<{ recibo_id: string | null }>(
     '(global)', 'facturas',
     (from, to) => admin
-      .from('facturas').select('recibo_id').not('recibo_id', 'is', null).range(from, to),
+      .from('facturas').select('recibo_id').not('recibo_id', 'is', null).order('id').range(from, to),
   );
   const idsConFactura = new Set(facturadas.map(f => f.recibo_id as string));
   // Solo los estudios que emiten facturas (factura siempre, 2-oct-2026: todos
@@ -724,7 +724,7 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
   // los diez estudios estaban en 'sin_facturas' y un cobro sin factura era lo normal.
   const { data: conFacturas } = await fetchAllRows<{ id: string; nif: string | null }>(
     '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id, nif').in('modo_facturacion', ['facturas', 'verifactu']).range(from, to),
+    (from, to) => admin.from('studios').select('id, nif').in('modo_facturacion', ['facturas', 'verifactu']).order('id').range(from, to),
   );
   const emiten = new Set(conFacturas.filter(s => nifEmisorValido(s.nif?.trim() ?? '')).map(s => s.id));
 
@@ -742,7 +742,7 @@ export async function vigilarRecibosCobradosSinFactura(admin: SupabaseClient): P
   // la columna aún no existe, nadie la tiene apagada.
   const { data: apagadosRows } = await fetchAllRows<{ id: string }>(
     '(global)', 'studios',
-    (from, to) => admin.from('studios').select('id').eq('facturar_automatico', false).range(from, to),
+    (from, to) => admin.from('studios').select('id').eq('facturar_automatico', false).order('id').range(from, to),
   );
   const apagados = new Set(apagadosRows.map(s => s.id));
   const averia: ReciboCobrado[] = recibosConFacturaAutomaticaAusente(filas, idsConFactura)
@@ -800,7 +800,7 @@ export const conciliarCobrosVigilancia = inngest.createFunction(
           .select('id, stripe_account_id')
           .not('stripe_account_id', 'is', null)
           .is('suspendido_en', null)
-          .range(from, to),
+          .order('id').range(from, to),
       );
       if (!studios.length) return { escapados: 0 };
 
@@ -1012,6 +1012,9 @@ async function entregar(
     // P-1 (auditoría 26ª pasada): ya decidido al crear el checkout, aquí solo
     // se lee para registrarla — mismo criterio que codigoDescuentoId abajo.
     matriculaCobradaCentimos: Number(sesion?.metadata?.matriculaCentimos ?? pi?.metadata?.matriculaCentimos ?? 0) || 0,
+    // Cobro proporcional: se reconstruye lo prometido al abrir el cobro, sin recalcular.
+    cicloFinISO: sesion?.metadata?.cicloFin ?? pi?.metadata?.cicloFin ?? null,
+    cuotaTexto: sesion?.metadata?.cuotaTexto ?? pi?.metadata?.cuotaTexto ?? null,
   });
 
   if (!entrega.ok) {
@@ -1144,7 +1147,7 @@ export const conciliarCobrosDispatcher = inngest.createFunction(
           .select('id, stripe_account_id')
           .not('stripe_account_id', 'is', null)
           .is('suspendido_en', null)
-          .range(from, to),
+          .order('id').range(from, to),
       );
       const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
 

@@ -31,6 +31,13 @@ export const FRASES_PROHIBIDAS: { patron: RegExp; motivo: string }[] = [
   // La factura solo imprime el QR cuando la AEAT ya tiene el registro, y el
   // envío no está activo: «numeración, huella y QR» se coló en cuatro textos.
   { patron: /(numeraci[oó]n legal|huella)[^.]{0,40}\by (el )?(c[oó]digo )?QR\b/i, motivo: 'las facturas de Tentare no llevan QR hasta que la AEAT tenga el registro' },
+  // 21-oct-2026 (auditoría de promesas): sin Veri*Factu —no activo en ningún estudio— la
+  // factura nace sin huella; el SEPA de Stripe está retirado; y las sustituciones
+  // autónomas son un complemento en Founding Studio de pago. La guardia de toda la web
+  // es lib/web-sin-promesas-falsas.test.ts; esto avisa al escribir el artículo.
+  { patron: /(numeraci[oó]n legal|facturas?)[^.]{0,30}(y|con) huella encadenada/i, motivo: 'sin Veri*Factu activo, la factura sale sin huella ni QR' },
+  { patron: /(domiciliaci[oó]n|adeudo) SEPA a trav[eé]s de (tu cuenta de )?Stripe|Stripe(?: conectado)? \(tarjeta (y|o) SEPA\)/i, motivo: 'el SEPA de Stripe está retirado: la domiciliación va por remesa que el estudio presenta en su banco' },
+  { patron: /aut[oó]nomas?,? en todos los planes|modo aut[oó]nomo \(en todos los planes\)/i, motivo: 'en Founding Studio de pago, las sustituciones autónomas son un complemento' },
 ];
 
 const RE_ENLACE = /\[([^\]]+)\]\(([^)\s]+)\)/g;

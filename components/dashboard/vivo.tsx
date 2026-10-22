@@ -41,7 +41,7 @@ export const TONOS: Record<Tono, string> = {
  * quiero siempre de ese color, solo los más destacados»): ese es `BOTON_DESTACADO`.
  */
 export const BOTON_VIVO =
-  'inline-flex items-center justify-center gap-1.5 rounded-full bg-primary font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex items-center justify-center gap-1.5 rounded-full bg-primary font-semibold text-primary-foreground shadow-sm transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /**
  * El degradado del logo, SOLO para lo más destacado: el siguiente paso de «Pon en
@@ -49,7 +49,7 @@ export const BOTON_VIVO =
  * cabecera de una sección ni en una lista.
  */
 export const BOTON_DESTACADO =
-  'inline-flex items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,var(--t-blue-700),var(--t-magenta-700))] font-semibold text-white shadow-[0_6px_16px_-8px_var(--t-magenta-700)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex items-center justify-center gap-1.5 rounded-full bg-[linear-gradient(135deg,var(--t-blue-700),var(--t-magenta-700))] font-semibold text-white shadow-[0_6px_16px_-8px_var(--t-magenta-700)] transition-[filter,transform] hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 
 /** El degradado del logo, para barras y progresos. */
 export const DEGRADADO_LOGO = 'linear-gradient(90deg, var(--t-blue-500), var(--t-magenta-500))';
@@ -67,6 +67,15 @@ export function Baldosa({ tono, Icono, tamano = 'md' }: { tono: Tono; Icono: Ele
     </span>
   );
 }
+
+/**
+ * El panel de color sobre el que va el móvil de una vista previa de su app (Apariencia de
+ * tu app, Contenido de tu app): «como Bonsai, el móvil sobre un panel grande de color, con
+ * los tonos del logo». Uno solo, para que las dos pantallas no se separen.
+ */
+export const FONDO_VISTA_MOVIL: CSSProperties = {
+  backgroundImage: 'linear-gradient(140deg, color-mix(in srgb, var(--t-blue-500) 88%, white), color-mix(in srgb, var(--t-magenta-500) 72%, white))',
+};
 
 /**
  * Fondo de una tarjeta teñida de su tono: blanca y, solo hacia la esquina, un
@@ -228,9 +237,9 @@ export function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles,
 
 
 /** El periodo en píldoras, como «7 días · Este mes · 3 meses» de Bonsai. */
-export function Pildoras<T extends string | number>({ opciones, valor, onCambio }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void }) {
+export function Pildoras<T extends string | number>({ opciones, valor, onCambio, etiqueta = 'Periodo' }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void; etiqueta?: string }) {
   return (
-    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label="Periodo">
+    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label={etiqueta}>
       {opciones.map(o => (
         <button
           key={String(o.valor)}
@@ -238,7 +247,7 @@ export function Pildoras<T extends string | number>({ opciones, valor, onCambio 
           onClick={() => onCambio(o.valor)}
           aria-pressed={valor === o.valor}
           className={cn(
-            'rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
+            'zona-tactil rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
             valor === o.valor ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
           )}
         >
@@ -262,7 +271,7 @@ export function Comparacion({ diferencia, contra }: { diferencia: number; contra
 
 export function VerMas({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
+    <Link href={href} className="zona-tactil mt-3 inline-flex items-center gap-1 text-[13px] font-semibold" style={{ color: 'var(--t-text-link)' }}>
       {label} <ArrowRight size={14} aria-hidden />
     </Link>
   );
@@ -288,12 +297,14 @@ export function VacioPositivo({ titulo, texto }: { titulo: string; texto: string
  * los ejemplos (lo que hace en negrita, cuándo en normal) y UNA acción
  * principal con verbo y objeto. Opcional, un enlace secundario.
  */
-export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, secundaria, className }: {
+export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEjemplos = 'Ejemplos', accion, secundaria, className }: {
   tono: Tono;
   Icono: ElementType;
   titulo: string;
   texto: ReactNode;
   ejemplos?: { accion: string; cuando: string }[];
+  /** Lo que va encima de los ejemplos («Ejemplos», o «Tres maneras» en Clientas del alta nueva). */
+  etiquetaEjemplos?: string;
   accion?: { label: string; href?: string; onClick?: () => void; Icono?: ElementType };
   secundaria?: { label: string; href?: string; onClick?: () => void };
   className?: string;
@@ -312,7 +323,7 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, se
       <p className="mt-2 max-w-md text-[14px] text-muted-foreground text-pretty">{texto}</p>
       {ejemplos && ejemplos.length > 0 && (
         <div className="mt-6 w-full max-w-md rounded-2xl border border-border bg-card p-4 text-left">
-          <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Ejemplos</p>
+          <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">{etiquetaEjemplos}</p>
           <ul className="mt-2.5 flex flex-col gap-2.5">
             {ejemplos.map(e => (
               <li key={e.accion} className="flex items-start gap-2.5 text-[13.5px] leading-snug">
@@ -330,9 +341,9 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, accion, se
           {accion && <BotonVivo {...accion} grande />}
           {secundaria && (
             secundaria.href ? (
-              <Link href={secundaria.href} className="text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</Link>
+              <Link href={secundaria.href} className="zona-tactil text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</Link>
             ) : (
-              <button type="button" onClick={secundaria.onClick} className="text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</button>
+              <button type="button" onClick={secundaria.onClick} className="zona-tactil text-[13.5px] font-semibold" style={{ color: 'var(--t-text-link)' }}>{secundaria.label}</button>
             )
           )}
         </div>

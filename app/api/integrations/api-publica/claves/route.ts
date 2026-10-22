@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const g = await exigirGestorApi(req);
   if (!g.ok) return NextResponse.json({ error: g.error }, { status: g.status });
   if (!g.activada) {
-    return NextResponse.json({ error: 'La API no está activada para tu estudio. Escríbenos y la activamos.' }, { status: 403 });
+    return NextResponse.json({ error: 'Tentare ha desactivado la API en tu estudio. Escríbenos y lo revisamos.' }, { status: 403 });
   }
 
   const v = validarNuevaClave(await req.json().catch(() => null), g.permitidos);

@@ -14,7 +14,9 @@ import type { DeliveryStatus, NotificationChannel, NotificationRow, Recipient } 
 import { remitentePorMarca } from '../emails/remitente.ts';
 import { conReintentoResend } from '../emails/resend-reintentos.ts';
 import { urlMonograma } from '../monograma-estudio.ts';
-import { configApns, enviarApns, esEndpointApns } from './apns.ts';
+import { configApns, enviarApns, esEndpointApns, leerEndpointApns } from './apns.ts';
+import { BUNDLE_TENTARE } from '../app-nativa/app-estudio.ts';
+import { estudioDeLaApp } from '../app-nativa/app-de-cadena.ts';
 
 export interface ResultadoCanal {
   status: DeliveryStatus;
@@ -100,9 +102,13 @@ export function hostDeEndpoint(endpoint: string): string {
   try { return new URL(endpoint).host; } catch { return 'desconocido'; }
 }
 
-/** El nombre corto que se enseña: fcm, apple, mozilla, windows… */
+/** El nombre corto que se enseña: fcm, apple, ios, mozilla, windows… */
 export function proveedorDePush(host: string): string {
   if (host.includes('fcm.googleapis') || host.includes('googleapis')) return 'fcm';
+  // La app nativa (APNs) y el Web Push de Safari son los dos de Apple: sin
+  // distinguirlos, «apple:403 apple:201» no decía si el iPhone había recibido
+  // el aviso en la app o en la web instalada.
+  if (host === 'api.push.apple.com') return 'ios';
   if (host.includes('push.apple.com')) return 'apple';
   if (host.includes('mozilla')) return 'mozilla';
   if (host.includes('notify.windows')) return 'windows';
@@ -125,6 +131,31 @@ function clasificar(codigo: number | undefined): EstadoEndpoint {
   // Sin código = red caída/timeout; 429 y 5xx = el servicio de push, no la suscripción.
   if (codigo == null || codigo === 429 || codigo >= 500) return 'transitorio';
   return 'rechazado'; // 400/401/403/413…: payload, VAPID o suscripción inválidos
+}
+
+/** `APNs 403 InvalidProviderToken` → `InvalidProviderToken`; nada para el resto. */
+export function motivoApns(detalle: string | undefined): string | null {
+  return detalle?.match(/^APNs \d+ ([A-Za-z]+)/)?.[1] ?? null;
+}
+
+/**
+ * Las suscripciones a las que SÍ se manda un aviso. La app de un ESTUDIO (un bundle que no es
+ * `app.tentare`) es marca blanca: solo recibe los avisos de su estudio —o, si es la app de una
+ * cadena, de sus sedes (`sedesDeLaApp`)— y solo mientras esa app siga activa (`bundlesActivos`: los
+ * de `apps_estudio` activos del dueño de la app). Sin esto, una alumna de dos estudios con la app de
+ * uno recibía los avisos del otro con la marca del primero, y pausar una app no cortaba sus avisos.
+ * La web y la app «Tentare» sirven a cualquier estudio.
+ */
+export function suscripcionesDelAviso<T extends { endpoint: string; studio_id?: string | null }>(
+  subs: readonly T[], sedesDeLaApp: ReadonlySet<string>, bundlesActivos: ReadonlySet<string>,
+): T[] {
+  return subs.filter((s) => {
+    const apns = leerEndpointApns(s.endpoint);
+    if (!apns) return true;
+    const bundle = apns.bundleId.toLowerCase();
+    if (bundle === BUNDLE_TENTARE) return true;
+    return !!s.studio_id && sedesDeLaApp.has(s.studio_id) && bundlesActivos.has(bundle);
+  });
 }
 
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -165,7 +196,13 @@ export async function enviarAEndpoints(
 
 /** El veredicto y el texto que queda en `notification_delivery` para «¿por qué no le llegó?». */
 export function resumirPush(res: readonly ResultadoEndpoint[], retiradas: number): ResultadoCanal {
-  const partes = res.map((r) => `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}${r.estado === 'ok' ? '' : `(${r.estado})`}`);
+  const partes = res.map((r) => {
+    if (r.estado === 'ok') return `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}`;
+    // El motivo de APNs (`InvalidProviderToken`, `TopicDisallowed`…) es lo único
+    // que dice qué arreglar, y con otro dispositivo en `ok` no llegaba a `error`.
+    const motivo = motivoApns(r.detalle);
+    return `${proveedorDePush(r.host)}:${r.codigo ?? 'sin-respuesta'}(${r.estado}${motivo ? ` ${motivo}` : ''})`;
+  });
   const ok = res.filter((r) => r.estado === 'ok').length;
   const providerId = `${ok}/${res.length} · ${partes.join(' ')}`.slice(0, 250);
   if (ok > 0) return { status: 'SENT', providerId };
@@ -192,12 +229,34 @@ const push: Canal = {
     if (!vapidListo && !apns) return { status: 'SKIPPED', error: 'push no configurado (VAPID pendiente)' };
 
     const { data: todas, error: errSubs } = await admin.from('push_subscription')
-      .select('id, endpoint, p256dh, auth, failure_count').eq('user_id', destinatario.userId);
+      .select('id, studio_id, endpoint, p256dh, auth, failure_count').eq('user_id', destinatario.userId);
     // Leer mal NO es «no tiene suscripción»: se dice, no se calla.
     if (errSubs) return { status: 'FAILED', error: `no se pudieron leer sus suscripciones: ${errSubs.message}` };
     if (!todas || todas.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push: la usuaria no ha activado los avisos en ningún dispositivo' };
+    // La app de un estudio solo lleva los avisos de su estudio, y solo si sigue activa.
+    const hayAppsDeEstudio = todas.some((s) => {
+      const e = leerEndpointApns(s.endpoint as string);
+      return !!e && e.bundleId.toLowerCase() !== BUNDLE_TENTARE;
+    });
+    let bundlesActivos = new Set<string>();
+    let sedesDeLaApp = new Set<string>([notificacion.studioId]);
+    if (hayAppsDeEstudio) {
+      // Leer mal NO es «no tiene app»: sin saberlo no se manda por las apps de estudio, pero se dice.
+      try {
+        const duena = await estudioDeLaApp(admin, notificacion.studioId);
+        sedesDeLaApp = new Set(duena.sedes);
+        const { data: apps, error: errApps } = await admin.from('apps_estudio').select('bundle_id')
+          .eq('studio_id', duena.studioId).eq('activa', true);
+        if (errApps) throw new Error(errApps.code ?? errApps.message);
+        bundlesActivos = new Set((apps ?? []).map((a) => String(a.bundle_id).toLowerCase()));
+      } catch (e) {
+        console.warn('[push] no se pudieron leer las apps de estudio:', e instanceof Error ? e.message : e);
+      }
+    }
+    const delAviso = suscripcionesDelAviso(todas as { endpoint: string; studio_id: string | null }[], sedesDeLaApp, bundlesActivos);
+    if (delAviso.length === 0) return { status: 'SKIPPED', error: 'sin suscripción push para este estudio en sus dispositivos' };
     // Solo las que este servidor sabe mandar: sin VAPID no hay web; sin clave de APNs, no hay iPhone.
-    const subs = todas.filter((s) => (esEndpointApns(s.endpoint as string) ? !!apns : vapidListo));
+    const subs = (delAviso as typeof todas).filter((s) => (esEndpointApns(s.endpoint as string) ? !!apns : vapidListo));
     if (subs.length === 0) {
       return { status: 'SKIPPED', error: apns ? 'push web no configurado (VAPID pendiente)' : 'avisos de la app de iOS sin configurar (falta la clave de APNs)' };
     }

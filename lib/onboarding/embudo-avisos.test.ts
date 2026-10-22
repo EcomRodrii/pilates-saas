@@ -25,3 +25,11 @@ test('una prueba ya cerrada no recibe «comparte tu enlace» (su panel está blo
   // Pero sí sigue valiendo el aviso de sin clases, que es el de siempre.
   assert.equal(avisoDeEmbudo({ creadoHaceHoras: 200, sesiones: 0, reservas: 0, pruebaExpirada: true }), 'SIN_CLASES');
 });
+
+test('el alta nueva no recibe «sin clases»: tiene su propio correo a las 24 h (PR-5)', () => {
+  assert.equal(avisoDeEmbudo({ creadoHaceHoras: 60, sesiones: 0, reservas: 0, altaNueva: true }), null);
+  // «Sin reservas» sí: ese no tiene otro.
+  assert.equal(avisoDeEmbudo({ creadoHaceHoras: 80, sesiones: 3, reservas: 0, altaNueva: true }), 'SIN_RESERVAS');
+  // Y el alta de siempre, igual que antes.
+  assert.equal(avisoDeEmbudo({ creadoHaceHoras: 60, sesiones: 0, reservas: 0, altaNueva: false }), 'SIN_CLASES');
+});

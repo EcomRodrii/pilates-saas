@@ -3,12 +3,13 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'cuanto-cuesta-abrir-un-estudio-de-pilates',
   titulo: 'Cuánto cuesta abrir un estudio de pilates: presupuesto por partidas con precios reales',
-  tituloSeo: 'Cuánto cuesta abrir un estudio de pilates: presupuesto 2026',
+  tituloSeo: 'Cuánto cuesta abrir un estudio de pilates en 2026',
   descripcion: 'Precio real de un reformer con y sin IVA, fianza del local, cuota de autónoma, seguro, marca, software y un presupuesto de ejemplo con 6 reformers.',
   resumen: 'Lo que cuesta cada partida de un estudio de pilates en España, con precios publicados por fabricantes, tiendas y organismos oficiales, y un presupuesto de ejemplo para seis reformers.',
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cuánto cuesta abrir un estudio de pilates',
   consultas: [
     'cuánto cuesta poner un estudio de pilates reformer',
@@ -41,7 +42,7 @@ const articulo: Articulo = {
             ['Registro de marca', 'Inversión', '127,88 € la primera clase, trámite electrónico (OEPM)'],
             ['Seguro de responsabilidad civil', 'Gasto fijo', 'Desde 155 €/año la de una monitora, según un comparador; la del estudio, a presupuesto'],
             ['Cuota de autónoma', 'Gasto fijo', 'Cuota reducida de 80 €/mes los 12 primeros meses (cuantía legal de 2023-2025)'],
-            ['Software de reservas y cobros', 'Gasto fijo', 'Tentare: 29, 59 o 149 €/mes con IVA según el plan'],
+            ['Software de reservas y cobros', 'Gasto fijo', 'Tentare: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido'],
             ['Comisiones de cobro', 'Variable', 'Stripe: 1,5 % + 0,25 € por pago con tarjeta estándar del EEE'],
             ['Instructoras', 'Gasto fijo o variable', '[Cuánto cobra una instructora de pilates](/recursos/cuanto-cobra-una-instructora-de-pilates)'],
             ['Marketing de apertura', 'Inversión', 'Tu plan: web, fotos, anuncios y preventa'],
@@ -138,7 +139,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'El software de reservas y cobros pesa poco al lado del alquiler, pero decide cuántas horas pasas contestando mensajes. Si buscas opciones gratuitas, las repasamos en [software de pilates gratis](/recursos/software-pilates-gratis); las de pago, comparadas, en [el mejor software para estudios de pilates](/recursos/mejor-software-para-estudios-de-pilates). Tentare cuesta 29 € al mes en el plan Founding Studio, 59 € en el Estudio y 149 € en el Cadena, con IVA y sin permanencia ([precios](/precios)).',
+          texto: 'El software de reservas y cobros pesa poco al lado del alquiler, pero decide cuántas horas pasas contestando mensajes. Si buscas opciones gratuitas, las repasamos en [software de pilates gratis](/recursos/software-pilates-gratis); las de pago, comparadas, en [el mejor software para estudios de pilates](/recursos/mejor-software-para-estudios-de-pilates). Tentare es gratis en el plan Founding Studio (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €) y cuesta 59 € al mes en el Estudio y 149 € en el Cadena, con IVA y sin permanencia ([precios](/precios)).',
         },
         {
           t: 'p',
@@ -150,7 +151,7 @@ const articulo: Articulo = {
         },
         {
           t: 'llamada',
-          texto: 'El software de gestión es de las partidas más pequeñas del presupuesto: Tentare cuesta desde 29 €/mes con IVA y sin permanencia, y lleva reservas, bonos y cobros desde la primera clase.',
+          texto: 'El software de gestión es de las partidas más pequeñas del presupuesto: Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y lleva reservas, bonos y cobros desde la primera clase.',
         },
       ],
     },
@@ -170,9 +171,9 @@ const articulo: Articulo = {
             ['6 esterillas de estudio de 180 × 58 cm', '124,20 €', '6 × 20,70 € con IVA'],
             ['1 silla de pilates', '1.197,90 €', 'Elina Pilates, con IVA'],
             ['Registro de marca, 1 clase', '127,88 €', 'OEPM, trámite electrónico'],
-            ['Software, plan Estudio, 12 meses', '708,00 €', '12 × 59 € con IVA'],
+            ['Software: Founding Studio, si pasas de lo gratis, 12 meses', '348,00 €', '12 × 29 € con IVA (gratis hasta 150 alumnas activas y 250 reservas al mes)'],
             ['Cuota de autónoma, 12 meses', '960,00 €', '12 × 80 € de cuota reducida (confirma la vigente)'],
-            ['**Subtotal con precio público**', '**20.469,38 €**', 'Suma de las filas anteriores'],
+            ['**Subtotal con precio público**', '**20.109,38 €**', 'Suma de las filas anteriores'],
             ['Fianza del local', '2 × tu renta', 'Ley de Arrendamientos Urbanos'],
             ['Obra, proyecto y tasas', 'Tus presupuestos', 'Técnica y ayuntamiento'],
             ['Seguros', 'Tu presupuesto', 'Aseguradora o correduría'],
@@ -214,9 +215,9 @@ const articulo: Articulo = {
     },
     {
       q: '¿Cuánto cuesta el software para un estudio de pilates?',
-      a: 'Tentare cuesta 29, 59 o 149 € al mes con IVA según el plan, sin permanencia y con 7 días de prueba gratis sin tarjeta. Aparte van las comisiones del procesador de pagos: con Stripe, un 1,5 % + 0,25 € por pago con tarjeta estándar del Espacio Económico Europeo.',
+      a: 'Tentare cuesta, según el plan: Founding Studio gratis (hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia. Aparte van las comisiones del procesador de pagos: con Stripe, un 1,5 % + 0,25 € por pago con tarjeta estándar del Espacio Económico Europeo.',
     },
-    { q: '¿Cuánto cuesta montar un negocio de pilates?', a: 'Lo que tiene precio público suma unos 20.500 € en nuestro ejemplo: 6 reformers de gama de entrada, una silla, esterillas, el registro de la marca y 12 meses de software y de cuota de autónoma. Aparte van la fianza, la obra, las tasas y los seguros, que dependen de tu local y de tu municipio. Con reformers de gama alta, solo las máquinas pasan de 36.000 €.' },
+    { q: '¿Cuánto cuesta montar un negocio de pilates?', a: 'Lo que tiene precio público suma unos 20.100 € en nuestro ejemplo: 6 reformers de gama de entrada, una silla, esterillas, el registro de la marca y 12 meses de software y de cuota de autónoma. Aparte van la fianza, la obra, las tasas y los seguros, que dependen de tu local y de tu municipio. Con reformers de gama alta, solo las máquinas pasan de 36.000 €.' },
     {
       q: '¿En cuánto tiempo se recupera la inversión de un estudio de pilates?',
       a: 'No hay una cifra honesta que valga para todos: depende de la ocupación, de los precios y de los gastos fijos de tu local. Calcula cuántas plazas necesitas vender al mes para cubrir gastos y qué margen te queda por encima; con eso sale tu plazo.',
@@ -255,7 +256,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Comprueba desde el primer mes si cada clase se paga',
-    texto: 'Tentare te enseña la rentabilidad de cada clase (lo que ingresa menos lo que cuesta la instructora) y cobra bonos y cuotas online desde el primer día. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Tentare te enseña la rentabilidad de cada clase (lo que ingresa menos lo que cuesta la instructora) y cobra bonos y cuotas online desde el primer día. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Los precios de equipamiento (Elina Pilates, Aerobic y Fitness, Merrithew) son del 25-sep-2026 y cambian a menudo: revisarlos antes de publicar.',

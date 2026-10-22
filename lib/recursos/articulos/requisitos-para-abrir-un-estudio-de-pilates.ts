@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'requisitos-para-abrir-un-estudio-de-pilates',
   titulo: 'Requisitos para abrir un estudio de pilates: trámites, licencia, epígrafe y titulación',
-  tituloSeo: 'Requisitos para abrir un estudio de pilates: lista en orden',
+  tituloSeo: 'Requisitos para abrir un estudio de pilates',
   descripcion: 'Licencia o declaración responsable, epígrafe IAE, Seguridad Social, seguro, datos de salud y titulación: los 9 trámites en orden y con su norma oficial.',
   resumen: 'Todos los trámites para abrir un estudio de pilates en España, en orden y con su norma: Hacienda, Seguridad Social, ayuntamiento, seguro, protección de datos y titulación de quien da clase.',
   categoria: 'abrir',
@@ -206,7 +206,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'Tentare, el software de gestión para estudios de Pilates',
-          texto: 'Reservas, lista de espera, bonos, cobros y facturas desde el primer día, y cuando una instructora no puede venir busca sustituta por ti. Pruébalo 7 días gratis, sin tarjeta.',
+          texto: 'Reservas, lista de espera, bonos, cobros y facturas desde el primer día, y cuando una instructora no puede venir busca sustituta por ti. Empieza gratis, sin tarjeta.',
         },
       ],
     },
@@ -220,7 +220,7 @@ const articulo: Articulo = {
         },
         {
           t: 'p',
-          texto: 'Tentare emite facturas con numeración legal y huella encadenada; la firma y el envío automático a la AEAT están en desarrollo, y el QR de cotejo se imprime cuando la AEAT tiene el registro. Con otro programa, pregunta a tu proveedor cuándo se adapta.',
+          texto: 'Tentare emite facturas con numeración legal correlativa, sin huella ni QR: Veri*Factu (la huella, la firma y el envío a la AEAT) todavía no está activo en ningún estudio. Con otro programa, pregunta a tu proveedor cuándo se adapta.',
         },
       ],
     },
@@ -293,7 +293,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Con los papeles en regla, que la gestión no te quite horas',
-    texto: 'Tentare lleva las reservas, los bonos, los cobros y las facturas de tu estudio desde el primer día, con la ficha de salud de cada alumna. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Tentare lleva las reservas, los bonos, los cobros y las facturas de tu estudio desde el primer día, con la ficha de salud de cada alumna. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'La DGT publicó en mayo de 2026 la consulta V1288-26 (967.2 frente a actividad profesional, en entrenamiento personal); no se pudo leer el texto oficial porque la base de datos de la DGT no respondía. Revisar si matiza el criterio de V2661-14.',

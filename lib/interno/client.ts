@@ -3,6 +3,7 @@
 // de 403 importa: "no eres del equipo" y "esto no te toca" se arreglan de forma
 // muy distinta.
 import { authHeader } from '../api-client.ts';
+import type { VinculoFicha } from '../billing/vinculos-gratis.ts';
 import type { SaludEstudio } from './salud-estudio.ts';
 import type { AccionVisita, ResumenVisita } from './visita-guiada.ts';
 import type { CambioApp } from './apps-estudio.ts';
@@ -116,6 +117,8 @@ export interface FichaEstudio {
   equipo: Array<{ nombre: string; rol: string; activo: boolean; tieneCuenta: boolean }>;
   /** API pública (F1): se activa estudio a estudio desde aquí. */
   apiPublica?: { activa: boolean; activadaEn: string | null; clavesActivas: number };
+  /** Cuentas que parecen el mismo negocio (plan gratis, lib/billing/vinculos-gratis.ts). */
+  vinculos?: VinculoFicha[];
   /** Wellhub por API: el gym y el producto vinculados, y si Tentare tiene sus credenciales. */
   wellhub?: { gymId: string | null; productoId: string | null; credenciales: boolean };
   reviewBoost: {
@@ -132,6 +135,8 @@ export interface FichaEstudio {
 
 export const fetchSesionInterna = () => pedir<SesionInterna>('/sesion');
 export const fetchKpis = () => pedir<Kpis>('/kpis');
+/** «Hoy» y los contadores del menú (ver lib/interno/hoy.ts). */
+export const fetchHoy = () => pedir<import('./hoy.ts').Hoy>('/hoy');
 export const fetchFacturacion = () => pedir<Facturacion>('/facturacion');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);
@@ -175,6 +180,9 @@ export interface AltasSinTerminar {
   resumen: ReturnType<typeof import('../alta/abandono.ts').resumirAltas>;
 }
 export const fetchAltasSinTerminar = () => pedir<AltasSinTerminar>('/crecimiento/altas');
+
+/** Activación de estudios nuevos: embudo del alta y cohortes (`growth.read`). Ver lib/alta/embudo.ts. */
+export const fetchActivacion = () => pedir<import('../alta/embudo.ts').ResumenActivacion>('/crecimiento/activacion');
 
 export const guardarLead = (cuerpo: Record<string, unknown>) =>
   pedir<{ ok: true; id: string }>('/crecimiento', { method: 'POST', body: JSON.stringify(cuerpo) });
@@ -251,14 +259,20 @@ export const fetchVisitaGuiada = () =>
 export const accionVisitaGuiada = (cuerpo: AccionVisita) =>
   pedir<{ ok: true; cambiados?: number; nuevos?: boolean }>('/visita-guiada', { method: 'POST', body: JSON.stringify(cuerpo) });
 
+// Bajas (en seco): lo que diría la máquina de estados de bajas, sin hacer nada.
+export const fetchBajas = (hoy?: string) =>
+  pedir<import('./bajas.ts').RespuestaBajas>(`/bajas${hoy ? `?hoy=${encodeURIComponent(hoy)}` : ''}`);
+
 // Apps de estudio: la cola de «Pedir mi app» (la tramita el equipo desde /interno/apps-estudio).
 export interface AppDeEstudioInterna {
-  studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean; planIncluye: boolean;
-  bundleId: string; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
+  studioId: string; estudio: string; slug: string | null; plan: string | null; esDemo: boolean;
+  /** Por qué hoy NO podría pedirla (plan, prueba, cobro, sin-plan), o `null` si sí. */
+  motivoSinPlan: 'plan' | 'prueba' | 'cobro' | 'sin-plan' | 'sede' | null; estadoPago: string | null; sinPlanDesde: string | null;
+  bundleId: string; ascAppId: string | null; nombreApp: string; activa: boolean; estado: EstadoApp; pedidaEn: string | null;
   urlTienda: string | null; notaInterna: string | null;
 }
 
-export const fetchAppsEstudio = () => pedir<{ apps: AppDeEstudioInterna[] }>('/apps-estudio');
+export const fetchAppsEstudio = () => pedir<{ apps: AppDeEstudioInterna[]; cuposLibres: number | null }>('/apps-estudio');
 
 export const cambiarAppEstudio = (cuerpo: CambioApp) =>
   pedir<{ ok: true }>('/apps-estudio', { method: 'POST', body: JSON.stringify(cuerpo) });

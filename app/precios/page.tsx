@@ -1,17 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { OrganizationStructuredData, ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
+import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
-import { PLANES, PLAN_ENTITLEMENTS, PLAN_INFO, TRIAL_DIAS, type Plan } from '@/lib/billing/entitlements';
-import { funcionalidades, paginaDe, urlDe, BASE_URL } from '@/lib/seo/paginas';
-import { LEGAL } from '@/lib/legal-info';
+import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
+import { PLANS } from '@/components/landing/data';
+import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, SI_PASAS_CON_COMPLEMENTOS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
+import { softwareApplicationLd } from '@/lib/seo/software-application';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 const PATH = '/precios';
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH), images: [{ url: '/precios/opengraph-image' }] },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH), images: [{ url: '/precios/opengraph-image' }] },
 };
 
 // Precios, topes y features salen de lib/billing/entitlements.ts — la MISMA
@@ -31,17 +32,15 @@ export const metadata: Metadata = {
 //
 // ⚠️ Nada de «el más elegido» ni de «más popular» sin datos que lo respalden
 // (retirado el 23-sep con OK del fundador: no había ningún estudio de pago). El
-// texto del botón es el mismo que en la home: «Probar N días gratis».
+// texto del botón es el mismo que en la home (`CTA_ALTA`): desde el 15-oct-2026
+// no hay prueba de 7 días, se empieza en Founding Studio gratis, con todo.
 const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
-  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: `Probar ${TRIAL_DIAS} días gratis` },
-  ESTUDIO: { gancho: 'El plan completo', para: 'Un estudio en marcha, con equipo y horario completo.', cta: `Probar ${TRIAL_DIAS} días gratis` },
+  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: CTA_ALTA },
+  // Estudio ya no se vende por el equipo ni por las alumnas: Founding Studio
+  // también los tiene, sin tope (15-oct-2026). El mismo texto que la home.
+  ESTUDIO: { gancho: 'Más consultas al asistente', para: PLANS.find((x) => x.id === 'ESTUDIO')!.desc, cta: CTA_ALTA },
   CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
 };
-
-function tope(plan: Plan): string {
-  const max = PLAN_ENTITLEMENTS[plan].maxSocios;
-  return max === Infinity ? 'Sin límite de alumnas' : `Hasta ${max} alumnas activas`;
-}
 
 // La comparativa por categorías vive en lib/billing/catalogo-planes.ts y la
 // pinta <ComparativaPlanes>. Esta página tenía su propia lista de 11 filas
@@ -50,15 +49,9 @@ function tope(plan: Plan): string {
 // qué no (p. ej. marketing, apagado otra vez desde el 2026-08-19) se decide
 // allí, no aquí.
 
+// Las dos preguntas de la prueba de 7 días se fueron con ella (15-oct-2026):
+// ya no hay prueba, se empieza en Founding Studio gratis.
 const FAQ = [
-  {
-    q: `¿La prueba de ${TRIAL_DIAS} días pide tarjeta?`,
-    a: `No. Creas tu estudio y entras: ${TRIAL_DIAS} días gratis del plan que elijas, sin darnos ningún dato de pago. Al terminar no se te cobra nada — si no eliges plan, la prueba simplemente se acaba y tus datos siguen ahí intactos, sin borrar nada.`,
-  },
-  {
-    q: `¿Qué pasa exactamente cuando terminan los ${TRIAL_DIAS} días?`,
-    a: 'Que dejas de poder entrar al panel hasta que elijas un plan. No se borra nada: tus alumnas, tus clases, tus bonos y tus facturas siguen donde estaban, y en cuanto contrates vuelves a encontrarlo todo tal cual lo dejaste. Tus alumnas tampoco pierden su historial.',
-  },
   {
     q: '¿Hay permanencia?',
     a: 'No. Se paga mes a mes y se cancela cuando quieras. Tus datos son tuyos: puedes exportar alumnas, historial y facturas en cualquier momento, también al irte.',
@@ -68,8 +61,8 @@ const FAQ = [
     a: 'No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel.',
   },
   {
-    q: '¿Qué pasa si supero las 150 alumnas del plan Founding Studio?',
-    a: 'El tope cuenta alumnas activas. No se bloquea ninguna alta ni se borra a nadie: en Suscripción ves cuántas llevas, y pasas al plan Estudio cuando te encaje.',
+    q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
+    a: `Sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes, con IVA incluido y sin tope de alumnas ni de reservas; con ese plan, ${COMPLEMENTOS_DE_PAGO} van aparte, como complementos. Tienes ${GRATIS_MARGEN_DIAS} días para pasarte; si no, se cierra el panel y la app de tus alumnas sigue funcionando. Las reservas se cuentan sobre los últimos 30 días, y si tienes varios estudios en el plan gratis, se suman. En el plan gratis, la redacción con IA tiene además un tope de 40 usos al día.`,
   },
   {
     q: '¿Y si un mes falla el cobro de mi suscripción?',
@@ -77,62 +70,40 @@ const FAQ = [
   },
   {
     q: '¿La migración desde otra plataforma cuesta aparte?',
-    a: 'No se cobra aparte. Traes tus datos con los asistentes de importación y te acompañamos en la puesta en marcha; tu sistema actual puede seguir funcionando mientras tanto.',
+    a: 'No se cobra aparte. Traes tus datos con los asistentes de importación; tu sistema actual puede seguir funcionando mientras tanto.',
   },
   {
     q: '¿Puedo cambiar de plan más adelante?',
-    a: 'Sí, en los dos sentidos. Si bajas de plan, las funciones exclusivas del plan superior dejan de estar disponibles — por ejemplo, las sustituciones autónomas vuelven a modo asistido en lugar de seguir operando solas.',
+    a: 'Sí, en los dos sentidos. Si bajas de plan, las funciones exclusivas del plan superior dejan de estar disponibles — por ejemplo, las varias sedes al dejar el plan Cadena.',
   },
 ];
 
 export default function PreciosPage() {
-  // SoftwareApplication + Offer viven aquí y en la home, y en ningún otro sitio:
-  // es una sola entidad, y repetirla en cada página de funcionalidad la
-  // convertiría en once declaraciones del mismo producto. Mismo `@id` que la
-  // home (components/landing/StructuredData.tsx) para que Google la lea como
-  // la MISMA entidad en las dos páginas, no como dos productos distintos.
-  const ofertaLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    '@id': `${BASE_URL}/#software`,
-    name: LEGAL.marca,
-    applicationCategory: 'BusinessApplication',
-    // «Web» y no «iOS, Android»: no hay app nativa en las tiendas (igual que
-    // en la home) — la app de la alumna es una PWA, el panel es web.
-    operatingSystem: 'Web',
-    url: BASE_URL,
-    publisher: { '@id': ID_ORGANIZACION },
-    description: pagina.descripcion,
-    offers: PLANES.map((p) => ({
-      '@type': 'Offer',
-      name: PLAN_INFO[p].nombre,
-      price: PLAN_INFO[p].precioMes,
-      priceCurrency: 'EUR',
-      url: urlDe(PATH),
-      description: PLAN_INFO[p].resumen,
-    })),
-  };
+  // SoftwareApplication + Offer: el MISMO nodo (`/#software`) que pinta la home,
+  // construido en lib/seo/software-application.ts (con las ofertas de Founding
+  // Studio gratis). Una sola entidad, un solo objeto: repetirlo con datos
+  // distintos en cada página la hace contradecirse.
+  const ofertaLd = softwareApplicationLd();
 
   return (
     <PageShell>
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Precios" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ofertaLd).replace(/</g, '\\u003c') }} />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(26px,3.5vw,38px)', textAlign: 'center' }}>
-        <div style={{ position: 'absolute', top: -150, left: '50%', transform: 'translateX(-50%)', width: 620, height: 620, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.14), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 18px' }}>
+          <h1 style={{ fontWeight: 600, fontSize: 'clamp(36px,5.2vw,60px)', lineHeight: 1.04, letterSpacing: 'var(--w-track-display)', margin: '0 0 18px', color: 'var(--w-texto)' }}>
             <PildoraBusqueda centrada>Precios del software para estudios de Pilates</PildoraBusqueda>
             Precio público.<br />Sin permanencia.
           </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, margin: '0 auto', maxWidth: 560 }}>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', margin: '0 auto', maxWidth: 560 }}>
             Tres planes, publicados. Sin «solicita una demo para saber el precio», sin comisión sobre tus cobros y sin
             contrato anual.
           </p>
-          <p className="lp-mono" style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: ACC, color: '#D9C29E', fontSize: 13, fontWeight: 700 }}>
-            {TRIAL_DIAS} días gratis · Sin tarjeta de crédito
+          <p style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: 'var(--w-olive)', color: 'var(--w-sand)', fontSize: 14, fontWeight: 600 }}>
+            Empieza gratis · Sin tarjeta de crédito
           </p>
         </div>
       </header>
@@ -145,16 +116,16 @@ export default function PreciosPage() {
               <div
                 key={p}
                 style={{
-                  background: destacado ? '#0F0F0F' : '#fff',
-                  color: destacado ? '#E8E8E4' : undefined,
-                  border: destacado ? 'none' : '1px solid #E7E7E0',
-                  borderRadius: 24, padding: 'clamp(26px,3vw,34px)', position: 'relative',
-                  boxShadow: destacado ? '0 34px 66px -26px rgba(26,26,26,.45)' : undefined,
+                  background: destacado ? 'var(--w-noche)' : 'var(--w-papel)',
+                  color: destacado ? 'var(--w-sobre-noche)' : undefined,
+                  border: destacado ? 'none' : '1px solid var(--w-linea)',
+                  borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(26px,3vw,34px)', position: 'relative',
+                  boxShadow: destacado ? 'var(--w-sombra-flotante)' : undefined,
                 }}
               >
-                <div className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
-                <div style={{ fontSize: 46, fontWeight: 800, letterSpacing: '-.035em', color: destacado ? '#fff' : undefined, lineHeight: 1 }}>
-                  {PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: '#6B6B63' }}>/mes</span>
+                <div style={{ fontSize: 16, fontWeight: 600, color: destacado ? 'var(--w-sand)' : 'var(--w-texto)', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
+                <div style={{ fontSize: 46, fontWeight: 600, letterSpacing: '-.035em', color: destacado ? 'var(--w-sobre-noche)' : 'var(--w-texto)', lineHeight: 1 }}>
+                  {p === 'BASE' ? 'Gratis' : <>{PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)' }}>/mes</span></>}
                 </div>
                 {/* «IVA incluido» pegado a la cifra, no en una nota al pie de la
                     página: el precio de un SaaS español se lee para compararlo
@@ -162,15 +133,27 @@ export default function PreciosPage() {
                     llevan un 21%. Misma frase que ya se ve en /suscripcion, que
                     la pidió una clienta con estas palabras (P2-20) — no una
                     redacción nueva para decir lo mismo. */}
-                <div className="lp-mono" style={{ fontSize: 11, letterSpacing: '.06em', textTransform: 'uppercase', color: destacado ? '#A8B080' : '#6B6B63', marginTop: 7 }}>
-                  IVA incluido
-                </div>
-                <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? '#A6A69E' : MUTED, margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
-                <p className="lp-mono" style={{ fontSize: 11.5, color: destacado ? '#D9C29E' : '#5A6142', margin: '0 0 20px' }}>{tope(p)}</p>
+                {p === 'BASE' ? (
+                  <>
+                    {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--w-texto-3)', marginTop: 9, lineHeight: 1.45 }}>
+                      {TOPE_GRATIS} · {SI_PASAS_CON_COMPLEMENTOS}
+                    </div>
+                    {/* La frase del fundador, junto a Founding Studio. En la
+                        cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
+                    <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: 'var(--w-texto)', margin: '12px 0 0' }}>{FRASE_FOUNDING}</p>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)', marginTop: 9 }}>
+                    IVA incluido
+                  </div>
+                )}
+                <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? 'var(--w-sobre-noche-2)' : 'var(--w-texto-2)', margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
+                <div style={{ height: 14 }} />
                 <Link
                   href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'}
                   className="block hover:brightness-110 transition-all"
-                  style={{ textAlign: 'center', display: 'block', background: destacado ? '#D9C29E' : '#F3F3EF', color: destacado ? '#343825' : '#1A1A1A', fontWeight: 700, fontSize: 15, padding: 14, borderRadius: 14, textDecoration: 'none' }}
+                  style={{ textAlign: 'center', display: 'block', background: destacado ? 'var(--w-sand)' : 'var(--w-olive)', color: destacado ? 'var(--w-olive)' : 'var(--w-sand)', fontWeight: 600, fontSize: 15, padding: 14, borderRadius: 999, textDecoration: 'none' }}
                 >
                   {RESUMEN[p].cta}
                 </Link>
@@ -183,57 +166,56 @@ export default function PreciosPage() {
             autocontenido de ~130 palabras, con las cifras de entitlements.ts
             (nunca escritas a mano). Lo lee igual una persona que un buscador. */}
         <section style={{ marginTop: 'clamp(48px,6vw,72px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
-          <p style={{ fontSize: 16, lineHeight: 1.65, color: MUTED, margin: 0, maxWidth: 820 }}>
-            Tentare cuesta {PLAN_INFO.BASE.precioMes} € al mes en el plan {PLAN_INFO.BASE.nombre} (una sala, una o dos
-            instructoras y {tope('BASE').toLowerCase()}), {PLAN_INFO.ESTUDIO.precioMes} € en el plan{' '}
-            {PLAN_INFO.ESTUDIO.nombre} (equipo y horario completos, {tope('ESTUDIO').toLowerCase()}) y{' '}
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
+          <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--w-texto-2)', margin: 0, maxWidth: 820 }}>
+            Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
+            {LIMITES_GRATIS}; {SI_PASAS}, y con ese plan {COMPLEMENTOS_DE_PAGO} van aparte), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+            {PLAN_INFO.ESTUDIO.nombre}, que los incluye, y{' '}
             {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
             Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
-            cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. La prueba
-            dura {TRIAL_DIAS} días del plan que elijas, sin tarjeta, y traer tus datos desde otra plataforma no se cobra
-            aparte.
+            cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. Traer
+            tus datos desde otra plataforma no se cobra aparte.
           </p>
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
-          <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>
-            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es el tamaño y cuánto
-            trabaja el sistema por su cuenta.
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
+          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>
+            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia son las alumnas, las reservas
+            al mes y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
           </p>
-          <ComparativaPlanes todoAbierto destacado="ESTUDIO" />
-          <p className="lp-mono" style={{ fontSize: 11.5, color: '#6B6B63', margin: '14px 0 0' }}>
-            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
+          <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
+          <p style={{ fontSize: 14, color: 'var(--w-texto-3)', margin: '14px 0 0' }}>
+            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
           </p>
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Qué se paga aparte y qué no</h2>
-          <p style={{ fontSize: 16, color: MUTED, margin: '0 0 22px' }}>Dicho antes de que lo preguntes, porque es donde el sector suele esconder cosas.</p>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué se paga aparte y qué no</h2>
+          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>Dicho antes de que lo preguntes, porque es donde el sector suele esconder cosas.</p>
           <div className="pre-dos">
-            <div style={{ background: '#F4F8F5', border: '1px solid #DFEBE3', borderRadius: 18, padding: '22px 24px' }}>
-              <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#3B7D64', marginBottom: 14 }}>Incluido en la cuota</div>
+            <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-exito)', marginBottom: 14 }}>Incluido en la cuota</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal y huella encadenada', 'Exportación de tus datos cuando quieras'].map((t) => (
-                  <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
-                    <span style={{ color: '#4E9E7F', flexShrink: 0 }}>✓</span>{t}
+                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal correlativa', 'Exportación de tus datos cuando quieras'].map((t) => (
+                  <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
+                    <span style={{ color: 'var(--w-exito)', flexShrink: 0 }}>✓</span>{t}
                   </li>
                 ))}
               </ul>
             </div>
-            <div style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 18, padding: '22px 24px' }}>
-              <div className="lp-mono" style={{ fontSize: 10.5, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8E6B1E', marginBottom: 14 }}>No lo cobramos nosotros</div>
+            <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-aviso)', marginBottom: 14 }}>No lo cobramos nosotros</div>
               <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
+                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                   <strong>La comisión de Stripe</strong> por procesar cada cobro con tarjeta. Es de Stripe, la ves en su
                   panel y Tentare no añade nada encima.
                 </li>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
+                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                   <strong>Tu número de WhatsApp Business</strong>, si quieres enviar por ese canal: se conecta tu propia
                   cuenta de Meta, no una compartida.
                 </li>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: '#3A3A34' }}>
+                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
                   <strong>Lo que te cobre tu banco</strong> por presentar remesas SEPA, si cobras por domiciliación.
                 </li>
               </ul>
@@ -242,28 +224,28 @@ export default function PreciosPage() {
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 18px' }}>Preguntas sobre el precio</h2>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 18px' }}>Preguntas sobre el precio</h2>
           <FeatureFaq items={FAQ} />
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', letterSpacing: '-.03em', margin: '0 0 8px' }}>Antes de decidir</h2>
-          <p style={{ fontSize: 16, color: MUTED, margin: '0 0 20px' }}>Mira en detalle lo que vas a usar cada día.</p>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Antes de decidir</h2>
+          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 20px' }}>Mira en detalle lo que vas a usar cada día.</p>
           <div className="pre-links">
             {funcionalidades().slice(0, 6).map((f) => (
-              <Link key={f.path} href={f.path} style={{ display: 'block', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 14, padding: '15px 17px', textDecoration: 'none', color: 'inherit', fontSize: 14.5, fontWeight: 600 }}>
+              <Link key={f.path} href={f.path} style={{ display: 'block', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 16, padding: '15px 17px', textDecoration: 'none', color: 'inherit', fontSize: 14.5, fontWeight: 600 }}>
                 {f.etiqueta}
               </Link>
             ))}
           </div>
-          <p style={{ fontSize: 15, color: MUTED, margin: '18px 0 0' }}>
-            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
+          <p style={{ fontSize: 15, color: 'var(--w-texto-2)', margin: '18px 0 0' }}>
+            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
             por punto — incluido lo que ellos hacen mejor.
           </p>
         </section>
       </div>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .pre-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; align-items: start; }

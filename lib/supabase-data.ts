@@ -1,7 +1,8 @@
 import { capturarExcepcion, capturarMensaje } from '@/lib/sentry-cliente';
 import { esPlataforma, origenDe, type Plataforma } from '@/lib/plataformas/catalogo';
 import type { FilaCobrada } from '@/lib/billing/export-cobrado';
-import { conReintentoTransitorio } from '@/lib/reintento-transitorio';
+import { paginarTodo } from '@/lib/paginar-todo';
+import { normalizarDiasMinimos } from '@/lib/billing/prorrateo';
 import { unaVez } from '@/lib/una-vez';
 import { esJwtCaducado, esSesionAnonimaInesperada } from '@/lib/recuperar-sesion';
 import { mapLimit } from '@/lib/concurrency';
@@ -26,7 +27,7 @@ import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import { idEstudioDe } from '@/lib/id-estudio';
-import { RESERVADAS as SLUGS_RESERVADOS } from '@/lib/slug';
+import { RESERVADAS as SLUGS_RESERVADOS, slugify } from '@/lib/slug';
 import { mensajeDeFalloAlGuardar, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
 import { fotoSalaParaGuardar, salaCambiosToDb } from '@/lib/sala-cambios';
 import { saldoVivo } from '@/lib/creditos-caducidad';
@@ -42,6 +43,7 @@ import {
 import { COLUMNAS_COBRO_EN_MARCHA, SELECT_RECIBOS_REMESA, type FilaReciboRemesa, type LecturaRecibosRemesa } from '@/lib/billing/remesa-sepa-reglas';
 import { importeIngresado } from '@/lib/billing/situacion-recibo';
 import type { ColumnaReciboActualizable, ColumnaReciboInsertable } from '@/lib/cobros/recibo-escritura-navegador';
+import type { ColumnaEstudioInsertable } from '@/lib/estudio/alta-escritura-navegador';
 import type { ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import { reservasPorAprobarDe, type FilaReservaPorAprobar, type ReservaPorAprobar } from '@/lib/reservas-por-aprobar';
 import { fusionarDatosPrivados, CAMPOS_PRIVADOS_SOCIO, type ColumnaPrivadaSocia, type FilaDatosPrivadosSocia } from '@/lib/socios/datos-privados';
@@ -192,6 +194,7 @@ import type {
   PoliticaPlazaFijaSinCuota,
 } from '@/lib/types';
 import type { Valoracion } from '@/lib/valoracion-inicial';
+import { alcanceDe } from '@/lib/engines/alcance-reto';
 
 
 // Multi-tenancy: STUDIO_ID is resolved per logged-in user (see
@@ -225,25 +228,18 @@ export function setCurrentStudioId(id: string) {
 // no acota nada: trae la tabla entera, solo que en páginas de 1000. Uso: tablas
 // que se agregan sobre histórico (ver comentario arriba) — reservas, recibos,
 // facturas, ventas_pos, sesiones, credit_transactions.
-const PAGE_SIZE = 1000;
+// Paginación en lib/paginar-todo.ts (aparte para poder probarla): primera página
+// sola y el resto por olas de 4 en paralelo, recompuestas en orden.
+// ⚠️ La consulta de `pagina` DEBE llevar un `.order()` TOTAL (la PK, o una
+// columna + la PK): sin él, una escritura entre dos páginas repite u omite
+// filas. Lo vigila lib/paginar-todo-orden.test.ts en cada llamada.
 export async function fetchAllRows<T>(
   studioId: string,
   tabla: string,
   pagina: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<{ data: T[]; error: { message: string } | null }> {
-  const filas: T[] = [];
-  let desde = 0;
-  for (;;) {
-    // M-11 (59ª auditoría / Sentry JAVASCRIPT-NEXTJS-1G): un "Gateway Timeout"
-    // es un 504 transitorio de la infraestructura, no un fallo de la app —
-    // reintentar la MISMA página un par de veces con una espera corta
-    // recupera la mayoría de estos casos. Lógica en lib/reintento-transitorio.ts,
-    // aparte porque este fichero usa el alias `@/` y eso rompe `node --test`.
-    const { resultado, reintentos } = await conReintentoTransitorio(
-      () => pagina(desde, desde + PAGE_SIZE - 1),
-    );
-    const { data, error } = resultado;
-    if (error) {
+  return paginarTodo<T>(pagina, {
+    alFallar: (error, desde, reintentado) => {
       // 2.4: antes esto se tragaba en silencio (data ?? []) y la app pintaba
       // "0 filas" en vez de un error. Se reporta para que el fallo sea visible
       // a quien opera, aunque la UI (código existente) siga usando lo que ya
@@ -251,20 +247,14 @@ export async function fetchAllRows<T>(
       //
       // Salvo un blip de red del propio cliente ("Failed to fetch" y
       // compañía) — mismo filtro que ya usa reportDbError() más abajo.
-      if (!esErrorDeRedCliente(error)) {
-        capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
-          tags: { area: 'supabase-data', tabla },
-          extra: { studioId, desde, error: error.message, reintentado: reintentos > 0 },
-        });
-      }
-      return { data: filas, error };
-    }
-    if (!data || data.length === 0) break;
-    filas.push(...data);
-    if (data.length < PAGE_SIZE) break;
-    desde += PAGE_SIZE;
-  }
-  return { data: filas, error: null };
+      // (M-11: el reintento de 504 transitorios vive en paginar-todo.ts.)
+      if (esErrorDeRedCliente(error)) return;
+      capturarMensaje('fetchAllRows: fallo leyendo una página', 'error', {
+        tags: { area: 'supabase-data', tabla },
+        extra: { studioId, desde, error: error.message, reintentado },
+      });
+    },
+  });
 }
 
 export function getCurrentStudioId() {
@@ -754,6 +744,10 @@ export function mapRewardRedemption(r: RowRewardRedemptions): RewardRedemption {
     entregadoEn: r.entregado_en ?? null,
     entregadoPor: r.entregado_por ?? null,
     recuperacionId: r.recuperacion_id ?? null,
+    recompensaNombre: r.recompensa_nombre ?? null,
+    canceladoEn: r.cancelado_en ?? null,
+    canceladoPor: r.cancelado_por ?? null,
+    canceladoMotivo: r.cancelado_motivo ?? null,
   } as RewardRedemption;
 }
 
@@ -824,6 +818,8 @@ export function mapChallengeDefinition(r: RowChallengeDefinitions): ChallengeDef
     fechaFin: r.fecha_fin,
     creditosRecompensa: r.creditos_recompensa,
     activo: r.activo,
+    // Sin la columna (antes de la migración) o con un valor raro: con inscripción, nunca «a todas».
+    alcance: alcanceDe(r.alcance),
     creadoEn: r.creado_en,
   } as ChallengeDefinition;
 }
@@ -1048,6 +1044,7 @@ export function mapRetoParticipacion(r: RowRetoParticipaciones): RetoParticipaci
     socioId: r.socio_id,
     retoKey: r.reto_key,
     creadoEn: r.created_at,
+    bajaEn: r.baja_en ?? null,
   };
 }
 
@@ -3703,19 +3700,8 @@ export async function dbUpdateRewardRule(id: string, changes: Partial<RewardRule
 // la acción. La carrera no puede darse, y con ella se va la función y su
 // reintento: la solución del problema era no tener dos escrituras separadas.)
 
-export async function dbInsertCreditTransaction(t: CreditTransaction) {
-  const row = {
-    id: t.id, studio_id: t.studioId ?? STUDIO_ID, socio_id: t.socioId, tipo: t.tipo,
-    creditos: t.creditos, descripcion: t.descripcion, ref_id: t.refId ?? null, creado_en: t.creadoEn,
-  };
-  const { error } = await supabase.from('credit_transactions').insert(row);
-  if (error) reportDbError('[dbInsertCreditTransaction]', error);
-}
-
 // Gamificación — GANANCIA de créditos por un disparador (asistencia, referido,
-// racha, logro, reto...). A diferencia de dbAjustarCreditos (que sigue siendo
-// correcto para el DÉBITO de un canje), aquí el importe de créditos NUNCA lo
-// decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
+// racha, logro, reto...). El importe de créditos NUNCA lo decide el cliente: la RPC lo recalcula desde la regla/logro/reto activo del
 // propio estudio, y para ASISTENCIA_CLASE/REFERIDO_AMIGO exige que la
 // condición exista de verdad en la BD (una reserva ASISTIDA real) antes de
 // conceder nada. Sin esto, cualquier cuenta de personal autenticada podía
@@ -3758,43 +3744,6 @@ export async function dbOtorgarCreditoDisparador(
     creditos: (row.creditos as number | null) ?? 0,
     descripcion: (row.descripcion as string | null) ?? null,
   };
-}
-
-// P0-20: ajuste ATÓMICO del saldo por deltas (incremento en la BD, no
-// leer-calcular-sobrescribir). deltaSaldo/Ganado/Canjeado: p. ej. una ganancia de
-// 5 → (+5, +5, 0); un canje de 3 → (-3, 0, +3). Devuelve el nuevo saldo o error
-// (SALDO_INSUFICIENTE si quedaría negativo).
-export async function dbAjustarCreditos(
-  socioId: string, studioId: string, deltaSaldo: number, deltaGanado: number, deltaCanjeado: number,
-): Promise<{ ok: true; saldo: number } | { error: string }> {
-  const { data, error } = await supabase.rpc('ajustar_creditos', {
-    p_socio_id: socioId, p_studio_id: studioId,
-    p_delta_saldo: deltaSaldo, p_delta_ganado: deltaGanado, p_delta_canjeado: deltaCanjeado,
-  });
-  if (error) {
-    if (error.message.includes('SALDO_INSUFICIENTE')) return { error: 'Saldo insuficiente' };
-    reportDbError('[dbAjustarCreditos]', error);
-    return { error: error.message };
-  }
-  return { ok: true, saldo: data as number };
-}
-
-// A-13: ajuste ATÓMICO del stock de una recompensa (delta -1 reservar / +1
-// devolver) vía la RPC ajustar_stock. Con el cliente autenticado del panel; el
-// aislamiento por estudio lo aplica la propia función. Devuelve error 'SIN_STOCK'
-// si el decremento dejaría el stock por debajo de 0.
-export async function dbAjustarStock(
-  itemId: string, studioId: string, delta: number,
-): Promise<{ ok: true } | { error: string }> {
-  const { error } = await supabase.rpc('ajustar_stock', {
-    p_item_id: itemId, p_studio_id: studioId, p_delta: delta,
-  });
-  if (error) {
-    if (error.message.includes('SIN_STOCK')) return { error: 'SIN_STOCK' };
-    reportDbError('[dbAjustarStock]', error);
-    return { error: error.message };
-  }
-  return { ok: true };
 }
 
 /** Errores que la BD devuelve por nombre. El mensaje lo pone quien llama. */
@@ -3994,25 +3943,19 @@ export async function dbDeleteRewardCatalogItem(id: string): Promise<ResultadoEs
   return error ? falloEscritura('[dbDeleteRewardCatalogItem]', error) : ESCRITURA_OK;
 }
 
-export async function dbInsertRewardRedemption(r: RewardRedemption) {
-  const row = {
-    id: r.id, studio_id: r.studioId ?? STUDIO_ID, socio_id: r.socioId, catalog_item_id: r.catalogItemId,
-    creditos_gastados: r.creditosGastados, estado: r.estado, creado_en: r.creadoEn,
-  };
-  const { error } = await supabase.from('reward_redemptions').insert(row);
-  if (error) reportDbError('[dbInsertRewardRedemption]', error);
-}
-
 // Cancelar un canje NO es un cambio de estado más: hay que devolver los
 // créditos y el stock, y las tres escrituras deben ir juntas o no ir. Hacerlas
 // desde aquí en tres llamadas dejaría a la socia sin recompensa y sin créditos
 // si fallara la segunda. Por eso va por RPC (migración 20260907193000), que
 // además es idempotente: cancelar dos veces devuelve el crédito una.
 export async function dbCancelarCanje(
-  redemptionId: string, studioId: string,
+  redemptionId: string, studioId: string, motivo?: string,
 ): Promise<{ ok: true; estado: EstadoCanje; saldo: number } | { error: string }> {
-  const { data, error } = await supabase.rpc('cancelar_canje', {
-    p_redemption_id: redemptionId, p_studio_id: studioId,
+  // `cancelar_canje_con_motivo` guarda además quién, cuándo y por qué (migr
+  // 20261019122801). `cancelar_canje` (2 args) sigue existiendo para el código
+  // desplegado antes de esa migración.
+  const { data, error } = await supabase.rpc('cancelar_canje_con_motivo', {
+    p_redemption_id: redemptionId, p_studio_id: studioId, p_motivo: motivo?.trim() || null,
   });
   if (error) {
     if (error.message.includes('CANJE_NO_ENCONTRADO')) return { error: 'Ese canje ya no existe.' };
@@ -4025,13 +3968,6 @@ export async function dbCancelarCanje(
     return { error: 'No se ha podido confirmar la cancelación.' };
   }
   return { ok: true, estado: row.estado as EstadoCanje, saldo: row.saldo as number };
-}
-
-export async function dbUpdateRewardRedemption(id: string, changes: Partial<RewardRedemption>): Promise<ResultadoEscritura> {
-  const db: Record<string, unknown> = {};
-  if ('estado' in changes) db.estado = changes.estado;
-  const { error } = await supabase.from('reward_redemptions').update(db).eq('id', id);
-  return error ? falloEscritura('[dbUpdateRewardRedemption]', error) : ESCRITURA_OK;
 }
 
 // ─── Gamificación: logros ─────────────────────────────────────────────────────
@@ -4145,7 +4081,7 @@ export async function dbInsertChallengeDefinition(c: ChallengeDefinition): Promi
   const row = {
     id: c.id, studio_id: c.studioId ?? STUDIO_ID, nombre: c.nombre, descripcion: c.descripcion ?? null,
     icono: c.icono, metric: c.metric, objetivo: c.objetivo, fecha_inicio: c.fechaInicio, fecha_fin: c.fechaFin,
-    creditos_recompensa: c.creditosRecompensa, activo: c.activo, creado_en: c.creadoEn,
+    creditos_recompensa: c.creditosRecompensa, activo: c.activo, alcance: c.alcance, creado_en: c.creadoEn,
   };
   const { error } = await supabase.from('challenge_definitions').insert(row);
   return error ? falloEscritura('[dbInsertChallengeDefinition]', error) : ESCRITURA_OK;
@@ -4162,6 +4098,7 @@ export async function dbUpdateChallengeDefinition(id: string, changes: Partial<C
   if ('fechaFin' in changes) db.fecha_fin = changes.fechaFin;
   if ('creditosRecompensa' in changes) db.creditos_recompensa = changes.creditosRecompensa;
   if ('activo' in changes) db.activo = changes.activo;
+  if ('alcance' in changes) db.alcance = changes.alcance;
   const { error } = await supabase.from('challenge_definitions').update(db).eq('id', id);
   return error ? falloEscritura('[dbUpdateChallengeDefinition]', error) : ESCRITURA_OK;
 }
@@ -5055,7 +4992,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   // Connect. Se corta aquí para que un caller nuevo reciba un error claro en vez
   // de un 42501 a medias con el resto de campos.
   if ('stripeAccountId' in changes || 'sepaIban' in changes || 'sepaAcreedorId' in changes || 'sepaTitular' in changes) {
-    return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Cobros y facturas.' };
+    return { ok: false, error: 'La cuenta de cobro se cambia desde Configuración → Integraciones.' };
   }
   // Igual con los dominios del widget (migr 20260914011356): van por
   // /api/estudio/widget-dominios, que valida el formato y deja constancia.
@@ -5140,6 +5077,8 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('recibosAlCancelarCuota' in changes) db.recibos_al_cancelar_cuota = changes.recibosAlCancelarCuota;
   if ('renovarSolaCuotaCancelada' in changes) db.renovar_sola_cuota_cancelada = changes.renovarSolaCuotaCancelada;
   if ('cobroDia1Activo' in changes) db.cobro_dia_1_activo = changes.cobroDia1Activo;
+  if ('cobroProporcionalAltaActivo' in changes) db.cobro_proporcional_alta_activo = changes.cobroProporcionalAltaActivo;
+  if ('cobroProporcionalDiasMinimos' in changes) db.cobro_proporcional_dias_minimos = changes.cobroProporcionalDiasMinimos;
   if ('reembolsosActivos' in changes) db.reembolsos_activos = changes.reembolsosActivos;
   if ('reembolsoPlazoDias' in changes) db.reembolso_plazo_dias = changes.reembolsoPlazoDias;
   if ('reembolsoSoloSinUsar' in changes) db.reembolso_solo_sin_usar = changes.reembolsoSoloSinUsar;
@@ -5195,15 +5134,10 @@ export async function dbUpdateHorarioEstudio(dias: DiaHorario[]): Promise<Result
   return ESCRITURA_OK;
 }
 
-// Toma el id explícito (no el STUDIO_ID de la sesión del navegador) porque la
-// llama el callback de OAuth de Stripe Connect, un servidor sin sesión.
-export function slugify(nombre: string): string {
-  return nombre
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quita acentos
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'estudio';
-}
+// La dirección base de un estudio a partir de su nombre. Vive en lib/slug.ts
+// (el alta nueva la enseña mientras se escribe); se reexporta aquí para quien
+// ya la importaba de este fichero.
+export { slugify };
 
 // Genera un slug único para /reservar/[slug], /kiosk/[slug], /portal/[slug]
 // probando sufijos -2, -3... si el base ya existe.
@@ -5312,7 +5246,9 @@ export async function dbCreateStudio(fields: {
       // Feature #9: por defecto ESTUDIO (columna DEFAULT), solo se manda si
       // se pide FREELANCE explícitamente — no toca el camino existente.
       ...(fields.tipoCuenta ? { tipo_cuenta: fields.tipoCuenta } : {}),
-    });
+      // Solo columnas con GRANT de INSERT para el navegador: cualquier otra la rechaza la
+      // base de datos (lib/estudio/alta-escritura-navegador.ts).
+    } satisfies Partial<Record<ColumnaEstudioInsertable, unknown>>);
     if (!error) return { id, slug };
     ultimoError = error;
     if (error.code === '23505' && error.message.includes('studios_pkey')) {
@@ -5509,6 +5445,8 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     stripeCustomerId: r.stripe_customer_id ?? null,
     subscriptionId: r.subscription_id ?? null,
     subscriptionStatus: r.subscription_status ?? null,
+    regimenAddons: r.regimen_addons ?? false,
+    addons: r.addons ?? [],
     currentPeriodEnd: r.current_period_end ?? null,
     trialEndsAt: r.trial_ends_at ?? null,
     cancelacionVentanaHoras: r.cancelacion_ventana_horas ?? 12,
@@ -5562,6 +5500,9 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     recibosAlCancelarCuota: (r.recibos_al_cancelar_cuota as Studio['recibosAlCancelarCuota'] | null) ?? 'MANTENER_CON_REINTENTOS',
     renovarSolaCuotaCancelada: r.renovar_sola_cuota_cancelada ?? true,
     cobroDia1Activo: r.cobro_dia_1_activo ?? false,
+    cobroProporcionalAltaActivo: r.cobro_proporcional_alta_activo ?? false,
+    cobroProporcionalDiasMinimos: normalizarDiasMinimos(r.cobro_proporcional_dias_minimos),
+    cobroDia1Modo: r.cobro_dia_1_modo === 'PROPORCIONAL' ? 'PROPORCIONAL' : 'ENTERA',
     reembolsosActivos: r.reembolsos_activos ?? false,
     reembolsoPlazoDias: r.reembolso_plazo_dias ?? 14,
     reembolsoSoloSinUsar: r.reembolso_solo_sin_usar ?? true,
@@ -5697,7 +5638,7 @@ async function enTandas<T extends readonly unknown[] | []>(
 // los roles (lo vigila lib/rgpd-socios-datos-privados-contrato.test.ts).
 async function fetchSociosPanel(db: SupabaseClient, sid: string) {
   const [publicas, privadas] = await Promise.all([
-    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, genero, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to)),
+    fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, fecha_alta, activo, lead_stage, tags, genero, avatar, metodo_pago_preferido, cumple_mm_dd, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).order('id').range(from, to)),
     // `.order('id')`: sin orden estable, paginar una RPC puede repetir o saltar filas.
     fetchAllRows<FilaDatosPrivadosSocia>(sid, 'socios_datos_privados', (from, to) => db.rpc('socios_datos_privados').order('id').range(from, to)),
   ]);
@@ -5806,7 +5747,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     // clientas de Informes subestimados en silencio (mismo bug ya cerrado para
     // sesiones/reservas/recibos/facturas/ventas_pos, aquí se había quedado fuera).
     opciones.privadas === 'columnas'
-      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, genero, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).range(from, to))
+      ? fetchAllRows<FilaSocioPanel>(sid, 'socios', (from, to) => db.from('socios').select('id, studio_id, nombre, apellidos, email, telefono, nif, fecha_alta, activo, lead_stage, tags, genero, avatar, stripe_customer_id, stripe_payment_method_id, tarjeta_exp_mes, tarjeta_exp_anio, tarjeta_marca, tarjeta_ultimos4, metodo_pago_preferido, sepa_mandate_id, sepa_payment_method_id, fecha_nacimiento, cumple_mm_dd, direccion, foto_url, referido_por, origen_lead, campos_extra, aceptacion_fecha, aceptacion_firma, aceptacion_origen, aceptacion_por, consentimiento_salud_fecha, consentimiento_salud_registrado_por, consentimiento_salud_revocado_en, consentimiento_marketing_en, consentimiento_marketing_por, usuario, objetivo_clases_mes').eq('studio_id', sid).is('borrado_en', null).order('id').range(from, to))
       : fetchSociosPanel(db, sid),
     db.from('planes_tarifa').select('*').eq('studio_id', sid),
     // Paginadas como sus hermanas: sin `fetchAllRows`, PostgREST corta en 1.000
@@ -5817,18 +5758,18 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     db.from('spots').select('*').eq('studio_id', sid),
     db.from('tipos_clase').select('*').eq('studio_id', sid),
     db.from('instructores').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia, origen, nombre_externo, bono_suscripcion_id').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'sesiones', (from, to) => db.from('sesiones').select('id, studio_id, tipo_clase_id, sala_id, instructor_id, inicio, fin, aforo_maximo, cancelada, notas, precio_puntual, google_event_id, serie_id, incidencia_texto, zoom_meeting_id, zoom_join_url').eq('studio_id', sid).order('id').range(from, to)),
+    fetchAllRows(sid, 'reservas', (from, to) => db.from('reservas').select('id, studio_id, sesion_id, socio_id, estado, spot_id, posicion_espera, oferta_expira_en, check_in_en, creado_en, confirmacion_pedida_en, confirmado_en, recordatorio_confirmacion_en, valoracion_experiencia, cancelada_tardia, origen, nombre_externo, bono_suscripcion_id').eq('studio_id', sid).order('id').range(from, to)),
     // La misma lista que la relectura tras un cobro (`COLUMNAS_RECIBO_PANEL`): eran dos
     // copias del mismo texto, y dos listas escritas a mano acaban leyendo cosas distintas.
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).order('id').range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select('id, studio_id, recibo_id, venta_pos_id, numero_completo, fecha_emision, receptor_nombre, receptor_nif, base_imponible, tipo_iva, cuota_iva, total, verifactu_hash, verifactu_prev_hash, verifactu_ts, verifactu_seq, fiskaly_invoice_id, verifactu_qr_url, verifactu_qr_imagen, verifactu_estado, verifactu_csv, serie, tipo, rectifica_a, tipo_rectificativa, importe_rectificacion, concepto').eq('studio_id', sid).order('id').range(from, to)),
     // citas: se quedó fuera por error del arreglo de paginación de sus
     // hermanas (2026-07-24, #438) — mismo riesgo de truncado silencioso a
     // 1000 filas para un estudio con muchas citas 1:1 (auditoría 2026-07-29 §2.3).
-    fetchAllRows(sid, 'citas', (from, to) => db.from('citas').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'citas', (from, to) => db.from('citas').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
-    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('campanas').select('*').eq('studio_id', sid),
     db.from('automatizaciones').select('*').eq('studio_id', sid),
     db.from('automation_rules').select('*').eq('studio_id', sid),
@@ -5850,7 +5791,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
     fetchAllRows(sid, 'automation_logs', (from, to) =>
       db.from('automation_logs').select('*').eq('studio_id', sid)
         .gte('ejecutado_en', new Date(Date.now() - VENTANA_DEDUP_AUTOMATIZACIONES_DIAS * 86400000).toISOString())
-        .range(from, to)),
+        .order('id').range(from, to)),
     db.from('codigos_descuento').select('*').eq('studio_id', sid),
     // Feeds de solo-display: ventana reciente ordenada. Seguro acotar — ningún
     // consumidor agrega sobre el histórico completo (ver P0-2/9).
@@ -5919,7 +5860,7 @@ export async function fetchCriticalStudioDataCon(db: SupabaseClient, studioId: s
         sid, 'automation_logs_historico', (from, to) =>
           db.from('automation_logs')
             .select('rule_id, automatizacion_id, socio_id, accion, resultado')
-            .eq('studio_id', sid).neq('resultado', 'FALLIDO').range(from, to))
+            .eq('studio_id', sid).neq('resultado', 'FALLIDO').order('id').range(from, to))
       : Promise.resolve({ data: [] as Pick<RowAutomationLogs, 'rule_id' | 'automatizacion_id' | 'socio_id' | 'accion' | 'resultado'>[], error: null }),
     // `integraciones` solo la lee la propietaria: gerencia y recepción reciben de
     // aquí los TIPOS encendidos (lib/integraciones/activas.ts). El servidor
@@ -6061,10 +6002,10 @@ export async function fetchDatosTrasVentaPOS(studioId?: string) {
   // cadena de imports estática.
   const db = supabase;
   const [recibosRes, facturasRes, suscripcionesRes, ventasPOSRes, productosPOSRes] = await Promise.all([
-    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).range(from, to)),
-    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select(COLUMNAS_FACTURA_PANEL).eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'recibos', (from, to) => db.from('recibos').select(COLUMNAS_RECIBO_PANEL).eq('studio_id', sid).order('id').range(from, to)),
+    fetchAllRows(sid, 'facturas', (from, to) => db.from('facturas').select(COLUMNAS_FACTURA_PANEL).eq('studio_id', sid).order('id').range(from, to)),
     fetchAllRows(sid, 'suscripciones', (from, to) => db.from('suscripciones').select(COLUMNAS_SUSCRIPCION_PANEL).eq('studio_id', sid).order('id').range(from, to)),
-    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'ventas_pos', (from, to) => db.from('ventas_pos').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('productos_pos').select('*').eq('studio_id', sid),
   ]);
 
@@ -6131,7 +6072,7 @@ export async function fetchDeferredStudioDataCon(db: SupabaseClient, studioId?: 
     // mismo es la que más se beneficia de paginar en vez de recibir el tope de
     // 1000 filas de PostgREST en silencio.
     db.from('reward_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
-    fetchAllRows(sid, 'credit_transactions', (from, to) => db.from('credit_transactions').select('*').eq('studio_id', sid).range(from, to)),
+    fetchAllRows(sid, 'credit_transactions', (from, to) => db.from('credit_transactions').select('*').eq('studio_id', sid).order('id').range(from, to)),
     db.from('achievement_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('challenge_history').select('*').eq('studio_id', sid).order('creado_en', { ascending: false }).limit(RECENT_FEED_LIMIT),
     db.from('notas_progreso').select('*').eq('studio_id', sid),
@@ -6602,10 +6543,10 @@ export interface CanjePendiente {
 export async function dbListarCanjesPendientes(): Promise<CanjePendiente[]> {
   const { data, error } = await supabase
     .from('reward_redemptions')
-    .select('id, socio_id, catalog_item_id, creditos_gastados, codigo, creado_en')
+    .select('id, socio_id, catalog_item_id, recompensa_nombre, creditos_gastados, codigo, creado_en')
     .eq('estado', 'PENDIENTE')
     .order('creado_en', { ascending: true }) as {
-      data: Pick<RowRewardRedemptions, 'id' | 'socio_id' | 'catalog_item_id' | 'creditos_gastados' | 'codigo' | 'creado_en'>[] | null;
+      data: Pick<RowRewardRedemptions, 'id' | 'socio_id' | 'catalog_item_id' | 'recompensa_nombre' | 'creditos_gastados' | 'codigo' | 'creado_en'>[] | null;
       error: { message: string } | null;
     };
   if (error) { reportDbError('[dbListarCanjesPendientes]', error); return []; }
@@ -6625,7 +6566,7 @@ export async function dbListarCanjesPendientes(): Promise<CanjePendiente[]> {
     // Una socia dada de baja no borra su canje: alguien pagó por él y puede
     // presentarse igual. Decirlo es mejor que enseñar una fila sin nombre.
     socioNombre: (c.socio_id && nombrePorId.get(c.socio_id)) || 'Socia dada de baja',
-    recompensa: (c.catalog_item_id && recompensaPorId.get(c.catalog_item_id)) || 'Recompensa retirada del catálogo',
+    recompensa: (c.catalog_item_id && recompensaPorId.get(c.catalog_item_id)) || c.recompensa_nombre || 'Recompensa retirada del catálogo',
     creditos: c.creditos_gastados,
     codigo: c.codigo ?? null,
     creadoEn: c.creado_en,

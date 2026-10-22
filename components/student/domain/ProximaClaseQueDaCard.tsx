@@ -20,7 +20,7 @@ export interface ControlClase {
 
 /**
  * «Tu próxima clase» de la instructora, con la misma cara que la de la alumna
- * (`NextClassCard`): la foto de la clase bajo el verde noche del kit y el texto
+ * (`TarjetaProximaClase`): la foto de la clase bajo su velo y el texto
  * claro encima. Sin foto, el verde noche solo.
  *
  * Lleva lo que necesita para prepararla —hora, sala y cuántas vienen— y, si ha

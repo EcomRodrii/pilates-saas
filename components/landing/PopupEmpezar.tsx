@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
 import { X, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 import {
   puedeMostrar,
   leerRegistro,
@@ -27,7 +27,7 @@ import {
 //    la home rediseñada era justo el bloque de la app de la alumna: el
 //    producto, interrumpido por un anuncio del producto.
 //  · No se enseña si ya está a punto de convertir por su cuenta — el pie de la
-//    página ya tiene su propio CTA grande (SeccionCtaFinal), y saltarle un
+//    página ya tiene su propio CTA grande (CierreHome, `data-cta-final`), y saltarle un
 //    modal justo ahí es interrumpir a quien iba a pulsar.
 //  · Las reglas de repetición (una por sesión, silencio de 30 días al cerrar,
 //    3 como máximo, nunca más si convierte) viven en lib/landing/popup-frecuencia.ts.
@@ -181,7 +181,7 @@ export function PopupEmpezar() {
 
         <div className="relative">
           <h2 id={tituloId} className="px-6 text-[24px] font-extrabold leading-tight tracking-tight text-foreground sm:px-4 sm:text-[27px]">
-            Pruébalo {TRIAL_DIAS} días gratis
+            Empieza gratis
           </h2>
           <p className="mt-2.5 text-[14.5px] leading-relaxed text-muted-foreground">
             Sin tarjeta y sin permanencia. Tu horario y tu página de reservas, listos en tu primera sesión.
@@ -192,7 +192,7 @@ export function PopupEmpezar() {
             onClick={() => cerrar(true)}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-6 py-4 text-[16px] font-bold text-brand-foreground transition-all duration-200 hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
           >
-            Probar {TRIAL_DIAS} días gratis
+            {CTA_ALTA}
             <ArrowRight size={17} aria-hidden="true" />
           </Link>
 

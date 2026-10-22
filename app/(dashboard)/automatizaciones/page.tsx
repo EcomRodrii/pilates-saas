@@ -164,14 +164,14 @@ const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
 //   · confirmación al reservar → emitirReserva (RESERVA_CONFIRMADA, push)
 //   · lista de espera → cancelar_reserva_plaza / promocionar_siguiente_espera
 //   · bono agotado / a punto de caducar → emitirBonoAgotado + bonos-inactivas-cron
-//   · reintento de cobros → lib/inngest/dunning.ts (con tarjeta o SEPA guardados)
+//   · reintento de cobros → lib/inngest/dunning.ts (con tarjeta guardada; el SEPA de Stripe se retiró en F-7)
 //   · valoración después de clase → lib/inngest/valoraciones.ts
 const HECHO_DE_SERIE: string[] = [
   'Recuerda cada clase a quien ha reservado: 24 h antes por email y en su app (y por WhatsApp si lo tienes conectado), y 1 h antes en su app. Si reserva con menos de 24 h, el email y el WhatsApp le llegan poco después de reservar (si falta más de 1 h y cuarto).',
   'Confirma cada reserva en la app de la alumna en cuanto la hace.',
   'Cuando alguien cancela, pasa la plaza a la siguiente de la lista de espera y se lo cuenta.',
   'Avisa a la alumna cuando su bono se queda sin clases o está a punto de caducar.',
-  'Reintenta los cobros que fallan con tarjeta o SEPA guardados, y avisa a la alumna.',
+  'Reintenta los cobros con tarjeta guardada que fallan, y avisa a la alumna.',
   'Pide una valoración después de clase.',
 ];
 
@@ -987,7 +987,7 @@ function RuleCardNueva({
             type="button"
             onClick={() => setExpanded(p => !p)}
             aria-expanded={expanded}
-            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold"
+            className="zona-tactil mt-2 inline-flex items-center gap-1 text-[13px] font-semibold"
             style={{ color: 'var(--t-text-link)' }}
           >
             {expanded ? 'Ocultar cómo funciona' : 'Ver cómo funciona y qué le llega'}
@@ -1002,7 +1002,7 @@ function RuleCardNueva({
           aria-label={soloLectura ? `${textoAnadir} ${rule.nombre}` : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
           title={soloLectura ? tituloAnadir : rule.activa ? 'Encendida — apagar' : 'Apagada — encender'}
           onClick={onToggle}
-          className="relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
+          className="zona-tactil relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
           style={{ background: encendida ? 'var(--success)' : 'color-mix(in srgb, var(--muted-foreground) 55%, transparent)' }}
         >
           <span className={cn('inline-block size-6 rounded-full bg-white shadow transition-transform', encendida ? 'translate-x-5' : 'translate-x-0')} />
@@ -1241,7 +1241,7 @@ export default function AutomatizacionesPage() {
               <button
                 onClick={handleRunNow}
                 disabled={running}
-                className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                className="zona-tactil inline-flex h-9 items-center gap-2 rounded-full border border-border bg-card px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50"
               >
                 {running ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
                 {running ? 'Revisando…' : 'Revisar ahora'}

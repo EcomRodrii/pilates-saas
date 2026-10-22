@@ -20,19 +20,32 @@ const SALIDA = new URL('../public/landing/capturas/', import.meta.url).pathname;
 
 const MOVIL = [390, 780];
 
-// Solo las pantallas de móvil que «asoman» por el borde de las tarjetas de
-// components/landing/SeccionBento.tsx; todo lo demás de esas tarjetas son
-// tarjetitas en HTML/CSS con el estilo del producto y datos de muestra.
+// Las capturas de la app salen a 402 × 815 pt (e2e/landing-capturas.spec.ts): la pantalla
+// del iPhone 17 Pro menos los 59 pt de la barra de estado. Aquí se le añade ese hueco
+// arriba para que queden a 402 × 874, la pantalla entera, y el marco
+// (components/ui/marco-iphone.tsx) pinte la hora y la isla sin tapar la cabecera.
+// `barra`: 'fondo' rellena con el color de la app; 'foto' prolonga la foto en espejo
+// (como en un iPhone, la foto de la clase sube por debajo de la barra).
+const BARRA_ESTADO = 59 * 3;
+const FONDO_APP = { r: 250, g: 249, b: 245 };
+
+// Las que usan las páginas (components/web/home/piezas.tsx, CAPTURAS_APP). La de
+// Inicio (app-alumna-inicio-v2-estudio-pilates) no sale de aquí: es la del fundador.
 export const CAPTURAS = {
-  'app-alumna-inicio-estudio-pilates': { crudo: 'app-inicio', anchos: MOVIL },
-  'app-alumna-recibos-pagar': { crudo: 'app-pagos', anchos: MOVIL },
-  'app-asistente-confirmar-clase': { crudo: 'app-asistente-movil', anchos: MOVIL },
+  'app-alumna-reservar-manana': { crudo: 'app-horario-manana', anchos: MOVIL, barra: 'fondo' },
+  'app-alumna-mi-plan': { crudo: 'app-plan-al-dia', anchos: MOVIL, barra: 'fondo' },
+  'app-alumna-elegir-reformer': { crudo: 'app-elegir-reformer-4', anchos: MOVIL, barra: 'foto' },
 };
 
 await mkdir(SALIDA, { recursive: true });
-for (const [nombre, { crudo, recorte, anchos }] of Object.entries(CAPTURAS)) {
+for (const [nombre, { crudo, recorte, anchos, barra }] of Object.entries(CAPTURAS)) {
   let base = sharp(join(ENTRADA, `${crudo}.png`));
   if (recorte) base = base.extract(recorte);
+  if (barra) {
+    base = sharp(await base.png().toBuffer()).extend(barra === 'foto'
+      ? { top: BARRA_ESTADO, extendWith: 'mirror' }
+      : { top: BARRA_ESTADO, background: FONDO_APP });
+  }
   const buf = await base.png().toBuffer();
   for (const ancho of anchos) {
     const r = sharp(buf).resize({ width: ancho, withoutEnlargement: true });

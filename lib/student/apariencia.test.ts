@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   APARIENCIA_POR_DEFECTO, ESTILOS, TIPOGRAFIAS, acentoDe, acentoFiel, resolverApariencia, temaAppCssText,
 } from './apariencia.ts';
@@ -105,4 +106,101 @@ test('todas las tipografías usan familias que carga app/layout.tsx', () => {
     const v = /var\((--[a-z-]+)\)/.exec(f)?.[1];
     assert.ok(v && cargadas.includes(v), `${t.id}: ${f}`);
   }
+});
+
+test('student.css pide sus familias de serie por la variable de app/_fuentes, no por el nombre', () => {
+  // Con el literal 'Plus Jakarta Sans' la de serie («Moderna») caía a system-ui:
+  // `next/font/local` registra la cara con otro nombre de familia.
+  const css = readFileSync(new URL('../../app/portal/[slug]/student.css', import.meta.url), 'utf8');
+  const fuentes = readFileSync(new URL('../../app/_fuentes/fuentes.css', import.meta.url), 'utf8');
+  for (const [prop, esperada] of [['--font-sans', '--font-jakarta'], ['--font-mono', '--font-plex-mono']] as const) {
+    const decl = new RegExp(`${prop}:\\s*([^;]+);`).exec(css)?.[1] ?? '';
+    const primera = decl.split(',')[0].trim();
+    assert.equal(primera, `var(${esperada})`, `${prop}: ${decl}`);
+    assert.match(fuentes, new RegExp(`${esperada}:\\s*var\\(`), `${esperada} no está en app/_fuentes/fuentes.css`);
+  }
+  // Ninguna familia de app/_fuentes escrita por su nombre como primera opción.
+  for (const m of css.matchAll(/font-family:\s*'([^']+)'/g)) assert.fail(`font-family literal: ${m[1]}`);
+  assert.doesNotMatch(css, /--font-[a-z-]+:\s*'(Plus Jakarta Sans|IBM Plex Mono)'/);
+});
+
+// ── La vista previa del editor: el borrador va ENCIMA de lo publicado ─────────
+// Mini-cascada: el `<style>` publicado va en el `<body>` (DESPUÉS del borrador,
+// que el editor mete en el `<head>`), así que a igual especificidad gana el
+// publicado. Lo que vale es lo que el borrador declare con más especificidad.
+
+type Regla = { selector: string; decl: Map<string, string>; orden: number };
+function reglas(css: string, desde: number): Regla[] {
+  return [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m, i) => ({
+    selector: m[1].trim(),
+    decl: new Map(m[2].split(';').filter(Boolean).map((d) => {
+      const k = d.indexOf(':');
+      return [d.slice(0, k).trim(), d.slice(k + 1).trim()] as [string, string];
+    })),
+    orden: desde + i,
+  }));
+}
+/** Especificidad (clases y pseudoclases, tipos) de un selector compuesto simple. */
+const especificidad = (sel: string) => {
+  const clases = (sel.match(/[.:][a-z-]+/g) ?? []).length;
+  const tipos = sel.split(/\s+/).filter((p) => /^[a-z]+/.test(p)).length;
+  return clases * 100 + tipos;
+};
+/** A qué «objetivo» apunta la regla: la app, el body o la raíz. */
+const objetivo = (sel: string) => (sel.includes('student-app') ? 'app' : sel.endsWith('body') ? 'body' : sel.includes(':root') ? 'root' : sel);
+function efectivo(...hojas: string[]) {
+  let orden = 0;
+  const todas = hojas.flatMap((h) => { const r = reglas(h, orden); orden += r.length; return r; });
+  const gana = new Map<string, { valor: string; esp: number; orden: number }>();
+  for (const r of todas) for (const [p, v] of r.decl) {
+    const clave = `${objetivo(r.selector)}|${p}`;
+    const esp = especificidad(r.selector);
+    const prev = gana.get(clave);
+    if (!prev || esp > prev.esp || (esp === prev.esp && r.orden > prev.orden)) gana.set(clave, { valor: v, esp, orden: r.orden });
+  }
+  return new Map([...gana].map(([k, v]) => [k, v.valor]));
+}
+
+const PUBLICADOS: unknown[] = [
+  { estilo: 'carbon', tipografia: 'editorial', marca: 'fiel', boton: 'marca', encuadre: 'arriba' },
+  { estilo: 'piedra', tipografia: 'romantica', marca: 'suave', boton: 'tinta', encuadre: 'abajo' },
+  { estilo: 'luz', tipografia: 'moderna', marca: 'fiel', boton: 'marca', encuadre: null },
+  undefined,
+];
+const BORRADORES: unknown[] = [
+  { estilo: 'crema', tipografia: 'moderna', marca: 'suave', boton: 'tinta', encuadre: null },
+  { estilo: 'arena', tipografia: 'serena', marca: 'suave', boton: 'tinta', encuadre: 'centro' },
+  { estilo: 'carbon', tipografia: 'moderna', marca: 'suave', boton: 'tinta', encuadre: null },
+];
+
+test('vista previa: lo publicado no se cuela en el borrador (Carbón/Editorial/marca → Crema/Moderna/tinta)', () => {
+  for (const pub of PUBLICADOS) for (const bor of BORRADORES) {
+    const publicado = temaAppCssText('#A85C72', pub);
+    const borrador = temaAppCssText('#2F6F8F', bor, '.student-app.student-app', { completo: true });
+    // Orden real del documento: el borrador en el <head>, lo publicado en el <body>.
+    const visto = efectivo(borrador, publicado);
+    const soloBorrador = efectivo(borrador);
+    for (const [clave, valor] of efectivo(publicado)) {
+      assert.ok(soloBorrador.has(clave), `el borrador no declara ${clave} (publicado ${JSON.stringify(pub)} → ${JSON.stringify(bor)}): se vería «${valor}»`);
+    }
+    for (const [clave, valor] of soloBorrador) {
+      assert.equal(visto.get(clave), valor, `${clave}: ${JSON.stringify(pub)} → ${JSON.stringify(bor)}`);
+    }
+  }
+});
+
+test('vista previa: el borrador de serie trae el juego entero con los valores de student.css', () => {
+  const v = efectivo(temaAppCssText('#2F6F8F', undefined, '.student-app.student-app', { completo: true }));
+  const crema = ESTILOS.find((e) => e.id === 'crema')!;
+  assert.equal(v.get('app|--background'), crema.background);
+  assert.equal(v.get('app|--primary'), crema.tinta);
+  assert.equal(v.get('app|--primary-foreground'), crema.tintaForeground);
+  assert.equal(v.get('app|--radius-card'), `${crema.radios.card}px`);
+  assert.equal(v.get('app|--font-sans'), TIPOGRAFIAS[0].texto);
+  assert.equal(v.get('app|--heading-weight'), '800');
+  assert.equal(v.get('app|--portada-y'), 'initial');
+  assert.equal(v.get('body|background'), crema.background);
+  assert.equal(v.get('root|color-scheme'), 'light');
+  // Lo publicado de la app (sin `completo`) no cambia.
+  assert.equal(temaAppCssText('#2F6F8F', undefined), acentoCssText('#2F6F8F'));
 });

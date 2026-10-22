@@ -7,7 +7,7 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 // Guía de INSTALACIÓN (cómo se monta, en qué CMS, qué configurar y el checklist). La de
 // DECISIÓN —por qué no redirigir y qué opciones hay— es /recursos/reservas-en-tu-web.
@@ -17,11 +17,16 @@ const SLUG = 'widget-vs-iframe-reservas-pilates';
 
 const GUIA = guia('widget-vs-iframe-reservas-pilates');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/widget-vs-iframe-reservas-pilates')!;
+
 export const metadata: Metadata = {
-  title: `${TITLE} — Tentare`,
-  description: 'Cómo instalar reservas online en tu web paso a paso en WordPress, Wix y Squarespace: redirección, iframe o widget, qué configurar después y el checklist antes de publicar.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe(`/recursos/${SLUG}`) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: TITLE,
     description: 'El método que elijas determina cuántas alumnas potenciales llegan al final del proceso sin abandonar.',
@@ -78,13 +83,13 @@ export default function WidgetVsIframePage() {
         </div>
 
         <h3>Redirección externa: lo más rápido, lo que más conversión cuesta</h3>
-        <p>Con la redirección externa, el botón de reserva lleva a la alumna a la plataforma del proveedor en una página completamente diferente. Es la opción más extendida porque no requiere configuración técnica: pegas un enlace y listo. El problema es que la alumna abandona tu web, pierde el contexto de tu marca y el sistema del proveedor no siempre la devuelve a tu página al terminar. La experiencia práctica del sector apunta a pérdidas de entre el 40 y el 60% de reservas potenciales por esta fricción.</p>
+        <p>Con la redirección externa, el botón de reserva lleva a la alumna a la plataforma del proveedor en una página completamente diferente. Es la opción más extendida porque no requiere configuración técnica: pegas un enlace y listo. El problema es que la alumna abandona tu web, pierde el contexto de tu marca y el sistema del proveedor no siempre la devuelve a tu página al terminar.</p>
 
         <h3>Iframe: solución intermedia con sus propias limitaciones</h3>
         <p>El iframe incrusta el sistema del proveedor dentro de un recuadro en tu propia página. Visualmente parece integrado, pero técnicamente no lo está: la alumna sigue interactuando con una web de terceros dentro de un marco. Los problemas más habituales en móvil son el diseño que no se adapta bien a pantallas pequeñas, el desplazamiento horizontal y los <a href="https://help.reservio.com/es/articles/10656312-como-solucionar-los-problemas-del-boton-de-reserva-en-iframe-en-safari-iphone-y-ipad" target="_blank" rel="noopener noreferrer nofollow" style={{ color: 'inherit', textDecorationColor: '#C7C7BC' }}>fallos en Safari para iPhone</a>, donde la protección contra el seguimiento entre sitios puede bloquear las cookies de terceros dentro del iframe y romper el flujo de reserva. Úsalo solo como solución temporal o cuando el proveedor no ofrezca una alternativa mejor.</p>
 
         <h3>Widget nativo: la integración que sí cuida la experiencia de usuario</h3>
-        <p>Un widget nativo es un fragmento de código que se muestra directamente en tu página, puede adaptarse a tus colores y tipografía, y el proceso de reserva ocurre sin que la alumna salga en ningún momento de tu dominio. Esta es la integración que convierte más: la alumna permanece en tu web, con tu marca, desde que aterriza hasta que confirma la clase. El <Link href="/funcionalidades/reservas-online" style={{ color: ACC }}>software de gestión</Link> para <Link href="/" style={{ color: ACC }}>estudios de pilates</Link> de Tentare ofrece exactamente este tipo de widget de reservas, configurado con los colores y la imagen de tu estudio y sin redirigir a ninguna otra web.</p>
+        <p>Un widget nativo es un fragmento de código que se muestra directamente en tu página, puede adaptarse a tus colores y tipografía, y el proceso de reserva ocurre sin que la alumna salga en ningún momento de tu dominio. La alumna permanece en tu web, con tu marca, desde que aterriza hasta que confirma la clase. El <Link href="/funcionalidades/reservas-online" style={{ color: ACC }}>software de gestión</Link> para <Link href="/" style={{ color: ACC }}>estudios de pilates</Link> de Tentare ofrece un widget de reservas configurado con los colores y la imagen de tu estudio: con la sesión iniciada, la alumna reserva dentro de tu web; la primera vez, la reserva se termina en la página de tu estudio en Tentare.</p>
 
         <Callout title="¿Por qué la redirección cuesta tanto?" bg="#F1F2EA" border="#E0E5D0" iconColor={ACC} textColor="#3E4430">
           Si quieres entender la fuga de confianza que provoca la redirección externa, y por qué el widget embebido es la opción más rentable para la mayoría, lee <Link href="/recursos/reservas-en-tu-web" style={{ color: ACC, fontWeight: 700 }}>cómo integrar reservas de Pilates en tu propia web</Link>.
@@ -156,9 +161,9 @@ export default function WidgetVsIframePage() {
         <h2 id="conclusion">La decisión de cómo integrar reservas web para pilates importa más de lo que parece</h2>
         <p>La forma en que integras las reservas online determina cuántas alumnas potenciales llegan al final del proceso sin abandonar. La redirección externa es la opción más rápida de implementar, pero la que más conversión pierde. El widget nativo, bien configurado y adaptado a tu marca, es el que mejor cuida la experiencia de la alumna y la imagen de tu estudio desde el primer clic hasta la confirmación.</p>
         <p>Integrar un sistema de reservas para pilates en tu web no es solo pegar el código de incrustación: los pagos, las cancelaciones, los recordatorios y el cumplimiento legal son parte del mismo proceso, no añadidos opcionales. Un sistema que funciona a medias genera desconfianza en el momento más crítico.</p>
-        <p>Revisa ahora con qué opción trabaja tu estudio. Si hay fricción en el proceso de reserva o el widget que tienes no refleja tu marca, es el mejor momento para cambiarlo. Tentare está diseñado específicamente para estudios de pilates y ofrece este tipo de integración desde 29 euros al mes, sin permanencia, con el sistema de reservas dentro de tu propia web y con tus colores.</p>
+        <p>Revisa ahora con qué opción trabaja tu estudio. Si hay fricción en el proceso de reserva o el widget que tienes no refleja tu marca, es el mejor momento para cambiarlo. Tentare está diseñado específicamente para estudios de pilates y ofrece este tipo de integración gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, con el widget de reservas en tu propia web y con tus colores.</p>
 
-        <CtaBlock title="El widget nativo, sin montarlo tú a mano" body="Tentare gestiona pagos, bonos, cancelaciones, lista de espera y recordatorios desde el mismo widget — sin iframe, sin redirección, con tu marca en todo momento." />
+        <CtaBlock title="El widget nativo, sin montarlo tú a mano" body="Tentare gestiona pagos, bonos, cancelaciones, lista de espera y recordatorios desde el mismo widget — sin iframe y con tu marca en todo momento." />
 
         <RelatedLinks
           items={[

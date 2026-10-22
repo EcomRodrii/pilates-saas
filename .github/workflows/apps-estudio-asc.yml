@@ -1,0 +1,78 @@
+# Órdenes de la API de App Store Connect para las apps de estudio (scripts/asc.mjs).
+#
+# Solo se lanza a mano (Actions → «Apps de estudio · App Store Connect» → Run workflow), y solo
+# puede hacerlo quien tiene permiso de escritura en el repo. La clave sale de los secretos
+# ASC_KEY_ID, ASC_ISSUER_ID y ASC_KEY_P8 y nunca se imprime.
+#
+# ⚠️ Los campos del formulario llegan al script por VARIABLES DE ENTORNO entrecomilladas, nunca
+# pegados en el `run`: un nombre con comillas o `$(…)` no puede ejecutar nada.
+
+name: Apps de estudio · App Store Connect
+
+on:
+  workflow_dispatch:
+    inputs:
+      orden:
+        description: 'Qué hacer'
+        required: true
+        type: choice
+        options: [comprobar, nombre, registrar-cupos]
+        default: comprobar
+      bundle:
+        description: 'nombre: bundle de la app (p. ej. app.tentare.marta)'
+        required: false
+        type: string
+      nombre:
+        description: 'nombre: nombre nuevo (máximo 30 caracteres)'
+        required: false
+        type: string
+      desde:
+        description: 'registrar-cupos: primer número'
+        required: false
+        type: string
+      hasta:
+        description: 'registrar-cupos: último número'
+        required: false
+        type: string
+      en_serio:
+        description: 'Hacerlo de verdad (sin marcar es un ensayo)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-estudio-asc
+  cancel-in-progress: false
+
+jobs:
+  asc:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - name: Orden
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ORDEN: ${{ inputs.orden }}
+          BUNDLE: ${{ inputs.bundle }}
+          NOMBRE: ${{ inputs.nombre }}
+          DESDE: ${{ inputs.desde }}
+          HASTA: ${{ inputs.hasta }}
+          EN_SERIO: ${{ inputs.en_serio }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [ "$EN_SERIO" = "true" ]; then extra+=(--en-serio); fi
+          case "$ORDEN" in
+            comprobar) node --experimental-strip-types scripts/asc.mjs comprobar ;;
+            nombre) node --experimental-strip-types scripts/asc.mjs nombre "$BUNDLE" "$NOMBRE" "${extra[@]}" ;;
+            registrar-cupos) node --experimental-strip-types scripts/asc.mjs registrar-cupos "$DESDE" "$HASTA" "${extra[@]}" ;;
+          esac

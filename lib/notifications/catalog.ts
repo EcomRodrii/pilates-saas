@@ -274,6 +274,8 @@ export const REGLAS: Record<string, ReglaEvento> = {
   // real de socias en curso.
   [EVENTOS.TRIAL_PROXIMO_A_EXPIRAR]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   [EVENTOS.TRIAL_EXPIRADO]: { category: 'sistema', priority: 'CRITICA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.APP_TIENDA_SIN_PLAN]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
+  [EVENTOS.APP_TIENDA_PAUSADA]: { category: 'sistema', priority: 'ALTA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
   // MEDIA, no ALTA: es un nudge de producto, no un fallo que bloquee el
   // negocio — mismo criterio que SERIES_POR_TERMINAR (con margen).
   [EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS]: { category: 'sistema', priority: 'MEDIA', canales: ['PUSH', 'EMAIL'], audiencia: 'propietaria' },
@@ -857,7 +859,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.PAGO_PENALIZACION}#SOCIA`]: {
     title: 'Cargo por cancelación tardía',
-    body: 'Se te ha cobrado {importe} € por cancelar dentro de la ventana permitida o no presentarte a la clase.',
+    body: 'Se te ha cobrado {importe} € por cancelar fuera del plazo de cancelación o no presentarte a la clase.',
     // Un cargo que ya ocurrió: lo que quiere es verlo, con su recibo.
     deepLink: (d: Datos) => `/portal/${s(d.slug)}/pagos`,
   },
@@ -1032,7 +1034,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   [`${EVENTOS.SISTEMA_STRIPE_DESCONECTADO}#PROPIETARIO`]: {
     title: 'Stripe desconectado — no puedes cobrar',
     body: 'Se ha desconectado tu cuenta de Stripe: los cobros automáticos están parados. Vuelve a conectarla para seguir cobrando.',
-    deepLink: () => `/configuracion?tab=cobros#integracion-stripe`,
+    deepLink: () => `/configuracion?tab=conexiones#integracion-stripe`,
   },
   // El cajón «API para tu contabilidad», donde están sus webhooks.
   [`${EVENTOS.WEBHOOK_FALLANDO}#PROPIETARIO`]: {
@@ -1065,15 +1067,27 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     body: 'Tus datos están intactos. Elige un plan para volver a entrar en tu estudio.',
     deepLink: () => `/suscripcion`,
   },
+  [`${EVENTOS.APP_TIENDA_SIN_PLAN}#PROPIETARIO`]: {
+    title: 'Tu app de la App Store, hasta el {fecha}',
+    body: 'Tu plan ya no incluye la app con el nombre de tu estudio. Si vuelves a Estudio o Cadena antes del {fecha}, todo sigue igual; si no, {consecuencia}',
+    deepLink: () => `/suscripcion`,
+  },
+  [`${EVENTOS.APP_TIENDA_PAUSADA}#PROPIETARIO`]: {
+    title: 'Tu app queda en pausa',
+    body: 'Tu plan ya no incluye la app con el nombre de tu estudio: {consecuencia} Si vuelves a Estudio o Cadena, la retomamos.',
+    deepLink: () => `/suscripcion`,
+  },
   [`${EVENTOS.EMBUDO_SIN_CLASES_PROGRAMADAS}#PROPIETARIO`]: {
     title: 'Tu estudio todavía no tiene horario',
-    body: 'Sin clases programadas nadie puede reservar. Te ayudamos a montarlo en un momento.',
+    body: 'Sin clases programadas nadie puede reservar. Créalas en el Calendario, con «Crear clase».',
     deepLink: () => `/calendario`,
   },
   [`${EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO`]: {
     title: 'Tu horario está listo: falta que lo sepan tus alumnas',
     body: 'Todavía no ha entrado ninguna reserva. Comparte el enlace de tu página de reservas por WhatsApp o Instagram: es lo que hace que llegue la primera.',
-    deepLink: () => `/primeros-pasos`,
+    // A «Comparte tu enlace» (components/guia/compartir-desde-enlace.tsx), no a
+    // /primeros-pasos: allí no se compartía nada (alta nueva, PR-5).
+    deepLink: () => `/dashboard?compartir=1`,
   },
   // Series que se acaban: {resumen} y {lista} los redacta el barrido
   // (lib/series-avisos.ts), con todas las clases del estudio en un solo aviso.

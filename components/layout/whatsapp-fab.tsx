@@ -5,14 +5,16 @@ import { X } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { useCore } from '@/lib/core-context';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
+import { SOPORTE_WHATSAPP } from '@/lib/soporte';
 
 // SOPORTE_WHATSAPP — el WhatsApp Business de soporte. A diferencia del
 // HelpWidget del menú de perfil (que abre un formulario y crea un ticket en
 // soporte_solicitudes), esto es un atajo directo: un clic abre WhatsApp con
 // el mensaje ya escrito, sin pasar por ningún backend propio. No sustituye
 // al HelpWidget, es un segundo punto de entrada más rápido para una duda
-// puntual.
-export const SOPORTE_WHATSAPP = '+34603556580';
+// puntual. El número vive en lib/soporte.ts (lo usan también el servidor y el
+// alta, fuera del panel); se reexporta aquí para quien ya lo importaba.
+export { SOPORTE_WHATSAPP };
 
 export function WhatsAppFab() {
   const { studio } = useCore();
@@ -49,7 +51,8 @@ export function WhatsAppFab() {
     // (dashboard-shell.tsx) para que la última fila no quede bajo el botón.
     // `panel-wa-fab`: se aparta mientras hay una barra de guardar a la vista, en
     // cualquier ancho (globals.css), porque caía justo encima de «Guardar».
-    <div ref={ref} className="panel-wa-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 lg:bottom-6 lg:right-6 z-40 flex flex-col items-end gap-3">
+    // `data-whatsapp-soporte`: la tercera parada del recorrido rápido del alta nueva lo señala.
+    <div ref={ref} data-whatsapp-soporte="" className="panel-wa-fab fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] right-4 lg:bottom-6 lg:right-6 z-40 flex flex-col items-end gap-3">
       {open && (
         <div className="w-72 rounded-2xl bg-card border border-border shadow-xl p-4 animate-sheet-pop-in origin-bottom-right">
           <div className="flex items-start justify-between gap-2">

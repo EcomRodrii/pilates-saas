@@ -46,6 +46,19 @@ export function filasDeFranjas(clases: readonly Pick<ClaseEnFranja, 'inicioMin'>
   return filas;
 }
 
+/**
+ * Las filas de una semana TODAVÍA VACÍA: una por hora de la franja en que abre
+ * el estudio, [desde, hasta). Solo la vista previa del alta nueva la pinta así
+ * (`SemanaFranjas` con `franjaVacia`): en cuanto hay una clase, manda
+ * `filasDeFranjas`. Una franja que no se entiende no da filas.
+ */
+export function filasDeFranjaVacia(desdeHora: number, hastaHora: number): FilaFranja[] {
+  const desde = Math.max(0, Math.floor(desdeHora));
+  const hasta = Math.min(24, Math.ceil(hastaHora));
+  if (!Number.isFinite(desde) || !Number.isFinite(hasta) || hasta <= desde) return [];
+  return Array.from({ length: hasta - desde }, (_, i) => ({ tipo: 'hora' as const, hora: desde + i }));
+}
+
 export function claveCelda(dia: number, hora: number): string {
   return `${dia}:${hora}`;
 }

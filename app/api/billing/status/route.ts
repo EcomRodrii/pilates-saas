@@ -1,15 +1,43 @@
 import { NextRequest, NextResponse, after } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { priceIdDe } from '@/lib/billing/billing';
-import { accesoProducto, PLANES } from '@/lib/billing/entitlements';
+import { priceIdDe, priceIdDeAddon } from '@/lib/billing/billing';
+import { accesoProducto, addonsDe, LISTA_ADDONS, pagaAddonsAparte, planDeFila, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
-  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, type EstadoGratisApi,
+  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, pagaPlan, sedeAdmiteGratis, type EstadoGratisApi,
 } from '@/lib/billing/plan-gratis';
+import { decidirPlanSuelto, type OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
+import { sueltosQueCancelaCadena, type SedeConPlan } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { leerUsoGratis, refrescarUsoGratis } from '@/lib/billing/uso-gratis-servidor';
-import { COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, type FilaParaGratis } from '@/lib/billing/convertir-a-gratis';
+import {
+  COLUMNAS_PARA_GRATIS, cerrarPlanGratis, convertirAGratisSiToca, leerCadenaParaGratis, type FilaParaGratis,
+} from '@/lib/billing/convertir-a-gratis';
+import { marcarUso } from '@/lib/retencion/marcar-uso';
+import { clientIp } from '@/lib/rate-limit-core';
+import { COOKIE_DISPOSITIVO, enDiasDeAlta, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
+import { apuntarHuellaAlta } from '@/lib/billing/vinculos-gratis-servidor';
+import { apuntarPaso } from '@/lib/alta/embudo-servidor';
+
+/**
+ * Las opciones de plan de un estudio que no paga. Uno suelto no lee nada más (le
+ * basta su fila); una sede lee su cadena y sus hermanas. Lanza si una lectura falla.
+ */
+async function opcionesDePlan(admin: SupabaseClient, studio: SedeConPlan & { cadena_id: string | null }): Promise<OpcionesDePlan> {
+  if (!studio.cadena_id) return { soloCadena: false, sueltosQueCancelaCadena: sueltosQueCancelaCadena([studio], studio.id) };
+  const [cadena, sedes] = await Promise.all([
+    leerCadenaParaGratis(admin, studio),
+    admin.from('studios').select('id, nombre, plan, subscription_status, subscription_id, current_period_end').eq('cadena_id', studio.cadena_id),
+  ]);
+  if (sedes.error) throw new Error(`leer sedes: ${sedes.error.message}`);
+  const decision = decidirPlanSuelto(cadena && { estado: cadena.subscriptionStatus, esPrincipal: cadena.esPrincipal });
+  return {
+    soloCadena: decision.accion === 'bloquear' && decision.motivo === 'solo-cadena',
+    sueltosQueCancelaCadena: sueltosQueCancelaCadena((sedes.data ?? []) as SedeConPlan[], studio.id),
+  };
+}
 
 // Estado de suscripción del estudio para el cliente (gate de acceso + página de
 // suscripción). Diseño a prueba de foot-guns: `bloqueado` solo es true cuando la
@@ -26,19 +54,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ plan: 'BASE', subscriptionStatus: null, activo: true, bloqueado: false, configurado: false });
   }
 
+  // Alguien del equipo ha abierto el panel: la señal de uso del estudio (una vez
+  // al día, solo con BAJAS_AUTOMATICAS=informe). Después de contestar: nadie espera.
+  after(() => marcarUso(admin, 'panel', sesion.studioId));
+
   const { data: studio } = await admin
     .from('studios')
-    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, ${COLUMNAS_PARA_GRATIS}`)
+    .select(`plan, current_period_end, trial_ends_at, owner_auth_user_id, creado_en, regimen_addons, addons, ${COLUMNAS_PARA_GRATIS}`)
     .eq('id', sesion.studioId)
     .single();
+
+  // El embudo del alta: la propietaria ha abierto su panel (la vuelta del día 1,
+  // 7 y 30). Solo en los primeros días del estudio y una vez al día
+  // (lib/alta/embudo-servidor.ts). Después de contestar: esta ruta es la puerta
+  // del panel, y medir no le añade espera ni la puede tumbar.
+  if (studio && sesion.rol === 'PROPIETARIO') {
+    const creadoEn = (studio.creado_en as string | null | undefined) ?? null;
+    after(() => apuntarPaso(admin, sesion.studioId, 'panel_abierto', { creadoEn }));
+  }
 
   let subscriptionStatus = studio?.subscription_status ?? null;
   let plan = studio?.plan ?? 'BASE';
 
   // Founding Studio gratis (decisión del fundador, 15-oct-2026; reglas en
   // lib/billing/plan-gratis.ts), tras el interruptor FOUNDING_GRATIS: quien NO
-  // paga pasa aquí a 'gratis'. Toda la lógica (Stripe, compare-and-set, nunca
-  // una sede) vive en convertir-a-gratis.ts, la misma que usan los crons.
+  // paga pasa aquí a 'gratis'. Toda la lógica (Stripe, compare-and-set, de una
+  // cadena solo la sede principal) vive en convertir-a-gratis.ts, la misma que
+  // usan los crons.
   if (studio && (await convertirAGratisSiToca(admin, studio as FilaParaGratis)) === 'convertido') {
     subscriptionStatus = ESTADO_GRATIS;
     plan = 'BASE';
@@ -46,9 +88,15 @@ export async function GET(req: NextRequest) {
   // Un estudio gratis que está pagando Estudio y Stripe aún no lo confirma (3DS,
   // SEPA): el webhook escribe 'incomplete' encima de 'gratis'. Mientras dura, se
   // le trata como gratis (derivado, sin escribir nada): no se le cierra el panel
-  // por estar pagando.
-  const pagandoDesdeGratis = subscriptionStatus === 'incomplete' && !!studio && !studio.cadena_id
+  // por estar pagando. En una cadena, solo la sede principal con la cadena sin
+  // pagar (la que estaba en el gratis): las demás siguen cerradas, y un pago de
+  // Cadena a medias no las abre. Sin poder leer la cadena, no.
+  let pagandoDesdeGratis = subscriptionStatus === 'incomplete' && !!studio
     && encendidaPara(process.env.FOUNDING_GRATIS, sesion.studioId);
+  if (pagandoDesdeGratis && studio?.cadena_id) {
+    const cadena = await leerCadenaParaGratis(admin, studio as FilaParaGratis).catch(() => null);
+    pagandoDesdeGratis = sedeAdmiteGratis({ cadenaId: studio.cadena_id, cadena });
+  }
 
   // ⚠️ El vencimiento de la prueba se DERIVA aquí, en cada petición, y no se
   // confía a que el barrido de pg_cron haya pasado ya. Este endpoint es el gate
@@ -109,7 +157,29 @@ export async function GET(req: NextRequest) {
     bloqueado = enforcement && configurado && !activo;
   }
 
-  return NextResponse.json({
+  // /suscripcion ofrece planes solo a quien no paga (quien paga ve el portal), y
+  // solo la propietaria contrata: solo entonces se lee. Así ni gerencia ni
+  // recepción reciben el plan y la fecha de pago de las sedes hermanas, y el
+  // resto de cargas del panel no pagan estas lecturas.
+  // `null`: no se pudo leer; la pantalla avisa en condicional antes de Cadena.
+  let opciones: OpcionesDePlan | null | undefined;
+  if (studio && sesion.rol === 'PROPIETARIO' && !pagaPlan({ subscriptionStatus, subscriptionId: studio.subscription_id })) {
+    opciones = await opcionesDePlan(admin, { ...studio, subscription_status: subscriptionStatus } as SedeConPlan & { cadena_id: string | null })
+      .catch(() => null);
+  }
+
+  // La huella del alta (vinculos-gratis.ts), solo con HUELLA_ALTA y solo de la
+  // propietaria: la primera IP y el primer navegador con que abre el panel. Solo
+  // AVISA en /interno de un alta parecida a un estudio cerrado; nunca cierra nada.
+  // Solo en los primeros días del estudio: es «desde dónde se dio de alta».
+  let dispositivoNuevo: string | null = null;
+  if (huellaAltaActiva(process.env) && sesion.rol === 'PROPIETARIO' && enDiasDeAlta(studio?.creado_en, new Date())) {
+    const dispositivo = req.cookies.get(COOKIE_DISPOSITIVO)?.value ?? (dispositivoNuevo = crypto.randomUUID());
+    const ip = clientIp(req);
+    after(() => apuntarHuellaAlta(admin, sesion.studioId, ip === 'unknown' ? null : ip, dispositivo));
+  }
+
+  const respuesta = NextResponse.json({
     plan,
     subscriptionStatus,
     activo,
@@ -125,5 +195,20 @@ export async function GET(req: NextRequest) {
     trial: { fase: trial.fase, diasRestantes: trial.diasRestantes, finaliza: trial.finaliza },
     // Founding Studio gratis: el uso, la fase y el margen, ya derivados. `null` si no lo es.
     gratis,
+    // Complementos de Founding (lib/billing/entitlements.ts `ADDONS`): si los paga
+    // aparte, cuáles tiene y cuáles se pueden contratar ya (con su precio en Stripe).
+    complementos: {
+      pagaAparte: pagaAddonsAparte(planDeFila({ ...studio, plan, subscription_status: subscriptionStatus })),
+      contratados: addonsDe(planDeFila(studio)),
+      disponibles: LISTA_ADDONS.filter((a) => priceIdDeAddon(a)),
+    },
+    // Qué planes se le ofrecen y qué cancelaría Cadena. Ausente si ya paga.
+    ...(opciones !== undefined ? { opcionesDePlan: opciones } : {}),
   });
+  if (dispositivoNuevo) {
+    respuesta.cookies.set(COOKIE_DISPOSITIVO, dispositivoNuevo, {
+      httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 400 * 24 * 3600,
+    });
+  }
+  return respuesta;
 }

@@ -21,7 +21,7 @@
 // hace es venderla mientras no se pueda usar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PLAN_ENTITLEMENTS, type Plan } from './entitlements.ts';
+import { ADDONS, PLAN_ENTITLEMENTS, addonDeFeature, type Entitlements, type Plan } from './entitlements.ts';
 
 /** Cómo se pinta una fila para un plan concreto. */
 export type ValorPlan =
@@ -39,11 +39,21 @@ export const FILA_TOPE_ALUMNAS = 'tope-alumnas';
 /** Todo el mundo lo tiene: el núcleo no se trocea por plan. */
 const TODOS = (): ValorPlan => SI;
 
-/** Derivado del entitlement real, nunca escrito a mano. */
+/** El texto de una fila que en Founding va como complemento (`ADDONS`). */
+export const textoComplemento = (precioMes: number) => `Complemento, +${precioMes} €/mes`;
+
+/**
+ * Derivado del entitlement real, nunca escrito a mano. En Founding (sus
+ * entitlements de catálogo, no los del Founding gratis que enseña la web) lo
+ * que va como complemento se dice con su precio, no como «no incluido».
+ */
 const porFeature =
   (feature: keyof (typeof PLAN_ENTITLEMENTS)['BASE']['features']) =>
-  (p: Plan): ValorPlan =>
-    PLAN_ENTITLEMENTS[p].features[feature] ? SI : NO;
+  (p: Plan, e: Entitlements = PLAN_ENTITLEMENTS[p]): ValorPlan => {
+    if (e.features[feature]) return SI;
+    const addon = p === 'BASE' && e === PLAN_ENTITLEMENTS.BASE ? addonDeFeature(feature) : null;
+    return addon ? txt(textoComplemento(ADDONS[addon].precioMes)) : NO;
+  };
 
 export interface FilaPlan {
   /** Identificador estable para las filas a las que hay que referirse desde
@@ -53,7 +63,9 @@ export interface FilaPlan {
   nombre: string;
   /** Una línea de contexto. Se enseña en la comparativa ampliada, no en la corta. */
   detalle?: string;
-  valor: (p: Plan) => ValorPlan;
+  /** `e` cambia los entitlements de una columna (la web enseña Founding Studio
+   *  gratis, que no es `PLAN_ENTITLEMENTS.BASE`); sin él, los del plan. */
+  valor: (p: Plan, e?: Entitlements) => ValorPlan;
 }
 
 export interface CategoriaPlan {
@@ -95,8 +107,8 @@ export const CATEGORIAS: CategoriaPlan[] = [
         id: FILA_TOPE_ALUMNAS,
         nombre: 'Alumnas activas',
         detalle: 'El tope se aplica sobre las activas; nadie se borra al llegar al límite.',
-        valor: (p) => {
-          const max = PLAN_ENTITLEMENTS[p].maxSocios;
+        valor: (p, e = PLAN_ENTITLEMENTS[p]) => {
+          const max = e.maxSocios;
           return txt(max === Infinity ? 'Sin límite' : `Hasta ${max}`);
         },
       },
@@ -112,7 +124,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     id: 'equipo',
     titulo: 'Equipo',
     filas: [
-      { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: recepción no entra en la caja ni en la ficha clínica.', valor: TODOS },
+      { nombre: 'Instructoras, recepción y gerencia', detalle: 'Cada rol ve lo suyo: la gerencia no entra en la caja y recepción no ve el detalle clínico.', valor: TODOS },
       { nombre: 'App para tu equipo', detalle: 'Su agenda, pasar lista, su disponibilidad, sus ausencias y los mensajes con sus alumnas, desde el móvil y con tu marca.', valor: TODOS },
       { nombre: 'Tarifa por hora y liquidación', valor: TODOS },
       { nombre: 'Una instructora en varias sedes', detalle: 'Con horario, tarifa y permisos distintos en cada una.', valor: porFeature('multiCentro') },
@@ -133,7 +145,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Cobros y pagos',
     filas: [
       { nombre: 'Cobro con tarjeta (Stripe)', detalle: 'El dinero va directo a tu cuenta. Tentare no se lleva comisión.', valor: TODOS },
-      { nombre: 'Domiciliación SEPA', valor: TODOS },
+      { nombre: 'Remesa SEPA para domiciliaciones', detalle: 'Tentare prepara el fichero; lo presentas tú en tu banco.', valor: TODOS },
       { nombre: 'Cobro guardado para renovaciones', valor: TODOS },
       { nombre: 'Recobro automático de impagos', valor: TODOS },
       { nombre: 'Devoluciones desde el panel', valor: TODOS },
@@ -168,7 +180,11 @@ export const CATEGORIAS: CategoriaPlan[] = [
       // decidiendo la compra.
       // ⚠️ Y el QR tampoco: la factura solo lo imprime cuando la AEAT ya tiene
       // el registro (selloParaCliente), así que sin envío no sale en ninguna.
-      { nombre: 'Facturas con huella encadenada (Veri*Factu)', detalle: 'Numeración legal y huella encadenada. La firma y el envío automático a la AEAT están en construcción; el QR de cotejo llega con el envío.', valor: TODOS },
+      // ⚠️ Y desde el 2-oct-2026 tampoco la huella: de serie el estudio factura en
+      // modo 'facturas' (número, sin cadena), y la huella solo se calcula con
+      // Veri*Factu activado (migr 20261002191517, sellar-factura-server.ts). Esta
+      // fila decía «Numeración legal y huella encadenada» para todos (21-oct-2026).
+      { nombre: 'Veri*Factu: huella, QR y envío a la AEAT', detalle: 'Va aparte y viene desactivado: se activa dando de alta el envío a la AEAT. Sin él, las facturas llevan su número, pero no huella ni QR.', valor: TODOS },
       { nombre: 'Cierre de año para la gestoría', valor: TODOS },
       { nombre: 'Exportación de tus datos cuando quieras', valor: TODOS },
     ],
@@ -193,7 +209,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
       { nombre: 'Riesgo de fuga y de impago', valor: porFeature('decisiones') },
       // Hoy, lo que Estudio tiene de más frente a Founding Studio de pago (15-oct-2026);
       // la app propia del estudio se añade aquí cuando se pueda pedir de verdad.
-      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p) => txt(`${PLAN_ENTITLEMENTS[p].consultasAsistenteMes} consultas al mes`) },
+      { nombre: 'Pregúntale a Tentare', detalle: 'Preguntas sobre tu estudio, con tus datos.', valor: (p, e = PLAN_ENTITLEMENTS[p]) => txt(`${e.consultasAsistenteMes} consultas al mes`) },
     ],
   },
   {
@@ -228,7 +244,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
     titulo: 'Puesta en marcha y soporte',
     filas: [
       { nombre: 'Soporte en español', valor: TODOS },
-      { nombre: 'Traemos tus datos de tu plataforma actual', detalle: 'Sin coste aparte. Tu sistema actual puede seguir funcionando mientras tanto.', valor: TODOS },
+      { nombre: 'Trae tus datos de tu plataforma actual', detalle: 'Sin coste aparte. Tu sistema actual puede seguir funcionando mientras tanto.', valor: TODOS },
       { nombre: 'Actualizaciones y funciones nuevas', valor: TODOS },
       { nombre: 'Sin permanencia', valor: TODOS },
     ],
@@ -242,7 +258,9 @@ export const PARA_QUIEN: Record<Plan, { gancho: string; para: string }> = {
     para: 'Un estudio con una sala y una o dos instructoras.',
   },
   ESTUDIO: {
-    gancho: 'El más elegido',
+    // Decía «El más elegido» y lo pintaba como insignia en /suscripcion y en el
+    // alta: ningún estudio está en Estudio (21-oct-2026). La web ya lo había quitado.
+    gancho: 'Con equipo',
     para: 'Un estudio en marcha, con equipo y el horario lleno.',
   },
   CADENA: {
@@ -269,7 +287,8 @@ export function novedadesFrenteAlAnterior(
       if (fila.id && omitir.includes(fila.id)) continue;
       const antes = fila.valor(anterior);
       const ahora = fila.valor(plan);
-      if (antes.tipo === 'no' && ahora.tipo === 'si') nuevas.push(fila.nombre);
+      // «no» o «complemento» (texto) → incluido.
+      if (antes.tipo !== 'si' && ahora.tipo === 'si') nuevas.push(fila.nombre);
       if (antes.tipo === 'texto' && ahora.tipo === 'texto' && antes.texto !== ahora.texto) {
         nuevas.push(`${fila.nombre}: ${ahora.texto.toLowerCase()}`);
       }

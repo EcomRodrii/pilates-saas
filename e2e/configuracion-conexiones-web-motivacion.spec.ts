@@ -105,7 +105,7 @@ for (const vista of VISTAS) {
   test.describe(`Conexiones, web y motivación en ${vista.nombre}`, () => {
     test.use(vista.use);
 
-    test('Conexiones: un estado por fila, agrupadas por cómo están, y la conectada abre su cajón', async ({ page }) => {
+    test('Integraciones: un estado por fila, agrupadas por lo que hacen, y la conectada abre su cajón', async ({ page }) => {
       await abrir(page, 'configuracion?tab=conexiones');
       await expect(estado(page, 'integracion-kisi')).toHaveText('Con problemas', { timeout: 30_000 });
       await expect(valor(page, 'integracion-kisi')).toHaveText(/^Falló el 20 ago.*: Invalid API key$/);
@@ -126,12 +126,16 @@ for (const vista of VISTAS) {
       }
       await expect(page.getByText('No conectado', { exact: true })).toHaveCount(0);
       const titulos = await grupos(page);
-      expect(titulos.slice(0, 3)).toEqual(['Con problemas', 'Conectadas', 'Sin conectar']);
-      expect(titulos).toContain('Quién puede ver tus datos');
+      expect(titulos).toEqual([
+        'Cobrar a tus alumnas', 'Escribir a tus alumnas', 'Tu agenda y tus clases online', 'Marketing',
+        'Plataformas que venden tus clases', 'Automatizar y dar acceso a tus datos',
+      ]);
       await expect(valor(page, 'aplicaciones-con-acceso')).toHaveText('Ninguna app tiene acceso');
-      // Stripe y WhatsApp no se repiten: una fila lleva a su sección.
-      await expect(page.locator('#fila-a-cobros')).toHaveAttribute('href', '/configuracion?tab=cobros#integracion-stripe');
-      await expect(page.locator('#integracion-stripe')).toHaveCount(0);
+      // Stripe, el datáfono y WhatsApp viven aquí (16-oct), cada uno con UN estado;
+      // el remitente de los correos sigue en Cómo me comunico y una fila lleva allí.
+      for (const id of ['integracion-stripe', 'integracion-whatsapp']) await expect(estado(page, id), id).toHaveCount(1);
+      await expect(page.locator('#datafono')).toBeVisible();
+      await expect(page.locator('#fila-a-comunicacion')).toHaveAttribute('href', '/configuracion?tab=comunicacion#integracion-resend');
       expect(await desborde(page), 'Conexiones se sale de lado').toBeLessThanOrEqual(0);
       await page.screenshot({ path: test.info().outputPath(`conexiones-${vista.ancho}.png`), fullPage: true });
 
@@ -166,10 +170,12 @@ for (const vista of VISTAS) {
       await abrir(page, 'configuracion?tab=motivacion');
       await expect(valor(page, 'reglas')).toHaveText('Se llaman créditos · no caducan · racha de 1 clase por semana', { timeout: 30_000 });
       await expect(valor(page, 'creditos-por-accion')).toHaveText('1 de 7 dan créditos · 10 por asistir');
+      // La cabecera y las dos filas de las reglas.
       await expect(page.locator('[data-estado-ajuste]').filter({ hasText: 'Incluido en tu plan' })).toHaveCount(3);
-      await expect(page.locator('#fila-herramienta-recompensas-y-logros')).toBeVisible();
-      // Los canjes son trabajo: van en la bandeja de Inicio, no aquí.
-      await expect(page.getByText('Canjes pendientes')).toHaveCount(0);
+      // Una sola pantalla (20-oct): los cinco bloques en orden, y los códigos de descuento ya no.
+      for (const id of ['reglas', 'recompensas', 'logros', 'niveles', 'retos']) await expect(page.locator(`#${id}`)).toBeVisible();
+      await expect(page.locator('#fila-herramienta-codigos-descuento')).toHaveCount(0);
+      await expect(page.getByRole('figure', { name: 'Vista previa de la app de tu alumna' })).toBeVisible();
       expect(await desborde(page), 'Motivación se sale de lado').toBeLessThanOrEqual(0);
       await page.screenshot({ path: test.info().outputPath(`motivacion-${vista.ancho}.png`), fullPage: true });
 

@@ -90,7 +90,7 @@ export default function FacturacionInterna() {
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-[17px] font-bold text-foreground">Facturación</h1>
+          <h1 className="text-[17px] font-bold text-foreground">Cobros a estudios</h1>
           <p className="text-[12.5px] text-muted-foreground">
             {f.stripeDisponible
               ? `Leído de Stripe ahora mismo · ${f.suscripcionesEnStripe} suscripción(es) en la cuenta.`

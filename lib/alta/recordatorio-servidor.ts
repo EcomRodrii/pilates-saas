@@ -1,16 +1,28 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
-import { enviarRecordatorioAlta } from '@/lib/emails/embudo-alta-server';
+import { enviarCorreoAlta, enviarRecordatorioAlta } from '@/lib/emails/embudo-alta-server';
 import { correoAltaSinTerminar } from '@/lib/emails/tentare/embudo-alta';
+import { correoPrimeraClase } from '@/lib/emails/tentare/alta';
+import { puedeReservarEnServidor } from '@/lib/onboarding/puede-reservar-servidor';
+import type { RespuestaPuedeReservar } from '@/lib/onboarding/puede-reservar';
 import { LEGAL } from '@/lib/legal-info';
+import { foundingGratisEnAltas } from '@/lib/alta/founding-gratis-alta';
 import {
   altaDesdeFila,
   claveIdempotenciaRecordatorio,
   contenidoRecordatorio,
   decidirRecordatorio,
   MAX_INTENTOS_RECORDATORIO,
+  versionDeFila,
 } from './abandono.ts';
+import {
+  claveCorreoPrimeraClase, decidirCorreoPrimeraClase, HORAS_DESDE_CORREO_PRIMERA_CLASE, HORAS_HASTA_CORREO_PRIMERA_CLASE,
+  varianteCorreoPrimeraClase,
+} from './correo-primera-clase.ts';
+import { apuntarPaso } from './embudo-servidor.ts';
+import { ENTRADA_PRIMERA_CLASE } from './bienvenida-nueva.ts';
+import { VALORES_DE_SERIE } from './primera-clase.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El recordatorio de las 24 h a quien dejó el alta de estudio a medias. Lo
@@ -73,10 +85,13 @@ export async function enviarRecordatoriosAltas(admin: SupabaseClient, ahoraMs = 
       .is('recordatorio_reclamado_en', null)
       .is('recordatorio_enviado_en', null)
       .is('recordatorio_descartado', null)
-      .select('auth_user_id');
+      // `version` sale de la propia fila (`altas_estudio_detalle()` no la
+      // devuelve): el alta nueva no tiene «elegir plan» y su correo no lo dice.
+      .select('auth_user_id, version');
     if (errReclamo || !reclamada?.length) continue;
 
-    const contenido = contenidoRecordatorio(decision.paso, alta, base);
+    const version = versionDeFila((reclamada[0] as { version?: unknown }).version ?? alta.version);
+    const contenido = contenidoRecordatorio(decision.paso, { ...alta, version }, base, { foundingGratis: foundingGratisEnAltas() });
     const res = await enviarRecordatorioAlta({
       to: alta.email!,
       asunto: contenido.asunto,
@@ -113,6 +128,136 @@ export async function enviarRecordatoriosAltas(admin: SupabaseClient, ahoraMs = 
     resumen.fallidos += 1;
   }
 
+  return resumen;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// «Tu primera clase en Tentare, en 5 minutos» (correo 3 del alta nueva, PR-5):
+// a las 24 h de crear el estudio, si una alumna nueva todavía no puede
+// reservar. Cuándo y a quién, en lib/alta/correo-primera-clase.ts.
+//
+// Va en este mismo cron horario (decisión C8 del plan), sin uno nuevo: su guarda
+// de pg_cron (migración 20261021160000) llama también cuando hay un estudio así.
+// UNA vez por estudio: la marca `correo_primera_clase` del embudo, que solo se
+// escribe con el envío hecho, más la clave de idempotencia de Resend para dos
+// pasadas a la vez. Un envío que falla se reintenta en la pasada siguiente
+// mientras dure la ventana (72 h); pasada, ya no es «al día siguiente».
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Pocos por pasada: cada uno pregunta a `puedeReservarEnServidor` (y quizá a Stripe). */
+const PRIMERA_CLASE_POR_PASADA = 20;
+
+export interface ResumenPrimeraClase {
+  revisados: number;
+  enviados: number;
+  yaReservable: number;
+  descartados: number;
+  fallidos: number;
+}
+
+export async function enviarCorreosPrimeraClase(
+  admin: SupabaseClient,
+  ahoraMs = Date.now(),
+  preguntar: (admin: SupabaseClient, studioId: string, ahora: Date) => Promise<RespuestaPuedeReservar> = puedeReservarEnServidor,
+): Promise<ResumenPrimeraClase> {
+  const resumen: ResumenPrimeraClase = { revisados: 0, enviados: 0, yaReservable: 0, descartados: 0, fallidos: 0 };
+  const desde = new Date(ahoraMs - HORAS_HASTA_CORREO_PRIMERA_CLASE * 3_600_000).toISOString();
+  const hasta = new Date(ahoraMs - HORAS_DESDE_CORREO_PRIMERA_CLASE * 3_600_000).toISOString();
+
+  // Los estudios en la ventana. Que sea del alta nueva se mira después (la
+  // versión es de la cuenta de su dueña, en otra tabla).
+  const { data: estudios, error } = await admin.from('studios')
+    .select('id, nombre, creado_en, owner_auth_user_id, cadena_id, es_demo, suspendido_en')
+    .gt('creado_en', desde).lte('creado_en', hasta)
+    .is('cadena_id', null)
+    .order('creado_en', { ascending: true })
+    .limit(PRIMERA_CLASE_POR_PASADA * 5);
+  if (error) throw new Error(`studios: ${error.message}`);
+  const filas = (estudios ?? []) as {
+    id: string; nombre: string | null; creado_en: string; owner_auth_user_id: string | null;
+    cadena_id: string | null; es_demo: boolean | null; suspendido_en: string | null;
+  }[];
+  if (filas.length === 0) return resumen;
+
+  const duenas = [...new Set(filas.map(f => f.owner_auth_user_id).filter((x): x is string => !!x))];
+  const ids = filas.map(f => f.id);
+  const [altas, embudo] = await Promise.all([
+    duenas.length ? admin.from('altas_estudio').select('auth_user_id, version').in('auth_user_id', duenas) : Promise.resolve({ data: [], error: null }),
+    admin.from('embudo_alta').select('studio_id, paso').in('studio_id', ids).in('paso', ['clase_reservable', 'correo_primera_clase']),
+  ]);
+  if (altas.error) throw new Error(`altas_estudio: ${altas.error.message}`);
+  if (embudo.error) throw new Error(`embudo_alta: ${embudo.error.message}`);
+  const versionDe = new Map((altas.data ?? []).map(a => [a.auth_user_id as string, a.version as string]));
+  const pasosDe = new Map<string, Set<string>>();
+  for (const e of embudo.data ?? []) {
+    const s = pasosDe.get(e.studio_id as string) ?? new Set<string>();
+    s.add(e.paso as string);
+    pasosDe.set(e.studio_id as string, s);
+  }
+
+  const base = (process.env.NEXT_PUBLIC_APP_URL || LEGAL.url).replace(/\/+$/, '');
+  for (const f of filas) {
+    if (resumen.revisados >= PRIMERA_CLASE_POR_PASADA) break;
+    const pasos = pasosDe.get(f.id) ?? new Set<string>();
+    // Lo barato primero: sin la cuenta no se sabe ni a quién mandarlo.
+    const previa = decidirCorreoPrimeraClase({
+      version: f.owner_auth_user_id ? versionDe.get(f.owner_auth_user_id) : null,
+      cadenaId: f.cadena_id, esDemo: f.es_demo === true, suspendido: !!f.suspendido_en,
+      creadoEn: f.creado_en, yaEnviado: pasos.has('correo_primera_clase'), claseReservable: pasos.has('clase_reservable'),
+      ahoraMs,
+    });
+    if (!previa.enviar) { resumen.descartados += 1; continue; }
+    resumen.revisados += 1;
+
+    try {
+      // ¿Qué le falta de verdad? Sin ninguna clase (ni pasada ni por venir), la
+      // maqueta; con clase, el mismo motor que la reserva dice si se puede.
+      const { data: unaSesion, error: errSesion } = await admin.from('sesiones').select('id')
+        .eq('studio_id', f.id).not('cancelada', 'is', true).limit(1);
+      if (errSesion) throw new Error(errSesion.message);
+      const haySesiones = (unaSesion ?? []).length > 0;
+      const veredicto = haySesiones
+        ? await preguntar(admin, f.id, new Date(ahoraMs)).catch((): null => null)
+        : null;
+      const variante = varianteCorreoPrimeraClase({ haySesiones, veredicto });
+      if (variante.tipo === 'reservable') {
+        // Ya puede reservar: el hito, y nada que mandar.
+        await apuntarPaso(admin, f.id, 'clase_reservable', { creadoEn: f.creado_en });
+        resumen.yaReservable += 1;
+        continue;
+      }
+      if (variante.tipo === 'sin_saber') { resumen.fallidos += 1; continue; }
+
+      const { data: cuenta, error: errCuenta } = await admin.auth.admin.getUserById(f.owner_auth_user_id!);
+      if (errCuenta) throw new Error(errCuenta.message);
+      const email = cuenta.user?.email ?? null;
+      if (!email) { resumen.descartados += 1; continue; }
+      const nombre = typeof cuenta.user?.user_metadata?.nombre === 'string' ? cuenta.user.user_metadata.nombre : null;
+
+      const correo = correoPrimeraClase({
+        estudioNombre: f.nombre ?? '',
+        nombre,
+        variante: variante.tipo === 'sin_clase'
+          ? { tipo: 'sin_clase', ejemplo: { clase: VALORES_DE_SERIE.tipo, minutos: VALORES_DE_SERIE.duracion, plazas: VALORES_DE_SERIE.plazas } }
+          : { tipo: 'no_reservable', aviso: variante.aviso.texto },
+        urlBoton: `${base}${variante.tipo === 'sin_clase' ? ENTRADA_PRIMERA_CLASE : variante.aviso.href}`,
+      });
+      const res = await enviarCorreoAlta({ to: email, asunto: correo.asunto, html: correo.html, idempotencyKey: claveCorreoPrimeraClase(f.id) });
+      if (res.ok) {
+        await apuntarPaso(admin, f.id, 'correo_primera_clase', { creadoEn: f.creado_en });
+        resumen.enviados += 1;
+      } else if (res.skipped || res.permanente) {
+        // Resend sin configurar (preview, local) o un destinatario de ejemplo: nada que reintentar.
+        resumen.descartados += 1;
+      } else {
+        resumen.fallidos += 1;
+        Sentry.captureMessage('[altas-sin-terminar] no salió «Tu primera clase»', { level: 'warning', tags: { area: 'alta', error: res.error } });
+      }
+    } catch (e) {
+      resumen.fallidos += 1;
+      console.warn('[altas-sin-terminar:primera-clase]', e instanceof Error ? e.message : 'error desconocido');
+    }
+  }
   return resumen;
 }
 

@@ -1,37 +1,30 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { StudentShell } from '@/components/student/shell/StudentShell';
-import { PageHeader } from '@/components/student/shell/PageHeader';
+import { useVolver } from '@/components/student/shell/volver';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useAforoEnVivoPortal } from '@/lib/student/use-aforo-portal';
-import { useOnline } from '@/lib/student/useOnline';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { getBonos, getClasesFrescas, getInstructoras, getReservas } from '@/lib/student/datos';
-import { bonoParaClase, tieneBonoQueNoCubre } from '@/lib/student/bono-cubre';
-import { seReservaSinPagar } from '@/lib/student/como-se-paga';
 import { getFavoritos } from '@/lib/student/favoritos';
-import { avisoCancelacion, disponibilidad } from '@/lib/student/maquina-reserva';
-import { addDias, etiquetaDia, hoyISO } from '@/lib/student/formato';
-import { accionDeFila, cerradaPorAntelacion, estadoTemporalDeFila, topeSemanalLleno } from '@/lib/student/fila-horario';
+import { disponibilidad } from '@/lib/student/maquina-reserva';
+import { addDias, hoyISO } from '@/lib/student/formato';
+import { estadoTemporalDeFila } from '@/lib/student/fila-horario';
 import {
   avisoDeSalto, diasConClases, diasConReserva, filtrarHorario, leerFiltrosGuardados, primerDiaConClases, salasDelHorario, type Franja,
 } from '@/lib/student/horario-dias';
-import { etiquetaAperturaSuave } from '@/lib/opening/apertura-suave-texto';
-import { useHojaReserva } from '@/lib/student/use-hoja-reserva';
 import { DateSelector } from '@/components/student/domain/DateSelector';
 import { FilaHorario } from '@/components/student/domain/FilaHorario';
-import { HojaReserva } from '@/components/student/domain/HojaReserva';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { Sheet } from '@/components/student/ui/Sheet';
 import { Icono } from '@/components/student/ui/Icono';
 import { tiposDeLasClases } from '@/lib/student/mapeo';
 import { invalidarCatalogo } from '@/lib/student/catalogo';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
-import type { Clase } from '@/lib/student/tipos';
 
 // El día que estaba mirando, por estudio, para volver a él al cambiar de
 // pestaña (con su scroll, que pone el marco). En memoria: se va al recargar. Un
@@ -78,7 +71,6 @@ export default function HorarioPage() {
   const { estudio } = useEstudio();
   const href = usePortalHref();
   const sp = useSearchParams();
-  const { online } = useOnline();
   const ahoraMs = useAhoraMs();
   // El instante en que se abrió la pantalla, para el día automático (el patrón de `useAsync`): nada de `setState` en
   // render ni en un efecto.
@@ -104,7 +96,22 @@ export default function HorarioPage() {
   // Búsqueda por texto, que el paquete no tenía. Llega desde el buscador de la
   // Home como `?q=`, y se puede editar aquí.
   const [q, setQ] = useState(sp.get('q') ?? '');
-  const [verSalas, setVerSalas] = useState(false);
+  const [verFiltros, setVerFiltros] = useState(false);
+  const volver = useVolver();
+  // La sombra del bloque fijo solo con la lista ya por debajo. Un atributo puesto a mano, sin estado de React: el scroll
+  // no vuelve a pintar la pantalla.
+  const fijo = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let pendiente = 0;
+    const mirar = () => {
+      pendiente = 0;
+      fijo.current?.toggleAttribute('data-pegado', window.scrollY > 4);
+    };
+    const alScroll = () => { if (!pendiente) pendiente = requestAnimationFrame(mirar); };
+    window.addEventListener('scroll', alScroll, { passive: true });
+    mirar();
+    return () => { window.removeEventListener('scroll', alScroll); if (pendiente) cancelAnimationFrame(pendiente); };
+  }, []);
 
   const cargar = useCallback(async () => {
     const [clases, reservas, bonos, instructoras, favoritos] = await Promise.all([
@@ -135,16 +142,6 @@ export default function HorarioPage() {
   // ── La hoja de reserva de la fila (P12): la MISMA que la ficha ──
   // La clase elegida se busca en los datos VIVOS (aforo en vivo incluido); si desaparece, la hoja pinta la última
   // conocida con «ya no está en el horario» y no deja confirmar.
-  const [elegida, setElegida] = useState<Clase | null>(null);
-  // Las que acaba de reservar desde aquí: sin botón hasta que los datos digan «reservada». Ni optimismo ni un segundo
-  // toque sobre la misma fila mientras se releen.
-  const [recien, setRecien] = useState<ReadonlySet<string>>(() => new Set());
-  const trasReservar = useCallback(async () => {
-    if (elegida) setRecien((r) => new Set(r).add(elegida.id));
-    await refrescar();
-  }, [elegida, refrescar]);
-  const hoja = useHojaReserva({ slug: estudio.slug, studioId: estudio.id, online, onCambio: trasReservar });
-
   const hoy = hoyISO();
   const hasta = addDias(hoy, DIAS_TIRA - 1);
   const salas = useMemo(() => (data ? salasDelHorario(data.clases, hoy, hasta) : []), [data, hoy, hasta]);
@@ -164,6 +161,9 @@ export default function HorarioPage() {
     () => ['Todo', ...(data?.favoritos.size ? ['Favoritas'] : []), ...tiposDeLasClases(data?.clases ?? []), 'Con hueco'],
     [data],
   );
+  // Las píldoras de la maqueta: «Todos» y los tipos de clase. «Favoritas» y «Con hueco» siguen valiendo (la baldosa de
+  // Inicio abre `?filtro=Favoritas`), pero se eligen en la hoja de filtros.
+  const pildoras = useMemo(() => ['Todo', ...tiposDeLasClases(data?.clases ?? [])], [data]);
 
   // ⚠️ Si el filtro que pide la URL no existe para ESTA alumna, vale «Todo».
   const filtroReal = tipos.includes(filtro) ? filtro : 'Todo';
@@ -191,19 +191,37 @@ export default function HorarioPage() {
     return `No hay ${que}${donde}${cuando} este día`;
   })();
 
-  const claseViva = elegida ? data?.clases.find((c) => c.id === elegida.id) ?? null : null;
-  const dispElegida = claseViva && data ? disponibilidad(claseViva, data.reservas, estudio.soportaListaEspera) : 'disponible';
-  const bonoElegida = claseViva && data ? bonoParaClase(data.bonos, claseViva.tipoClaseId) : null;
+  const filtrosActivos = (filtroReal === 'Favoritas' || filtroReal === 'Con hueco' ? 1 : 0) + (franja !== 'todo' ? 1 : 0) + (salaVisible ? 1 : 0) + (consulta ? 1 : 0);
 
   return (
-    <StudentShell>
+    // Copia de la maqueta de los cuatro iPhones (fundador, 19-oct-2026): sin la barra del estudio; volver, «Reservar»
+    // centrado y el botón de filtros; las píldoras de tipos; la tira de días; las filas con foto. El buscador, la franja,
+    // la sala, «Con hueco», «Favoritas» y el calendario no se pierden: viven en la hoja del botón de filtros.
+    <StudentShell sinCabecera>
       <TirarParaActualizar onRefrescar={actualizar} />
-      <PageHeader
-        titulo="Horario"
-        accion={<Link href={href('/calendario')} className="btn btn--secondary btn--sm">Calendario</Link>}
-      />
+      {/* Fijo arriba al hacer scroll: la cabecera, las píldoras y la tira de días se quedan a mano mientras la lista pasa
+          por debajo, como en una app (fondo opaco, sin desenfoque: el blur sobre una lista con fotos cuesta en iPhone). */}
+      <div className="reservar-fijo" ref={fijo}>
+      <header className="px cabecera-pantalla">
+        <button type="button" onClick={volver} aria-label="Volver" className="tap tap--icono cabecera-pantalla__boton">
+          <Icono nombre="chevron-izquierda" tamano={22} />
+        </button>
+        <h1 className="cabecera-pantalla__titulo">Reservar</h1>
+        <button type="button" onClick={() => setVerFiltros(true)} aria-label={filtrosActivos ? `Filtros, ${filtrosActivos} activos` : 'Filtros'} data-testid="abrir-filtros" className="tap tap--icono cabecera-pantalla__boton cabecera-pantalla__boton--caja">
+          <Icono nombre="filtros" tamano={20} />
+          {filtrosActivos > 0 && <span aria-hidden className="cabecera-pantalla__punto" />}
+        </button>
+      </header>
 
-      <div style={{ marginTop: 14 }}>
+      <div className="px no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 8 }}>
+        {pildoras.map((t) => (
+          <button key={t} type="button" className="pill pill--maqueta" aria-pressed={filtroReal === t} onClick={() => setFiltro(t)} style={{ flexShrink: 0 }}>
+            {t === 'Todo' ? 'Todos' : t}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 12, paddingBottom: 10 }}>
         <DateSelector
           value={dia}
           onChange={setDia}
@@ -211,82 +229,21 @@ export default function HorarioPage() {
           formato="semana"
           marcados={data ? diasConReserva(data.reservas, data.clases) : undefined}
           habilitados={data ? diasConClases(data.clases) : undefined}
-          final={(
-            // Fuera del tablist (un enlace no es una pestaña), en el mismo carril que se desliza. El botón de la
-            // cabecera se queda: es el de siempre.
-            <Link href={href('/calendario')} className="tap" style={{ alignSelf: 'center', flexShrink: 0, padding: '0 6px', fontSize: 'var(--t-small)', fontWeight: 800, color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', gap: 2, whiteSpace: 'nowrap' }}>
-              Calendario <Icono nombre="chevron-derecha" tamano={16} />
-            </Link>
-          )}
         />
       </div>
-
-      <div className="px" style={{ marginTop: 12 }}>
-        <div style={{ position: 'relative' }}>
-          <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
-            <Icono nombre="buscar" tamano={18} />
-          </span>
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar clases, instructoras…"
-            aria-label="Buscar clases o instructoras"
-            style={{ width: '100%', height: 44, paddingLeft: 40, paddingRight: q ? 40 : 14, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 'var(--t-body)', fontFamily: 'inherit', color: 'var(--foreground)' }}
-          />
-          {q && (
-            <button type="button" onClick={() => setQ('')} aria-label="Borrar búsqueda"
-              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icono nombre="cerrar" tamano={16} /></button>
-          )}
-        </div>
       </div>
 
-      <div className="px no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 10 }}>
-        {tipos.map((t) => (
-          <button key={t} type="button" className="pill" aria-pressed={filtroReal === t} onClick={() => setFiltro(t)} style={{ flexShrink: 0 }}>
-            {t}
-          </button>
-        ))}
-      </div>
+      {consulta && <p className="t-meta px" style={{ margin: '10px 0 0' }}>Buscando «{consulta}» en todo el horario</p>}
+      {aviso && <p className="t-meta px" role="status" data-testid="aviso-salto" style={{ margin: '8px 0 0' }}>{aviso}</p>}
+      <div style={{ height: 12 }} />
 
-      {/* Franja y sala: se recuerdan en este móvil. «Sala» solo con dos o más salas, y dice cuál está elegida. */}
-      <div className="px no-scrollbar" style={{ display: 'flex', gap: 7, overflowX: 'auto', marginTop: 8 }} data-testid="filtros-franja">
-        {FRANJAS.map(([f, rotulo]) => (
-          <button key={f} type="button" className="pill" aria-pressed={franja === f} onClick={() => guardarFiltros(estudio.slug, { franja: f, sala: salaVisible })} style={{ flexShrink: 0 }}>
-            {rotulo}
-          </button>
-        ))}
-        {salas.length >= 2 && (
-          <button type="button" className="pill" aria-pressed={salaVisible !== null} onClick={() => setVerSalas(true)} data-testid="filtro-sala" style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            {nombreSala ?? 'Sala'} <span aria-hidden>▾</span>
-          </button>
-        )}
-      </div>
-
-      {/* Sin datos (error, o sin conexión antes de la primera carga) no hay cifra que dar: «0 clases · hoy» encima del
-          aviso de error decía que no hay clases cuando lo que pasa es que no se han podido leer. */}
-      {(data || estado === 'loading') && estado !== 'error' && <p className="t-label px" style={{ margin: '12px 0 0' }}>
-        {estado === 'loading'
-          ? 'Cargando…'
-          // Con búsqueda activa la lista abarca TODO el horario, así que
-          // rotularla «· HOY» sería mentir sobre lo que se está viendo.
-          : consulta
-            ? `${lista.length} ${lista.length === 1 ? 'clase' : 'clases'} · todo el horario`
-            : `${lista.length} ${lista.length === 1 ? 'clase' : 'clases'} · ${etiquetaDia(dia)}`}
-      </p>}
-      {aviso && <p className="t-meta px" role="status" data-testid="aviso-salto" style={{ margin: '4px 0 0' }}>{aviso}</p>}
-      <div style={{ height: 9 }} />
-
-      <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {estado === 'loading' && <ListSkeleton n={4} />}
+      <div className="px" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {estado === 'loading' && <ListSkeleton n={4} h={96} />}
         {estado === 'error' && <ErrorState onRetry={reintentar} />}
         {estado === 'offline' && !data && <OfflineState />}
 
         {data && estado !== 'loading' && estado !== 'error' && (
           lista.length === 0 ? (
-            // Buscando se mira TODO el horario, no el día elegido: decir «no hay
-            // clases este día» es falso —las hay— y la acción de quitar filtro no
-            // borra la búsqueda, que es lo que de verdad está filtrando.
             consulta ? (
               <EmptyState
                 ilustracion="busqueda"
@@ -307,27 +264,17 @@ export default function HorarioPage() {
           ) : (
             lista.map((c, i) => {
               const disp = disponibilidad(c, data.reservas, estudio.soportaListaEspera);
-              const temporal = estadoTemporalDeFila(c, disp, ahoraMs);
-              const bono = bonoParaClase(data.bonos, c.tipoClaseId);
-              const accion = accionDeFila({
-                disp, temporal, sinPagar: seReservaSinPagar(c, bono), cerrada: cerradaPorAntelacion(c, ahoraMs),
-                salaConSitios: c.salaConSitios === true, requiereAprobacion: c.requiereAprobacion === true,
-                requiereAutorizacion: c.requiereAutorizacion === true,
-                aperturaSuave: etiquetaAperturaSuave(c.inicio, estudio.aperturaSuaveHasta) !== null,
-                online, relojListo: ahoraMs !== null, recienReservada: recien.has(c.id) && disp !== 'reservada',
-                topeLleno: topeSemanalLleno(c, bono, data.reservas, data.clases, hoy),
-              });
               return (
                 <FilaHorario
                   key={c.id}
                   clase={c}
                   instructora={data.instructoras.find((x) => x.id === c.instructoraId)}
                   estado={disp}
-                  temporal={temporal}
-                  bono={bono}
-                  ofreceReservar={accion === 'reservar'}
-                  onReservar={() => { setElegida(c); hoja.abrir(); }}
-                  delay={i * 55}
+                  temporal={estadoTemporalDeFila(c, disp, ahoraMs)}
+                  // Solo las seis primeras entran animadas, y seguidas (30 ms): lo que hay debajo de la pantalla no tiene que
+                  // esperar su turno ni gastar fotogramas al hacer scroll.
+                  entrada={i < 6}
+                  delay={i * 30}
                 />
               );
             })
@@ -335,32 +282,62 @@ export default function HorarioPage() {
         )}
       </div>
 
-      <Sheet open={verSalas} onClose={() => setVerSalas(false)} label="Elegir sala">
-        <h3 className="t-h2">Sala</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-          <button type="button" className="pill" aria-pressed={salaVisible === null} onClick={() => { guardarFiltros(estudio.slug, { franja, sala: null }); setVerSalas(false); }}>Todas</button>
-          {salas.map((s) => (
-            <button key={s.id} type="button" className="pill" aria-pressed={salaVisible === s.id} onClick={() => { guardarFiltros(estudio.slug, { franja, sala: s.id }); setVerSalas(false); }}>
-              {s.nombre}
+      {/* La hoja de filtros: lo que la maqueta no enseña en la pantalla, a un toque. */}
+      <Sheet open={verFiltros} onClose={() => setVerFiltros(false)} label="Filtros">
+        <h3 className="t-h2">Filtros</h3>
+        <div style={{ position: 'relative', marginTop: 12 }}>
+          <span aria-hidden style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--subtle-foreground)', display: 'flex' }}>
+            <Icono nombre="buscar" tamano={18} />
+          </span>
+          <input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar clases, instructoras…"
+            aria-label="Buscar clases o instructoras"
+            style={{ width: '100%', height: 44, paddingLeft: 40, paddingRight: q ? 40 : 14, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', fontSize: 'max(16px, var(--t-body))', fontFamily: 'inherit', color: 'var(--foreground)' }}
+          />
+          {q && (
+            <button type="button" onClick={() => setQ('')} aria-label="Borrar búsqueda"
+              style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 28, height: 28, borderRadius: 999, border: 'none', background: 'var(--muted)', color: 'var(--muted-foreground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icono nombre="cerrar" tamano={16} /></button>
+          )}
+        </div>
+        <p className="t-label" style={{ margin: '16px 0 8px' }}>Mostrar</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {(['Todo', ...(data?.favoritos.size ? ['Favoritas'] : []), 'Con hueco'] as const).map((t) => (
+            <button key={t} type="button" className="pill" aria-pressed={t === 'Todo' ? filtroReal !== 'Favoritas' && filtroReal !== 'Con hueco' : filtroReal === t} onClick={() => setFiltro(t)}>
+              {t === 'Todo' ? 'Todas las clases' : t}
             </button>
           ))}
         </div>
+        <p className="t-label" style={{ margin: '16px 0 8px' }}>Hora</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-testid="filtros-franja">
+          {FRANJAS.map(([f, rotulo]) => (
+            <button key={f} type="button" className="pill" aria-pressed={franja === f} onClick={() => guardarFiltros(estudio.slug, { franja: f, sala: salaVisible })}>
+              {rotulo}
+            </button>
+          ))}
+        </div>
+        {salas.length >= 2 && (
+          <>
+            <p className="t-label" style={{ margin: '16px 0 8px' }}>Sala</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }} data-testid="filtro-sala">
+              <button type="button" className="pill" aria-pressed={salaVisible === null} onClick={() => guardarFiltros(estudio.slug, { franja, sala: null })}>Todas</button>
+              {salas.map((s) => (
+                <button key={s.id} type="button" className="pill" aria-pressed={salaVisible === s.id} onClick={() => guardarFiltros(estudio.slug, { franja, sala: s.id })}>
+                  {s.nombre}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+          <Link href={href('/calendario')} className="btn btn--secondary" style={{ flex: 1 }}>Ver calendario</Link>
+          <button type="button" className="btn btn--primary" style={{ flex: 1 }} onClick={() => setVerFiltros(false)}>
+            {lista.length === 1 ? 'Ver 1 clase' : `Ver ${lista.length} clases`}
+          </button>
+        </div>
       </Sheet>
-
-      {elegida && (
-        <HojaReserva
-          hoja={hoja}
-          clase={claseViva ?? elegida}
-          desaparecida={!claseViva}
-          instructora={data?.instructoras.find((x) => x.id === elegida.instructoraId)}
-          disp={dispElegida}
-          bono={bonoElegida}
-          bonoNoCubre={claseViva && data ? tieneBonoQueNoCubre(data.bonos, claseViva.tipoClaseId) : false}
-          politicaHoras={avisoCancelacion(claseViva ?? elegida, estudio.politicaCancelacionHoras).horasVentana}
-          yaEmpezo={claseViva ? estadoTemporalDeFila(claseViva, dispElegida, ahoraMs) === 'en-curso' || estadoTemporalDeFila(claseViva, dispElegida, ahoraMs) === 'terminada' : false}
-          contexto="fila"
-        />
-      )}
     </StudentShell>
   );
 }

@@ -4,18 +4,24 @@ import Link from 'next/link';
 import { ArrowRight, LayoutGrid, Sparkles, CalendarCheck, Users, Receipt, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { GlossaryStructuredData } from '@/components/glosario/GlossaryStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { urlDe } from '@/lib/seo/paginas';
+import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+// Título y descripción salen del registro (lib/seo/paginas.ts), como en el resto
+// de páginas comerciales: tenerlos escritos aquí y allí fue lo que los dejó
+// desincronizados otras veces.
+const pagina = paginaDe('/glosario')!;
 
 export const metadata: Metadata = {
-  title: 'Glosario del software de gestión para estudios de Pilates — Tentare',
-  description: 'Definiciones claras y neutrales de los términos del sector: software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio y más.',
+  title: pagina.titulo,
+  description: pagina.descripcion,
   alternates: { canonical: urlDe('/glosario') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     title: 'Glosario del software de gestión para estudios de Pilates',
     description: 'Definiciones claras y neutrales de los términos que se usan al gestionar un estudio de Pilates.',
@@ -280,7 +286,7 @@ export default function GlosarioPage() {
     <PageShell>
       <OrganizationStructuredData />
       <GlossaryStructuredData terms={TERMINOS.map((t) => ({ slug: t.slug, name: t.name, description: t.description }))} />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header className="glo-portada">
         <Image
@@ -372,11 +378,11 @@ export default function GlosarioPage() {
 
       <section style={{ padding: 'clamp(24px,4vw,40px) clamp(20px,4vw,44px) clamp(64px,8vw,110px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="¿Quieres verlo en tu propio estudio?" body="Migramos tus datos por ti. Sin permanencia." />
+          <CtaBlock title="¿Quieres verlo en tu propio estudio?" body="Sin permanencia." />
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .glo-portada { position: relative; isolation: isolate; overflow: hidden; background: #14150F;

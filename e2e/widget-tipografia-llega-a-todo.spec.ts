@@ -63,7 +63,7 @@ test('la fuente elegida llega al calendario, no solo al div de fuera', async ({ 
 
   // Y la variable está puesta en la raíz, que es lo que lo hace posible.
   const varUi = await page.evaluate(() => {
-    const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
+    const raiz = document.querySelector('#horario')!.closest('.reservar-raiz') as HTMLElement;
     return getComputedStyle(raiz).getPropertyValue('--font-ui').trim();
   });
   // (Computada, la variable ya viene con el `var()` resuelto.)
@@ -82,7 +82,7 @@ test('la fuente de titulares llega por --font-display, no solo por --portal-head
   await abrir(page, '&fuente=Inter&fuente-display=Fraunces');
 
   const vars = await page.evaluate(() => {
-    const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
+    const raiz = document.querySelector('#horario')!.closest('.reservar-raiz') as HTMLElement;
     const cs = getComputedStyle(raiz);
     return {
       display: cs.getPropertyValue('--font-display').trim(),
@@ -126,7 +126,7 @@ test('sin tocar nada, no se emite ninguna fuente (el widget de siempre)', async 
   await abrir(page, '');
 
   const r = await page.evaluate(() => {
-    const raiz = document.querySelector('#horario')!.closest('div[style*="min-height"]') as HTMLElement;
+    const raiz = document.querySelector('#horario')!.closest('.reservar-raiz') as HTMLElement;
     const estilo = raiz.getAttribute('style') ?? '';
     return {
       // La raíz no debe DECLARAR las variables si nadie eligió fuente: se

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  AppAlumna,
   CierreSolucion,
   FaqSolucion,
   FilaProducto,
@@ -12,6 +13,7 @@ import {
   TablaSolucion,
 } from '@/components/soluciones/LandingSolucion';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AgendaDia, PanelCobros } from '@/components/web/home/piezas';
 
 // Tentare para estudios de YOGA (rehecha el 7-oct-2026: desde el 6-oct el
 // producto se presenta para Pilates y yoga, decisión del fundador). Ya no se
@@ -33,6 +35,7 @@ export const metadata: Metadata = {
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     locale: 'es_ES',
     title: pagina.titulo,
@@ -56,7 +59,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa si una profesora no puede dar su clase?',
-    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. En el plan Estudio puede hacerlo sola, sin esperar a que lo apruebes.',
+    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. Puede hacerlo sola, sin esperar a que lo apruebes, en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.',
   },
   {
     q: '¿Hay funciones pensadas solo para yoga?',
@@ -64,7 +67,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta Tentare para un estudio de yoga?',
-    a: 'Founding Studio cuesta 29 €/mes con IVA, hasta 150 alumnas activas y con la app con tu marca; Estudio, 59 €/mes sin límite de alumnas, y Cadena, 149 €/mes para varias sedes. Sin permanencia y con 7 días de prueba sin tarjeta.',
+    a: 'Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, con todas las funcionalidades menos varias sedes, también la app con tu marca; si pasas de ahí, 29 €/mes, y con ese plan el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Estudio, 59 €/mes con IVA, los incluye, y Cadena, 149 €/mes, es para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
 ];
 
@@ -96,13 +99,13 @@ export default function EstudioDeYogaPage() {
         datos={[
           { cifra: '24/7', texto: 'Reservas y cancelaciones desde el móvil, con tus reglas' },
           { cifra: '0 %', texto: 'Comisión de Tentare sobre lo que cobras' },
-          { cifra: '29 €/mes', texto: 'Founding Studio, con la app con tu marca e IVA incluido' },
+          { cifra: 'Gratis', texto: 'Founding Studio, con la app con tu marca, hasta 150 alumnas activas y 250 reservas al mes' },
         ]}
       >
         Uno que te quite el trabajo de mostrador: reservas online con lista de espera, bonos y mensualidades que se
         cobran y se renuevan solos, una app con la marca de tu estudio para tus alumnas y un sitio donde ver quién viene
-        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, desde 29 €/mes con IVA y sin
-        permanencia.
+        y cuánto deja cada clase. Tentare hace todo eso para estudios de yoga y de Pilates, gratis hasta 150 alumnas activas y 250 reservas
+        al mes, y sin permanencia.
       </ResumenSolucion>
 
       <Situaciones
@@ -117,7 +120,7 @@ export default function EstudioDeYogaPage() {
       <FilaProducto
         eyebrow="Horario por estilos"
         titulo="Cada estilo con su horario, su aforo y sus reglas"
-        captura={{ src: '/producto/calendario-semana.png', alt: 'Calendario semanal de Tentare con las clases de la semana por salas, su ocupación y las que necesitan una decisión', ancho: 2880, alto: 1624, pie: 'La semana entera, con la ocupación de cada clase.' }}
+        pieza={{ descripcion: 'Ejemplo del día en el calendario de Tentare: tres clases con su ocupación y una llena con dos alumnas en lista de espera.', contenido: <AgendaDia /> }}
         puntos={[
           'Series semanales que programas una vez',
           'Talleres y clases especiales con su propio precio',
@@ -132,11 +135,11 @@ export default function EstudioDeYogaPage() {
         invertida
         eyebrow="Bonos y mensualidades"
         titulo="Clase suelta, bono y mensualidad, a la vez"
-        captura={{ src: '/producto/cobros.png', alt: 'Pantalla de cobros de Tentare con lo cobrado este mes, lo pendiente y los recibos de cada alumna', ancho: 2880, alto: 1624, pie: 'Lo cobrado, lo pendiente y quién te debe, en una pantalla.' }}
+        pieza={{ descripcion: 'Ejemplo del resumen de cobros de Tentare: quién ha pagado, quién se reintenta solo y las próximas cuotas.', contenido: <PanelCobros completo /> }}
         puntos={[
           'Mensualidades con o sin límite de clases a la semana',
           'Bonos con caducidad, que puedes ampliar en lote si cierras en agosto',
-          'Cobro con tarjeta o domiciliación SEPA, con reintentos cuando falla',
+          'Cobro con tarjeta, con reintentos cuando falla, y remesa SEPA para tu banco',
         ]}
         enlace={{ href: '/funcionalidades/bonos-y-membresias', texto: 'Bonos y cuotas' }}
       >
@@ -158,9 +161,9 @@ export default function EstudioDeYogaPage() {
       <FilaProducto
         eyebrow="App con tu marca"
         titulo="Tu estudio, en la pantalla de inicio de tus alumnas"
-        captura={{ src: '/producto/portal-alumna.png', alt: 'App de reservas de un estudio en el móvil de una alumna, con las clases del día, las plazas libres y el botón de reservar', ancho: 920, alto: 2000, movil: true }}
+        pieza={{ descripcion: 'Mi plan en la app de una alumna, en un iPhone: su bono con las sesiones que le quedan, su próxima clase, la tienda y sus recibos.', contenido: <AppAlumna captura="miPlan" />, movil: true }}
         puntos={[
-          'En todos los planes, también en el de 29 €',
+          'En todos los planes, también en el gratuito',
           'Avisos de sus reservas y de la lista de espera',
           'Sin comisión de Tentare sobre lo que venden',
         ]}
@@ -173,7 +176,7 @@ export default function EstudioDeYogaPage() {
         invertida
         eyebrow="Tus alumnas"
         titulo="Saber quién viene y qué necesita"
-        captura={{ src: '/producto/clientas.png', alt: 'Lista de clientas de Tentare con el plan de cada una, sus sesiones restantes y su estado', ancho: 2880, alto: 1624 }}
+        captura={{ src: '/producto/v2/panel-clientas-1110.webp', alt: 'Listado de clientas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos', ancho: 1110, alto: 489 }}
         puntos={[
           'Asistencia, bono e historial de cada alumna',
           'Ficha de salud con lesiones y adaptaciones, visible solo para quien debe verla',
@@ -190,7 +193,7 @@ export default function EstudioDeYogaPage() {
 
       <CierreSolucion
         titulo="Pruébalo con tu estudio de yoga."
-        texto="Monta tu horario, tus bonos y tu app en tu primera sesión. 7 días gratis, sin tarjeta y sin permanencia."
+        texto="Monta tu horario, tus bonos y tu app en tu primera sesión. Empieza gratis, sin tarjeta y sin permanencia."
       />
     </SolucionShell>
   );

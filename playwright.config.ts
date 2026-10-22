@@ -69,6 +69,12 @@ const SPECS_WEBKIT = [
   // snippet embebido los sufre la visitante de la web del estudio.
   '**/widget-config-params.spec.ts',
   '**/reservar-el-servidor-dice-no.spec.ts',
+  // El iframe del widget ENCOGE cuando su contenido encoge (16-oct-2026): lo que
+  // se prueba —`body.scrollHeight`, `ResizeObserver` y la raíz sin `100dvh`
+  // dentro de un marco de otro origen— es justo lo que un motor resuelve
+  // distinto, y el hueco en blanco lo ve la visitante de su web, casi siempre
+  // en un iPhone. Coste medido sumando por test (ver el PR).
+  '**/reservar-embed-encoge.spec.ts',
   // El estilo de los widgets en la web del estudio (Fase B del constructor):
   // lo ve la visitante de su web, casi siempre desde un iPhone, y lo que mira
   // es justo lo que cambia de un motor a otro —fondo transparente sobre la web,
@@ -93,6 +99,13 @@ const SPECS_WEBKIT = [
   // el fetch con CORS igual que otro es justo lo que no se puede dar por hecho.
   // Tres tests; mismo criterio de coste que los de arriba.
   '**/widget-codigo-por-id.spec.ts',
+  // Entrar desde la nativa (16-oct-2026): la web del estudio abre una ventana de
+  // Tentare en otro SITIO y hablan por `window.opener` + `postMessage`, que es
+  // justo lo que cada motor resuelve distinto (y lo que se rompe en Safari si se
+  // abre después de un `await`). La sufre quien quiere reservar desde el iPhone.
+  // Cinco tests: en local, con la máquina cargada, ~24-35 s de trabajo en Chromium y
+  // ~65 s en WebKit (sumando por test). En CI, medirlo en los `timings-*`.
+  '**/widget-nativa-acceso-otro-dominio.spec.ts',
   '**/reservar-vista-mes.spec.ts',
   '**/reservar-citas-movil.spec.ts',
   '**/reservar-selector-fecha-movil.spec.ts',
@@ -114,12 +127,24 @@ const SPECS_WEBKIT = [
   // plataforma y no nos enteramos. Además llega casi siempre desde el móvil
   // (un enlace de Instagram, un WhatsApp), o sea Safari de iPhone.
   '**/alta-estudio.spec.ts',
+  // El alta NUEVA (registro en una pantalla, tras ALTA_NUEVA_REGISTRO): mismo
+  // criterio que la de arriba, y además valida mientras se escribe, sugiere el
+  // dominio y comprueba el código sola con la sexta cifra, que es justo lo que
+  // un teclado de iPhone hace distinto. Coste: sumar por test en `timings-*` (PR).
+  '**/alta-nueva-registro.spec.ts',
   // La isla de la landing (la barra flotante que se encoge al bajar y se
   // alarga al subir): pública, y quien llega desde Google la mira casi siempre
   // en un iPhone. Lo que cambia de un motor a otro es justo lo que prueba —el
   // `backdrop-filter`, la rejilla que se pliega (1fr → 0fr), el scroll táctil y
   // el rebote de iOS—. Siete tests de unos segundos, todo local.
   '**/landing-isla.spec.ts',
+  // «Cambiarme a Tentare» y el héroe a 375 px (ronda 2 de la landing, 19-oct-2026):
+  // la puerta de quien ya paga otro programa. Misma pantalla y mismo criterio que la
+  // isla (pública, la sufre quien llega de Google desde el iPhone); lo que prueba en
+  // WebKit es la parte móvil —menú, botones del héroe sobre el pliegue, isla
+  // encogida sin recortes—. Los cuatro de escritorio se saltan solos en este
+  // proyecto. Coste: sumar por test en `timings-*` (ver el PR).
+  '**/landing-cambiarme.spec.ts',
 
   // ── MEDICIÓN, NO PROPUESTA CERRADA ──────────────────────────────────────
   // Ocho specs de la app de la alumna, añadidos para que CI diga cuánto
@@ -146,7 +171,10 @@ const SPECS_WEBKIT = [
   // WebKit de Playwright no simula. Lo que cubre es la otra familia: la de
   // #565 (`BarcodeDetector`) y #994 (el portapapeles diciendo «Copiado» con
   // el portapapeles vacío).
-  '**/student-filtros-rapidos.spec.ts',
+  // El mensaje destacado arriba del inicio (decisión 11A de «Mi app y mi web» v2): lo lee la
+  // alumna en su móvil, y lo que prueba —`pre-line` y una palabra larguísima que no puede
+  // desbordar— es justo lo que un motor resuelve distinto. Dos tests cortos, todo mockeado.
+  '**/student-mensaje-destacado.spec.ts',
   '**/student-anadir-al-calendario.spec.ts',
   '**/student-cabos.spec.ts',
   '**/student-acceso.spec.ts',
@@ -157,7 +185,6 @@ const SPECS_WEBKIT = [
   '**/portal-dos-pasos.spec.ts',
   '**/student-aislamiento.spec.ts',
   '**/student-heroe-sobre-la-foto.spec.ts',
-  '**/student-cabecera-sobre-foto.spec.ts',
   '**/student-clase-en-curso.spec.ts',
   // Las preguntas del estudio antes de usar la app: es una PUERTA. Si se rompe
   // en Safari no es una pantalla fea, es una alumna que no puede entrar a
@@ -250,6 +277,10 @@ export default defineConfig({
       // 22-sep (viene encendido de serie también en producción), se deja porque
       // no hace daño y documenta la intención de esas specs sin depender del default.
       E2E_PLAZA_FIJA_APP: '1',
+      // El alta nueva solo con `/crear-estudio?alta=nueva` (lo lee el SERVIDOR,
+      // app/crear-estudio/page.tsx): sin el parámetro, el alta de siempre, que es
+      // la que prueban alta-estudio y alta-otp. Lo prueba alta-nueva-registro.
+      ALTA_NUEVA_REGISTRO: process.env.ALTA_NUEVA_REGISTRO ?? 'prueba',
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'dummy-anon-key-for-ci',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy-service-role-key-for-ci',

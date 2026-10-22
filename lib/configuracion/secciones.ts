@@ -20,7 +20,7 @@
 
 export type SeccionId =
   | 'estudio' | 'clases' | 'reservas' | 'cobros' | 'altas' | 'comunicacion'
-  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'demo' | 'avisos' | 'panel';
+  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'avisos' | 'panel';
 
 /**
  * Cómo se guarda lo que hay dentro. Solo `al-pulsar` se anuncia en pantalla
@@ -36,7 +36,7 @@ export type ModoGuardado = 'barra' | 'al-pulsar' | 'catalogo' | 'accion' | 'lect
 export type RolConfiguracion = 'PROPIETARIO' | 'MANAGER' | 'RECEPCION' | 'INSTRUCTOR';
 
 /** Tarjetas que solo existen en algunos estudios. */
-export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado';
+export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado' | 'miWebNueva';
 
 /**
  * Las herramientas grandes: cada una tiene su propia pantalla
@@ -44,8 +44,8 @@ export type CondicionTarjeta = 'multiSede' | 'cadena' | 'gmailConectado';
  * dice cómo está.
  */
 export type HerramientaId =
-  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'recompensas-y-logros' | 'contenido-de-tu-app' | 'widgets'
-  | 'tus-avisos' | 'avisos-del-movil' | 'codigos-descuento';
+  | 'salas' | 'tipos-de-clase' | 'correos-automaticos' | 'codigos-descuento' | 'canjes' | 'contenido-de-tu-app'
+  | 'widgets' | 'tus-avisos' | 'avisos-del-movil';
 
 export interface TarjetaConfiguracion {
   readonly id: string;
@@ -156,18 +156,19 @@ export const SECCIONES = [
   {
     id: 'cobros',
     titulo: 'Cobros y facturas',
-    resumen: 'Datos fiscales, Stripe, domiciliaciones y devoluciones',
+    resumen: 'Datos fiscales, facturas, domiciliaciones y devoluciones',
     frase: 'Cómo te pagan tus alumnas y qué sale en tus facturas.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'facturacion', titulo: 'Facturación', frase: 'Si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera.', guardado: 'barra', palabras: ['verifactu', 'aeat', 'justificante', 'gestoría', 'factura'] },
       { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra', palabras: ['nif', 'cif', 'razón social', 'facturas', 'impuestos'] },
-      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
-      { id: 'datafono', titulo: 'Datáfono', frase: 'Mandas el importe desde la Caja y la venta queda cobrada sola. Hoy, el de Stripe; SumUp y el de tu banco, próximamente.', guardado: 'accion', palabras: ['tpv', 'lector', 'terminal', 'stripe terminal', 'sumup', 'datáfono del banco', 'tarjeta', 'caja', 'mostrador'] },
       { id: 'cuando-se-cobra-la-cuota', titulo: 'Cuándo se cobra la cuota mensual', frase: 'Cada alumna en su aniversario, o todas el día 1 de cada mes.', guardado: 'barra', palabras: ['día 1', 'fecha de cobro', 'aniversario', 'mensual'] },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
       { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si la alumna puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },
+      // Salió de Motivación el 20-oct: un descuento es dinero, no constancia, y no
+      // depende del plan de gamificación.
+      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
     ],
   },
   {
@@ -188,37 +189,35 @@ export const SECCIONES = [
   {
     id: 'comunicacion',
     titulo: 'Cómo me comunico',
-    resumen: 'Correos y WhatsApp',
+    resumen: 'Correos y avisos a tus alumnas',
     frase: 'Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
       { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada alumna el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
       { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
-      { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
-      // Retirada el 1-oct-2026 (lib/gmail.ts): solo para quien la tenía conectada, a desconectarla.
-      { id: 'integracion-gmail', titulo: 'Gmail (ya no se usa)', frase: 'Ya no trae contactos. Si lo tenías conectado, desconéctalo desde aquí.', guardado: 'accion', condicion: 'gmailConectado' },
     ],
   },
   {
     id: 'motivacion',
     titulo: 'Motivación',
-    resumen: 'Créditos, recompensas, logros y retos',
+    resumen: 'Créditos, recompensas, logros, niveles y retos',
     frase: 'Premia la constancia de tus alumnas con créditos, logros y retos que ven en su app.',
     roles: SOLO_PROPIETARIA,
-    palabras: ['gamificación', 'puntos'],
-    // Las reglas se guardaban al salir de cada campo; desde el 15-sep (v2) son
-    // dos filas con cajón y un solo «Guardar»: eran diez campos y un cajón
-    // lleva unos seis, así que lo que se gana con cada cosa va aparte.
+    palabras: ['gamificación', 'puntos', 'fidelidad'],
+    // Una sola pantalla (20-oct, el fundador: «muy mal organizado»): antes eran
+    // dos cajones en la sección y una herramienta aparte con cinco catálogos
+    // seguidos. Ahora todo está en la sección, en el orden en que se piensa:
+    // cómo se ganan, en qué se gastan, qué se desbloquea, niveles y retos. Los
+    // canjes son trabajo, no ajuste: un aviso con su propia pantalla.
     tarjetas: [
       { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran y cuántas clases por semana mantienen la racha de una alumna.', guardado: 'barra', palabras: ['racha', 'puntos', 'caducidad'] },
       { id: 'creditos-por-accion', titulo: 'Créditos por acción', frase: 'Cuántos créditos gana una alumna con cada cosa: asistir, renovar, traer a alguien o comprar.', guardado: 'barra', palabras: ['referidos', 'asistencia', 'compra'] },
-      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['premios'] },
-      { id: 'canjes', titulo: 'Canjes pendientes', frase: 'Recompensas pedidas que tienes que entregar.', guardado: 'accion', herramienta: 'recompensas-y-logros' },
-      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['insignias'] },
-      { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo', herramienta: 'recompensas-y-logros' },
-      { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', herramienta: 'recompensas-y-logros', palabras: ['desafíos'] },
-      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
+      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', palabras: ['premios'] },
+      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', palabras: ['insignias'] },
+      { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo' },
+      { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', palabras: ['desafíos'] },
+      { id: 'canjes', titulo: 'Canjes', frase: 'Las recompensas que han pedido tus alumnas: las que faltan por entregar y su historial.', guardado: 'accion', herramienta: 'canjes', palabras: ['entregar', 'pedidos'] },
     ],
   },
   // «Marca» salió de «Mi app y mi web» el 15-sep (v2): el logo estaba en una
@@ -259,11 +258,14 @@ export const SECCIONES = [
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas, el enlace a la app de tus alumnas y el código QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
+      // «Mi web» guiada (21-oct-2026, decisión 4 de «Mi app»): la descripción sale en tu página de
+      // reservas y en Network, no en la app. El dato es el mismo que el de «Cómo te presentas» de «Mi app».
+      { id: 'presentacion-web', titulo: 'Cómo te presentas', frase: 'Dos o tres frases sobre tu estudio. Salen en tu página de reservas y en Tentare Network.', guardado: 'barra', condicion: 'miWebNueva', palabras: ['descripción', 'presentación', 'sobre nosotros'] },
       { id: 'pagina-publica', titulo: 'Ocultar tu página', frase: 'Mientras la preparas, tu página de reservas y la app de tus alumnas enseñan un aviso en vez de tus clases.', guardado: 'barra', palabras: ['ocultar', 'privada', 'visible', 'esconder', 'clave'] },
       // El directorio NO mira si la página está oculta (lib/configuracion/pagina-publica.ts):
       // se dice aquí, que es donde las dos filas conviven, y no solo dentro del cajón de ocultarla.
       { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare. Aunque ocultes tu página, seguirá saliendo ahí.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
-      { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Tarjetas de «Descubre», mensaje destacado y avisos del tablón en el inicio de su app.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
+      { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Las tarjetas de «Descubre» de su app; el mensaje destacado y los avisos de aquí se guardan, pero hoy no salen.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
       { id: 'widgets', titulo: 'Widgets para tu web', frase: 'Tu horario, tus precios y la cuenta de tus alumnas dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', herramienta: 'widgets', palabras: ['incrustar', 'código', 'visitas'] },
     ],
   },
@@ -288,15 +290,23 @@ export const SECCIONES = [
   },
   {
     id: 'conexiones',
-    titulo: 'Conexiones',
-    resumen: 'Calendario, Zoom y otras apps',
-    frase: 'Tentare conectado con otras herramientas que ya usas.',
+    titulo: 'Integraciones',
+    resumen: 'Cobros, WhatsApp, calendario, plataformas y API',
+    frase: 'Cobrar, escribir, tu agenda, marketing, plataformas y tu API: todo lo que conectas.',
     roles: SOLO_PROPIETARIA,
-    // Cada conexión es una FILA con UN estado y se agrupan por cómo están (15-sep,
-    // v2): «Más integraciones» juntaba cuatro tarjetas en una y su ancla lleva
-    // ahora a la primera (destino.ts). Stripe, WhatsApp y Gmail viven en Cobros y
-    // en Cómo me comunico.
+    // El módulo de integraciones (16-oct-2026, petición del fundador): una fila
+    // por conexión con UN estado, agrupadas por la pregunta que se hace la
+    // propietaria (cobrar, comunicar, agenda, marketing, plataformas, accesos y
+    // API). Stripe, el datáfono, WhatsApp y Gmail (retirado, solo para
+    // desconectarlo) vivían en Cobros y en Cómo me comunico; sus anclas
+    // (`#integracion-stripe`…) llegan aquí solas (destino.ts), y esas secciones
+    // dejan una fila que lo dice. El id de sección sigue siendo `conexiones`
+    // para no romper `?tab=conexiones`, marcadores ni callbacks de OAuth.
     tarjetas: [
+      { id: 'integracion-stripe', titulo: 'Cobro con tarjeta (Stripe)', frase: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.', guardado: 'accion', palabras: ['pago online', 'tarjeta'] },
+      { id: 'datafono', titulo: 'Datáfono', frase: 'Mandas el importe desde la Caja y la venta queda cobrada sola. Hoy, el de Stripe; SumUp y el de tu banco, próximamente.', guardado: 'accion', palabras: ['tpv', 'lector', 'terminal', 'stripe terminal', 'sumup', 'datáfono del banco', 'tarjeta', 'caja', 'mostrador'] },
+      { id: 'integracion-whatsapp', titulo: 'WhatsApp', frase: 'Recordatorios y avisos desde tu número de WhatsApp Business.', guardado: 'accion', palabras: ['mensajes'] },
+      { id: 'integracion-gmail', titulo: 'Gmail (ya no se usa)', frase: 'Ya no trae contactos. Si lo tenías conectado, desconéctalo desde aquí.', guardado: 'accion', condicion: 'gmailConectado' },
       { id: 'integracion-google_calendar', titulo: 'Google Calendar', frase: 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.', guardado: 'accion', palabras: ['calendario'] },
       { id: 'integracion-zoom', titulo: 'Zoom', frase: 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.', guardado: 'accion', palabras: ['online', 'videollamada'] },
       { id: 'integracion-kisi', titulo: 'Kisi', frase: 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.', guardado: 'accion', palabras: ['puerta', 'cerradura'] },
@@ -324,22 +334,6 @@ export const SECCIONES = [
       // perfil»; aquí la propietaria la exige a todo el equipo del panel.
       { id: 'doble-factor-equipo', titulo: 'Verificación en dos pasos para todo el equipo', frase: 'Quien entra al panel la activará con una app de autenticación y, al entrar, escribirá un código del correo o de la app. Actívala antes para ti en «Mi perfil».', guardado: 'al-pulsar', palabras: ['doble factor', '2fa', 'mfa', 'seguridad', 'código', 'contraseña', 'autenticación'] },
       { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus alumnas a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
-    ],
-  },
-  // La demo en vídeo (8-oct-2026, petición del fundador): un recorrido por TODA
-  // Configuración, sección por sección, para enseñar a una propietaria nueva.
-  // Es de quien lleva la sede (propietaria y gerencia), y lo que enseña lo ve
-  // cada una con sus secciones. Los capítulos y el vídeo viven en
-  // lib/configuracion/demo.ts; aquí solo hay una fila que dice que existe.
-  {
-    id: 'demo',
-    titulo: 'Demo',
-    resumen: 'Un vídeo que configura todo, paso a paso',
-    frase: 'Mira cómo se configura Tentare entero, sección por sección, con un estudio de ejemplo.',
-    roles: SEDE,
-    palabras: ['vídeo', 'tutorial', 'aprender', 'formación', 'guía'],
-    tarjetas: [
-      { id: 'video-de-la-demo', titulo: 'Vídeo de la demo', frase: 'Cada sección de Configuración explicada con un ejemplo, y un índice para saltar al minuto que te interesa.', guardado: 'lectura', roles: SEDE, palabras: ['capítulos', 'índice', 'paso a paso'] },
     ],
   },
   // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie
@@ -456,8 +450,7 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tus-alumnas', titulo: 'Tus alumnas', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
-  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', secciones: ['conexiones', 'datos'] },
-  { id: 'aprende', titulo: 'Aprende', secciones: ['demo'] },
+  { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
 ];
 
@@ -481,9 +474,8 @@ export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'reservas-y-cobros', titulo: 'Reservas y cobros', frase: 'Las reglas para reservar y cancelar, y cómo cobras y facturas.', secciones: ['reservas', 'cobros'] },
   { id: 'tus-alumnas', titulo: 'Tus alumnas', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
-  { id: 'conexiones-y-datos', titulo: 'Conexiones y datos', frase: 'Otras herramientas que usas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
+  { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', frase: 'Todo lo que conectas con otras herramientas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
-  { id: 'aprende', titulo: 'Aprende', frase: 'Tentare de principio a fin, en vídeo.', secciones: ['demo'] },
 ];
 
 /** El grupo del panel nuevo al que pertenece una sección. */
@@ -542,7 +534,7 @@ export function seccionDeTarjeta(id: TarjetaId): SeccionId {
 // que dice cómo está (lib/configuracion/resumenes.ts).
 //
 // Una herramienta de una sola tarjeta se llama como ella, y su pantalla es esa
-// tarjeta sin repetir el título. La de motivación junta cinco.
+// tarjeta sin repetir el título.
 
 export interface HerramientaConfiguracion {
   readonly id: HerramientaId;
@@ -563,15 +555,9 @@ function deTarjeta(id: HerramientaId & TarjetaId, resumen: string): HerramientaC
 export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
   deTarjeta('salas', 'Tus salas, su aforo y las máquinas en avería'),
   deTarjeta('tipos-de-clase', 'Nombre, duración, plazas y sus propias reglas'),
-  deTarjeta('correos-automaticos', 'Apágalos o cambia lo que dicen'),
-  {
-    id: 'recompensas-y-logros',
-    seccion: 'motivacion',
-    titulo: 'Recompensas, logros y retos',
-    frase: 'Lo que tus alumnas canjean con sus créditos, lo que desbloquean y los retos con fecha que ven en su app.',
-    resumen: 'Recompensas, canjes, logros, niveles y retos',
-  },
   deTarjeta('codigos-descuento', 'Códigos que usan tus alumnas al pagar'),
+  deTarjeta('correos-automaticos', 'Apágalos o cambia lo que dicen'),
+  deTarjeta('canjes', 'Lo que falta por entregar y el historial'),
   deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
   deTarjeta('widgets', 'Tu horario y tus reservas dentro de tu web'),
   deTarjeta('tus-avisos', 'Cada tipo de aviso, en el panel y en el móvil'),
@@ -586,6 +572,23 @@ export function esHerramientaId(v: string): v is HerramientaId {
 
 export function herramientaPorId(id: HerramientaId): HerramientaConfiguracion {
   return HERRAMIENTA_POR_ID.get(id)!;
+}
+
+/**
+ * La frase de las herramientas rehechas en «Mi app y mi web» v2, para el estudio que
+ * tiene `MI_WEB_NUEVA`: la de siempre describe la pantalla de antes y con la nueva
+ * dejaría de ser verdad («el mensaje destacado… hoy no sale»). Cuando el interruptor
+ * llegue a todos, cada una pasa a ser la `frase` de su tarjeta y este mapa se borra.
+ */
+export const FRASE_MI_WEB_NUEVA: Partial<Record<HerramientaId, string>> = {
+  'contenido-de-tu-app': 'Lo que tus alumnas ven en el inicio de su app además de sus clases: tarjetas con foto y un mensaje para todas.',
+};
+
+/** La herramienta como se enseña en su pantalla, con la frase de la v2 si el estudio la tiene. */
+export function herramientaParaMostrar(id: HerramientaId, miWebNueva: boolean): HerramientaConfiguracion {
+  const h = herramientaPorId(id);
+  const frase = miWebNueva ? FRASE_MI_WEB_NUEVA[id] : undefined;
+  return frase ? { ...h, frase } : h;
 }
 
 /** La herramienta en cuya pantalla se pinta la tarjeta, o `null` si va en su sección. */
@@ -609,10 +612,11 @@ export function herramientasDeSeccion(id: SeccionId): HerramientaConfiguracion[]
 
 export function cumpleCondicion(
   condicion: CondicionTarjeta | undefined,
-  ctx: { haySedes: boolean; esCadena: boolean; gmailConectado?: boolean },
+  ctx: { haySedes: boolean; esCadena: boolean; gmailConectado?: boolean; miWebNueva?: boolean },
 ): boolean {
   if (condicion === 'multiSede') return ctx.haySedes;
   if (condicion === 'cadena') return ctx.esCadena;
   if (condicion === 'gmailConectado') return ctx.gmailConectado === true;
+  if (condicion === 'miWebNueva') return ctx.miWebNueva === true;
   return true;
 }

@@ -9,12 +9,13 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'como-gestionar-un-estudio-de-pilates',
   titulo: 'Cómo gestionar un estudio de Pilates: los cinco sistemas y la rutina semanal que lo sostienen',
-  tituloSeo: 'Cómo gestionar un estudio de Pilates: 5 sistemas y una rutina',
+  tituloSeo: 'Cómo gestionar un estudio de Pilates: 5 sistemas',
   descripcion: 'Cómo gestionar un estudio de Pilates sin vivir pegada al móvil: horario y aforo, reservas, bonos y cobros, equipo y los números que miras cada semana.',
   resumen: 'Los cinco sistemas que mantienen un estudio de Pilates en marcha (horario, reservas, cobros, equipo y números), con cifras de estudios españoles y una rutina semanal de media hora.',
   categoria: 'operacion',
   seccion: 'Operación',
   publicado: '2026-10-07',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'cómo gestionar un estudio de pilates',
   consultas: [
     'gestión de un estudio de pilates',
@@ -127,7 +128,7 @@ const articulo: Articulo = {
         },
         {
           t: 'llamada',
-          texto: 'Con Stripe conectado, Tentare cobra las cuotas solas con tarjeta o domiciliación, reintenta lo que falla y te avisa de lo que queda pendiente; los bonos los compra la alumna desde su app.',
+          texto: 'Con Stripe conectado, Tentare cobra las cuotas solas con la tarjeta guardada, reintenta lo que falla y te avisa de lo que queda pendiente; si cobras por domiciliación, te prepara la remesa SEPA para tu banco; los bonos los compra la alumna desde su app.',
         },
       ],
     },
@@ -196,6 +197,7 @@ const articulo: Articulo = {
             { titulo: 'Fin de mes: el cierre', texto: 'Ingresos, altas y bajas, ocupación por franja y margen por clase. Las facturas, a tu gestoría. Y una sola decisión para el mes siguiente.' },
           ],
         },
+        { t: 'descarga', recurso: 'checklist-mensual-estudio-de-pilates' },
       ],
     },
     {
@@ -220,7 +222,7 @@ const articulo: Articulo = {
         {
           t: 'producto',
           titulo: 'Tentare lleva los cinco sistemas en un solo panel',
-          texto: 'El horario con aforo por sala y por reformer, las reservas con lista de espera, las cuotas con cobro automático y los bonos que la alumna compra desde su app, el equipo con sus sustituciones y los informes de ocupación y margen por clase. Desde 29 €/mes con IVA, sin permanencia y con 7 días de prueba sin tarjeta.',
+          texto: 'El horario con aforo por sala y por reformer, las reservas con lista de espera, las cuotas con cobro automático y los bonos que la alumna compra desde su app, el equipo con sus sustituciones y los informes de ocupación y margen por clase. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
         },
       ],
     },
@@ -266,7 +268,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Los cinco sistemas, en un solo sitio.',
-    texto: 'Horario, reservas, cobros, equipo y números en un panel, con una app con tu marca para tus alumnas. 7 días gratis, sin tarjeta y sin permanencia.',
+    texto: 'Horario, reservas, cobros, equipo y números en un panel, con una app con tu marca para tus alumnas. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Cifras de precios y bonos: de los artículos de precio y bonos (25-sep-2026); si se actualizan, cambiar aquí.',

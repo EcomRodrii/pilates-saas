@@ -43,31 +43,44 @@ function aBienvenida(s: Studio | null): FormBienvenida {
 // el héroe se queda como estaba.
 const oNulo = (v: string) => v.trim() || null;
 
-export function DetallePresentacion({ showToast, onGuardado }: {
+/**
+ * Qué campos enseña «Cómo te presentas». Con «Mi app» guiada (MI_WEB_NUEVA, maqueta aprobada el
+ * 21-oct-2026) se reparte por dónde se lee cada uno: la descripción sale en tu página de reservas
+ * (va en «Mi web»), el lema en la cabecera de la app (va con el logo, paso 1). Las normas y el año de
+ * apertura no salen en ninguna pantalla de la alumna (decisión 3): se guardan, pero ya no se piden.
+ */
+export type CamposPresentacion = 'todo' | 'descripcion-y-lema' | 'descripcion' | 'lema';
+
+export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: {
   showToast: (m: string) => void;
   onGuardado: (texto: string) => void;
+  campos?: CamposPresentacion;
 }) {
+  const ver = { descripcion: campos !== 'lema', lema: campos !== 'descripcion', resto: campos === 'todo' };
   const { form, setForm, hayCambios, guardar, descartar } = useFormularioEstudio(aPresentacion, showToast);
   const anioInvalido = form.anioFundacion.trim() !== '' && !/^\d{4}$/.test(form.anioFundacion.trim());
 
   async function alGuardar(): Promise<string | null> {
-    if (anioInvalido) return 'El año de apertura tiene que ser de cuatro cifras.';
+    if (ver.resto && anioInvalido) return 'El año de apertura tiene que ser de cuatro cifras.';
+    // Solo lo que se ve: lo que no se enseña aquí no se toca (lo guardado sigue como estaba).
     const res = await guardar({
-      descripcion: oNulo(form.descripcion),
-      lema: oNulo(form.lema),
-      normasTexto: oNulo(form.normasTexto),
-      anioFundacion: form.anioFundacion.trim() ? Number(form.anioFundacion.trim()) : null,
+      ...(ver.descripcion ? { descripcion: oNulo(form.descripcion) } : {}),
+      ...(ver.lema ? { lema: oNulo(form.lema) } : {}),
+      ...(ver.resto ? {
+        normasTexto: oNulo(form.normasTexto),
+        anioFundacion: form.anioFundacion.trim() ? Number(form.anioFundacion.trim()) : null,
+      } : {}),
     }, null);
     if (!res) return 'Ya se estaba guardando';
     if (!res.ok) return res.error;
-    onGuardado('Tu presentación, guardada');
+    onGuardado(campos === 'lema' ? 'Tu lema, guardado' : campos === 'descripcion' ? 'Tu descripción, guardada' : 'Tu presentación, guardada');
     return null;
   }
 
   return (
     <>
       <div className="flex flex-col gap-5 pb-6">
-        <Campo label="Cómo te presentas" ayuda="Sale en tu página de reservas, debajo del nombre del estudio.">
+        {ver.descripcion && <Campo label="Cómo te presentas" ayuda="Sale en tu página de reservas, debajo del nombre del estudio, y en Tentare Network. No sale en la app de tus alumnas.">
           {id => (
             <textarea
               id={id}
@@ -78,8 +91,8 @@ export function DetallePresentacion({ showToast, onGuardado }: {
               onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
             />
           )}
-        </Campo>
-        <Campo label="Tu lema" ayuda="Una línea corta bajo el nombre del estudio, en la app de tus alumnas. Va en mayúsculas.">
+        </Campo>}
+        {ver.lema && <Campo label="Tu lema" ayuda="Una línea corta bajo el nombre del estudio, en la app de tus alumnas, si no tienes la ciudad puesta (con ciudad, sale la ciudad). Va en mayúsculas.">
           {id => (
             <input
               id={id}
@@ -90,8 +103,8 @@ export function DetallePresentacion({ showToast, onGuardado }: {
               onChange={e => setForm(f => ({ ...f, lema: e.target.value }))}
             />
           )}
-        </Campo>
-        <Campo label="Normas del centro" ayuda="Una norma por línea. Las ven tus alumnas en la app, en «Mi centro».">
+        </Campo>}
+        {ver.resto && <><Campo label="Normas del centro" ayuda="Una norma por línea. Las ven tus alumnas en la app, en «Mi centro».">
           {id => (
             <textarea
               id={id}
@@ -120,11 +133,11 @@ export function DetallePresentacion({ showToast, onGuardado }: {
               onChange={e => setForm(f => ({ ...f, anioFundacion: e.target.value.replace(/\D/g, '') }))}
             />
           )}
-        </Campo>
+        </Campo></>}
       </div>
       <BarraGuardar
         seccion="marca"
-        cambios={hayCambios ? [tarjetaPorId('textos-de-tu-app').titulo] : []}
+        cambios={hayCambios ? [campos === 'lema' ? 'Tu lema' : tarjetaPorId('textos-de-tu-app').titulo] : []}
         onGuardar={alGuardar}
         onDescartar={descartar}
       />
@@ -132,30 +145,31 @@ export function DetallePresentacion({ showToast, onGuardado }: {
   );
 }
 
-export function DetalleTextosBienvenida({ showToast, onGuardado }: {
+export function DetalleTextosBienvenida({ showToast, onGuardado, soloFraseAMano = false }: {
   showToast: (m: string) => void;
   onGuardado: (texto: string) => void;
+  /** «Mi app» guiada: solo «Tu frase, a mano», la única de las tres que sale en su app (decisión 3, 21-oct-2026). */
+  soloFraseAMano?: boolean;
 }) {
   const { form, setForm, hayCambios, guardar, descartar } = useFormularioEstudio(aBienvenida, showToast);
 
   async function alGuardar(): Promise<string | null> {
     const res = await guardar({
-      subtituloHeroe: oNulo(form.subtituloHeroe),
-      fraseHeroe: oNulo(form.fraseHeroe),
+      ...(soloFraseAMano ? {} : { subtituloHeroe: oNulo(form.subtituloHeroe), fraseHeroe: oNulo(form.fraseHeroe) }),
       fraseManuscrita: oNulo(form.fraseManuscrita),
     }, null);
     if (!res) return 'Ya se estaba guardando';
     if (!res.ok) return res.error;
-    onGuardado('Tus textos de bienvenida, guardados');
+    onGuardado(soloFraseAMano ? 'Tu frase, guardada' : 'Tus textos de bienvenida, guardados');
     return null;
   }
 
   return (
     <>
       <div className="flex flex-col gap-5 pb-6">
-        <Campo
+        {!soloFraseAMano && <><Campo
           label="Tu frase de bienvenida"
-          ayuda="Va justo debajo del saludo, al abrir la app. Si la dejas vacía sale «¿Qué te apetece hoy?»."
+          ayuda="Ahora mismo no se ve: la pantalla de inicio nueva de la app (octubre de 2026) no lleva frase bajo el saludo. Se guarda por si vuelve."
         >
           {id => (
             <input
@@ -172,7 +186,7 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
           label="Frase de la portada"
           // La FOTO de la portada se cambia en «Apariencia de tu app»: pedir una
           // frase «al lado de la foto» sin decir dónde está la foto era prometer media cosa.
-          ayuda="Se lee en vertical al lado de la foto grande, al abrir la app. Cuatro o cinco palabras. La foto se cambia en «Apariencia de tu app»."
+          ayuda="Ahora mismo no se ve: la pantalla de inicio nueva de la app (octubre de 2026) no tiene foto grande de portada. Se guarda por si vuelve."
         >
           {id => (
             <input
@@ -184,10 +198,10 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
               onChange={e => setForm(f => ({ ...f, fraseHeroe: e.target.value }))}
             />
           )}
-        </Campo>
+        </Campo></>}
         <Campo
           label="Tu frase, a mano"
-          ayuda="Se escribe con letra manuscrita en la pantalla de inicio de tus alumnas. Una frase corta, tuya."
+          ayuda="Se escribe con letra manuscrita al final de la pantalla de inicio de tus alumnas. Una frase corta, tuya."
         >
           {id => (
             <input
@@ -203,7 +217,7 @@ export function DetalleTextosBienvenida({ showToast, onGuardado }: {
       </div>
       <BarraGuardar
         seccion="marca"
-        cambios={hayCambios ? [tarjetaPorId('textos-de-bienvenida').titulo] : []}
+        cambios={hayCambios ? [soloFraseAMano ? 'Tu frase, a mano' : tarjetaPorId('textos-de-bienvenida').titulo] : []}
         onGuardar={alGuardar}
         onDescartar={descartar}
       />

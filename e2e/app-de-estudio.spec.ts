@@ -109,14 +109,21 @@ test('con sesión pero sin ser alumna de ese estudio: a darse de alta en él', a
   expect(misEstudios).toBeGreaterThan(0);
 });
 
-test('un bundle de estudio SIN fila activa es la app «Tentare» de siempre', async ({ page }) => {
+test('un bundle de estudio SIN fila activa dice «no disponible» y NUNCA cae a la app «Tentare»', async ({ page }) => {
   await comoApp(page, 'app.tentare.apagada');
   const n = await appDeEstudio(page, () => ({ status: 404, body: { error: 'Esa app no está activa' } }));
 
   await page.goto('/app');
-  await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByTestId('app-no-disponible')).toBeVisible({ timeout: 60_000 });
   expect(n.pedidas).toBeGreaterThan(0);
-  await expect(page.getByRole('button', { name: 'Buscar mi estudio' })).toBeVisible();
+  // Ni el buscador de estudios ni el logo de Tentare: la app lleva el nombre de un estudio.
+  await expect(page.getByRole('button', { name: 'Buscar mi estudio' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toHaveCount(0);
+  await expect(page.locator('svg.t-logo')).toHaveCount(0);
+  // Volver a comprobarlo pregunta otra vez de verdad.
+  const antes = n.pedidas;
+  await page.getByRole('button', { name: 'Volver a comprobarlo' }).click();
+  await expect.poll(() => n.pedidas, { timeout: 30_000 }).toBeGreaterThan(antes);
 });
 
 test('si no se puede comprobar la app del estudio, lo dice y NO cae al selector de Tentare', async ({ page }) => {
@@ -124,10 +131,12 @@ test('si no se puede comprobar la app del estudio, lo dice y NO cae al selector 
   const n = await appDeEstudio(page, () => ({ status: 500, body: { error: 'x' } }));
 
   await page.goto('/app');
-  await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido cargar tus estudios' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('alert').filter({ hasText: 'No hemos podido abrir la app' })).toBeVisible({ timeout: 60_000 });
   expect(n.pedidas).toBeGreaterThan(0);
   await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible();
+  // Sin saber de qué app es, no se ofrece cambiar de cuenta: llevaría a la entrada genérica.
+  await expect(page.getByRole('button', { name: 'Entrar con otra cuenta' })).toHaveCount(0);
 });
 
 test('la app «Tentare» y la web no preguntan por ningún estudio', async ({ page }) => {
@@ -139,4 +148,54 @@ test('la app «Tentare» y la web no preguntan por ningún estudio', async ({ pa
   await expect(page.getByRole('button', { name: 'Buscar mi estudio' })).toBeVisible();
   await expect(page.locator('svg.t-logo')).toBeVisible();
   expect(n.pedidas).toBe(0);
+});
+
+// ── App de una CADENA: una sola app con todas sus sedes (decisión del fundador, 15-oct-2026) ──
+const SEDE = (slug: string, nombre: string) => ({ slug, nombre, icono: APP_LUZ.icono, color: APP_LUZ.color });
+const APP_CADENA = { ...APP_LUZ, slug: 'luz-norte', nombre: 'Luz Norte', bundleId: 'app.tentare.cupo-001', sedes: [SEDE('luz-norte', 'Luz Norte'), SEDE('luz-sur', 'Luz Sur')] };
+const ESTUDIO = (slug: string, nombre: string) => ({ slug, nombre, como: 'alumna', ciudad: 'Madrid', icono: APP_LUZ.icono });
+
+async function misEstudios(page: Page, estudios: unknown[]) {
+  const n = { pedidas: 0 };
+  await page.route('**/api/app/mis-estudios', (r) => { n.pedidas++; return r.fulfill(json({ estudios, nombre: 'Lucía' })); });
+  return n;
+}
+
+test('cadena: alumna de una sola sede entra directa en ella', async ({ page }) => {
+  await comoApp(page, 'app.tentare.cupo-001');
+  await conSesion(page);
+  await appDeEstudio(page, () => ({ status: 200, body: APP_CADENA }));
+  const n = await misEstudios(page, [ESTUDIO('luz-sur', 'Luz Sur'), ESTUDIO('otro-estudio', 'Otro')]);
+  await page.goto('/app');
+  await expect(page).toHaveURL(/\/portal\/luz-sur(\/|$|\?)/, { timeout: 60_000 });
+  expect(n.pedidas).toBeGreaterThan(0);
+});
+
+test('cadena: sin sede todavía, elige entre las de la cadena (nunca otros estudios) y se da de alta', async ({ page }) => {
+  await comoApp(page, 'app.tentare.cupo-001');
+  await conSesion(page);
+  await appDeEstudio(page, () => ({ status: 200, body: APP_CADENA }));
+  const n = await misEstudios(page, [ESTUDIO('otro-estudio', 'Otro')]);
+  await page.goto('/app');
+  const lista = page.getByTestId('elegir-sede');
+  await expect(lista).toBeVisible({ timeout: 60_000 });
+  expect(n.pedidas).toBeGreaterThan(0);
+  await expect(lista.locator('[data-sede]')).toHaveCount(2);
+  await expect(lista).not.toContainText('Otro');
+  await expect(page.getByRole('button', { name: /Buscar mi estudio|Añadir otro estudio/ })).toHaveCount(0);
+  await lista.locator('[data-sede="luz-sur"]').click();
+  await expect(page).toHaveURL(/\/portal\/luz-sur\/acceso\/registro/, { timeout: 60_000 });
+});
+
+test('cadena: «Cambiar de sede» enseña la lista aunque solo sea de una', async ({ page }) => {
+  await comoApp(page, 'app.tentare.cupo-001');
+  await conSesion(page);
+  await appDeEstudio(page, () => ({ status: 200, body: APP_CADENA }));
+  const n = await misEstudios(page, [ESTUDIO('luz-norte', 'Luz Norte')]);
+  await page.goto('/app?elegir=1');
+  const lista = page.getByTestId('elegir-sede');
+  await expect(lista).toBeVisible({ timeout: 60_000 });
+  expect(n.pedidas).toBeGreaterThan(0);
+  await expect(lista.locator('[data-sede="luz-norte"]')).toContainText('Ya eres alumna');
+  await expect(lista.locator('[data-sede="luz-sur"]')).toContainText('Te das de alta');
 });

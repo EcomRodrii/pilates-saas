@@ -195,7 +195,7 @@ export function ConectarDatafono({
                 <Opcion icono={CreditCard} titulo="Un datáfono de Stripe"
                   texto={stripeConectado
                     ? 'Stripe Reader S700 o BBPOS WisePOS E.'
-                    : 'Antes hay que conectar el cobro con tarjeta (Stripe) en Configuración → Cobros y facturas.'}
+                    : 'Antes hay que conectar el cobro con tarjeta (Stripe) en Configuración → Integraciones.'}
                   deshabilitada={!stripeConectado} onClick={() => setPaso('codigo')} />
                 {sumup.disponible ? (
                   <Opcion icono={IconoSumup} titulo="Un SumUp Solo" texto="El de pantalla táctil de SumUp. Cobra en tu cuenta de SumUp."
@@ -362,7 +362,7 @@ export function ConectarDatafono({
                     </p>
                   )}
                   <p className="mt-4 rounded-xl bg-muted/60 px-3.5 py-3 text-[13px] text-muted-foreground text-pretty">
-                    Puedes desconectarla cuando quieras, en Configuración → Cobros y facturas → Datáfono.
+                    Puedes desconectarla cuando quieras, en Configuración → Integraciones → Datáfono.
                   </p>
                 </>
               ) : (

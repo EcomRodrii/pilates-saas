@@ -251,7 +251,7 @@ export function SelectorHorarioPor({ valor, onCambio }: { valor: HorarioPor; onC
           type="button"
           onClick={() => onCambio(v)}
           aria-pressed={valor === v}
-          className={cn('rounded-full px-3.5 py-1 text-[12.5px] font-semibold transition-colors', valor === v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+          className={cn('zona-tactil rounded-full px-3.5 py-1 text-[12.5px] font-semibold transition-colors', valor === v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
         >
           {label}
         </button>

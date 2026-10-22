@@ -66,6 +66,43 @@ test('ningún «hoy» que decide algo sale del día de UTC', () => {
   );
 });
 
+// La otra forma del mismo error (15-oct-2026): la MEDIANOCHE DEL PROCESO. En una ruta de
+// `app/api` el proceso corre en UTC (Vercel), y `d.setHours(0, 0, 0, 0)` es la medianoche
+// de UTC: 01:00 o 02:00 de Madrid. El test de arriba no la veía porque no pasa por
+// `.toISOString().slice(0, 10)`. Así se quedó el «Hoy» de la Caja enseñando las ventas de
+// ayer entre las 00:00 y las 02:00 (app/api/pos/catalogo, #2735). En el navegador
+// (components/, la mayor parte de lib/) la zona es la de quien mira, y ahí no se vigila.
+// Para el inicio del día en el servidor: `inicioDelDiaEstudio(hoyEnEstudio())`.
+const MEDIANOCHE_DEL_PROCESO = /\.setHours\(0,\s*0,\s*0,\s*0\)/;
+
+// Las que quedan, cada una con lo que le pasa. Es un trinquete: solo puede bajar, y un
+// fichero que deja de usarla tiene que salir de aquí. Vacío desde que las tarjetas de
+// Equipo (la última) pasaron al día de Madrid (`ventanaEstudio`, lib/equipo-tarjetas.ts).
+const MEDIANOCHE_PENDIENTE: Record<string, string> = {};
+
+test('ninguna ruta de servidor saca el inicio del día de la medianoche del proceso (UTC)', () => {
+  const rutas = ficheros(join(RAIZ, 'app', 'api'));
+  const nuevos: string[] = [];
+  const conMedianoche = new Set<string>();
+  for (const f of rutas) {
+    const ruta = relative(RAIZ, f);
+    readFileSync(f, 'utf8').split('\n').forEach((linea, i) => {
+      if (esComentario(linea) || !MEDIANOCHE_DEL_PROCESO.test(linea)) return;
+      conMedianoche.add(ruta);
+      if (!(ruta in MEDIANOCHE_PENDIENTE)) nuevos.push(`${ruta}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(
+    nuevos, [],
+    `Sacan el inicio del día de la medianoche del proceso (UTC en el servidor): ${nuevos.join(', ')}. `
+    + 'Usa inicioDelDiaEstudio(hoyEnEstudio()) (lib/utils.ts).',
+  );
+  // La forma exacta que tenía el «Hoy» de la Caja, y que este test no veía.
+  assert.ok(MEDIANOCHE_DEL_PROCESO.test('  desdeHoy.setHours(0, 0, 0, 0);'));
+  const sobran = Object.keys(MEDIANOCHE_PENDIENTE).filter((r) => !conMedianoche.has(r));
+  assert.deepEqual(sobran, [], `Ya no la usan: quítalos de MEDIANOCHE_PENDIENTE (${sobran.join(', ')}).`);
+});
+
 // La ventana de los avisos «caduca pronto» (bonos, a 7 días) y «termina pronto» (clases
 // fijas): `masDias(hoyEnEstudio(), N)`. Con `Date.now() + N días` en UTC, a las 00:30 de
 // Madrid empezaba ayer: avisaba de un bono que ya había caducado.

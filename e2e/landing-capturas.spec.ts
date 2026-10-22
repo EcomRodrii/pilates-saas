@@ -16,7 +16,7 @@ test.skip(!DESTINO, 'solo con CAPTURAS_LANDING=<carpeta>');
 const dia = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 
 /** El portal montado y con las fechas puestas en el presente (las del mock son de agosto). */
-async function portalDeMuestra(page: Page) {
+async function portalDeMuestra(page: Page, { alDia = false }: { alDia?: boolean } = {}) {
   await page.addInitScript(() => localStorage.setItem('tenti-traje', 'ninguno'));
   await page.clock.setFixedTime(new Date(new Date().setHours(15, 48, 0, 0)));
   await montarPortal(page, { conSesion: true, conTarjeta: true });
@@ -32,8 +32,10 @@ async function portalDeMuestra(page: Page) {
     { ...socia.recibos[0], fechaVencimiento: dia(-34), fechaCobro: dia(-34), estado: 'COBRADO', cobro: undefined },
     { ...socia.recibos[1], concepto: 'Bono 10', importe: 120, fechaVencimiento: dia(2), estado: 'PENDIENTE', cobro: { como: 'APP' } },
   ];
+  // «Al día»: Mi plan sin el recibo pendiente arriba (la web lo enseña como su plan, no como una deuda).
+  if (alDia) socia.recibos = [socia.recibos[0]];
   socia.facturas = [];
-  socia.cobroRecibos = { 'rec-2': { como: 'APP' } };
+  socia.cobroRecibos = alDia ? {} : { 'rec-2': { como: 'APP' } };
   datos.stripeAccountId = 'acct_muestra';
   // Las clases a horas de estudio: hoy a las 19:00 (el reloj, a las 15:48), mañana, pasado…
   const a = (n: number, h: number, m = 0) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(h, m, 0, 0); return d; };
@@ -65,7 +67,18 @@ async function nombrar(page: Page) {
 }
 
 test.describe('app de la alumna', () => {
-  test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  // La pantalla del iPhone 17 Pro (402 × 874) menos los 59 pt de la barra de estado, que
+  // scripts/capturas-landing.mjs añade encima: así el marco de components/ui/marco-iphone.tsx
+  // dibuja la hora y la isla sin tapar la cabecera de la app.
+  test.use({ viewport: { width: 402, height: 815 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  test('mi plan al día', async ({ page }) => {
+    test.setTimeout(240_000);
+    await portalDeMuestra(page, { alDia: true });
+    await page.goto(`/portal/${SLUG}/bonos`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await page.waitForTimeout(3000);
+    await nombrar(page);
+    await page.screenshot({ path: `${DESTINO}/app-plan-al-dia.png` });
+  });
   test('pantallas', async ({ page }) => {
     test.setTimeout(240_000);
     await portalDeMuestra(page);
@@ -78,7 +91,9 @@ test.describe('app de la alumna', () => {
     // La hoja de la clase: elegir reformer.
     await page.goto(`/portal/${SLUG}/reservar`, { waitUntil: 'domcontentloaded' }).catch(() => {});
     await page.waitForTimeout(2500);
-    await page.locator('button', { hasText: 'MIÉ' }).first().click();
+    // Mañana (las tres clases de muestra): la tira de días dice «Jue 22», ya no «MIÉ».
+    const manana = new Date(Date.now() + 86_400_000).getDate();
+    await page.locator('button').filter({ hasText: new RegExp(`^\\D*${manana}\\D*$`) }).first().click();
     await page.waitForTimeout(800);
     await nombrar(page);
     await page.screenshot({ path: `${DESTINO}/app-horario-manana.png` });
@@ -88,7 +103,7 @@ test.describe('app de la alumna', () => {
     await page.waitForTimeout(1500);
     await nombrar(page);
     await page.screenshot({ path: `${DESTINO}/app-hoja-reserva.png` });
-    await page.getByRole('button', { name: /^Reservar$/ }).last().click();
+    await page.getByRole('button', { name: /^Reservar( clase)?$/ }).last().click();
     await page.waitForTimeout(2000);
     await nombrar(page);
     await page.screenshot({ path: `${DESTINO}/app-elegir-reformer.png` });

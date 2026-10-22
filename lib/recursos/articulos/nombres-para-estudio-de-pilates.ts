@@ -3,13 +3,14 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'nombres-para-estudio-de-pilates',
   titulo: 'Nombres para estudio de pilates: más de 100 ideas y cómo comprobar que están libres',
-  tituloSeo: 'Nombres para estudio de pilates: 100+ ideas y cómo registrarlo',
+  tituloSeo: 'Nombres para estudio de pilates: 100+ ideas',
   descripcion: 'Más de 100 nombres para tu estudio de pilates o de barre, por estilos, y cómo comprobar gratis en la OEPM y en los .es que nadie los tiene ya.',
   resumen:
     'Ideas de nombres para un estudio de pilates o de barre agrupadas por estilo, criterios para elegir y los pasos para comprobar que el nombre está libre antes de pagar el logotipo.',
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'nombres para estudio de pilates',
   consultas: [
     'ideas de nombres para estudio de pilates',
@@ -431,7 +432,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Con el nombre elegido, abre tu estudio en Tentare',
     texto:
-      'Tus alumnas reservan desde el móvil e instalan la app de tu estudio con tu nombre y tu icono. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas: desde 29 €/mes, IVA incluido y sin permanencia.',
+      'Tus alumnas reservan desde el móvil e instalan la app de tu estudio con tu nombre y tu icono. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Antes de publicar, pasar las 117 ideas por el Localizador de Marcas de la OEPM para descartar coincidencias con marcas conocidas del sector.',

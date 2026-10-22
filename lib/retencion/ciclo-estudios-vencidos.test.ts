@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   DIAS_AVISO_CONSERVACION, DIAS_AVISO_FINAL, DIAS_BAJA_AVISO_FINAL, DIAS_BAJA_PURGA, DIAS_PURGA,
   asuntoAvisoEstudioVencido, cicloDelEstudio, copiaSuspendidaPorVencimiento, debeRecalcularInforme, enCicloDeVencido,
-  fechasCiclo, formatearFechaAviso, mismaAncla, purgaEstudiosActiva, siguientePaso,
+  fechasCiclo, formatearFechaAviso, fueraDelCicloPorElGratis, mismaAncla, motivoSinBorradoAnticipado, purgaEstudiosActiva, siguientePaso,
   type EstudioCiclo, type FaseRegistrada,
 } from './ciclo-estudios-vencidos.ts';
 
@@ -215,4 +215,28 @@ test('baja: si la propietaria pide el borrado, va ya, sin esperar a los avisos',
   // En una prueba vencida la petición no existe (la columna solo vale con contrato terminado).
   assert.equal(siguientePaso({ ...vencido, supresionPedidaEn: dia(31).toISOString() }, [], dia(31)).tipo === 'ejecutar'
     && siguientePaso({ ...vencido, supresionPedidaEn: dia(31).toISOString() }, [], dia(31)).fase, 'aviso_30');
+});
+
+// ─── Una cadena que deja de pagar (migr 20261015141653) ─────────────────────
+test('al pasar la principal a gratis, sus hermanas salen del ciclo en ese tic; la que pidió el borrado, no', () => {
+  const estudios = [
+    { id: 'principal', cadena_id: 'cad-1', supresion_pedida_en: null },
+    { id: 'hermana', cadena_id: 'cad-1', supresion_pedida_en: null },
+    { id: 'hermana-pidio-borrar', cadena_id: 'cad-1', supresion_pedida_en: '2026-10-10T10:00:00Z' },
+    { id: 'otra-cadena', cadena_id: 'cad-2', supresion_pedida_en: null },
+    { id: 'suelto', cadena_id: null, supresion_pedida_en: null },
+  ];
+  assert.deepEqual([...fueraDelCicloPorElGratis(estudios, new Set(['principal']))].sort(), ['hermana', 'principal']);
+  // Un estudio suelto que pasa a gratis solo se saca a sí mismo.
+  assert.deepEqual([...fueraDelCicloPorElGratis(estudios, new Set(['suelto']))], ['suelto']);
+});
+
+test('sin el contrato terminado no se pide el borrado, y a una sede cerrada de una cadena se le dice la verdad', () => {
+  assert.match(motivoSinBorradoAnticipado({ cadenaId: null, subscriptionStatus: 'active' }), /sigue activa/);
+  assert.match(motivoSinBorradoAnticipado({ cadenaId: 'cad-1', subscriptionStatus: 'active' }), /sigue activa/);
+  for (const st of ['canceled', 'incomplete_expired']) {
+    const m = motivoSinBorradoAnticipado({ cadenaId: 'cad-1', subscriptionStatus: st });
+    assert.doesNotMatch(m, /sigue activa/, st);
+    assert.match(m, /otra sede de tu cadena/, st);
+  }
 });

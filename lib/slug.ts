@@ -37,6 +37,23 @@ export function normalizarSlug(texto: string): string {
 }
 
 /**
+ * La dirección BASE con la que nace un estudio a partir de su nombre: la misma
+ * normalización y, si del nombre no queda nada («!!!»), «estudio».
+ *
+ * Es solo la base. La que de verdad le toca la decide `generateUniqueSlug`
+ * (lib/supabase-data.ts) al crearlo: si la base ya la tiene otro estudio, o es
+ * una palabra de la aplicación, prueba con «-2», «-3»… Por eso el alta nueva
+ * no promete la dirección exacta mientras se escribe el nombre.
+ *
+ * Vive aquí (y no solo en supabase-data.ts, que la reexporta) para que el alta
+ * la enseñe mientras se escribe sin arrastrar el cliente de Supabase, y para
+ * que el script de recuperación de altas no tenga una copia.
+ */
+export function slugify(nombre: string): string {
+  return normalizarSlug(nombre) || 'estudio';
+}
+
+/**
  * El motivo por el que esta dirección no vale, en algo que una persona pueda
  * leer y arreglar. `null` si vale.
  *

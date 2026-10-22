@@ -263,6 +263,31 @@ const escenarios: { nombre: string; preparar: (c: Ctx) => Promise<Preparado> }[]
     },
   },
   {
+    nombre: 'sin plan pero CON recuperación → entra y paga la recuperación',
+    async preparar(c) {
+      const socio = await c.socia(); const sesion = await c.sesion(enDias(3), { tipo: await c.tipo() });
+      await c.recuperacion(socio, 20);
+      return { sesionId: sesion, socioId: socio, esperado: { puede: true, estado: 'CONFIRMADA', pagador: 'recuperacion' } };
+    },
+  },
+  {
+    nombre: 'sin plan y la recuperación está CADUCADA → sin-plan',
+    async preparar(c) {
+      const socio = await c.socia(); const sesion = await c.sesion(enDias(3), { tipo: await c.tipo() });
+      await c.recuperacion(socio, -3);
+      return { sesionId: sesion, socioId: socio, esperado: { puede: false, codigo: 'sin-plan' } };
+    },
+  },
+  {
+    nombre: 'sin plan, CON recuperación y la clase llena → sin-plan (la recuperación paga una plaza, no un sitio en la espera)',
+    async preparar(c) {
+      const socio = await c.socia(); const sesion = await c.sesion(enDias(3), { tipo: await c.tipo(), aforo: 1 });
+      await c.reserva(sesion, await c.socia(), 'CONFIRMADA');
+      await c.recuperacion(socio, 20);
+      return { sesionId: sesion, socioId: socio, esperado: { puede: false, codigo: 'sin-plan' } };
+    },
+  },
+  {
     nombre: 'bono con sesiones: entra y paga ESE bono',
     async preparar(c) {
       const socio = await c.socia(); const tipo = await c.tipo();

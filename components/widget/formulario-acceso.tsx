@@ -3,19 +3,19 @@
 // Login/registro dentro del Shadow Root del widget embebible (Modo B) —
 // Fase 2 del Booking Engine, ver docs/auth-widget-diseno.md.
 //
-// Contraseña es el camino primario (§2 del diseño: petición directa a
-// gotrue, sin CORS que resolver — menor fricción real dentro del Shadow
-// Root). El magic link es el fallback para quien no tiene contraseña
-// todavía, resuelto con el puente pestaña+postMessage de
-// app/widget-auth-retorno/page.tsx — NO se completa dentro de este mismo
-// documento porque `detectSessionInUrl` no puede capturar el retorno del
-// email en el DOM de un dominio de tercero.
+// Contraseña es el camino primario; el correo (enlace o código), para quien no
+// tiene contraseña todavía. Los dos se HACEN en una ventana de Tentare
+// (app/widget-auth-retorno), no aquí: el captcha que gotrue exige en todo
+// acceso solo da token en tentare.app, nunca en la web del estudio (error
+// 110200 de Turnstile). Este formulario recoge los datos, abre esa ventana en
+// el propio clic y espera su respuesta (lib/widget/usar-auth-widget.ts).
+// Si la ventana no se puede abrir, ofrece la página de reservas entera.
 import { useState } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { verificarCodigoApp } from '@/lib/auth/codigo-app';
 import type { ModoTokens } from '@/lib/portal-modo';
-import { useAuthWidget, urlRetornoWidgetAuth, type AceptacionWidget } from '@/lib/widget/usar-auth-widget';
-import { useCaptchaWidget } from '@/lib/widget/turnstile-shadow';
+import { useAuthWidget, type AceptacionWidget, type ResultadoAcceso } from '@/lib/widget/usar-auth-widget';
+import { MENSAJE_CUENTA_DE_EQUIPO, urlReservarCompleta } from '@/lib/widget/puente-sesion';
 import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-textos';
 // Auditoría 2026-09-22 (F-6/E-22): aquí la divergencia no descartaba el dato,
 // BLOQUEABA el alta. `@/lib/csv` exige 9 dígitos españoles (es el validador del
@@ -25,8 +25,6 @@ import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-te
 // fuente única para un teléfono tecleado por una persona.
 import { telefonoValido } from '@/lib/reservar/formato';
 import { sans, radius } from '@/lib/reservar-publico-tokens';
-
-const ERROR_CAPTCHA = 'No hemos podido comprobar que no eres un robot. Vuelve a intentarlo; si sigue fallando, recarga la página.';
 
 const inputStyle = (t: ModoTokens): React.CSSProperties => ({
   width: '100%', fontSize: 14, padding: '10px 14px', borderRadius: radius.card,
@@ -66,8 +64,6 @@ export function FormularioAccesoWidget({
   terminosServicio: string;
   onListo: () => void;
 }) {
-  const auth = useAuthWidget(slug, baseUrl);
-  const { contenedorRef, pedirToken } = useCaptchaWidget(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
 
   const [modo, setModo] = useState<'password' | 'magic-link' | 'magic-enviado'>('password');
   const [email, setEmail] = useState('');
@@ -79,42 +75,50 @@ export function FormularioAccesoWidget({
   const [aceptaMarketing, setAceptaMarketing] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // La ventana de Tentare no se pudo usar: se ofrece la página de reservas.
+  const [sinVentana, setSinVentana] = useState<'bloqueada' | 'cerrada' | null>(null);
+  // La cuenta es de un equipo: la ventana no entrega su sesión aquí.
+  const [cuentaDeEquipo, setCuentaDeEquipo] = useState(false);
+  // La ventana puede decir que no DESPUÉS de «correo enviado» (al abrir el
+  // enlace o escribir el código): se vuelve al formulario con el porqué.
+  const auth = useAuthWidget(slug, baseUrl, (r) => {
+    if (!('error' in r)) return;
+    setModo('magic-link');
+    setCuentaDeEquipo('cuentaDeEquipo' in r);
+    setError('cuentaDeEquipo' in r ? null : r.error);
+  });
 
   const contratoTexto = politicaPrivacidad && terminosServicio
     ? textoLegalCompleto({ politicaPrivacidad, terminosServicio })
     : null;
 
-  async function onLoginPassword() {
-    setError(null);
-    if (!email.trim() || !password) { setError('Escribe tu email y tu contraseña.'); return; }
+  // ⚠️ `auth.acceder` va SIN ningún `await` delante: abre la ventana en el
+  // propio clic (si no, el navegador la bloquea). Por eso estos manejadores
+  // validan de forma síncrona y el estado de carga se enciende después.
+  async function esperarAcceso(intento: Promise<ResultadoAcceso>): Promise<ResultadoAcceso> {
     setEnviando(true);
-    const token = await pedirToken();
-    if (token === null) { setError(ERROR_CAPTCHA); setEnviando(false); return; }
-    const r = await auth.loginConPassword(email, password, token || undefined);
+    const r = await intento;
     setEnviando(false);
-    if ('error' in r) { setError(r.error); return; }
-    // onAuthStateChange en usar-sesion-widget.ts recoge la sesión sola; si ya
-    // tenía ficha, el padre deja de mostrar este formulario solo.
+    if ('sinVentana' in r) setSinVentana(r.sinVentana);
+    if ('cuentaDeEquipo' in r) setCuentaDeEquipo(true);
+    else if ('error' in r) setError(r.error);
+    return r;
+  }
+
+  async function onLoginPassword() {
+    setError(null); setSinVentana(null); setCuentaDeEquipo(false);
+    if (!email.trim() || !password) { setError('Escribe tu email y tu contraseña.'); return; }
+    const r = await esperarAcceso(auth.acceder({ accion: 'password', email: email.trim(), password }));
+    if ('ok' in r) setPassword('');
+    // usar-sesion-widget.ts recoge la sesión sola (onAuthStateChange); si ya
+    // tenía ficha, el padre deja de mostrar este formulario.
   }
 
   async function onEnviarEnlace() {
-    setError(null);
+    setError(null); setSinVentana(null); setCuentaDeEquipo(false);
     if (!email.trim()) { setError('Escribe tu email.'); return; }
-    // La pestaña se abre AQUÍ, síncrona con el clic — antes de esperar el
-    // token de Turnstile. Abrirla después de un `await` arriesga que el
-    // navegador la trate como popup no solicitado (spike pendiente de medir,
-    // docs/auth-widget-diseno.md §9.3).
-    // Un nonce por intento, el MISMO en la pestaña y en el enlace del email:
-    // el widget solo acepta la sesión que vuelva con él.
-    const nonce = auth.nuevoIntentoEnlace(email);
-    const popup = window.open(urlRetornoWidgetAuth(baseUrl, slug, nonce), 'tentare-widget-auth', 'width=420,height=600');
-    setEnviando(true);
-    const token = await pedirToken();
-    if (token === null) { setError(ERROR_CAPTCHA); setEnviando(false); popup?.close(); return; }
-    const r = await auth.enviarEnlace(email, nonce, token || undefined);
-    setEnviando(false);
-    if ('error' in r) { setError(r.error); popup?.close(); return; }
-    setModo('magic-enviado');
+    const r = await esperarAcceso(auth.acceder({ accion: 'enlace', email: email.trim() }));
+    if ('enviado' in r) setModo('magic-enviado');
   }
 
   async function onRegistrar() {
@@ -160,7 +164,6 @@ export function FormularioAccesoWidget({
           <summary style={{ cursor: 'pointer' }}>Qué acepto</summary>
           {textoConsentimientoMarketing({ nombre: nombreEstudio || undefined })}
         </details>
-        <div ref={contenedorRef} />
         {error && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--destructive)' }}>{error}</p>}
         <button type="button" onClick={onRegistrar} disabled={enviando} style={botonPrimario(t, enviando)}>
           {enviando ? 'Guardando…' : 'Continuar'}
@@ -191,14 +194,20 @@ export function FormularioAccesoWidget({
       {modo === 'password' && (
         <input style={inputStyle(t)} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Contraseña" type="password" autoComplete="current-password" />
       )}
-      <div ref={contenedorRef} />
-      {error && <p style={{ margin: 0, fontSize: 12.5, color: 'var(--destructive)' }}>{error}</p>}
+      {error && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--destructive)' }}>{error}</p>}
+      {sinVentana && <SinVentana t={t} motivo={sinVentana} href={urlReservarCompleta(baseUrl, slug)} />}
+      {cuentaDeEquipo && <CuentaDeEquipo t={t} href={urlReservarCompleta(baseUrl, slug)} />}
+      {enviando && (
+        <p style={{ margin: 0, fontSize: 12.5, color: t.muted }}>
+          Sigue en la ventana de Tentare que se ha abierto; se cerrará sola.
+        </p>
+      )}
       {modo === 'password' ? (
         <>
           <button type="button" onClick={onLoginPassword} disabled={enviando} style={botonPrimario(t, enviando)}>
             {enviando ? 'Entrando…' : 'Entrar'}
           </button>
-          <button type="button" onClick={() => { setError(null); setModo('magic-link'); }} style={botonTexto()}>
+          <button type="button" onClick={() => { setError(null); setSinVentana(null); setCuentaDeEquipo(false); setModo('magic-link'); }} style={botonTexto()}>
             No tengo contraseña — enviarme un enlace
           </button>
         </>
@@ -207,12 +216,48 @@ export function FormularioAccesoWidget({
           <button type="button" onClick={onEnviarEnlace} disabled={enviando} style={botonPrimario(t, enviando)}>
             {enviando ? 'Enviando…' : 'Enviarme un enlace por email'}
           </button>
-          <button type="button" onClick={() => { setError(null); setModo('password'); }} style={botonTexto()}>
+          <button type="button" onClick={() => { setError(null); setSinVentana(null); setCuentaDeEquipo(false); setModo('password'); }} style={botonTexto()}>
             Ya tengo contraseña
           </button>
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * La salida cuando la ventana de Tentare no sirve: el navegador no la dejó
+ * abrir, se cerró antes de terminar, o la web del estudio corta el vínculo
+ * entre ventanas. La página de reservas entera vive en tentare.app, donde el
+ * acceso funciona siempre.
+ */
+function SinVentana({ t, motivo, href }: { t: ModoTokens; motivo: 'bloqueada' | 'cerrada'; href: string }) {
+  return (
+    <p data-testid="widget-acceso-sin-ventana" role="status" style={{ margin: 0, fontSize: 12.5, color: t.ink, lineHeight: 1.5 }}>
+      {motivo === 'bloqueada'
+        ? 'Tu navegador no ha dejado abrir la ventana para entrar. '
+        : 'La ventana para entrar se ha cerrado antes de terminar. '}
+      Vuelve a intentarlo o{' '}
+      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--portal-brand)' }}>
+        entra desde la página de reservas del estudio
+      </a>.
+    </p>
+  );
+}
+
+/**
+ * La cuenta es del equipo de un estudio (o de Tentare): por el widget de la web
+ * de un estudio solo entran alumnas (decisión del fundador, 16-oct-2026). Reserva
+ * desde la página entera, en tentare.app.
+ */
+function CuentaDeEquipo({ t, href }: { t: ModoTokens; href: string }) {
+  return (
+    <p data-testid="widget-acceso-cuenta-de-equipo" role="alert" style={{ margin: 0, fontSize: 12.5, color: t.ink, lineHeight: 1.5 }}>
+      {MENSAJE_CUENTA_DE_EQUIPO}{' '}
+      <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--portal-brand)' }}>
+        Ir a la página de reservas del estudio
+      </a>.
+    </p>
   );
 }
 

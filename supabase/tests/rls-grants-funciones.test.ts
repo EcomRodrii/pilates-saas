@@ -40,6 +40,14 @@ const CASOS: Caso[] = [
   // queda ningún llamador fuera de `admin.rpc(...)` — solo service_role.
   { firma: 'cancelar_reserva_plaza(text, text, text, boolean)', anon: false, authenticated: false, serviceRole: true },
   { firma: 'mis_estudios()', anon: false, authenticated: true, serviceRole: true },
+  // Créditos y stock del catálogo: solo servidor (migr 20261019122718). Ninguna pantalla las llama; las
+  // RPC de canje las usan por dentro como su dueño. Mostrador podía restar saldo sin apunte y subir stock.
+  { firma: 'ajustar_creditos(text, text, integer, integer, integer)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ajustar_stock(text, text, integer)', anon: false, authenticated: false, serviceRole: true },
+  // Las RPC de canje que SÍ llama el panel: abiertas a authenticated, con su guardia de rol dentro.
+  { firma: 'canjear_recompensa(text, text, text, text)', anon: false, authenticated: true, serviceRole: true },
+  { firma: 'cancelar_canje(text, text)', anon: false, authenticated: true, serviceRole: true },
+  { firma: 'entregar_canje(text, text, text)', anon: false, authenticated: true, serviceRole: true },
   // Qué conexiones están encendidas, solo el tipo (migr 20261007144207): la llama
   // el panel con la sesión del equipo, porque `integraciones` solo la lee la propietaria.
   { firma: 'integraciones_activas()', anon: false, authenticated: true, serviceRole: true },
@@ -80,6 +88,12 @@ const CASOS: Caso[] = [
   { firma: 'cancelar_reservas_de_sesion(text, text, text)', anon: false, authenticated: false, serviceRole: true },
   // Elegibilidad de una reserva en un solo sitio, solo lectura (migr 20261002145300): como `reservar_plaza`, solo el servidor.
   { firma: 'evaluar_reserva(text, text, text, jsonb)', anon: false, authenticated: false, serviceRole: true },
+  // Guardas de pg_cron (migr 20261020110000): deciden si el job llama a Vercel; las llama el cron como su dueño y el test.
+  { firma: 'cron_hay_recordatorios_de_clase(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_checkin_automatico(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_sustituciones_vencidas(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_zoom_sync(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'cron_hay_trabajo_lista_espera(text)', anon: false, authenticated: false, serviceRole: true },
   // Plaza fija suelta con tope de plazas (migr 20261002230422): la llama solo el servidor al aprobar sola una petición de la alumna.
   { firma: 'dar_plaza_fija_con_cupo(text, jsonb, integer)', anon: false, authenticated: false, serviceRole: true },
   // Anular una recuperación (migr 20261002144936): la llama el panel con su sesión (la propia función comprueba estudio y rol).
@@ -107,6 +121,37 @@ const CASOS: Caso[] = [
   // PR-14: devolver el dinero de una clase COMPENSADA le quita el bono. Desde el cliente, cualquiera podría
   // vaciar el bono de otra (o sacarla de la cola) con solo conocer el id del pago.
   { firma: 'revertir_compra_de_clase(text, text)', anon: false, authenticated: false, serviceRole: true },
+  // Cadena que deja de pagar (migr 20261015141653): el trigger que recalcula el contrato de las sedes
+  // hermanas. Función de trigger: nadie la llama, y el permiso se comprueba al crear el trigger.
+  { firma: 'recalcular_contrato_sedes_hermanas()', anon: false, authenticated: false, serviceRole: true },
+  // `studios.creado_en` lo pone el servidor (migr 20261016115000): función de trigger, nadie la llama.
+  { firma: 'studios_creado_en_solo_servidor()', anon: false, authenticated: false, serviceRole: true },
+  // La situación de un estudio (bajas en seco, migr 20261016123000): la leen /interno y el cron, y las
+  // marcas de uso las escribe el servidor. Ninguna la llama el navegador.
+  { firma: 'marcar_uso_panel(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'marcar_uso_app(text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'senales_actividad_real(text, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'ultima_actividad_real(text, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'paga_plan(text, text)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'fase_plan_gratis(integer, integer, date, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'situacion_derivada(text, text, boolean, text, text, boolean, boolean, boolean, boolean, text, integer)', anon: false, authenticated: false, serviceRole: true },
+  // La bandeja única de la home, todos sus recuentos en una llamada (migr 20261020100000): solo la ruta del servidor.
+  { firma: 'estado_estudio_conteos(text, uuid, timestamptz, text[], text[], text[], integer)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'situacion_estudio(text, date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'situacion_estudios(date)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'registrar_situacion_diaria(date)', anon: false, authenticated: false, serviceRole: true },
+  // El embudo del alta (migr 20261021020248): la lectura cruza auth.users, solo /interno por el servidor; el
+  // trigger de auth.users que apunta el alta (con version y llegada) no lo llama nadie.
+  { firma: 'embudo_activacion_detalle(date, boolean)', anon: false, authenticated: false, serviceRole: true },
+  { firma: 'altas_estudio_registrar_cuenta()', anon: false, authenticated: false, serviceRole: true },
+  // La única SECURITY DEFINER del grupo: lee `auth.sessions` para el punto de partida de la marca del panel.
+  { firma: 'sesiones_iniciales_del_equipo()', anon: false, authenticated: false, serviceRole: true },
+  // La primera clase del alta nueva, todo o nada (migr 20261021134000): escribe tipo, sala, ficha, serie,
+  // clases y tarifa de un estudio que le dice quien llama. Solo /api/alta/primera-clase, que lo saca de la sesión.
+  { firma: 'alta_primera_clase(text, jsonb)', anon: false, authenticated: false, serviceRole: true },
+  // La guarda del job `altas-sin-terminar` (migr 20261021160000): altas a medias y estudios del alta nueva sin
+  // clase reservable. Lee `altas_estudio` y `embudo_alta`, que el navegador no lee: solo el cron y el servidor.
+  { firma: 'cron_hay_trabajo_altas(text)', anon: false, authenticated: false, serviceRole: true },
 ];
 
 for (const caso of CASOS) {
@@ -174,7 +219,6 @@ test('ninguna función SECURITY DEFINER que recibe p_studio_id o p_socio_id es e
 const ANON_EJECUTABLES_CONOCIDAS = [
   // Trigger functions: nacen con EXECUTE por el ACL por defecto, pero no se pueden
   // invocar como RPC («trigger functions can only be called as triggers»).
-  'member_credits_caducidad()',
   'red_experiencias_proteger_verificacion()',
   'red_perfiles_identidad_proteger_verificacion()',
   'red_perfiles_proteger_verificacion()',
@@ -207,6 +251,24 @@ test('las SECURITY DEFINER ejecutables por anon son solo las conocidas', async (
     `ya no son ejecutables por anon (¿se cerraron o cambiaron de firma?): ${faltan.join(', ')}. `
     + 'Quítalas de ANON_EJECUTABLES_CONOCIDAS, o si cambió la firma, actualízala.',
   );
+});
+
+// El libro de créditos y canjes lo escribe solo el servidor (migr 20261019122718): el navegador
+// (`authenticated`) lee, no escribe, y ninguna política permisiva de escritura lo reabriría.
+test('el libro de créditos y canjes no es escribible por authenticated ni anon', async () => {
+  const tablas = ['reward_redemptions', 'credit_transactions', 'reward_history', 'reward_actions', 'member_credits'];
+  const abiertas = await sql<{ tabla: string; rol: string; privilegio: string }[]>`
+    select t as tabla, r as rol, p as privilegio
+    from unnest(${tablas}::text[]) t, unnest(array['authenticated','anon']) r, unnest(array['INSERT','UPDATE','DELETE']) p
+    where has_table_privilege(r, 'public.' || t, p)
+  `;
+  assert.deepEqual([...abiertas], [], `tablas del libro escribibles desde el navegador: ${JSON.stringify(abiertas)}`);
+  const politicas = await sql<{ tablename: string; policyname: string }[]>`
+    select tablename, policyname from pg_policies
+    where schemaname = 'public' and tablename = any(${tablas}::text[])
+      and cmd in ('INSERT','UPDATE','DELETE') and permissive = 'PERMISSIVE'
+  `;
+  assert.deepEqual([...politicas], [], `políticas permisivas de escritura en el libro: ${JSON.stringify(politicas)}`);
 });
 
 test.after(async () => { await sql.end(); });

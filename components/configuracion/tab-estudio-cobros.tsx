@@ -15,6 +15,7 @@ import { Toggle, inputCls } from '@/components/configuracion/estilos';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { Campo } from '@/components/configuracion/formulario-estudio';
+import { AlineacionAlumnasActuales } from '@/components/configuracion/alineacion-alumnas-actuales';
 import { ExportarRegistrosVerifactu } from '@/components/configuracion/exportar-registros-verifactu';
 import type { EstadoEstudioVerifactu } from '@/lib/verifactu/apoderamiento';
 import {
@@ -243,29 +244,51 @@ export function FormDevoluciones({ onGuardado }: PropsFormularioCajon) {
 // SOLA en su próxima renovación (converge en como mucho un ciclo). Es dinero:
 // «Guardar» pregunta antes, con lo que va a pasar.
 
-type CobroDiaForm = { dia1: boolean };
+type CobroDiaForm = { dia1: boolean; proporcional: boolean; diasMinimos: number };
 
-function studioToCobroDia(s: Partial<Pick<Studio, 'cobroDia1Activo'>> | null): CobroDiaForm {
-  return { dia1: s?.cobroDia1Activo ?? false };
+function studioToCobroDia(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo' | 'cobroProporcionalDiasMinimos'>> | null): CobroDiaForm {
+  return { dia1: s?.cobroDia1Activo ?? false, proporcional: s?.cobroProporcionalAltaActivo ?? false, diasMinimos: s?.cobroProporcionalDiasMinimos ?? 3 };
 }
 
-function confirmacionCobroDia(activar: boolean) {
-  if (activar) {
-    return {
+function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
+  const partes: Array<{ titulo: string; descripcion: string; textoConfirmar: string }> = [];
+  // El cobro proporcional es dinero: se pregunta con lo que va a pasar.
+  if (f.proporcional !== base.proporcional || (f.proporcional && f.diasMinimos !== base.diasMinimos)) {
+    partes.push(f.proporcional && f.proporcional === base.proporcional ? {
+      titulo: '¿Cambiar los días mínimos del cobro proporcional?',
+      descripcion: `Desde ahora, si al apuntarse una alumna quedan ${f.diasMinimos} días o menos del mes, desde el panel no se cobra nada hoy y su primera cuota es el día 1 del mes siguiente (online se cobra hoy la cuota entera, que cubre hasta el final del mes siguiente); con más días, la parte proporcional.`,
+      textoConfirmar: 'Sí, cambiar',
+    } : f.proporcional ? {
+      titulo: '¿Cobrar la parte proporcional del primer mes?',
+      descripcion: 'Desde ahora, una cuota mensual que des de alta desde el panel a mitad de mes (alta de clienta o «Asignar plan») cobra solo los días que quedan de ese mes, y la primera renovación es el día 1 del mes siguiente por la cuota entera. Además, al cambiar a una cuota más cara a mitad de ciclo podrás cobrar la diferencia proporcional. Las alumnas que ya tienes no cambian. Lo mismo vale cuando la alumna compra la cuota ella misma desde la web o la app (se le enseña antes de pagar). La caja, la clase de prueba, la importación y «pagar y reservar» una clase siguen cobrando el mes completo. La matrícula no se prorratea. Ojo con la compra online: con pocos días restantes no se puede aplazar el cobro, así que se cobra la cuota entera hoy y vale hasta el final del mes siguiente. Si quedan pocos días (3 de serie), a quien das de alta desde el panel no se le cobra nada hoy y su primera cuota entera se cobra el día 1.',
+      textoConfirmar: 'Sí, cobrar la parte proporcional',
+    } : {
+      titulo: '¿Volver a cobrar el mes entero?',
+      descripcion: 'Las próximas altas vuelven a cobrar la cuota completa y el cambio de plan deja de ofrecer la diferencia. Las cuotas que ya nacieron con parte proporcional siguen su camino y se renuevan como siempre.',
+      textoConfirmar: 'Sí, cobrar el mes entero',
+    });
+  }
+  if (f.dia1 !== base.dia1 || partes.length === 0) {
+    partes.push(f.dia1 ? {
       titulo: '¿Cobrar todas las cuotas el día 1?',
       descripcion: 'Cada cuota mensual se realinea sola en su PRÓXIMA renovación, sin prorratear ni tocarla ahora: para una alumna que ya tienes puede tardar hasta un ciclo en caer exactamente el día 1. Las cuotas nuevas siguen naciendo en el día en que se apuntan.',
       textoConfirmar: 'Sí, cobrar el día 1',
-    };
+    } : {
+      titulo: '¿Volver al aniversario de cada alumna?',
+      descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada alumna contrató su cuota.',
+      textoConfirmar: 'Sí, volver al aniversario',
+    });
   }
+  if (partes.length === 1) return partes[0];
   return {
-    titulo: '¿Volver al aniversario de cada alumna?',
-    descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada alumna contrató su cuota.',
-    textoConfirmar: 'Sí, volver al aniversario',
+    titulo: partes.map(p => p.titulo.replace(/^¿|\?$/g, '')).join(' y ').replace(/^./, c => `¿${c.toUpperCase()}`) + '?',
+    descripcion: partes.map(p => p.descripcion).join(' '),
+    textoConfirmar: 'Sí, guardar los dos cambios',
   };
 }
 
 export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
-  const { studio, updateStudio } = useStudio();
+  const { studio, updateStudio, reflejarStudioGuardado } = useStudio();
   const [form, setForm] = useState<CobroDiaForm>(() => studioToCobroDia(studio));
   const [base, setBase] = useState<CobroDiaForm>(() => studioToCobroDia(studio));
 
@@ -279,8 +302,10 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
 
   async function alGuardar(): Promise<string | null> {
     const enviado = form;
-    const res = await updateStudio({ cobroDia1Activo: form.dia1 });
+    const res = await updateStudio({ cobroDia1Activo: form.dia1, cobroProporcionalAltaActivo: form.proporcional, cobroProporcionalDiasMinimos: form.diasMinimos });
     if (!res.ok) return res.error;
+    // Apagar el día 1 devuelve el modo de las alumnas actuales a «entera» (lo hace un trigger de la base): se refleja aquí.
+    if (!enviado.dia1) reflejarStudioGuardado({ cobroDia1Modo: 'ENTERA' });
     setForm(f => sincronizarFormulario(f, enviado, enviado));
     setBase(enviado);
     onGuardado('Guardado cuándo se cobra la cuota mensual');
@@ -296,7 +321,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
             !form.dia1 ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
           )}
         >
-          <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={!form.dia1} onChange={() => setForm({ dia1: false })} />
+          <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={!form.dia1} onChange={() => setForm(f => ({ ...f, dia1: false }))} />
           <span>
             <span className="block text-sm font-medium text-foreground">Cada alumna en su aniversario</span>
             <span className="block text-sm text-muted-foreground text-pretty">Se le cobra el mismo día en que contrató su cuota, cada mes. Es como funciona hoy.</span>
@@ -308,19 +333,68 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
             form.dia1 ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
           )}
         >
-          <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={form.dia1} onChange={() => setForm({ dia1: true })} />
+          <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={form.dia1} onChange={() => setForm(f => ({ ...f, dia1: true }))} />
           <span>
             <span className="block text-sm font-medium text-foreground">Todas el día 1 de cada mes</span>
             <span className="block text-sm text-muted-foreground text-pretty">
-              Cada cuota se realinea sola en su próxima renovación, sin prorratear: una alumna a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1.
+              Cada cuota se realinea sola en su próxima renovación: una alumna a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1. Una vez guardado, eliges si las alumnas que ya tienes pagan la cuota entera (unos días gratis) o solo la parte proporcional.
             </span>
           </span>
         </label>
+        <label
+          className={cn(
+            'mt-4 flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+            form.proporcional ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted',
+          )}
+        >
+          <input
+            type="checkbox"
+            className="mt-1 accent-[var(--brand)]"
+            checked={form.proporcional}
+            onChange={e => setForm(f => ({ ...f, proporcional: e.target.checked }))}
+          />
+          <span>
+            <span className="block text-sm font-medium text-foreground">Cobrar la parte proporcional del primer mes</span>
+            <span className="block text-sm text-muted-foreground text-pretty">
+              Una cuota mensual nueva (desde el panel o comprada online) a mitad de mes cobra solo los días que quedan de ese mes
+              (alta el 15 de un mes de 31 días: 17 de 31). El mes siguiente se cobra entero, el día 1. La matrícula no se prorratea. Al cambiar a una cuota más cara a mitad de ciclo, «Cambiar plan» te deja cobrar la diferencia proporcional.
+            </span>
+            <span className="mt-1 block text-xs text-muted-foreground text-pretty">
+              Aplica a altas desde el panel y a la compra online (la alumna ve antes de pagar cuánto y por qué). No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar», que cobran el mes entero.
+              Con «Todas el día 1», lo que pagan las alumnas que ya tienes se elige aparte, después de guardar.
+            </span>
+          </span>
+        </label>
+        {form.proporcional && (
+          <div className="ml-7 rounded-lg border border-border p-3">
+            <label htmlFor="dias-minimos-prorrateo" className="block text-sm font-medium text-foreground">
+              Días mínimos que tienen que quedar para cobrar la parte proporcional
+            </label>
+            <input
+              id="dias-minimos-prorrateo"
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={10}
+              step={1}
+              value={form.diasMinimos}
+              onChange={e => {
+                const n = Number(e.target.value);
+                setForm(f => ({ ...f, diasMinimos: Number.isFinite(n) ? Math.min(10, Math.max(0, Math.trunc(n))) : f.diasMinimos }));
+              }}
+              className="mt-2 h-10 w-24 rounded-lg border border-border bg-background px-3 text-sm"
+            />
+            <p className="mt-2 text-xs text-muted-foreground text-pretty">
+              Si quedan {form.diasMinimos} días o menos del mes (contando el día del alta): desde el panel no se cobra nada hoy y la primera cuota es el día 1; en la compra online se cobra hoy la cuota entera, que cubre hasta el final del mes siguiente (la tarjeta no se puede guardar sin un primer pago). Con más días se cobra la parte proporcional. Con 0 se prorratea siempre (por debajo de 0,50 € no se cobra).
+            </p>
+          </div>
+        )}
+        {base.dia1 && form.dia1 && <AlineacionAlumnasActuales />}
       </div>
       <BarraGuardar
         seccion="cobros"
         cambios={hayCambios(form, base) ? ['Cuándo se cobra la cuota mensual'] : []}
-        confirmar={confirmacionCobroDia(form.dia1)}
+        confirmar={confirmacionCobroDia(form, base)}
         onGuardar={alGuardar}
         onDescartar={() => setForm(base)}
       />

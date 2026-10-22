@@ -24,6 +24,7 @@ import type { RespuestaDecision } from '@/lib/reservas-por-aprobar';
 import type { OrigenPago } from '@/lib/billing/origen-pago';
 import type { FaseTrial } from '@/lib/billing/trial';
 import type { EstadoGratisApi } from '@/lib/billing/plan-gratis';
+import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { ContactoFila } from '@/lib/sustituciones/traza';
 import type { DiagnosticoEquipo } from '@/lib/sustituciones/preparacion';
 import type {
@@ -528,7 +529,7 @@ export async function crearBaja(sesionId: string, motivo?: string): Promise<{ ok
 }
 
 export async function listarSustituciones(): Promise<{
-  items: SustitucionPanel[]; avisarAlumnas: boolean; modoAutonomia: string; autonomiaDisponible: boolean; equipo: DiagnosticoEquipo;
+  items: SustitucionPanel[]; avisarAlumnas: boolean; modoAutonomia: string; autonomiaDisponible: boolean; autonomiaEsComplemento?: boolean; equipo: DiagnosticoEquipo;
 }> {
   // Equipo vacío como valor por defecto: ante un fallo NO inventamos un aviso de
   // "te falta configurar el equipo" que podría ser mentira.
@@ -537,13 +538,14 @@ export async function listarSustituciones(): Promise<{
     const res = await fetch('/api/sustituciones', { headers: await authHeader() });
     if (!res.ok) return { items: [], avisarAlumnas: false, modoAutonomia: 'asistido', autonomiaDisponible: false, equipo: vacio };
     const data = (await res.json()) as {
-      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; modoAutonomia?: string; autonomiaDisponible?: boolean; equipo?: DiagnosticoEquipo;
+      sustituciones?: SustitucionPanel[]; avisarAlumnas?: boolean; modoAutonomia?: string; autonomiaDisponible?: boolean; autonomiaEsComplemento?: boolean; equipo?: DiagnosticoEquipo;
     };
     return {
       items: data.sustituciones ?? [],
       avisarAlumnas: !!data.avisarAlumnas,
       modoAutonomia: data.modoAutonomia ?? 'asistido',
       autonomiaDisponible: !!data.autonomiaDisponible,
+      autonomiaEsComplemento: !!data.autonomiaEsComplemento,
       equipo: data.equipo ?? vacio,
     };
   } catch {
@@ -877,6 +879,40 @@ export async function cobrarOnlineDirecto(params: { reciboId: string; socioId: s
     return aviso ? { ok: true, ...aviso } : { ok: true };
   } catch {
     return { error: 'No hemos podido confirmar el cobro. Mira el recibo antes de repetirlo: puede haberse hecho.', errorCode: CODIGO_RESPUESTA_PERDIDA };
+  }
+}
+
+// «Cambiar plan» a una cuota más cara cobrando la diferencia proporcional. El
+// importe lo recalcula el servidor; `importeConfirmado` es el que la persona vio.
+// Todo o nada en la base de datos y sin duplicar al repetir. NUNCA lanza: si la
+// respuesta no llega, el cambio PUEDE haberse hecho (la pantalla relee antes de repetir).
+export type ResultadoCambioConDiferencia =
+  | { ok: true; suscripcionId: string; reciboId: string; importe: number; yaHecho: boolean }
+  | { ok: false; error: string; codigo?: string; importe?: number };
+
+export async function cambiarCuotaConDiferencia(params: {
+  socioId: string; suscripcionActualId: string; planNuevoId: string; importeConfirmado: number;
+}): Promise<ResultadoCambioConDiferencia> {
+  try {
+    const res = await fetch('/api/suscripciones/cambiar-con-diferencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(params),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return {
+        ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)),
+        codigo: typeof data.codigo === 'string' ? data.codigo : undefined,
+        importe: typeof data.importe === 'number' ? data.importe : undefined,
+      };
+    }
+    return {
+      ok: true, suscripcionId: String(data.suscripcionId ?? ''), reciboId: String(data.reciboId ?? ''),
+      importe: Number(data.importe ?? params.importeConfirmado), yaHecho: Boolean(data.yaHecho),
+    };
+  } catch {
+    return { ok: false, codigo: CODIGO_RESPUESTA_PERDIDA, error: 'No hemos podido confirmar el cambio. Mira la ficha antes de repetirlo: puede haberse hecho.' };
   }
 }
 
@@ -1353,6 +1389,14 @@ export interface EstadoBilling {
   trial?: { fase: FaseTrial; diasRestantes: number; finaliza: string | null };
   /** Founding Studio gratis: uso, fase y margen, derivados en servidor. `null`/ausente si no lo es. */
   gratis?: EstadoGratisApi | null;
+  /**
+   * Qué planes se le ofrecen (una sede secundaria, solo Cadena) y qué planes
+   * sueltos cancelaría Cadena. Ausente si ya paga (o con un servidor anterior);
+   * `null` si no se pudo leer.
+   */
+  opcionesDePlan?: OpcionesDePlan | null;
+  /** Complementos de Founding (`ADDONS`). Ausente con un servidor anterior. */
+  complementos?: { pagaAparte: boolean; contratados: string[]; disponibles: string[] };
 }
 
 // Estado de la suscripción del estudio. Fail-open: si la llamada falla, devuelve
@@ -1397,6 +1441,41 @@ export async function gestionarSuscripcion(): Promise<{ url: string } | { error:
     return data as { url: string };
   } catch {
     return { error: 'No se pudo abrir el portal de facturación' };
+  }
+}
+
+/**
+ * Activa o quita un complemento de Founding (una línea más de la suscripción de
+ * Stripe). Devuelve los complementos que hay DE VERDAD tras el cambio.
+ */
+export async function cambiarComplemento(addon: string, activar: boolean): Promise<{ addons: string[] } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/addons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ addon, activar }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(data.addons)) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { addons: data.addons as string[] };
+  } catch {
+    return { error: 'No se ha podido cambiar el complemento. Vuelve a intentarlo.' };
+  }
+}
+
+/** Founding Studio (con o sin complementos) → Estudio, en una sola actualización de Stripe. */
+export async function pasarAEstudio(): Promise<{ ok: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/cambiar-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plan: 'ESTUDIO' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.plan !== 'ESTUDIO') return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return { ok: true };
+  } catch {
+    return { error: 'No se ha podido cambiar de plan. Vuelve a intentarlo.' };
   }
 }
 

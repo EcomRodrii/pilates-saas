@@ -195,6 +195,8 @@ export interface RowChallengeDefinitions {
   creditos_recompensa: number;
   activo: boolean;
   creado_en: string;
+  // migr 20261020153107.
+  alcance: string | null;
 }
 
 export interface RowChallengeHistory {
@@ -390,6 +392,8 @@ export interface RowMemberCredits {
   caduca_el: string | null;
   // migr 20260917010429.
   creditos_por_compensar: number | null;
+  // migr 20261019122801.
+  total_caducado: number | null;
 }
 
 export interface RowMensajesEquipo {
@@ -679,6 +683,14 @@ export interface RowRewardRedemptions {
   entregado_por: string | null;
   // migr 20260909154359.
   recuperacion_id: string | null;
+  // migr 20261019122801.
+  recompensa_nombre: string | null;
+  // migr 20261019122801.
+  cancelado_en: string | null;
+  // migr 20261019122801.
+  cancelado_por: string | null;
+  // migr 20261019122801.
+  cancelado_motivo: string | null;
 }
 
 export interface RowRewardRules {
@@ -1122,6 +1134,18 @@ export interface RowStudios {
   facturar_automatico: boolean | null;
   // migr 20261013184656.
   tarjeta_clase: any | null;
+  // migr 20261019175741.
+  regimen_addons: boolean | null;
+  // migr 20261019175741.
+  addons: string[] | null;
+  // migr 20261019182716.
+  mostrar_logo_en_landing: boolean | null;
+  // migr 20261021175710.
+  cobro_proporcional_alta_activo: boolean | null;
+  // migr 20261021175710.
+  cobro_proporcional_dias_minimos: number | null;
+  // migr 20261022081316.
+  cobro_dia_1_modo: string | null;
 }
 
 export interface RowSuscripciones {
@@ -1248,6 +1272,8 @@ export interface RowVentasPos {
   checkout_session_id: string | null;
   // migr 20260913020635.
   matricula_cupo_plan_id: string | null;
+  // migr 20261016115731.
+  codigo_descuento_id: string | null;
 }
 
 export interface RowVideosOnDemand {
@@ -2144,6 +2170,8 @@ export interface RowRetoParticipaciones {
   socio_id: string;
   reto_key: string;
   created_at: string;
+  // migr 20261020153107.
+  baja_en: string | null;
 }
 
 export interface RowStudioHorario {
@@ -2648,6 +2676,10 @@ export interface RowCodigosDescuentoConsumos {
   consumido_en: string;
   // migr 20260907172746.
   socio_id: string | null;
+  // migr 20261015222942.
+  id: number | null;
+  // migr 20261015222942.
+  venta_pos_id: string | null;
 }
 
 export interface RowReviewBoostFeedback {
@@ -3938,6 +3970,14 @@ export interface RowAltasEstudio {
   recordatorio_error: string | null;
   recordatorio_descartado: string | null;
   actualizado_en: string;
+  // migr 20261021020248.
+  version: string | null;
+  // migr 20261021020248.
+  llegada: string | null;
+  // migr 20261021102626.
+  condiciones_version: string | null;
+  // migr 20261021102626.
+  condiciones_aceptadas_en: string | null;
 }
 
 export interface RowMovimientosDerecho {
@@ -4271,6 +4311,8 @@ export interface RowAppsEstudio {
   url_tienda: string | null;
   // migr 20261015062318.
   nota_interna: string | null;
+  // migr 20261015184839.
+  sin_plan_desde: string | null;
 }
 
 export interface RowFestivosEstudio {
@@ -4295,6 +4337,95 @@ export interface RowUsoPlanGratis {
   creado_en: string;
   // migr 20261014234337.
   reservas_30_dias: number | null;
+}
+
+export interface RowAppsEstudioCupos {
+  bundle_id: string;
+  asc_app_id: string;
+  studio_id: string | null;
+  asignado_en: string | null;
+  creado_en: string;
+}
+
+export interface RowEstudioMarcasUso {
+  studio_id: string;
+  panel_dia: string | null;
+  app_dia: string | null;
+  panel_origen: string | null;
+  actualizado_en: string;
+}
+
+export interface RowEstudioSituacionDiaria {
+  studio_id: string;
+  dia: string;
+  estado: string;
+  motivo: string | null;
+  variante: string | null;
+  paga: boolean | null;
+  gestion_limitada: boolean | null;
+  servicio_alumnas_suspendido: boolean | null;
+  cobros_automaticos_pausados: boolean | null;
+  senales: any;
+  avisos: string[];
+  calculado_en: string;
+  // migr 20261016174500.
+  gratis: any | null;
+}
+
+export interface RowVinculosCuentasGratis {
+  id: string;
+  studio_id: string;
+  vinculado_id: string;
+  motivo: string;
+  cuenta: boolean;
+  detalle: any;
+  detectado_en: string;
+  descartado_en: string | null;
+  descartado_por: string | null;
+}
+
+export interface RowHuellasAlta {
+  studio_id: string;
+  ip_hmac: string | null;
+  dispositivo_hmac: string | null;
+  visto_en: string;
+}
+
+export interface RowCuentasStripeVistas {
+  stripe_account_id: string;
+  studio_id: string;
+  visto_en: string;
+}
+
+export interface RowRastroGratis {
+  studio_id: string;
+  tipo: string;
+  clave: string;
+  visto_en: string;
+  // migr 20261019190418.
+  socio_id: string | null;
+  // migr 20261019190557.
+  es_hmac: boolean | null;
+}
+
+export interface RowRastroGratisClave {
+  id: boolean;
+  clave: string;
+}
+
+export interface RowPlazaFijaSinCuotaAvisos {
+  studio_id: string;
+  socio_id: string;
+  avisada_en: string;
+  liberar_desde: string;
+}
+
+export interface RowEmbudoAlta {
+  studio_id: string;
+  paso: string;
+  dia: string;
+  detalle: string | null;
+  ocurrido_en: string;
 }
 
 
@@ -4615,6 +4746,7 @@ export type ChallengeDefinitionsInsert = {
   creditos_recompensa?: number | null;
   activo?: boolean | null;
   creado_en?: string | null;
+  alcance?: string | null | null;
 }
 
 export type ChallengeDefinitionsUpdate = {
@@ -4630,6 +4762,7 @@ export type ChallengeDefinitionsUpdate = {
   creditos_recompensa?: number | null;
   activo?: boolean | null;
   creado_en?: string | null;
+  alcance?: string | null | null;
 }
 
 export type ChallengeHistoryInsert = {
@@ -4955,6 +5088,7 @@ export type MemberCreditsInsert = {
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
   creditos_por_compensar?: number | null | null;
+  total_caducado?: number | null | null;
 }
 
 export type MemberCreditsUpdate = {
@@ -4966,6 +5100,7 @@ export type MemberCreditsUpdate = {
   actualizado_en?: string | null;
   caduca_el?: string | null | null;
   creditos_por_compensar?: number | null | null;
+  total_caducado?: number | null | null;
 }
 
 export type MensajesEquipoInsert = {
@@ -5386,6 +5521,10 @@ export type RewardRedemptionsInsert = {
   entregado_en?: string | null | null;
   entregado_por?: string | null | null;
   recuperacion_id?: string | null | null;
+  recompensa_nombre?: string | null | null;
+  cancelado_en?: string | null | null;
+  cancelado_por?: string | null | null;
+  cancelado_motivo?: string | null | null;
 }
 
 export type RewardRedemptionsUpdate = {
@@ -5400,6 +5539,10 @@ export type RewardRedemptionsUpdate = {
   entregado_en?: string | null | null;
   entregado_por?: string | null | null;
   recuperacion_id?: string | null | null;
+  recompensa_nombre?: string | null | null;
+  cancelado_en?: string | null | null;
+  cancelado_por?: string | null | null;
+  cancelado_motivo?: string | null | null;
 }
 
 export type RewardRulesInsert = {
@@ -5790,6 +5933,12 @@ export type StudiosInsert = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  regimen_addons?: boolean | null | null;
+  addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
+  cobro_proporcional_alta_activo?: boolean | null | null;
+  cobro_proporcional_dias_minimos?: number | null | null;
+  cobro_dia_1_modo?: string | null | null;
 }
 
 export type StudiosUpdate = {
@@ -5948,6 +6097,12 @@ export type StudiosUpdate = {
   tour_completado_en?: string | null | null;
   facturar_automatico?: boolean | null | null;
   tarjeta_clase?: any | null | null;
+  regimen_addons?: boolean | null | null;
+  addons?: string[] | null | null;
+  mostrar_logo_en_landing?: boolean | null | null;
+  cobro_proporcional_alta_activo?: boolean | null | null;
+  cobro_proporcional_dias_minimos?: number | null | null;
+  cobro_dia_1_modo?: string | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -6069,6 +6224,7 @@ export type VentasPosInsert = {
   anulada_motivo?: string | null | null;
   checkout_session_id?: string | null | null;
   matricula_cupo_plan_id?: string | null | null;
+  codigo_descuento_id?: string | null | null;
 }
 
 export type VentasPosUpdate = {
@@ -6106,6 +6262,7 @@ export type VentasPosUpdate = {
   anulada_motivo?: string | null | null;
   checkout_session_id?: string | null | null;
   matricula_cupo_plan_id?: string | null | null;
+  codigo_descuento_id?: string | null | null;
 }
 
 export type VideosOnDemandInsert = {
@@ -7760,6 +7917,7 @@ export type RetoParticipacionesInsert = {
   socio_id?: string | null;
   reto_key?: string | null;
   created_at?: string | null;
+  baja_en?: string | null | null;
 }
 
 export type RetoParticipacionesUpdate = {
@@ -7768,6 +7926,7 @@ export type RetoParticipacionesUpdate = {
   socio_id?: string | null;
   reto_key?: string | null;
   created_at?: string | null;
+  baja_en?: string | null | null;
 }
 
 export type StudioHorarioInsert = {
@@ -8687,6 +8846,8 @@ export type CodigosDescuentoConsumosInsert = {
   codigo_id?: string | null;
   consumido_en?: string | null;
   socio_id?: string | null | null;
+  id?: number | null | null;
+  venta_pos_id?: string | null | null;
 }
 
 export type CodigosDescuentoConsumosUpdate = {
@@ -8694,6 +8855,8 @@ export type CodigosDescuentoConsumosUpdate = {
   codigo_id?: string | null;
   consumido_en?: string | null;
   socio_id?: string | null | null;
+  id?: number | null | null;
+  venta_pos_id?: string | null | null;
 }
 
 export type ReviewBoostFeedbackInsert = {
@@ -11183,6 +11346,10 @@ export type AltasEstudioInsert = {
   recordatorio_error?: string | null | null;
   recordatorio_descartado?: string | null | null;
   actualizado_en?: string | null;
+  version?: string | null | null;
+  llegada?: string | null | null;
+  condiciones_version?: string | null | null;
+  condiciones_aceptadas_en?: string | null | null;
 }
 
 export type AltasEstudioUpdate = {
@@ -11200,6 +11367,10 @@ export type AltasEstudioUpdate = {
   recordatorio_error?: string | null | null;
   recordatorio_descartado?: string | null | null;
   actualizado_en?: string | null;
+  version?: string | null | null;
+  llegada?: string | null | null;
+  condiciones_version?: string | null | null;
+  condiciones_aceptadas_en?: string | null | null;
 }
 
 export type MovimientosDerechoInsert = {
@@ -11844,6 +12015,7 @@ export type AppsEstudioInsert = {
   pedida_en?: string | null | null;
   url_tienda?: string | null | null;
   nota_interna?: string | null | null;
+  sin_plan_desde?: string | null | null;
 }
 
 export type AppsEstudioUpdate = {
@@ -11856,6 +12028,7 @@ export type AppsEstudioUpdate = {
   pedida_en?: string | null | null;
   url_tienda?: string | null | null;
   nota_interna?: string | null | null;
+  sin_plan_desde?: string | null | null;
 }
 
 export type FestivosEstudioInsert = {
@@ -11902,6 +12075,178 @@ export type UsoPlanGratisUpdate = {
   intento_en?: string | null | null;
   creado_en?: string | null;
   reservas_30_dias?: number | null | null;
+}
+
+export type AppsEstudioCuposInsert = {
+  bundle_id?: string | null;
+  asc_app_id?: string | null;
+  studio_id?: string | null | null;
+  asignado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type AppsEstudioCuposUpdate = {
+  bundle_id?: string | null;
+  asc_app_id?: string | null;
+  studio_id?: string | null | null;
+  asignado_en?: string | null | null;
+  creado_en?: string | null;
+}
+
+export type EstudioMarcasUsoInsert = {
+  studio_id?: string | null;
+  panel_dia?: string | null | null;
+  app_dia?: string | null | null;
+  panel_origen?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type EstudioMarcasUsoUpdate = {
+  studio_id?: string | null;
+  panel_dia?: string | null | null;
+  app_dia?: string | null | null;
+  panel_origen?: string | null | null;
+  actualizado_en?: string | null;
+}
+
+export type EstudioSituacionDiariaInsert = {
+  studio_id?: string | null;
+  dia?: string | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  variante?: string | null | null;
+  paga?: boolean | null | null;
+  gestion_limitada?: boolean | null | null;
+  servicio_alumnas_suspendido?: boolean | null | null;
+  cobros_automaticos_pausados?: boolean | null | null;
+  senales?: any | null;
+  avisos?: string[] | null;
+  calculado_en?: string | null;
+  gratis?: any | null | null;
+}
+
+export type EstudioSituacionDiariaUpdate = {
+  studio_id?: string | null;
+  dia?: string | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  variante?: string | null | null;
+  paga?: boolean | null | null;
+  gestion_limitada?: boolean | null | null;
+  servicio_alumnas_suspendido?: boolean | null | null;
+  cobros_automaticos_pausados?: boolean | null | null;
+  senales?: any | null;
+  avisos?: string[] | null;
+  calculado_en?: string | null;
+  gratis?: any | null | null;
+}
+
+export type VinculosCuentasGratisInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  vinculado_id?: string | null;
+  motivo?: string | null;
+  cuenta?: boolean | null;
+  detalle?: any | null;
+  detectado_en?: string | null;
+  descartado_en?: string | null | null;
+  descartado_por?: string | null | null;
+}
+
+export type VinculosCuentasGratisUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  vinculado_id?: string | null;
+  motivo?: string | null;
+  cuenta?: boolean | null;
+  detalle?: any | null;
+  detectado_en?: string | null;
+  descartado_en?: string | null | null;
+  descartado_por?: string | null | null;
+}
+
+export type HuellasAltaInsert = {
+  studio_id?: string | null;
+  ip_hmac?: string | null | null;
+  dispositivo_hmac?: string | null | null;
+  visto_en?: string | null;
+}
+
+export type HuellasAltaUpdate = {
+  studio_id?: string | null;
+  ip_hmac?: string | null | null;
+  dispositivo_hmac?: string | null | null;
+  visto_en?: string | null;
+}
+
+export type CuentasStripeVistasInsert = {
+  stripe_account_id?: string | null;
+  studio_id?: string | null;
+  visto_en?: string | null;
+}
+
+export type CuentasStripeVistasUpdate = {
+  stripe_account_id?: string | null;
+  studio_id?: string | null;
+  visto_en?: string | null;
+}
+
+export type RastroGratisInsert = {
+  studio_id?: string | null;
+  tipo?: string | null;
+  clave?: string | null;
+  visto_en?: string | null;
+  socio_id?: string | null | null;
+  es_hmac?: boolean | null | null;
+}
+
+export type RastroGratisUpdate = {
+  studio_id?: string | null;
+  tipo?: string | null;
+  clave?: string | null;
+  visto_en?: string | null;
+  socio_id?: string | null | null;
+  es_hmac?: boolean | null | null;
+}
+
+export type RastroGratisClaveInsert = {
+  id?: boolean | null;
+  clave?: string | null;
+}
+
+export type RastroGratisClaveUpdate = {
+  id?: boolean | null;
+  clave?: string | null;
+}
+
+export type PlazaFijaSinCuotaAvisosInsert = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  avisada_en?: string | null;
+  liberar_desde?: string | null;
+}
+
+export type PlazaFijaSinCuotaAvisosUpdate = {
+  studio_id?: string | null;
+  socio_id?: string | null;
+  avisada_en?: string | null;
+  liberar_desde?: string | null;
+}
+
+export type EmbudoAltaInsert = {
+  studio_id?: string | null;
+  paso?: string | null;
+  dia?: string | null;
+  detalle?: string | null | null;
+  ocurrido_en?: string | null;
+}
+
+export type EmbudoAltaUpdate = {
+  studio_id?: string | null;
+  paso?: string | null;
+  dia?: string | null;
+  detalle?: string | null | null;
+  ocurrido_en?: string | null;
 }
 
 export type Database = {
@@ -13231,6 +13576,56 @@ export type Database = {
         Row: RowUsoPlanGratis;
         Insert: UsoPlanGratisInsert;
         Update: UsoPlanGratisUpdate;
+      };
+      apps_estudio_cupos: {
+        Row: RowAppsEstudioCupos;
+        Insert: AppsEstudioCuposInsert;
+        Update: AppsEstudioCuposUpdate;
+      };
+      estudio_marcas_uso: {
+        Row: RowEstudioMarcasUso;
+        Insert: EstudioMarcasUsoInsert;
+        Update: EstudioMarcasUsoUpdate;
+      };
+      estudio_situacion_diaria: {
+        Row: RowEstudioSituacionDiaria;
+        Insert: EstudioSituacionDiariaInsert;
+        Update: EstudioSituacionDiariaUpdate;
+      };
+      vinculos_cuentas_gratis: {
+        Row: RowVinculosCuentasGratis;
+        Insert: VinculosCuentasGratisInsert;
+        Update: VinculosCuentasGratisUpdate;
+      };
+      huellas_alta: {
+        Row: RowHuellasAlta;
+        Insert: HuellasAltaInsert;
+        Update: HuellasAltaUpdate;
+      };
+      cuentas_stripe_vistas: {
+        Row: RowCuentasStripeVistas;
+        Insert: CuentasStripeVistasInsert;
+        Update: CuentasStripeVistasUpdate;
+      };
+      rastro_gratis: {
+        Row: RowRastroGratis;
+        Insert: RastroGratisInsert;
+        Update: RastroGratisUpdate;
+      };
+      rastro_gratis_clave: {
+        Row: RowRastroGratisClave;
+        Insert: RastroGratisClaveInsert;
+        Update: RastroGratisClaveUpdate;
+      };
+      plaza_fija_sin_cuota_avisos: {
+        Row: RowPlazaFijaSinCuotaAvisos;
+        Insert: PlazaFijaSinCuotaAvisosInsert;
+        Update: PlazaFijaSinCuotaAvisosUpdate;
+      };
+      embudo_alta: {
+        Row: RowEmbudoAlta;
+        Insert: EmbudoAltaInsert;
+        Update: EmbudoAltaUpdate;
       };
     };
   };

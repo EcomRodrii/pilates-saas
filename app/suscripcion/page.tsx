@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, type Plan } from '@/lib/billing/entitlements';
+import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, precioMensual, type Plan } from '@/lib/billing/entitlements';
+import { Complementos } from '@/components/billing/complementos';
 import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
@@ -21,6 +22,8 @@ import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
 import { cn } from '@/lib/utils';
+import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
+import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
 
 // Suscripción del estudio a Tentare.
 //
@@ -80,6 +83,47 @@ function UsoDelPlan({ estado, className }: { estado: EstadoBilling | null; class
   );
 }
 
+const fechaLarga = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO }) : null;
+
+/** «Tu plan Founding Studio, de 29 €/mes, se cancela al activar Cadena…»: lo que cancelará el webhook, dicho antes. */
+function fraseSueltoQueSeCancela(s: PlanSueltoQueCancelaCadena): string {
+  const info = PLAN_INFO[s.plan];
+  const cual = !s.otraSede ? `Tu plan ${info.nombre}`
+    : s.nombreSede ? `El plan ${info.nombre} de tu sede «${s.nombreSede}»` : `El plan ${info.nombre} de otra de tus sedes`;
+  // Un primer pago aún en curso (un adeudo SEPA) no lo para cancelar: no se promete que deje de cobrarse.
+  if (s.pagoEnCurso) {
+    return `${cual}, de ${info.precioMes} €/mes, se cancela al activar Cadena. Su primer pago todavía se está procesando `
+      + 'y cancelar no lo detiene: si llega a cobrarse, ese mes no se devuelve.';
+  }
+  const pagado = fechaLarga(s.pagadoHasta);
+  return `${cual}, de ${info.precioMes} €/mes, se cancela al activar Cadena: dejas de pagarlo desde ese momento`
+    + (pagado ? `, y el mes que ya has pagado (hasta el ${pagado}) no se devuelve.` : '.');
+}
+
+/**
+ * Contratar Cadena cancela, al confirmarse y sin prorrateo, los planes sueltos de
+ * sus sedes (decisión del fundador, 15-oct-2026): se dice ANTES del botón de
+ * pagar, y solo si hay alguno. Si el servidor no pudo leerlo (`null`), en
+ * condicional; sin el dato (un servidor anterior), nada.
+ */
+function AvisoAlPasarACadena({ opciones }: { opciones: OpcionesDePlan | null | undefined }) {
+  if (opciones === undefined) return null;
+  const sueltos = opciones?.sueltosQueCancelaCadena ?? null;
+  if (sueltos?.length === 0) return null;
+  return (
+    <div role="note" aria-label="Al activar Cadena" data-aviso-cadena className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-foreground">
+      {sueltos ? (
+        <ul className="space-y-1">
+          {sueltos.map((s, i) => <li key={i} className="text-pretty">{fraseSueltoQueSeCancela(s)}</li>)}
+        </ul>
+      ) : (
+        <p className="text-pretty">Si alguna de tus sedes paga ahora Founding Studio o Estudio, ese plan se cancela al activar Cadena, y el mes que ya está pagado no se devuelve.</p>
+      )}
+    </div>
+  );
+}
+
 export default function SuscripcionPage() {
   const { session, loading } = useAuth();
   const router = useRouter();
@@ -116,7 +160,10 @@ export default function SuscripcionPage() {
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
       // es lo que le toca (plan-gratis.ts); dentro del límite, a lo que puede subir.
-      if (e?.gratis) setElegido(e.gratis.fase === 'MARGEN' || e.gratis.fase === 'CERRADO' ? 'BASE' : 'ESTUDIO');
+      // Crecer desde el gratis es Founding Studio de pago, 29 €/mes (fundador, 15-oct-2026), pase lo que pase.
+      // Una sede secundaria de una cadena solo puede contratar Cadena (`decidirPlanSuelto`).
+      if (e?.opcionesDePlan?.soloCadena) setElegido('CADENA');
+      else if (e?.gratis) setElegido('BASE');
       else if (e?.plan === 'BASE' || e?.plan === 'ESTUDIO' || e?.plan === 'CADENA') setElegido(e.plan);
       setCargando(false);
       if (retornoCheckout !== 'ok' || yaPagaSegun(e)) return;
@@ -151,6 +198,9 @@ export default function SuscripcionPage() {
   const trial = estado?.trial;
 
   const yaPaga = yaPagaSegun(estado);
+  // Un cobro que no salió (Stripe `past_due`) sigue siendo una suscripción viva,
+  // pero «Está al día» y «Activa» serían mentira: la tarjeta hay que arreglarla.
+  const enImpago = estado?.subscriptionStatus === 'past_due';
   // Founding Studio gratis (lib/billing/plan-gratis.ts): su uso, fase y margen, ya derivados.
   const gratis = estado?.gratis ?? null;
   // Ha pasado un límite del gratis: le toca Founding Studio de pago (plan-gratis.ts).
@@ -164,9 +214,12 @@ export default function SuscripcionPage() {
   // anteriores a que la prueba pasara a ser local — ya no se crean nuevas, pero
   // las que hay siguen vivas y esta pantalla es donde las mira su dueña.
   const primerCobro = !!estado?.enPrueba;
+  // Qué se le ofrece y qué cancelaría Cadena (lo deriva /api/billing/status). Una
+  // sede secundaria de una cadena: solo Cadena, y se dice por qué.
+  const opciones = estado?.opcionesDePlan;
+  const soloCadena = opciones?.soloCadena === true;
 
-  const fecha = (iso: string | null | undefined) =>
-    iso ? new Date(iso).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TZ_ESTUDIO }) : null;
+  const fecha = fechaLarga;
 
   return (
     <div className="min-h-dvh bg-background">
@@ -193,6 +246,8 @@ export default function SuscripcionPage() {
           <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
             {gratis
               ? 'Gratis mientras tu estudio crece. Cuando pase de los límites, eliges cómo seguir en un momento.'
+              : yaPaga && enImpago
+              ? 'Tu último cobro no ha salido. Actualiza la tarjeta en «Facturas, tarjeta y cambio de plan» para ponerte al día.'
               : yaPaga
               ? 'Está al día. Puedes cambiar de plan, ver tus facturas o actualizar la tarjeta cuando quieras.'
               : pruebaAgotada
@@ -265,9 +320,11 @@ export default function SuscripcionPage() {
             <section aria-label={seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
               <h2 className="text-[16px] font-semibold text-foreground">{seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
               <p className="text-[12.5px] text-muted-foreground">{seHaPasado ? 'Lo mismo que ya usas, sin límites. Sin permanencia.' : 'Sin permanencia. Si un día pasas de los límites, te lo decimos antes.'}</p>
-              {/* Founding Studio de pago, cuando ha pasado un límite (plan-gratis.ts): dentro del gratis no tiene nada más que darle. */}
-              <div role="radiogroup" aria-label="Plan" className={cn('mt-4 grid gap-3', seHaPasado ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
-                {(seHaPasado ? ['BASE', 'ESTUDIO', 'CADENA'] as const : ['ESTUDIO', 'CADENA'] as const).map(p => (
+              {/* Crecer es Founding Studio de pago, 29 €/mes y lo mismo sin límites (fundador, 15-oct-2026:
+                  «cuando pasa de esos limites cuesta 29€»): va el primero y elegido, también dentro del gratis.
+                  Estudio y Cadena se ofrecen, pero nunca se eligen solos. */}
+              <div role="radiogroup" aria-label="Plan" className="mt-4 grid gap-3 sm:grid-cols-3">
+                {(['BASE', 'ESTUDIO', 'CADENA'] as const).map(p => (
                   <button
                     key={p}
                     type="button"
@@ -284,11 +341,12 @@ export default function SuscripcionPage() {
                       <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
-                      {p === 'BASE' ? 'Todo igual, sin límite de alumnas ni de reservas.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio, con ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                      {p === 'BASE' ? 'Sin límite de alumnas ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
                     </span>
                   </button>
                 ))}
               </div>
+              {elegido === 'CADENA' && <div className="mt-4"><AvisoAlPasarACadena opciones={opciones} /></div>}
               {esPropietaria ? (
                 <>
                   <button
@@ -307,7 +365,8 @@ export default function SuscripcionPage() {
             </section>
           </div>
         ) : yaPaga ? (
-          /* ── Ya paga ──────────────────────────────────────────────────── */
+          <>
+          {/* ── Ya paga ──────────────────────────────────────────────────── */}
           <div className="rounded-2xl border border-border bg-card p-6 sm:p-7">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -317,7 +376,7 @@ export default function SuscripcionPage() {
                     <NombrePlan plan={(estado?.plan as Plan) ?? 'BASE'} />
                   </span>
                   <span className="text-[15px] font-semibold text-muted-foreground tabular-nums">
-                    {PLAN_INFO[(estado?.plan as Plan) ?? 'BASE'].precioMes}€
+                    {precioMensual((estado?.plan as Plan) ?? 'BASE', estado?.complementos?.pagaAparte ? estado.complementos.contratados : [])}€
                   </span>
                 </div>
                 {/* «al mes, IVA incluido» literal: es la frase que pidió P2-20
@@ -325,9 +384,15 @@ export default function SuscripcionPage() {
                     tarjeta») y que su test fija. */}
                 <p className="mt-1 text-[13.5px] text-muted-foreground">al mes, IVA incluido · sin permanencia</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-[12.5px] font-bold text-success">
-                <Check size={14} strokeWidth={3} aria-hidden="true" /> Activa
-              </span>
+              {enImpago ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-3 py-1.5 text-[12.5px] font-bold text-warning">
+                  Cobro pendiente
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1.5 text-[12.5px] font-bold text-success">
+                  <Check size={14} strokeWidth={3} aria-hidden="true" /> Activa
+                </span>
+              )}
             </div>
 
             <UsoDelPlan estado={estado} className="mt-4 border-t border-border pt-4" />
@@ -357,13 +422,32 @@ export default function SuscripcionPage() {
               </p>
             )}
           </div>
+            {/* Los complementos de Founding, solo para quien los paga aparte. */}
+            {estado?.complementos?.pagaAparte && (
+              <Complementos
+                className="mt-6"
+                contratados={estado.complementos.contratados}
+                disponibles={estado.complementos.disponibles}
+                esPropietaria={esPropietaria}
+                onCambio={(addons) => setEstado((e) => (e && e.complementos ? { ...e, complementos: { ...e.complementos, contratados: addons } } : e))}
+                onPlanCambiado={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }}
+              />
+            )}
+          </>
         ) : (
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
             <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
-            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} />
+            {soloCadena && (
+              <p data-solo-cadena className="mb-4 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">
+                <strong className="font-semibold text-foreground">Esta sede forma parte de tu cadena,</strong> así que se contrata con el plan Cadena:
+                una sola suscripción para todas tus sedes. Founding Studio y Estudio son para un solo estudio, y solo los puede contratar tu sede principal.
+              </p>
+            )}
+            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} planes={soloCadena ? ['CADENA'] : undefined} />
 
             <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">
+              {elegido === 'CADENA' && <div className="mb-4"><AvisoAlPasarACadena opciones={opciones} /></div>}
               {esPropietaria ? (
                 <>
                   <button

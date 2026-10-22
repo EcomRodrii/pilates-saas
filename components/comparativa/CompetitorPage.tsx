@@ -1,10 +1,9 @@
 import Link from 'next/link';
-import { G2_NOTA, G2_URL } from '@/lib/seo/g2';
-import { ACC, ACC_SOFT, DARK, MUTED, MUTED_DARK } from '@/components/landing/theme';
+import { G2_NOTA, G2_RESENAS, G2_URL } from '@/lib/seo/g2';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { ComparativaBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
@@ -13,16 +12,17 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { paginaDe, relacionadasDe } from '@/lib/seo/paginas';
 import { ID_ORGANIZACION } from '@/components/OrganizationStructuredData';
 import { LEGAL } from '@/lib/legal-info';
+import { SI_PASAS, CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 
 export type Verdict = 'yes' | 'no' | 'partial';
 
 function Mark({ v, label }: { v: Verdict; label: string }) {
-  const color = v === 'yes' ? '#3F8A6C' : v === 'no' ? '#B8472F' : '#A9801F';
+  const color = v === 'yes' ? 'var(--w-exito)' : v === 'no' ? 'var(--w-error)' : 'var(--w-aviso)';
   const symbol = v === 'yes' ? '✓' : v === 'no' ? '✗' : '≈';
   const lectura = v === 'yes' ? 'Sí' : v === 'no' ? 'No' : 'En parte';
   // El símbolo se oculta a los lectores de pantalla y se lee la palabra: un
   // aria-label en un <span> sin rol no lo anuncia casi ningún lector.
-  return <><span style={{ color, fontWeight: 800 }} aria-hidden>{symbol}</span><span className="cmp1-oculto">{lectura}:</span> {label}</>;
+  return <><span style={{ color, fontWeight: 600 }} aria-hidden>{symbol}</span><span className="cmp1-oculto">{lectura}:</span> {label}</>;
 }
 
 // La nota pública de G2 (lib/seo/g2.ts): se enseña porque cualquiera puede comprobarla.
@@ -34,16 +34,17 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
  */
 const POR_QUE = [
   { titulo: 'Pensado para Pilates y yoga', texto: 'Plaza por reformer, plazas fijas, bonos y lista de espera pensados para tu estudio, no para un gimnasio.' },
-  { titulo: 'Si falla una instructora, Tentare la cubre', texto: 'Busca sustituta, la contacta y avisa a tus alumnas. Sin llamadas ni grupos de WhatsApp.' },
-  { titulo: 'Cobras tú, sin comisión', texto: 'Tarjeta y SEPA directos a tu cuenta con Stripe. Tentare no se queda nada de cada cobro.' },
+  { titulo: 'Si falla una instructora, Tentare busca quién la cubre', texto: 'Propone sustituta y, con tu visto bueno, la contacta y avisa a tus alumnas. Sin llamadas ni grupos de WhatsApp.' },
+  { titulo: 'Cobras tú, sin comisión', texto: 'La tarjeta, directa a tu cuenta con Stripe; la domiciliación, con la remesa SEPA para tu banco. Tentare no se queda nada de cada cobro.' },
 ];
 
-/** La columna de Tentare del resumen: la misma en las trece comparativas. */
+/** La columna de Tentare del resumen: la misma en las trece comparativas.
+ *  Founding Studio es gratis desde el 15-oct-2026 y ya no hay prueba de 7 días. */
 const TENTARE_RESUMEN = {
   queEs: 'Software de gestión para estudios de Pilates y yoga, hecho en España',
-  precio: 'Desde 29 €/mes con IVA, precio publicado',
+  precio: `${GRATIS_CON_LIMITES}; ${SI_PASAS} con IVA`,
   permanencia: 'Sin permanencia: mes a mes',
-  prueba: '7 días gratis, sin tarjeta',
+  prueba: 'Sin prueba: se empieza gratis, sin tarjeta',
 };
 
 export type ComparativaRow = { feature: string; tentare: [Verdict, string]; them: [Verdict, string] };
@@ -98,7 +99,7 @@ export function CompetitorPage({
   veredicto,
   footnote,
   faq,
-  ctaBody = 'Te ayudamos a traer tus datos. Sin permanencia. Sin sorpresas.',
+  ctaBody = 'Sin permanencia. Sin sorpresas.',
 }: {
   name: string;
   slug: string;
@@ -149,13 +150,11 @@ export function CompetitorPage({
       <ComparativaBreadcrumb slug={slug} name={`Tentare vs ${name}`} />
       {webPageLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageLd).replace(/</g, '\\u003c') }} />}
       {faq && faq.length > 0 && <FaqStructuredData items={faq} />}
-      {/* La vuelta lleva a la home: quien llega aquí desde Google no viene de
-          la comparativa general, y «volver» a ella no le enseña el producto. */}
-      <SiteNav backHref="/" backLabel="Inicio" />
+      <IslaWeb />
 
       <header className="cmp1-heroe">
         <div className="cmp1-heroe-in">
-          <nav aria-label="Ruta" className="lp-mono cmp1-miga">
+          <nav aria-label="Migas de pan" className="cmp1-miga">
             <Link href="/">Inicio</Link>
             <span aria-hidden>/</span>
             <Link href="/comparativa">Comparativa</Link>
@@ -166,7 +165,7 @@ export function CompetitorPage({
             <div className="cmp1-logo">
               <LogoTentare formato="horizontal" alto={22} />
             </div>
-            <span className="lp-mono cmp1-vs">vs</span>
+            <span className="cmp1-vs">vs</span>
             <div className="cmp1-logo" style={logo.cardBg ? { background: logo.cardBg } : undefined}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={logo.src} alt={logo.alt} height={logo.height} width={logo.width} style={{ height: logo.height, width: 'auto', maxWidth: 160, display: 'block' }} />
@@ -176,11 +175,11 @@ export function CompetitorPage({
           <h1 className="cmp1-h1">{name}: precios, funciones y la alternativa para tu estudio de Pilates</h1>
           <p className="cmp1-intro">{intro}</p>
           <div className="cmp1-ctas">
-            <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--pri">Probar 7 días gratis →</Link>
+            <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--pri">{CTA_ALTA} →</Link>
             <Link href="/precios" className="cmp1-btn cmp1-btn--sec">Ver precios</Link>
           </div>
           <p className="cmp1-confianza">
-            <a href={G2_URL} target="_blank" rel="noopener noreferrer"><span className="cmp1-estrellas" aria-hidden>★★★★★</span> {G2_NOTA} en G2</a>
+            <a href={G2_URL} target="_blank" rel="noopener noreferrer"><span className="cmp1-estrellas" aria-hidden>★★★★★</span> {G2_NOTA} en G2 ({G2_RESENAS} reseñas)</a>
             <span aria-hidden>·</span> Sin tarjeta <span aria-hidden>·</span> Sin permanencia
           </p>
         </div>
@@ -192,7 +191,7 @@ export function CompetitorPage({
       <section className="cmp1-zona" aria-label="En resumen">
         <Reveal className="cmp1-resumen">
           <div className="cmp1-resumen-cab">
-            <p className="lp-mono cmp1-etiqueta">En resumen</p>
+            <p className="cmp1-etiqueta">En resumen</p>
             <h2 className="cmp1-resumen-h2">¿Merece la pena {name} para un estudio de Pilates?</h2>
             <p className="cmp1-resumen-resp">{resumen.respuesta}</p>
           </div>
@@ -211,7 +210,7 @@ export function CompetitorPage({
               </div>
             ))}
           </dl>
-          {revisadaTexto && <p className="lp-mono cmp1-revision">Datos de {name} revisados en su web pública el {revisadaTexto}</p>}
+          {revisadaTexto && <p className="cmp1-revision">Datos de {name} revisados en su web pública el {revisadaTexto}</p>}
         </Reveal>
       </section>
 
@@ -250,9 +249,9 @@ export function CompetitorPage({
               </tbody>
             </table>
           </Reveal>
-          <p className="lp-mono cmp1-nota">{footnote}</p>
+          <p className="cmp1-nota">{footnote}</p>
           <div className="cmp1-mitad">
-            <p>¿Lo ves claro? Compruébalo con tu estudio: 7 días gratis, sin tarjeta.</p>
+            <p>¿Lo ves claro? Compruébalo con tu estudio: empieza gratis, sin tarjeta.</p>
             <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--pri">Empezar gratis →</Link>
           </div>
         </div>
@@ -276,19 +275,19 @@ export function CompetitorPage({
         </section>
       )}
 
-      <section style={{ background: DARK, color: '#E8E8E4', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
+      <section style={{ background: 'var(--w-noche)', color: 'var(--w-sobre-noche)', padding: 'clamp(56px,7vw,88px) clamp(20px,4vw,44px)' }}>
         <Reveal style={{ maxWidth: 720, margin: '0 auto', textAlign: 'center' }}>
-          <p className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#A8B080', margin: '0 0 16px' }}>Nuestro veredicto</p>
-          <h2 style={{ fontWeight: 800, fontSize: 'clamp(28px,4.2vw,46px)', lineHeight: 1.05, letterSpacing: '-.03em', margin: '0 0 18px', color: '#fff' }}>Tentare, el Nº1 para tu estudio de Pilates.</h2>
-          <p style={{ fontSize: 'clamp(16px,1.4vw,18px)', lineHeight: 1.6, color: MUTED_DARK, margin: '0 0 28px' }}>{veredicto}</p>
-          <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--claro">Probar 7 días gratis →</Link>
+          <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--w-sand)', margin: '0 0 16px' }}>Nuestro veredicto</p>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(28px,4.2vw,46px)', lineHeight: 1.08, letterSpacing: 'var(--w-track-h2)', margin: '0 0 18px', color: 'var(--w-sobre-noche)' }}>Tentare, el Nº1 para tu estudio de Pilates.</h2>
+          <p style={{ fontSize: 'clamp(16px,1.4vw,18px)', lineHeight: 1.6, color: 'var(--w-sobre-noche-2)', margin: '0 0 28px' }}>{veredicto}</p>
+          <Link href="/crear-estudio" className="cmp1-btn cmp1-btn--claro">{CTA_ALTA} →</Link>
         </Reveal>
       </section>
 
       {relacionadas.length > 0 && (
         <section style={{ padding: 'clamp(48px,6vw,72px) clamp(20px,4vw,44px) 0' }}>
           <div style={{ maxWidth: 900, margin: '0 auto' }}>
-            <h2 className="lp-mono" style={{ fontSize: 11.5, letterSpacing: '.16em', textTransform: 'uppercase', color: '#6B6B63', margin: '0 0 18px' }}>Sigue por aquí</h2>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--w-olive)', margin: '0 0 18px' }}>Sigue por aquí</h2>
             <div className="cmp1-rel">
               {relacionadas.map((r) => (
                 <Link key={r.path} href={r.path} className="cmp1-rel-card">
@@ -316,127 +315,127 @@ export function CompetitorPage({
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .cmp1-heroe { position: relative; padding: clamp(28px,4vw,40px) clamp(20px,4vw,44px) clamp(28px,4vw,40px); }
         .cmp1-heroe-in { max-width: 820px; margin: 0 auto; }
         .cmp1-miga { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 clamp(26px,4vw,40px);
-          font-size: 11.5px; letter-spacing: .06em; color: #8A8A80; }
-        .cmp1-miga a { color: #5A5A52; text-decoration: none; }
-        .cmp1-miga a:hover { color: #1A1A1A; text-decoration: underline; text-underline-offset: 3px; }
+          font-size: var(--w-fs-mini); color: var(--w-texto-3); }
+        .cmp1-miga a { color: var(--w-texto-2); text-decoration: none; }
+        .cmp1-miga a:hover { color: var(--w-texto); text-decoration: underline; text-underline-offset: 3px; }
         .cmp1-logos { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-bottom: 24px; }
         .cmp1-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-        .cmp1-logo { background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 13px 19px; display: flex;
+        .cmp1-logo { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 16px; padding: 13px 19px; display: flex;
           align-items: center; box-shadow: 0 14px 30px -18px rgba(26,26,26,.22); }
-        .cmp1-vs { font-size: 13px; color: #A8A89F; }
+        .cmp1-vs { font-size: 13px; color: var(--w-texto-3); }
         .cmp1-kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 18px; padding: 7px 14px;
-          border-radius: 999px; background: ${ACC}; color: #fff; font-size: 13px; font-weight: 700; letter-spacing: .01em; }
-        .cmp1-kicker span { color: #E3C66B; }
-        .cmp1-h1 { font-weight: 800; font-size: clamp(32px,4.8vw,54px); line-height: 1.04; letter-spacing: -.034em;
+          border-radius: 999px; background: var(--w-olive); color: var(--w-sobre-noche); font-size: 13px; font-weight: 600; letter-spacing: .01em; }
+        .cmp1-kicker span { color: var(--w-sand); }
+        .cmp1-h1 { font-weight: 600; font-size: clamp(32px,4.8vw,54px); line-height: 1.04; letter-spacing: var(--w-track-h1);
           margin: 0 0 20px; text-wrap: balance; }
-        .cmp1-intro { font-size: clamp(17px,1.5vw,19.5px); line-height: 1.58; color: ${MUTED}; max-width: 640px; margin: 0; }
+        .cmp1-intro { font-size: clamp(17px,1.5vw,19.5px); line-height: 1.58; color: var(--w-texto-2); max-width: 640px; margin: 0; }
         .cmp1-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin: 26px 0 0; }
-        .cmp1-btn { display: inline-block; font-size: 16px; font-weight: 700; padding: 15px 28px; border-radius: 999px;
+        .cmp1-btn { display: inline-block; font-size: 16px; font-weight: 600; padding: 15px 28px; border-radius: 999px;
           text-decoration: none; transition: transform .18s ease, filter .18s ease; }
         .cmp1-btn:hover { transform: translateY(-2px); }
-        .cmp1-btn--pri { background: ${ACC}; color: #fff; box-shadow: 0 14px 28px -12px rgba(52,56,37,.55); }
+        .cmp1-btn--pri { background: var(--w-olive); color: var(--w-sobre-noche); box-shadow: 0 14px 28px -12px rgba(52,56,37,.55); }
         .cmp1-btn--pri:hover { filter: brightness(1.12); }
-        .cmp1-btn--sec { background: #fff; color: #1A1A1A; border: 1px solid #DAD9D0; }
-        .cmp1-btn--claro { background: #fff; color: ${ACC}; }
-        .cmp1-confianza { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 13.5px; color: ${MUTED}; }
-        .cmp1-confianza a { color: #1A1A1A; font-weight: 700; text-decoration: none; }
+        .cmp1-btn--sec { background: var(--w-papel); color: var(--w-texto); border: 1px solid var(--w-linea-fuerte); }
+        .cmp1-btn--claro { background: var(--w-papel); color: var(--w-olive); }
+        .cmp1-confianza { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 13.5px; color: var(--w-texto-2); }
+        .cmp1-confianza a { color: var(--w-texto); font-weight: 600; text-decoration: none; }
         .cmp1-confianza a:hover { text-decoration: underline; text-underline-offset: 3px; }
-        .cmp1-estrellas { color: #D9A520; letter-spacing: 1px; }
+        .cmp1-estrellas { color: var(--w-aviso); letter-spacing: 1px; }
 
         .cmp1-zona { padding: 0 clamp(16px,4vw,44px) clamp(36px,5vw,60px); }
         .cmp1-ancho { max-width: 960px; margin: 0 auto; }
-        .cmp1-h2 { font-weight: 800; font-size: clamp(24px,3vw,32px); line-height: 1.12; letter-spacing: -.024em; margin: 0 0 20px; }
-        .cmp1-etiqueta { margin: 0 0 12px; font-size: 11.5px; letter-spacing: .16em; text-transform: uppercase; color: #6B6B63; }
+        .cmp1-h2 { font-weight: 600; font-size: clamp(24px,3vw,32px); line-height: 1.12; letter-spacing: var(--w-track-h2); margin: 0 0 20px; }
+        .cmp1-etiqueta { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--w-olive); }
 
         /* ── El resumen ───────────────────────────────────────────────── */
-        .cmp1-resumen { max-width: 960px; margin: 0 auto; background: #fff; border: 1px solid #E4E4DC; border-radius: 26px;
+        .cmp1-resumen { max-width: 960px; margin: 0 auto; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta);
           overflow: hidden; box-shadow: 0 40px 80px -56px rgba(26,26,26,.38); }
         .cmp1-resumen-cab { padding: clamp(24px,3.4vw,38px) clamp(22px,3.4vw,40px) clamp(20px,2.6vw,28px); }
-        .cmp1-resumen-h2 { font-weight: 800; font-size: clamp(22px,2.6vw,28px); line-height: 1.15; letter-spacing: -.02em; margin: 0 0 12px; }
-        .cmp1-resumen-resp { margin: 0; max-width: 70ch; font-size: 16.5px; line-height: 1.62; color: #2E2E29; }
+        .cmp1-resumen-h2 { font-weight: 600; font-size: clamp(22px,2.6vw,28px); line-height: 1.15; letter-spacing: var(--w-track-h2); margin: 0 0 12px; }
+        .cmp1-resumen-resp { margin: 0; max-width: 70ch; font-size: 16.5px; line-height: 1.62; color: var(--w-texto); }
         .cmp1-cifras { margin: 0; }
-        .cmp1-cifras-cab { border-top: 1px solid #ECECE5; }
+        .cmp1-cifras-cab { border-top: 1px solid var(--w-linea); }
         .cmp1-cifras-cab, .cmp1-cifra { display: grid; grid-template-columns: 150px minmax(0,1fr) minmax(0,1fr); }
-        .cmp1-cifras-cab span { padding: 12px clamp(14px,2vw,22px); font-size: 12px; font-weight: 700; color: #5A5A52; background: #F6F6F2; }
-        .cmp1-cifras-cab .cmp1-cifras-nuestro { color: #fff; background: ${ACC}; }
-        .cmp1-cifra { border-top: 1px solid #ECECE5; }
-        .cmp1-cifra dt { padding: 15px clamp(14px,2vw,22px); font-size: 13px; font-weight: 700; color: #1A1A1A; }
-        .cmp1-cifra dd { margin: 0; padding: 15px clamp(14px,2vw,22px); font-size: 14px; line-height: 1.45; color: #4A4A43; }
-        .cmp1-cifra dd.cmp1-cifras-nuestro { background: #F6F7EF; color: #1A1A1A; font-weight: 600; }
+        .cmp1-cifras-cab span { padding: 12px clamp(14px,2vw,22px); font-size: 12px; font-weight: 600; color: var(--w-texto-2); background: var(--w-cream); }
+        .cmp1-cifras-cab .cmp1-cifras-nuestro { color: var(--w-sobre-noche); background: var(--w-olive); }
+        .cmp1-cifra { border-top: 1px solid var(--w-linea); }
+        .cmp1-cifra dt { padding: 15px clamp(14px,2vw,22px); font-size: 13px; font-weight: 600; color: var(--w-texto); }
+        .cmp1-cifra dd { margin: 0; padding: 15px clamp(14px,2vw,22px); font-size: 14px; line-height: 1.45; color: var(--w-texto-2); }
+        .cmp1-cifra dd.cmp1-cifras-nuestro { background: var(--w-sand-claro); color: var(--w-texto); font-weight: 600; }
         .cmp1-cifra-quien { display: none; }
-        .cmp1-revision { margin: 0; padding: 14px clamp(22px,3.4vw,40px); font-size: 11.5px; color: #6B6B63; border-top: 1px solid #ECECE5; background: #FBFBF8; }
+        .cmp1-revision { margin: 0; padding: 14px clamp(22px,3.4vw,40px); font-size: var(--w-fs-mini); color: var(--w-texto-3); border-top: 1px solid var(--w-linea); background: var(--w-cream); }
         @media (max-width: 680px) {
           .cmp1-cifras-cab { display: none; }
           .cmp1-cifra { grid-template-columns: 1fr 1fr; }
-          .cmp1-cifra dt { grid-column: 1 / -1; padding-bottom: 4px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: #6B6B63; }
+          .cmp1-cifra dt { grid-column: 1 / -1; padding-bottom: 4px; font-size: 13px; font-weight: 600; color: var(--w-texto-3); }
           .cmp1-cifra dd { padding-top: 6px; font-size: 13.5px; }
-          .cmp1-cifra-quien { display: block; margin-bottom: 3px; font-size: 11.5px; font-weight: 800; color: #1A1A1A; }
+          .cmp1-cifra-quien { display: block; margin-bottom: 3px; font-size: 11.5px; font-weight: 600; color: var(--w-texto); }
         }
 
         /* ── Por qué ─────────────────────────────────────────────────── */
         .cmp1-porque { max-width: 960px; margin: 0 auto; display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-        .cmp1-porque-card { background: #fff; border: 1px solid #E7E7E0; border-radius: 18px; padding: 22px;
+        .cmp1-porque-card { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); padding: 22px;
           box-shadow: 0 20px 40px -34px rgba(26,26,26,.35); }
         .cmp1-porque-num { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
-          border-radius: 50%; background: ${ACC_SOFT}; color: ${ACC}; font-weight: 800; font-size: 14px; margin-bottom: 12px; }
-        .cmp1-porque-titulo { font-size: 17px; font-weight: 800; letter-spacing: -.01em; line-height: 1.25; margin: 0 0 8px; color: #1A1A1A; }
-        .cmp1-porque-texto { font-size: 14px; line-height: 1.55; color: ${MUTED}; margin: 0; }
+          border-radius: 50%; background: var(--w-sand-claro); color: var(--w-olive); font-weight: 600; font-size: 14px; margin-bottom: 12px; }
+        .cmp1-porque-titulo { font-size: 17px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; margin: 0 0 8px; color: var(--w-texto); }
+        .cmp1-porque-texto { font-size: 14px; line-height: 1.55; color: var(--w-texto-2); margin: 0; }
         @media (max-width: 760px) { .cmp1-porque { grid-template-columns: 1fr; } }
 
         /* ── La tabla: en el móvil cada fila es una tarjeta, sin scroll lateral ── */
-        .cmp1-tabla-marco { background: #fff; border: 1px solid #E7E7E0; border-radius: 22px; overflow: hidden;
+        .cmp1-tabla-marco { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); overflow: hidden;
           box-shadow: 0 30px 60px -44px rgba(26,26,26,.3); }
         .cmp1-tabla { width: 100%; border-collapse: separate; border-spacing: 0; }
-        .cmp1-tabla thead th { text-align: left; padding: 16px 18px; font-size: 12.5px; font-weight: 700; color: #5A5A52;
-          background: #F5F5F1; border-bottom: 1px solid #E7E7E0; }
-        .cmp1-tabla thead th:first-child { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #6B6B63; width: 26%; }
-        .cmp1-tabla thead .cmp1-th-nuestro { color: #fff; background: ${ACC}; border-bottom-color: ${ACC}; font-weight: 800; font-size: 13px; }
+        .cmp1-tabla thead th { text-align: left; padding: 16px 18px; font-size: 12.5px; font-weight: 600; color: var(--w-texto-2);
+          background: var(--w-cream); border-bottom: 1px solid var(--w-linea); }
+        .cmp1-tabla thead th:first-child { font-size: 13px; font-weight: 600; color: var(--w-texto-3); width: 26%; }
+        .cmp1-tabla thead .cmp1-th-nuestro { color: var(--w-sobre-noche); background: var(--w-olive); border-bottom-color: var(--w-olive); font-weight: 600; font-size: 13px; }
         .cmp1-tabla tbody th { text-align: left; padding: 15px 18px; font-size: 14px; font-weight: 600; vertical-align: top; }
-        .cmp1-tabla td { padding: 15px 16px; font-size: 13px; line-height: 1.5; color: #5A5A52; vertical-align: top; }
-        .cmp1-tabla .cmp1-td-nuestro { color: #1A1A1A; background: #F7F8F1; }
-        .cmp1-tabla tbody tr + tr > * { border-top: 1px solid #EDEDE6; }
+        .cmp1-tabla td { padding: 15px 16px; font-size: 13px; line-height: 1.5; color: var(--w-texto-2); vertical-align: top; }
+        .cmp1-tabla .cmp1-td-nuestro { color: var(--w-texto); background: var(--w-sand-claro); }
+        .cmp1-tabla tbody tr + tr > * { border-top: 1px solid var(--w-linea); }
         @media (max-width: 680px) {
           .cmp1-tabla, .cmp1-tabla tbody, .cmp1-tabla tr, .cmp1-tabla th, .cmp1-tabla td { display: block; width: auto; }
           .cmp1-tabla thead { display: none; }
           .cmp1-tabla tbody tr { padding: 16px 18px; }
           .cmp1-tabla tbody tr + tr > * { border-top: 0; }
-          .cmp1-tabla tbody tr + tr { border-top: 1px solid #EDEDE6; }
+          .cmp1-tabla tbody tr + tr { border-top: 1px solid var(--w-linea); }
           .cmp1-tabla tbody th { padding: 0 0 10px; font-size: 15px; }
-          .cmp1-tabla td { padding: 10px 12px; border-radius: 12px; background: #F6F6F2; }
-          .cmp1-tabla .cmp1-td-nuestro { background: #EEF0E2; box-shadow: inset 3px 0 0 ${ACC}; }
-          .cmp1-tabla td::before { content: attr(data-quien); display: block; margin-bottom: 2px; font-size: 11.5px; font-weight: 800; color: #1A1A1A; }
+          .cmp1-tabla td { padding: 10px 12px; border-radius: 12px; background: var(--w-cream); }
+          .cmp1-tabla .cmp1-td-nuestro { background: var(--w-sand-claro); box-shadow: inset 3px 0 0 var(--w-olive); }
+          .cmp1-tabla td::before { content: attr(data-quien); display: block; margin-bottom: 2px; font-size: 11.5px; font-weight: 600; color: var(--w-texto); }
           .cmp1-tabla td + td { margin-top: 6px; }
         }
-        .cmp1-nota { font-size: 11px; color: #6B6B63; margin: 16px 4px 0; line-height: 1.6; }
+        .cmp1-nota { font-size: var(--w-fs-mini); color: var(--w-texto-3); margin: 16px 4px 0; line-height: 1.6; }
         .cmp1-mitad { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
-          margin: 28px 0 0; padding: 20px 24px; border-radius: 18px; background: ${ACC_SOFT}; border: 1px solid #E0E3D2; }
-        .cmp1-mitad p { margin: 0; font-size: 16px; font-weight: 700; color: #1A1A1A; }
+          margin: 28px 0 0; padding: 20px 24px; border-radius: var(--w-r-tarjeta); background: var(--w-sand-claro); border: 1px solid var(--w-linea); }
+        .cmp1-mitad p { margin: 0; font-size: 16px; font-weight: 600; color: var(--w-texto); }
 
         /* ── Análisis: columna de lectura ────────────────────────────── */
         .cmp1-analisis { max-width: 700px; margin: 0 auto; }
         .cmp1-analisis > section { margin: 0 0 clamp(36px,5vw,52px); }
-        .cmp1-analisis h2 { font-weight: 800; font-size: clamp(24px,3vw,31px); line-height: 1.14; letter-spacing: -.022em; margin: 0 0 14px; }
+        .cmp1-analisis h2 { font-weight: 600; font-size: clamp(24px,3vw,31px); line-height: 1.14; letter-spacing: var(--w-track-h2); margin: 0 0 14px; }
         .cmp1-analisis h3 { font-size: 18px; font-weight: 750; letter-spacing: -.01em; margin: 22px 0 6px; }
-        .cmp1-analisis p, .cmp1-analisis li { font-size: 17px; line-height: 1.68; color: #2E2E29; }
+        .cmp1-analisis p, .cmp1-analisis li { font-size: 17px; line-height: 1.68; color: var(--w-texto); }
         .cmp1-analisis p { margin: 0 0 14px; }
         .cmp1-analisis ul { margin: 0 0 14px; padding-left: 20px; }
         .cmp1-analisis li { margin: 0 0 6px; }
-        .cmp1-analisis a { color: ${ACC}; font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
-        .cmp1-metodo { margin: 0; padding: 14px 0 0 16px; border-left: 2px solid #D5D7C6; font-size: 14.5px !important; line-height: 1.6 !important; color: #5A5A52 !important; }
+        .cmp1-analisis a { color: var(--w-olive); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+        .cmp1-metodo { margin: 0; padding: 14px 0 0 16px; border-left: 2px solid var(--w-linea-fuerte); font-size: 14.5px !important; line-height: 1.6 !important; color: var(--w-texto-2) !important; }
 
         @media (prefers-reduced-motion: reduce) { .cmp1-btn { transition: none; } }
         .cmp1-rel { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-        .cmp1-rel-card { display: block; background: #fff; border: 1px solid #E7E7E0;
+        .cmp1-rel-card { display: block; background: var(--w-papel); border: 1px solid var(--w-linea);
           border-radius: 16px; padding: 20px; text-decoration: none; transition: transform .18s ease, box-shadow .18s ease; }
         .cmp1-rel-card:hover { transform: translateY(-4px); box-shadow: 0 28px 52px -32px rgba(26,26,26,.3); }
-        .cmp1-rel-nombre { display: block; font-size: 15.5px; font-weight: 700; color: #1A1A1A; margin-bottom: 6px; }
-        .cmp1-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: ${MUTED}; }
+        .cmp1-rel-nombre { display: block; font-size: 15.5px; font-weight: 600; color: var(--w-texto); margin-bottom: 6px; }
+        .cmp1-rel-resumen { display: block; font-size: 13px; line-height: 1.5; color: var(--w-texto-2); }
         @media (max-width: 760px) { .cmp1-rel { grid-template-columns: 1fr; } }
         @media (prefers-reduced-motion: reduce) { .cmp1-rel-card { transition: none; } }
       `}</style>

@@ -50,6 +50,12 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   notas_internas: { accion: 'BORRAR', detalle: 'Notas del staff sobre ella (con su autora y para quién son).' },
   notas_progreso: { accion: 'BORRAR', detalle: 'Progreso clínico.' },
   preferencias_socio: { accion: 'BORRAR', detalle: 'Preferencias personales.' },
+  plaza_fija_sin_cuota_avisos: {
+    accion: 'CONSERVAR',
+    detalle: 'Solo el id de la ficha y dos fechas (cuándo se la avisó y desde cuándo se liberan sus clases fijas); la siguiente pasada lo borra al no tener ya reservas.',
+    documentadaEn: '20261020135357_plaza_fija_sin_cuota_avisar_y_liberar.sql',
+  },
+  rastro_gratis: { accion: 'BORRAR', detalle: 'HMAC de su correo y su móvil que guarda la detección de cuentas múltiples del plan gratis (lib/billing/vinculos-gratis.ts).' },
   valoraciones_iniciales_salud: { accion: 'BORRAR', detalle: 'Mitad de salud de la valoración inicial (antes que la madre).' },
   valoraciones_iniciales: { accion: 'BORRAR', detalle: 'Valoración inicial.' },
   documentos_socio: {
@@ -180,7 +186,7 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
   ventas_pos: { accion: 'CONSERVAR', detalle: 'Fiscal.' },
   devoluciones: { accion: 'CONSERVAR', detalle: 'Fiscal.' },
   pagos_historicos: { accion: 'CONSERVAR', detalle: 'Fiscal (histórico importado).' },
-  codigos_descuento_consumos: { accion: 'CONSERVAR', detalle: 'Ligado a un recibo fiscal. Seudónimo.' },
+  codigos_descuento_consumos: { accion: 'CONSERVAR', detalle: 'Ligado a un recibo fiscal o a una venta de la Caja. Seudónimo.' },
   auditoria_estudio: {
     accion: 'CONSERVAR',
     detalle: 'Libro de auditoría de los cambios de dinero del equipo (quién, cuándo, antes y después). Solo audita tablas fiscales que ya se conservan (recibos, suscripciones), con el mismo seudónimo por socio_id. Se conserva 6 años y después se borra sola (`purgar_datos_caducados`, migración 20260925215204).',

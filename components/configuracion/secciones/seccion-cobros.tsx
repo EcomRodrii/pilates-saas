@@ -1,22 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Ban, CalendarClock, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
+import { Ban, CalendarClock, CreditCard, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
-  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenPlanesActivos,
+  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenHerramienta,
+  resumenPlanesActivos,
 } from '@/lib/configuracion/resumenes';
-import { FILAS_A_OTRA_PANTALLA, seccionDeTarjeta, type TarjetaId } from '@/lib/configuracion/secciones';
-import { hrefDeSeccion } from '@/lib/configuracion/destino';
-import { textoFalloConexionSumup } from '@/lib/pos/sumup';
+import { FILAS_A_OTRA_PANTALLA, seccionPorId, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales';
 import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
-import { DetalleCobroConTarjeta, FilaCobroConTarjeta, useCobroConTarjeta } from '@/components/configuracion/cobro-con-tarjeta';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { DetalleDatafono, FilaDatafono } from '@/components/configuracion/datafono';
-import { ConectarDatafono } from '@/components/pos/conectar-datafono';
-import { useDatafono } from '@/components/pos/use-datafono';
-import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaExterna, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
 
 // Cobros y facturas: cómo te pagan tus alumnas y qué sale en tus facturas.
 //
@@ -27,12 +22,12 @@ import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/
 // (el IVA, las devoluciones, qué pasa al cancelar una cuota) pregunta antes con
 // la consecuencia.
 //
-// Las anclas de las filas (`#datos-fiscales`, `#integracion-stripe`…) abren su
-// cajón. Stripe solo tiene cajón cuando está conectado: sin conectar, su acción
-// va en la misma fila.
+// Las anclas de las filas (`#datos-fiscales`…) abren su cajón. Stripe y el
+// datáfono se conectan en Integraciones (16-oct-2026): aquí queda una fila que
+// lleva allí, y sus enlaces de siempre (`#integracion-stripe`) también.
 
-type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'integracion-stripe' | 'datafono' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
-const CAJONES = ['facturacion', 'datos-fiscales', 'integracion-stripe', 'datafono', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
+type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
+const CAJONES = ['facturacion', 'datos-fiscales', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
 
 type FilaDeCobros = Extract<(typeof FILAS_A_OTRA_PANTALLA)[number], { seccion: 'cobros' }>;
 const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobros => f.seccion === 'cobros';
@@ -40,32 +35,8 @@ const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobro
 const ICONOS_OTRA_PANTALLA: Record<FilaDeCobros['id'], typeof Package> = { 'fila-paquetes': Package, 'fila-cobros': Wallet };
 
 export function SeccionCobros({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded, planesTarifa } = useStudio();
-  const stripe = useCobroConTarjeta(showToast);
+  const { studio, dataLoaded, planesTarifa, codigosDescuento } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
-  // El datáfono pregunta a su proveedor (Stripe o SumUp) si está encendido. Se
-  // pregunta siempre: un estudio sin Stripe puede tener (o conectar) un SumUp Solo.
-  const datafono = useDatafono(true);
-  const [conectandoDatafono, setConectandoDatafono] = useState<false | 'inicio' | 'codigo-sumup'>(false);
-  const e = datafono.estado;
-  const datafonoConectado = !!e && e.lector !== null && e.emparejado !== false && (e.proveedor === 'sumup' || stripe.conectado);
-
-  // La vuelta de conectar la cuenta de SumUp: sigue en el código del Solo.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const seccion = hrefDeSeccion(seccionDeTarjeta('datafono'));
-    if (params.get('sumup_conectado')) {
-      showToast('Cuenta de SumUp conectada. Ahora, el código del Solo.');
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee window.location.search (?sumup_conectado=1): la URL no existe durante el render en servidor.
-      setConectandoDatafono('codigo-sumup');
-      window.history.replaceState({}, '', seccion);
-    } else if (params.get('sumup_error')) {
-      // Un texto fijo por código: nunca lo que venga en la URL.
-      showToast(textoFalloConexionSumup(params.get('sumup_error')));
-      window.history.replaceState({}, '', seccion);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   function guardado(texto: string) {
     cerrar();
     showToast(texto);
@@ -87,12 +58,25 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       </GrupoFilas>
 
       <GrupoFilas titulo="Cobrar a tus alumnas">
-        <FilaCobroConTarjeta c={stripe} onAbrir={() => abrir('integracion-stripe')} />
-        <FilaDatafono d={datafono} stripeConectado={stripe.conectado} onAbrir={() => abrir('datafono')} onConectar={() => setConectandoDatafono('inicio')} />
+        <FilaOtraSeccion
+          id="fila-a-integraciones"
+          icono={CreditCard}
+          titulo="Cobro con tarjeta y datáfono"
+          valor={`En «${seccionPorId('conexiones').titulo}»`}
+          descripcion={`${tarjetaPorId('integracion-stripe').titulo} y ${tarjetaPorId('datafono').titulo}: se conectan en ${seccionPorId('conexiones').titulo}.`}
+          seccion="conexiones"
+          ancla="integracion-stripe"
+        />
         <FilaAjuste id="cuando-se-cobra-la-cuota" icono={CalendarClock} valor={cargado ? resumenCobroDia1(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="domiciliaciones" icono={Landmark} valor={cargado ? resumenDomiciliaciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="devoluciones" icono={RotateCcw} valor={cargado ? resumenDevoluciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="si-se-cancela-una-cuota" icono={Ban} valor={cargado ? resumenAlCancelarCuota(cargado) : null} onAbrir={abrir} />
+      </GrupoFilas>
+
+      {/* Desde Motivación (20-oct): un descuento es dinero y no depende del plan
+          de gamificación. `codigosDescuento` viene en el arranque del panel. */}
+      <GrupoFilas titulo="Promociones">
+        <FilaHerramienta id="codigos-descuento" valor={resumenHerramienta('codigos-descuento', { codigosDescuento: dataLoaded ? codigosDescuento.length : null })} />
       </GrupoFilas>
 
       <GrupoFilas titulo="En otras pantallas">
@@ -115,26 +99,6 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       <CajonAjuste id="datos-fiscales" abierto={cajon === 'datos-fiscales'} onCerrar={cerrar}>
         <FormDatosFiscales {...props} />
       </CajonAjuste>
-      <CajonAjuste id="integracion-stripe" abierto={cajon === 'integracion-stripe' && stripe.conectado} onCerrar={cerrar}>
-        <DetalleCobroConTarjeta c={stripe} onGuardado={guardado} />
-      </CajonAjuste>
-      <CajonAjuste id="datafono" abierto={cajon === 'datafono' && datafonoConectado} onCerrar={cerrar}>
-        {/* «Cambiar de datáfono» cierra el cajón antes de abrir el paso a paso: dos diálogos apilados no. */}
-        <DetalleDatafono d={datafono} onCambiar={() => { cerrar(); setConectandoDatafono('inicio'); }} onGuardado={guardado} />
-      </CajonAjuste>
-      {conectandoDatafono && (
-        <ConectarDatafono
-          direccionEstudio={datafono.estado?.direccion ?? null}
-          esTest={datafono.estado?.test ?? false}
-          textoVolver="Volver"
-          textoFinal="Hecho"
-          stripeConectado={stripe.conectado}
-          sumup={datafono.estado?.sumup}
-          pasoInicial={conectandoDatafono === 'codigo-sumup' ? 'codigo-sumup' : undefined}
-          onConectado={datafono.ponerLector}
-          onCerrar={() => setConectandoDatafono(false)}
-        />
-      )}
       <CajonAjuste id="cuando-se-cobra-la-cuota" abierto={cajon === 'cuando-se-cobra-la-cuota'} onCerrar={cerrar}>
         <FormCobroDia1 {...props} />
       </CajonAjuste>

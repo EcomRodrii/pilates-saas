@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { uid } from '@/lib/utils';
 import { motivoNoQuitar, type MotivoNoQuitar } from '@/lib/auth/quitar-doble-factor-reglas';
+import { esCuentaDeEquipo } from '@/lib/auth/cuenta-de-equipo';
 import { correoDobleFactorQuitado } from '@/lib/emails/estudio/cuenta';
 import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { resolverMarcaEstudio } from '@/lib/emails/plantillas-server';
@@ -44,13 +45,10 @@ async function leerCuenta(admin: SupabaseClient, studioId: string, socioId: stri
     admin.from(tabla).select(columna, { count: 'exact', head: true }).eq(columna, authUserId);
   // Cualquier sitio donde la cuenta es algo más que alumna de este estudio.
   // Fila en la tabla, activa o no: «ya no» puede volver a ser «sí».
-  const [factoresRes, fichas, ...otras] = await Promise.all([
+  const [factoresRes, fichas, esDelEquipo, ...otras] = await Promise.all([
     admin.auth.admin.mfa.listFactors({ userId: authUserId }),
     admin.from('socios').select('studio_id, studios!inner(cadena_id)').eq('auth_user_id', authUserId),
-    cuantos('instructores'),
-    cuantos('studios', 'owner_auth_user_id'),
-    cuantos('cadenas', 'owner_auth_user_id'),
-    cuantos('plataforma_admin'),
+    esCuentaDeEquipo(admin, authUserId),
     cuantos('red_perfiles'),
     cuantos('red_perfiles_alumna'),
   ]);
@@ -58,7 +56,7 @@ async function leerCuenta(admin: SupabaseClient, studioId: string, socioId: stri
   if (fichas.error) throw fichas.error;
   const fallo = otras.find((r) => r.error);
   if (fallo?.error) throw fallo.error;
-  const [equipo, propia, cadena, tentare, redProfesional, redAlumna] = otras.map((r) => (r.count ?? 0) > 0);
+  const [redProfesional, redAlumna] = otras.map((r) => (r.count ?? 0) > 0);
 
   const factores = factoresRes.data?.factors ?? [];
   const estudiosComoAlumna = (fichas.data ?? []).map((f) => {
@@ -72,7 +70,7 @@ async function leerCuenta(admin: SupabaseClient, studioId: string, socioId: stri
     motivo: motivoNoQuitar({
       tieneCuenta: true,
       factoresVerificados: factores.filter((f) => f.status === 'verified').length,
-      esDelEquipo: equipo || propia || cadena || tentare,
+      esDelEquipo,
       enNetwork: redProfesional || redAlumna,
       estudiosComoAlumna,
       estudio: estudioRef,

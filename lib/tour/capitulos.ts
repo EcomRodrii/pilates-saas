@@ -290,7 +290,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         accion: 'Mira lo pendiente y lo ya cobrado.',
       },
       {
-        id: 'c6.4', ruta: '/configuracion', href: '/configuracion?tab=cobros', selector: '#integracion-stripe', tipo: 'mira',
+        id: 'c6.4', ruta: '/configuracion', href: '/configuracion?tab=conexiones', selector: '#integracion-stripe', tipo: 'mira',
         titulo: 'Stripe, cuando quieras',
         texto: 'Sirve para cobrar con tarjeta por internet. No lo necesitas para recibir reservas: puedes cobrar en el mostrador y apuntarlo. Conéctalo cuando quieras que las cuotas se cobren solas.',
         accion: 'Mira la fila «Cobro con tarjeta (Stripe)». No hace falta que la conectes ahora.',
@@ -407,7 +407,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
         id: 'c9.4', ruta: '/configuracion', href: '/configuracion?tab=motivacion', selector: 'configuracion-vista', tipo: 'mira',
         titulo: 'Créditos, logros y retos',
         texto: 'Premian la constancia de tus alumnas con créditos, logros y retos. Es opcional: déjalo para cuando el estudio ya ruede.',
-        accion: 'Mira las filas: créditos, logros, niveles y retos.',
+        accion: 'Mira los cinco pasos: cómo se ganan, recompensas, logros, niveles y retos.',
       },
     ],
   },

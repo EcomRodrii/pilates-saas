@@ -11,6 +11,8 @@ import { ejecutarWidget, leerTokenDelWidget, reiniciarWidget } from '@/lib/auth/
 // Protege alta de estudio (app/crear-estudio), login de equipo (app/login), el
 // portal de socias (app/portal/[slug]/{acceso,login}), la reserva pública
 // (app/reservar/[slug]) y el cambio de contraseña (configuracion/tab-perfil).
+// Y el acceso del widget sin marco, en su ventana de tentare.app
+// (app/widget-auth-retorno): en la web del estudio la site key no da token (110200).
 //
 // ⚠️ El captcha se exige a nivel de PROYECTO en Supabase, no por pantalla: en
 // cuanto se activó, cualquier login o alta sin token empezó a fallar con
@@ -322,5 +324,22 @@ export function useCaptcha() {
     </>
   ) : null;
 
-  return { widget, pedirToken };
+  /**
+   * Espera a que el widget esté montado. Solo hace falta a quien pide el token
+   * SIN un clic de por medio, nada más cargar la página (la ventana del puente
+   * del widget, app/widget-auth-retorno): ahí `pedirToken` llegaría antes que el
+   * script de Cloudflare y devolvería `null` («no eres un robot») sin haberlo
+   * intentado. En el resto de pantallas la persona tarda más en escribir que el
+   * script en cargar. `false` = no se montó a tiempo.
+   */
+  const esperarMontado = useCallback(async (ms: number = ESPERA_MS): Promise<boolean> => {
+    if (!siteKey) return true;
+    for (let esperado = 0; esperado < ms; esperado += 100) {
+      if (widgetId.current && window.turnstile) return true;
+      await new Promise<void>((seguir) => setTimeout(seguir, 100));
+    }
+    return !!(widgetId.current && window.turnstile);
+  }, [siteKey]);
+
+  return { widget, pedirToken, esperarMontado };
 }

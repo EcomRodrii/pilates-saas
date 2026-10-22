@@ -6,16 +6,20 @@ import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { PageShell } from '@/components/recursos/PageShell';
 import { Callout, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 const GUIA = guia('estudios-pilates-de-exito');
 
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/estudios-pilates-de-exito')!;
+
 export const metadata: Metadata = {
-  title: 'Estudios de pilates de éxito: 4 lecciones de los que más crecen — Tentare',
-  description:
-    'Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto los estudios de pilates que más crecen, y qué puede copiar mañana un estudio pequeño.',
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe('/recursos/estudios-pilates-de-exito') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: 'Qué aprender de los estudios de pilates que más crecen',
     description: 'Lecciones con datos reales de las cadenas líderes y del mercado español, aplicables a cualquier estudio.',
@@ -54,7 +58,7 @@ export default function EstudiosPilatesExitoPage() {
     <PageShell>
       <ArticleStructuredData
         title="Qué puedes aprender de los estudios de pilates que más crecen"
-        description="Datos reales de Club Pilates, SLT, BASI y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana."
+        description="Datos reales de Club Pilates, SLT y el mercado español (Eversports, Statista): qué hacen distinto — y qué puedes copiar mañana."
         slug="estudios-pilates-de-exito"
       />
       <FaqStructuredData items={FAQ} />
@@ -125,7 +129,7 @@ export default function EstudiosPilatesExitoPage() {
           . La referencia operativa que usan los mejores gestores es la baja mensual: un 3-4% mensual se considera un estudio bien llevado, y por debajo del 3% ya es un nivel de élite.
         </p>
         <p>
-          Ningún informe del sector atribuye esa retención al descuento agresivo. La atribuyen a la experiencia y a la comunicación: avisos claros, huecos que se llenan solos con listas de espera, y que una baja de instructora no se traduzca en una clase cancelada sin previo aviso — el motivo número uno por el que una alumna deja de confiar en un estudio.
+          Ningún informe del sector atribuye esa retención al descuento agresivo. La atribuyen a la experiencia y a la comunicación: avisos claros, huecos que se llenan solos con listas de espera, y que una baja de instructora no se traduzca en una clase cancelada sin previo aviso.
         </p>
 
         <Checklist
@@ -162,7 +166,7 @@ export default function EstudiosPilatesExitoPage() {
 
         <CtaBlock
           title="La gestión que protege tu retención, sin el presupuesto de una cadena"
-          body="Tentare cubre reservas, cobros y equipo — y es el único software que resuelve una baja de instructora sin que tengas que hacer una sola llamada."
+          body="Tentare cubre reservas, cobros y equipo — y busca quién cubre una baja de instructora sin que tengas que hacer una sola llamada."
         />
 
         <RelatedLinks

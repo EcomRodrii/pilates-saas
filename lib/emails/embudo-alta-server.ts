@@ -43,3 +43,11 @@ export async function enviarRecordatorioAlta(params: {
     return { ok: false, error: err instanceof Error ? err.name : 'error_envio' };
   }
 }
+
+/**
+ * El mismo envío para los correos del alta nueva («Tu cuenta está activa»,
+ * app/api/alta/estudio-creado): remitente «Tentare», sin estudio de por medio
+ * para el Notification Engine, clave de idempotencia de quien llama y los
+ * mismos descartes (dominio de ejemplo, Resend sin configurar).
+ */
+export const enviarCorreoAlta = enviarRecordatorioAlta;

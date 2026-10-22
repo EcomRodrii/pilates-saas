@@ -1,4 +1,5 @@
 import type { LevelDefinition } from '@/lib/types';
+import { vistaDeNivel } from '../gamificacion/ritmo-niveles.ts';
 
 // Calcula el nivel actual de una socia a partir de su total histórico de
 // créditos ganados. Pura y reutilizable — la app decide qué niveles existen
@@ -14,32 +15,13 @@ export interface NivelInfo {
 }
 
 export function calcularNivel(niveles: LevelDefinition[], creditosTotal: number): NivelInfo {
-  const activos = [...niveles].filter(n => n.activo).sort((a, b) => a.orden - b.orden);
-
-  let actual: LevelDefinition | null = null;
-  let siguiente: LevelDefinition | null = null;
-  for (const nivel of activos) {
-    if (creditosTotal >= nivel.umbralCreditos) {
-      actual = nivel;
-    } else {
-      siguiente = nivel;
-      break;
-    }
-  }
-
-  if (!siguiente) {
-    return { actual, siguiente: null, creditosTotal, progreso: 1, creditosParaSiguiente: null };
-  }
-
-  const base = actual?.umbralCreditos ?? 0;
-  const rango = siguiente.umbralCreditos - base;
-  const progreso = rango > 0 ? Math.min(1, Math.max(0, (creditosTotal - base) / rango)) : 0;
-
+  // Una sola función para panel, app y servidor: ritmo-niveles.ts (por umbral, no por `orden`).
+  const v = vistaDeNivel(creditosTotal, niveles);
   return {
-    actual,
-    siguiente,
+    actual: v.actual,
+    siguiente: v.siguiente,
     creditosTotal,
-    progreso,
-    creditosParaSiguiente: Math.max(0, siguiente.umbralCreditos - creditosTotal),
+    progreso: v.siguiente ? v.progreso : 1,
+    creditosParaSiguiente: v.faltan,
   };
 }

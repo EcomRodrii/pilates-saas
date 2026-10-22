@@ -16,7 +16,7 @@ Hay dos tipos de credencial, y las dos abren la misma API:
 
 | Credencial | Cómo se consigue | Para qué |
 |---|---|---|
-| **Clave de API** (`tnt_sk_…`) | La crea la propietaria en Configuración → Conexiones → «API para tu contabilidad». | Un programa servidor a servidor: la contabilidad o un script. |
+| **Clave de API** (`tnt_sk_…`) | La crea la propietaria en Configuración → Integraciones → «API para tu contabilidad». | Un programa servidor a servidor: la contabilidad o un script. |
 | **Token OAuth** | Flujo Authorization Code + PKCE (`docs/oauth-arquitectura.md`). | Apps del catálogo (hoy, Zapier). |
 
 Cómo funciona una clave de API:
@@ -26,7 +26,7 @@ Cómo funciona una clave de API:
 - **Se puede rotar.** Se crea otra con los mismos permisos y la antigua sigue valiendo 24 horas, para cambiarla en el programa sin cortar la sincronización.
 - **Puede caducar** a los 30, 90 o 365 días, o no caducar nunca.
 
-La API se activa estudio a estudio: si el estudio no la tiene activada, no se pueden crear claves. Desactivarla revoca todas las claves que llegan a esa sede, incluidas las de su cadena; si se vuelve a activar, hay que crear claves nuevas. Los tokens OAuth (Zapier) no dependen de esta activación.
+La API está activa en **todos los estudios**, también en las sedes que se creen después (decisión del fundador, 16-oct-2026, que revierte la del 1-oct de activarla estudio a estudio). `/interno` solo conserva el interruptor de **apagado** de un estudio concreto (`api_acceso_estudios.desactivada_en`: sin fila = activa): desactivarla revoca todas las claves que llegan a esa sede, incluidas las de su cadena, y desactiva sus webhooks; si se vuelve a activar, hay que crear claves y webhooks nuevos. Los tokens OAuth (Zapier) no dependen de este interruptor.
 
 **Cada petición va a una sola sede.** Un token OAuth o una clave de sede solo llegan a la suya. No hay ninguna forma de pedir datos de otro estudio.
 
@@ -36,7 +36,7 @@ La dueña de una cadena puede crear una clave para **todas sus sedes**, en vez d
 
 - **Cada petición dice a qué sede va**, con la cabecera `Tentare-Estudio: <id de la sede>`. Sin la cabecera, la petición se rechaza (400): leer en silencio una sola sede dejaría la contabilidad con un hueco que nadie ve.
 - **`GET /estudios` lista las sedes** a las que llega la clave ahora mismo. Es la única ruta que no necesita la cabecera. El panel enseña también el código de cada sede.
-- **Llega solo a las sedes de la cadena de las que la creadora es dueña y que tienen la API activada.** Una sede sin activar responde 403 `api_no_activada`; una sede que no es de la cadena, 404, sin decir si existe.
+- **Llega solo a las sedes de la cadena de las que la creadora es dueña y que no tienen la API desactivada.** Una sede desactivada a mano responde 403 `api_no_activada`; una sede que no es de la cadena, 404, sin decir si existe.
 - **Si la creadora deja de ser la dueña de la cadena**, la clave deja de valer en todas las sedes.
 - Los permisos, el límite de peticiones y la `Idempotency-Key` son los de cualquier clave. El límite es de la clave, no de cada sede (y cuentan también las peticiones rechazadas), y cada llamada queda en el registro de actividad de su sede.
 
@@ -120,7 +120,7 @@ curl -H "Authorization: Bearer $TENTARE_CLAVE" \
 | 400 | `invalid_request` | Parámetro mal (fecha, cursor, estado…), o una clave de cadena sin la cabecera `Tentare-Estudio` |
 | 401 | `invalid_token` | Falta la credencial, o está revocada o caducada, o quien la concedió ya no está en el estudio |
 | 403 | `insufficient_scope` | La credencial no tiene ese permiso |
-| 403 | `api_no_activada` | La API no está activada para el estudio (solo claves) |
+| 403 | `api_no_activada` | Tentare ha desactivado la API de ese estudio (solo claves) |
 | 403 | `estudio_sin_acceso` | El estudio está suspendido o no tiene suscripción activa |
 | 404 | `not_found` | El recurso no existe **en este estudio**, o la credencial no llega a la sede de `Tentare-Estudio` |
 | 409 | `request_in_progress` | Otra petición con la misma `Idempotency-Key` sigue en marcha; reintenta tras `Retry-After` |
@@ -170,10 +170,10 @@ curl -X POST -H "Authorization: Bearer $TENTARE_CLAVE" -H "Content-Type: applica
 
 Cada vez que cambia algo que la API enseña, Tentare registra un **evento**. Hay dos formas de recibirlos, y los eventos son los mismos en las dos:
 
-- **Webhooks:** Tentare manda un `POST` firmado a la dirección de tu programa en cuanto pasa (normalmente en menos de un minuto). Los configura la propietaria en Configuración → Conexiones → «API para tu contabilidad».
+- **Webhooks:** Tentare manda un `POST` firmado a la dirección de tu programa en cuanto pasa (normalmente en menos de un minuto). Los configura la propietaria en Configuración → Integraciones → «API para tu contabilidad».
 - **Registro:** `GET /eventos` devuelve lo que ha pasado desde la última vez que preguntaste. Sirve si tu programa no puede recibir peticiones de fuera.
 
-Los eventos se registran **solo en los estudios con la API activada**, y se guardan **30 días**.
+Los eventos se registran **en los estudios con la API activa (todos, salvo los desactivados) que tienen a alguien leyéndolos**: un webhook activo, un token vivo, o una clave viva (propia o de su cadena). Sin lector no se escribe nada (si no, cada cambio de `reservas` de todos los estudios dejaría una fila para nadie), así que un lector nuevo ve los eventos desde que existe. Se guardan **30 días**.
 
 ### Tipos
 
@@ -342,7 +342,7 @@ curl -i -H "Authorization: Bearer $TENTARE_CLAVE" "https://www.tentare.app/api/v
   - Reparto justo: los dos «reclamar» limitan por estudio (eventos) y por webhook (entregas), y el cron repite tandas mientras le queda presupuesto.
   - Suprimir o borrar a una clienta vacía sus copias en `api_eventos.datos` (trigger `api_eventos_olvidar_clienta`). El registro no apunta a ella por `socio_id`, así que no lo cubre `supresion-cobertura.test.ts`; lo cubre `webhooks/catalogo.test.ts`.
   - Borrar un webhook es un borrado lógico (`borrado_en`/`borrado_por`): queda el rastro de a qué URL apuntaba y quién lo creó y lo borró.
-  - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
+  - Cada fila del trigger abre una subtransacción (el `exception` que protege la escritura de negocio), solo en estudios con la API activa y con alguien leyendo. Con más de 64 filas en una sola sentencia (importación masiva) desborda la caché de subtransacciones; es aceptable a esta escala, pero conviene tenerlo presente.
 - **Claves de cadena** (`api_claves.cadena_id`, migr `20261001204440`; `lib/api-publica/cadena.ts`).
   - No cambian el aislamiento: cada petición sigue teniendo UNA sede (`ctx.studioId`), y la cabecera solo se acepta si la clave llega a ella. Mientras no se sabe, un fallo se audita en la sede de la clave, porque la pedida puede ser de otro estudio.
   - `studio_id` es la sede desde la que se creó o se rotó. Solo se usa para `GET /estudios` sin cabecera: esa llamada pasa las comprobaciones de esa sede y se audita allí. Límite conocido: si esa sede queda suspendida, `/estudios` sin cabecera falla aunque las demás sedes funcionen. Rotar la clave desde otra sede la cambia de origen.

@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
+import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { ID_ORGANIZACION, ID_FUNDADOR, OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { LEGAL } from '@/lib/legal-info';
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const PRINCIPIOS = [
@@ -59,7 +59,7 @@ const DATOS_PROPIOS = [
   { href: '/recursos/rentabilidad-estudio-de-pilates', titulo: 'Rentabilidad de un estudio', texto: 'La cuenta completa y una calculadora del punto de equilibrio.' },
   { href: '/recursos/precios-reformer-mat', titulo: 'Reformer vs. mat', texto: 'Coste por plaza y cuánto factura un reformer según la ocupación.' },
   { href: '/soluciones/estudio-de-pilates-reformer', titulo: 'Calculadora de plazas vacías', texto: 'Lo que cuestan al mes las plazas de reformer que no se reservan.' },
-  { href: '/comparativa', titulo: 'Comparativa de 14 programas', texto: 'Precio, permanencia y funciones, con lo que consta en la web de cada uno.' },
+  { href: '/comparativa', titulo: 'Comparativa de 13 programas', texto: 'Precio, permanencia y funciones, con lo que consta en la web de cada uno.' },
 ];
 
 export default function SobreTentarePage() {
@@ -81,7 +81,7 @@ export default function SobreTentarePage() {
         '@id': ID_FUNDADOR,
         name: 'Marcos Roca',
         jobTitle: 'Fundador de Tentare',
-        url: `${urlDe(PATH)}#quien`,
+        url: urlDe(PATH),
         worksFor: { '@id': ID_ORGANIZACION },
         knowsAbout: ['Software de gestión para estudios de Pilates y yoga', 'Gestión de estudios de Pilates', 'Precios y bonos de clases de Pilates en España'],
       },
@@ -93,7 +93,7 @@ export default function SobreTentarePage() {
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Sobre Tentare" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld).replace(/</g, '\\u003c') }} />
-      <SiteNav backHref="/" backLabel="Inicio" />
+      <IslaWeb />
 
       <header className="st-cab">
         <div className="st-ancho">
@@ -165,38 +165,40 @@ export default function SobreTentarePage() {
         </section>
       </div>
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(64px,8vw,110px)' }}>
+      <section style={{ padding: '0 var(--w-margen) clamp(64px,8vw,110px)' }}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Pruébalo con tu estudio de verdad." body="7 días gratis, sin tarjeta y sin permanencia." cta="Probar 7 días gratis" />
+          <CtaBlock title="Pruébalo con tu estudio de verdad." body={`${GRATIS_CON_LIMITES}, sin tarjeta y sin permanencia.`} cta={CTA_ALTA} />
         </div>
       </section>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
-        .st-ancho { max-width: 760px; margin: 0 auto; padding: 0 clamp(20px,4vw,44px); }
+        .st-ancho { max-width: 760px; margin: 0 auto; padding: 0 var(--w-margen); }
         .st-cab { padding: clamp(48px,7vw,88px) 0 clamp(28px,4vw,40px); }
-        .st-h1 { font-weight: 800; font-size: clamp(36px,5.4vw,60px); line-height: 1.02; letter-spacing: -.035em; margin: 0 0 20px; }
-        .st-entrada { font-size: clamp(17px,1.5vw,20px); line-height: 1.55; color: ${MUTED}; margin: 0; }
+        .st-h1 { font-weight: var(--w-peso-titular); font-size: var(--w-fs-h1); line-height: 1.04; letter-spacing: var(--w-track-h1); margin: 0 0 20px; color: var(--w-texto); }
+        .st-entrada { font-size: clamp(17px,1.5vw,20px); line-height: 1.55; color: var(--w-texto-2); margin: 0; }
         .st-cuerpo { padding-bottom: clamp(48px,6vw,72px); }
-        .st-bloque { padding: clamp(26px,3.4vw,36px) 0; border-top: 1px solid #DEDED6; scroll-margin-top: 90px; }
-        .st-bloque h2 { margin: 0 0 14px; font-size: clamp(22px,2.6vw,28px); font-weight: 800; letter-spacing: -.022em; line-height: 1.15; }
-        .st-bloque p { margin: 0 0 12px; font-size: 16.5px; line-height: 1.65; color: #34342E; }
-        .st-bloque a { color: ${ACC}; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+        .st-bloque { padding: clamp(26px,3.4vw,36px) 0; border-top: 1px solid var(--w-linea); scroll-margin-top: 90px; }
+        .st-bloque h2 { margin: 0 0 14px; font-size: clamp(22px,2.6vw,28px); font-weight: var(--w-peso-titular); letter-spacing: var(--w-track-h2); line-height: 1.15; color: var(--w-texto); }
+        .st-bloque p { margin: 0 0 12px; font-size: 16.5px; line-height: 1.65; color: var(--w-texto); }
+        .st-bloque a { color: var(--w-olive); font-weight: var(--w-peso-enfasis); text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+        .st-bloque a:hover { color: var(--w-olive-hondo); }
         .st-enlaces { font-size: 15px !important; }
         .st-principios { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
-        .st-principios li { background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 18px 20px; }
-        .st-principios strong { display: block; margin-bottom: 4px; font-size: 15.5px; }
-        .st-principios span { font-size: 14.5px; line-height: 1.55; color: #4A4A43; }
+        .st-principios li { background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 20px; padding: 20px 22px; }
+        .st-principios strong { display: block; margin-bottom: 6px; font-size: 16px; font-weight: var(--w-peso-enfasis); color: var(--w-texto); }
+        .st-principios span { font-size: 15px; line-height: 1.55; color: var(--w-texto-2); }
         .st-metodo { margin: 0 0 14px; padding-left: 22px; display: grid; gap: 8px; }
-        .st-metodo li { font-size: 16px; line-height: 1.6; color: #34342E; }
+        .st-metodo li { font-size: 16px; line-height: 1.6; color: var(--w-texto); }
+        .st-metodo li::marker { color: var(--w-texto-3); }
         .st-datos { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
-        .st-dato { position: relative; display: block; background: #fff; border: 1px solid #E7E7E0; border-radius: 16px; padding: 16px 40px 16px 18px;
-          text-decoration: none !important; transition: border-color var(--motion-normal) var(--motion-ease); }
-        .st-dato:hover { border-color: #C9CBB8; }
-        .st-dato-tit { display: block; font-size: 15.5px; font-weight: 800; color: #1A1A1A; margin-bottom: 4px; }
-        .st-dato-txt { display: block; font-size: 13.5px; line-height: 1.5; font-weight: 400; color: #5A5A52; }
-        .st-dato-ir { position: absolute; right: 16px; top: 18px; color: ${ACC}; }
+        .st-dato { position: relative; display: block; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 20px; padding: 18px 44px 18px 20px;
+          text-decoration: none !important; transition: border-color var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal) var(--motion-ease); }
+        .st-dato:hover { border-color: var(--w-linea-fuerte); box-shadow: var(--w-sombra-suave); }
+        .st-dato-tit { display: block; font-size: 16px; font-weight: var(--w-peso-enfasis); color: var(--w-texto); margin-bottom: 4px; }
+        .st-dato-txt { display: block; font-size: 14px; line-height: 1.5; font-weight: 400; color: var(--w-texto-2); }
+        .st-dato-ir { position: absolute; right: 18px; top: 20px; color: var(--w-olive); }
         @media (max-width: 640px) { .st-principios, .st-datos { grid-template-columns: minmax(0,1fr); } }
       `}</style>
     </PageShell>

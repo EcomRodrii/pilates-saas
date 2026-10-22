@@ -8,19 +8,20 @@ export function PildoraBusqueda({ children, centrada = false }: { children: Reac
   // texto del h1 sale pegado («…de yogaTu estudio…») para quien lo lee como texto.
   return (
     <>
+    {/* Sin letra de máquina de escribir ni mayúsculas (#2458, «sin pinta de IA»):
+        la sans de la web, en oliva sobre arena clara (tokens de components/web). */}
     <span
-      className="lp-mono"
       style={{
         display: 'table',
         margin: centrada ? '0 auto 24px' : '0 0 24px',
-        fontSize: 11.5,
-        fontWeight: 500,
+        fontSize: 13,
+        fontWeight: 600,
         lineHeight: 1.45,
-        letterSpacing: '.14em',
-        textTransform: 'uppercase',
-        color: '#22251A',
-        background: '#F1F2EA',
-        padding: '8px 15px',
+        // Dentro de un h1: sin esto hereda su tracking negativo y se apiña.
+        letterSpacing: 'normal',
+        color: 'var(--w-olive)',
+        background: 'var(--w-sand-claro)',
+        padding: '7px 14px',
         borderRadius: 999,
       }}
     >

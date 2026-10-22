@@ -77,7 +77,8 @@ export function PantallaBienvenida({ studio }: { studio: Studio }) {
   }, [updateStudio, router]);
 
   // «Configurar luego»: antes no se navegaba y dejaba un panel sin salas; el
-  // calendario vacío ya le pregunta lo mínimo y le propone el horario.
+  // calendario vacío le dice qué falta y le deja crear la primera clase o traer
+  // su horario (ya no propone uno: se quitó el 8-oct-2026).
   const saltar = useCallback(() => sellarYSalir('/calendario', 'saltada'), [sellarYSalir]);
 
   if (!valorVisto) {

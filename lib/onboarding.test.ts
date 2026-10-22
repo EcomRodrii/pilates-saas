@@ -21,7 +21,7 @@ test('legacy: son exactamente los 7 pasos, en ese orden', () => {
   assert.deepEqual(labels, [
     'Configura tu estudio',
     'Añade tu primera instructora',
-    'Crea tu primera clase',
+    'Crea tu primer tipo de clase',
     'Configura tus horarios',
     'Añade tus primeras clientas',
     'Activa los métodos de pago',
@@ -69,7 +69,7 @@ const VACIO_V2: DatosOnboarding = {
   colorPrimario: '#4F46E5', temaPortal: 'original', logoUrl: null,
   numInstructores: 0, numInstructoresConCuenta: 0, numTiposClase: 0, numSesiones: 0, numSocios: 0,
   numSalas: 0, numPlanesTarifa: 0, numSuscripcionesActivas: 0, numReservas: 0,
-  contenidoPortalPersonalizado: false, automatizacionesActivas: new Set(),
+  hayTarjetaEnLaApp: false, automatizacionesActivas: new Set(),
 };
 
 test('v2: estudio recién creado, todos los pasos de todas las categorías pendientes', () => {

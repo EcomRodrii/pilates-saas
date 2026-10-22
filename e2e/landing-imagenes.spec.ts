@@ -57,17 +57,17 @@ test.describe('Las imágenes de la home', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 30_000 });
 
-    const heroe = page.locator('header#top picture img');
+    // Home nueva (fase 2.2): en el héroe va también el móvil de la app (sin prioridad); la foto es la de `.wh-heroe-foto`.
+    const heroe = page.locator('header#top .wh-heroe-foto picture img');
     await expect(heroe).toHaveCount(1);
     await expect(heroe).toHaveAttribute('loading', 'eager');
     await expect(heroe).toHaveAttribute('fetchpriority', 'high');
     await expect(heroe).toHaveAttribute('alt', /\S/);
 
-    // Las piezas de la cortina (IntroLogo) también van en alta a propósito:
-    // son el primer fotograma. Fuera de ella, solo el héroe.
+    // Solo el héroe puede ir con prioridad alta.
     const conPrioridad = await page.evaluate(() =>
       [...document.images]
-        .filter((i) => i.getAttribute('fetchpriority') === 'high' && !i.closest('.tnt-intro'))
+        .filter((i) => i.getAttribute('fetchpriority') === 'high')
         .map((i) => i.getAttribute('src')),
     );
     expect(conPrioridad, 'solo la foto del héroe puede competir por el LCP').toHaveLength(1);

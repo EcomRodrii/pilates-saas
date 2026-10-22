@@ -25,6 +25,7 @@ import { ArrowRight, CheckCircle2, Copy, FileSpreadsheet, Link2, Loader2, UserPl
 import { TentiDiferido } from '@/components/tenti/tenti-diferido';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { capturarEvento } from '@/lib/posthog-cliente';
+import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import type { Studio } from '@/lib/types';
 import type { RespuestasWizard } from '@/lib/onboarding/borrador-wizard';
@@ -72,6 +73,8 @@ export function EstudioListo({
   async function copiar() {
     if (!urlReservas) return;
     const ok = await copiarAlPortapapeles(urlReservas);
+    // Al embudo del alta solo lo que de verdad se copió.
+    if (ok) apuntarEnlaceCompartido('copiar');
     setCopiado(ok ? 'ok' : 'fallo');
     setTimeout(() => setCopiado(null), 2500);
   }
@@ -156,7 +159,7 @@ export function EstudioListo({
               <section aria-labelledby="enlace-t" className="ob-sube rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '240ms' }}>
                 <h2 id="enlace-t" className="flex items-center gap-1.5 text-[14px] font-bold"><Link2 size={15} aria-hidden /> Tu enlace de reservas</h2>
                 <p className="mt-1 break-all text-[13px] text-muted-foreground" data-testid="url-reservas">{urlReservas}</p>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Una alumna reserva sin cuenta.</p>
+                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Una alumna reserva solo con su email, sin contraseña.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -165,7 +168,7 @@ export function EstudioListo({
                   >
                     <Copy size={14} aria-hidden /> Copiar enlace
                   </button>
-                  {studio.slug && <BotonQr destino="reservas" url={urlReservas} slug={studio.slug} estudio={nombre} nombreEnlace="Página de reservas" />}
+                  {studio.slug && <BotonQr destino="reservas" url={urlReservas} slug={studio.slug} estudio={nombre} nombreEnlace="Página de reservas" onDescargado={() => apuntarEnlaceCompartido('qr')} />}
                   <span role="status" className="text-[12.5px] text-muted-foreground">
                     {copiado === 'ok' ? 'Enlace copiado' : copiado === 'fallo' ? 'No se ha podido copiar: selecciónalo y cópialo a mano.' : ''}
                   </span>

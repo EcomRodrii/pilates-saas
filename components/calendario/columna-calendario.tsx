@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { INICIALES, MESES, partes, rejillaDelMes } from '@/components/calendario/selector-fecha';
+import { foregroundParaFondo } from '@/lib/wcag-contrast';
 
 export interface FilaColumna {
   id: string;
@@ -92,7 +93,8 @@ function Lista({ titulo, filas, onAlternar, conPunto = false }: {
               {f.apagada ? <EyeOff size={14} aria-hidden className="shrink-0" /> : <Eye size={14} aria-hidden className="shrink-0" />}
               {conPunto
                 ? <span aria-hidden className={cn('size-2.5 shrink-0 rounded-full', f.apagada && 'opacity-40')} style={{ backgroundColor: f.color }} />
-                : <span aria-hidden className={cn('flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white', f.apagada && 'opacity-40')} style={{ backgroundColor: f.color }}>{f.nombre.trim().charAt(0).toUpperCase()}</span>}
+                // La inicial con la tinta que contrasta con SU color (lo elige el estudio): blanco fijo sobre un arena era 1,7:1.
+                : <span aria-hidden className={cn('flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold', f.apagada && 'opacity-40')} style={{ backgroundColor: f.color, color: foregroundParaFondo(f.color) }}>{f.nombre.trim().charAt(0).toUpperCase()}</span>}
               <span className="min-w-0 flex-1 truncate font-medium">{f.nombre}</span>
               <span className="shrink-0 tabular-nums text-[12px] text-muted-foreground">{f.clases}</span>
             </button>
@@ -153,7 +155,8 @@ function MesPequeno({ abrirEn, desde, hasta, hoy, diasConClase, onElegir }: {
               aria-current={esHoy ? 'date' : undefined}
               className={cn(
                 'relative mx-auto flex size-7 items-center justify-center rounded-full text-[12.5px] tabular-nums transition-colors',
-                fuera ? 'text-muted-foreground/50' : 'text-foreground',
+                // Fuera del mes, atenuado pero legible (AA en claro y oscuro): al 50 % se quedaba en 3,1:1.
+                fuera ? 'text-muted-foreground' : 'text-foreground',
                 visto && !esHoy && 'bg-muted font-semibold',
                 esHoy ? 'bg-primary font-semibold text-primary-foreground' : 'hover:bg-muted',
               )}

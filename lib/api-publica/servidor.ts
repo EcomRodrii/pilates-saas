@@ -12,6 +12,7 @@ import type { Rol } from '@/lib/types';
 import type { ScopeOAuth } from './catalogo-scopes';
 import { esClaveApi, hashClaveApi } from './claves';
 import { scopesEfectivos } from './scopes';
+import { apiActivaSegunFila, idsConApiActiva } from './acceso.ts';
 import {
   CABECERA_ESTUDIO, MENSAJE_NO_LLEGA, claveDeCadenaLlega, estudioConAcceso, leerEstudioPedido, resolverSede, sedesAlcanzables,
   type AlcanceCredencial, type SedeDeCadena,
@@ -77,11 +78,18 @@ async function rolActual(admin: SupabaseClient, studioId: string, authUserId: st
   return (data?.rol as Rol | undefined) ?? null;
 }
 
-/** ¿Tiene el estudio la API activada? (Se activa estudio a estudio desde /interno.) */
+/**
+ * ¿Tiene el estudio la API activada? Todos la tienen, salvo los que Tentare
+ * haya desactivado a mano desde /interno (lib/api-publica/acceso.ts).
+ *
+ * ⚠️ Si la lectura FALLA, la respuesta es «no»: el interruptor de apagado no
+ * puede abrirse porque la base de datos tosió.
+ */
 export async function apiActivada(admin: SupabaseClient, studioId: string): Promise<boolean> {
-  const { data: acceso } = await admin
+  const { data: acceso, error } = await admin
     .from('api_acceso_estudios').select('desactivada_en').eq('studio_id', studioId).maybeSingle();
-  return !!acceso && !acceso.desactivada_en;
+  if (error) return false;
+  return apiActivaSegunFila(acceso);
 }
 
 export type AccesoVigente =
@@ -184,8 +192,8 @@ export async function autenticarApiPublica(req: NextRequest, admin: SupabaseClie
     }
   }
 
-  // La API se activa estudio a estudio (decisión del fundador, 1-oct-2026), y
-  // una clave de cadena solo llega a las sedes que la tienen activada.
+  // La API es de todos los estudios (16-oct-2026) salvo el que Tentare haya
+  // desactivado a mano; una clave de cadena no llega a una sede desactivada.
   if (credencial.tipo === 'clave' && !(await apiActivada(admin, studioId))) {
     return { ok: false, studioId, credencial, resultado: error(403, 'api_no_activada', 'La API no está activada para este estudio.', requestId) };
   }
@@ -249,12 +257,12 @@ export async function sedesDeLaCredencial(admin: SupabaseClient, ctx: ContextoAp
   if (eSedes || eCadena) return null;
   const ids = (sedes ?? []).map((s) => s.id as string);
   const { data: accesos, error: eAccesos } = ids.length
-    ? await admin.from('api_acceso_estudios').select('studio_id').in('studio_id', ids).is('desactivada_en', null)
+    ? await admin.from('api_acceso_estudios').select('studio_id').in('studio_id', ids).not('desactivada_en', 'is', null)
     : { data: [], error: null };
   if (eAccesos) return null;
   return sedesAlcanzables({
     sedes: (sedes ?? []) as SedeDeCadena[],
-    conApiActivada: new Set((accesos ?? []).map((a) => a.studio_id as string)),
+    conApiActivada: idsConApiActiva(ids, new Set((accesos ?? []).map((a) => a.studio_id as string))),
     cadenaId: ctx.cadenaId, duenaCadena: cadena?.owner_auth_user_id ?? null, creadaPor: ctx.concedidaPor,
   }).map((s) => ({ id: s.id, nombre: s.nombre }));
 }

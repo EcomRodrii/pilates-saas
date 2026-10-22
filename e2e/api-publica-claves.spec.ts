@@ -57,10 +57,10 @@ async function abrir(page: Page, opts: { activada: boolean; falloCrear?: boolean
 
 const cajon = (page: Page) => page.getByRole('dialog').first();
 
-test('sin activar: explica para qué sirve y cómo pedirla, sin botón de crear', async ({ page }) => {
+test('desactivada por Tentare: explica qué pasa y cómo escribirnos, sin botón de crear', async ({ page }) => {
   await abrir(page, { activada: false });
-  await expect(cajon(page).getByText('Todavía no está activada para tu estudio.')).toBeVisible();
-  await expect(cajon(page).getByRole('link', { name: /Pedir la API por WhatsApp/ })).toBeVisible();
+  await expect(cajon(page).getByText('Tentare la ha desactivado en tu estudio.')).toBeVisible();
+  await expect(cajon(page).getByRole('link', { name: /Escribirnos por WhatsApp/ })).toBeVisible();
   await expect(cajon(page).getByRole('button', { name: /Crear una clave/ })).toHaveCount(0);
 });
 
@@ -111,5 +111,5 @@ test('la dueña de una cadena puede crear una clave para todas sus sedes y ve el
   await expect(cajon(page).getByText('Tentare-Estudio').first()).toBeVisible();
   await expect(cajon(page).getByText('sede-centro')).toBeVisible();
   await expect(cajon(page).getByText('sede-norte')).toBeVisible();
-  await expect(cajon(page).getByText(/la API no está activada aquí/)).toHaveCount(1);
+  await expect(cajon(page).getByText(/Tentare tiene la API desactivada en esta sede/)).toHaveCount(1);
 });

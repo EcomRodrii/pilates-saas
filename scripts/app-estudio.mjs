@@ -31,6 +31,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { pngRgb } from './lib/png-rgb.mjs';
 import { esAppDeEstudio } from '../lib/app-nativa/app-estudio.ts';
+import { argumentosDeClave } from '../lib/nativo/automatico.ts';
 import {
   entitlementsCompletos, equipoDeXcconfig, numeroDeBuild, opcionesDeExport, pngSinAlfa, urlIcono1024,
 } from '../lib/nativo/compilar-estudio.ts';
@@ -52,6 +53,13 @@ const slug = args.find((a, i) => !a.startsWith('--') && !['--origen', '--respues
 const ORIGEN = (valor('origen') ?? 'https://www.tentare.app').replace(/\/$/, '');
 const SOLO_ICONO = flag('solo-icono');
 const SIN_SUBIR = flag('sin-subir');
+
+/** En Actions (registro público): que estos valores salgan como ***. Fuera de Actions, nada. */
+function ocultar(...valores) {
+  if (!process.env.GITHUB_ACTIONS) return;
+  for (const v of valores) if (typeof v === 'string' && v.trim().length >= 3) console.log(`::add-mask::${v.trim()}`);
+}
+ocultar(slug);
 
 function parar(mensaje) {
   console.error(`\n✖ ${mensaje}\n`);
@@ -137,6 +145,7 @@ const app = await leerApp();
 if (!esAppDeEstudio(app) || typeof app.bundleId !== 'string' || typeof app.nombreApp !== 'string') {
   parar('La respuesta del servidor no tiene la forma de una app de estudio.');
 }
+ocultar(app.nombre, app.bundleId, app.nombreApp);
 console.log(`App de «${app.nombre}» → ${app.bundleId} · «${app.nombreApp}»`);
 
 const imagenes = await componerImagenes(app);
@@ -160,6 +169,10 @@ const equipo = process.env.TENTARE_APPLE_TEAM_ID || equipoDeXcconfig(xcconfigAnt
 if (!equipo) parar('Falta el Team ID de Apple: TENTARE_APPLE_TEAM_ID=XXXXXXXXXX npm run app:estudio -- <slug>  (o el que ya esté en ios/identidad.local.xcconfig).');
 
 const build = numeroDeBuild();
+// En GitHub Actions no hay cuenta de Xcode: firma la clave de App Store Connect (ASC_KEY_PATH,
+// ASC_KEY_ID, ASC_ISSUER_ID). En el Mac del equipo no hacen falta y no se pasan.
+const clave = argumentosDeClave(process.env);
+if (clave.length) console.log('Firma: con la clave de App Store Connect (sin cuenta de Xcode).');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `app-estudio-${slug}-`));
 const archivo = path.join(tmp, 'App.xcarchive');
 let terminadoBien = false;
@@ -181,7 +194,7 @@ try {
 
   ejecutar('xcodebuild', [
     'archive', '-project', 'ios/App/App.xcodeproj', '-scheme', 'App', '-configuration', 'Release',
-    '-destination', 'generic/platform=iOS', '-archivePath', archivo, '-allowProvisioningUpdates',
+    '-destination', 'generic/platform=iOS', '-archivePath', archivo, '-allowProvisioningUpdates', ...clave,
     `CURRENT_PROJECT_VERSION=${build}`,
   ]);
 
@@ -190,7 +203,7 @@ try {
   const exportacion = path.join(tmp, 'export');
   const opcionesExport = path.join(tmp, 'ExportOptions.plist');
   fs.writeFileSync(opcionesExport, opcionesDeExport(equipo, 'export'));
-  ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opcionesExport, '-exportPath', exportacion, '-allowProvisioningUpdates']);
+  ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opcionesExport, '-exportPath', exportacion, '-allowProvisioningUpdates', ...clave]);
   const ipa = fs.readdirSync(exportacion).find((f) => f.endsWith('.ipa'));
   if (!ipa) throw new Error('La exportación no dejó ningún .ipa.');
   const descomprimido = path.join(tmp, 'ipa');
@@ -204,7 +217,7 @@ try {
     console.log(`\n--sin-subir: IPA comprobado en ${path.join(exportacion, ipa)}`);
   } else {
     fs.writeFileSync(opcionesExport, opcionesDeExport(equipo, 'upload'));
-    ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opcionesExport, '-exportPath', path.join(tmp, 'subida'), '-allowProvisioningUpdates']);
+    ejecutar('xcodebuild', ['-exportArchive', '-archivePath', archivo, '-exportOptionsPlist', opcionesExport, '-exportPath', path.join(tmp, 'subida'), '-allowProvisioningUpdates', ...clave]);
     console.log(`\n✔ Subida a App Store Connect: ${app.bundleId} · build ${build}. Aparece en TestFlight tras procesarse.`);
   }
   terminadoBien = true;

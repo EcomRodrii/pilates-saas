@@ -4,7 +4,7 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { errorInterno } from '@/lib/errores-servidor';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { DIAS_BAJA_PURGA, purgaEstudiosActiva } from '@/lib/retencion/ciclo-estudios-vencidos';
+import { DIAS_BAJA_PURGA, motivoSinBorradoAnticipado, purgaEstudiosActiva } from '@/lib/retencion/ciclo-estudios-vencidos';
 
 // «Borrar ya los datos del estudio» (contrato de encargo, 2-oct-2026: al
 // terminar, 30 días para descargar y después supresión, «o antes si lo pide»).
@@ -25,9 +25,16 @@ async function propietaria(req: NextRequest) {
   if (sesion.rol !== 'PROPIETARIO') return { error: NextResponse.json({ error: 'Solo la propietaria puede pedirlo' }, { status: 403 }) };
   const admin = getSupabaseAdmin();
   if (!admin) return { error: NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 }) };
-  const { data, error } = await admin.from('studios').select('nombre, contrato_terminado_en, supresion_pedida_en').eq('id', sesion.studioId).single();
+  const { data, error } = await admin.from('studios')
+    .select('nombre, contrato_terminado_en, supresion_pedida_en, cadena_id, subscription_status').eq('id', sesion.studioId).single();
   if (error || !data) return { error: errorInterno('estudio/supresion:leer', error, 'No se ha podido leer el estudio.') };
-  return { sesion, admin, estudio: data as { nombre: string | null; contrato_terminado_en: string | null; supresion_pedida_en: string | null } };
+  return {
+    sesion, admin,
+    estudio: data as {
+      nombre: string | null; contrato_terminado_en: string | null; supresion_pedida_en: string | null;
+      cadena_id: string | null; subscription_status: string | null;
+    },
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -49,7 +56,10 @@ export async function POST(req: NextRequest) {
   const g = await propietaria(req);
   if ('error' in g) return g.error;
   if (!g.estudio.contrato_terminado_en) {
-    return NextResponse.json({ error: 'Tu suscripción sigue activa: el borrado solo se puede pedir cuando ha terminado.' }, { status: 409 });
+    // Una sede cerrada de una cadena cuya principal sigue en Tentare (plan gratis) no tiene el contrato
+    // terminado: «tu suscripción sigue activa» sería falso (migr 20261015141653).
+    const error = motivoSinBorradoAnticipado({ cadenaId: g.estudio.cadena_id, subscriptionStatus: g.estudio.subscription_status });
+    return NextResponse.json({ error }, { status: 409 });
   }
   if (g.estudio.supresion_pedida_en) return NextResponse.json({ pedidaEn: g.estudio.supresion_pedida_en });
 

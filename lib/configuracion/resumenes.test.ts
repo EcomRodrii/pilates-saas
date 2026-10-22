@@ -69,10 +69,11 @@ test('cada sección resume lo guardado, y las que no se pueden saber no dicen na
   assert.equal(r.estudio.valor, 'Pilates Centro · L-V 8-21, S 9-14 · 2 salas');
   assert.equal(r.clases.valor, '5 tipos de clase');
   assert.equal(r.reservas.valor, 'Cancelar 12 h · lista de espera al momento');
-  assert.equal(r.cobros.valor, 'Stripe no disponible todavía · IVA 21 %');
+  assert.equal(r.cobros.valor, 'IVA 21 %');
   // La segunda parte no cabe: se salta entera, no se corta.
   assert.equal(r.altas.valor, 'Se registra antes de pagar');
-  assert.equal(r.comunicacion.valor, 'WhatsApp sin conectar');
+  // WhatsApp se gestiona en Integraciones: Cómo me comunico ya no resume nada.
+  assert.equal(r.comunicacion.valor, null);
   assert.equal(r.equipo.valor, 'Las instructoras crean sus clases');
   assert.equal(r.web.valor, 'Fuera de Tentare Network');
   // Sin el tema cargado, del color no se dice nada.
@@ -97,8 +98,8 @@ test('cambiar un valor guardado cambia su resumen', () => {
   // Sin lista de espera, su plazo no decide nada.
   assert.equal(valor(con({ permiteListaEspera: false, listaEsperaPlazoAceptacionMinutos: 30 }), 'reservas'), 'Cancelar 12 h · sin lista de espera');
 
-  assert.equal(valor(con({ stripeAccountId: 'acct_1', ivaPorDefecto: 10 }), 'cobros'), 'Stripe conectado · IVA 10 %');
-  assert.equal(valor(con({}, { stripeDisponible: true }), 'cobros'), 'Stripe sin conectar · IVA 21 %');
+  assert.equal(valor(con({ stripeAccountId: 'acct_1', ivaPorDefecto: 10 }), 'cobros'), 'IVA 10 %');
+  assert.equal(valor(con({ stripeAccountId: 'acct_1' }), 'conexiones'), 'Stripe conectado');
 
   assert.equal(valor(con({}, { numTiposClase: 1 }), 'clases'), '1 tipo de clase');
   assert.equal(valor(con({}, { numTiposClase: 0 }), 'clases'), 'Sin tipos de clase');
@@ -147,11 +148,10 @@ test('el plan de Tentare: prueba con sus días, activo o terminado; y sin estado
 });
 
 test('comunicación y conexiones: solo lo que se sabe conectado, y cómo va', () => {
-  const whatsapp = (fila: IntegracionResumible) => valor(con({}, { integraciones: [fila] }), 'comunicacion');
-  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: '2026-09-02T10:00:00Z', ultimoErrorEn: null, ultimoError: null }), 'WhatsApp funcionando');
-  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: null, ultimoErrorEn: null, ultimoError: null }), 'WhatsApp sin probar');
-  assert.equal(whatsapp(fallando('WHATSAPP')), 'WhatsApp con problemas');
-  assert.equal(valor(con({ gmailEmail: 'estudio@example.com' }), 'comunicacion'), 'WhatsApp sin conectar · Gmail sin uso');
+  const whatsapp = (fila: IntegracionResumible) => valor(con({}, { integraciones: [fila] }), 'conexiones');
+  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: true, ultimoOkEn: '2026-09-02T10:00:00Z', ultimoErrorEn: null, ultimoError: null }), 'WhatsApp conectado');
+  assert.equal(whatsapp({ tipo: 'WHATSAPP', activo: false, ultimoOkEn: null, ultimoErrorEn: null, ultimoError: null }), null);
+  assert.equal(valor(con({ gmailEmail: 'estudio@example.com' }), 'comunicacion'), null);
 
   assert.equal(valor(con({ googleCalendarEmail: 'estudio@example.com' }), 'conexiones'), 'Google Calendar conectado');
   assert.equal(valor(con({ googleCalendarEmail: 'estudio@example.com', zoomEmail: 'estudio@example.com' }), 'conexiones'), 'Google Calendar y Zoom conectados');
@@ -230,7 +230,7 @@ test('el NIF: vacío o de relleno no emite facturas; con el control mal, se revi
 
 test('una conexión que falla lleva a su tarjeta, y una que se recuperó no avisa', () => {
   const [whatsapp] = avisosDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] }));
-  assert.deepEqual([whatsapp.seccion, whatsapp.ancla, whatsapp.etiqueta], ['comunicacion', 'integracion-whatsapp', 'Con problemas']);
+  assert.deepEqual([whatsapp.seccion, whatsapp.ancla, whatsapp.etiqueta], ['conexiones', 'integracion-whatsapp', 'Con problemas']);
   // Kisi tiene su fila en Conexiones desde el 15-sep (v2): antes iba a «Más integraciones».
   const [kisi] = avisosDeConfiguracion(con({}, { integraciones: [fallando('KISI')] }));
   assert.deepEqual([kisi.seccion, kisi.ancla], ['conexiones', 'integracion-kisi']);
@@ -244,13 +244,13 @@ test('una conexión que falla lleva a su tarjeta, y una que se recuperó no avis
   const recuperada = { ...fallando('WHATSAPP'), ultimoOkEn: '2026-09-03T10:00:00Z' };
   assert.deepEqual(avisosDeConfiguracion(con({}, { integraciones: [recuperada] })), []);
   // Y la sección lo cuenta en su fila.
-  assert.deepEqual(resumenesDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] })).comunicacion.estado, { tono: 'problema', etiqueta: 'Con problemas' });
+  assert.deepEqual(resumenesDeConfiguracion(con({}, { integraciones: [fallando('WHATSAPP')] })).conexiones.estado, { tono: 'problema', etiqueta: 'Con problemas' });
 });
 
 test('pedir bono sin poder comprarlo online: a Stripe si se puede conectar, si no a la regla', () => {
   const vende = { numPlanesActivos: 2 };
   const [conStripe] = avisosDeConfiguracion(con({}, { ...vende, stripeDisponible: true }));
-  assert.deepEqual([conStripe.id, conStripe.seccion, conStripe.ancla], ['venta-online', 'cobros', 'integracion-stripe']);
+  assert.deepEqual([conStripe.id, conStripe.seccion, conStripe.ancla], ['venta-online', 'conexiones', 'integracion-stripe']);
   const [sinStripe] = avisosDeConfiguracion(con({}, { ...vende, stripeDisponible: false }));
   assert.deepEqual([sinStripe.seccion, sinStripe.ancla], ['reservas', 'reservar']);
   assert.deepEqual(avisosDeConfiguracion(con({ stripeAccountId: 'acct_1' }, vende)), []);
@@ -343,38 +343,50 @@ test('la lista de correos del resumen es la de la pantalla de correos', () => {
   assert.deepEqual(tipos, [...CORREOS_AUTOMATICOS]);
 });
 
-test('contenido de tu app: el mensaje, y lo publicado que se ve hoy', () => {
-  const contenido = (c: Partial<{ mensajeDestacado: string | null; tarjetas: { activo: boolean; fechaInicio?: string | null; fechaFin?: string | null }[]; avisos: { activo: boolean }[] }>) =>
-    resumenHerramienta('contenido-de-tu-app', { contenido: { mensajeDestacado: null, tarjetas: [], avisos: [], ahoraMs: AHORA, ...c } });
-  assert.equal(contenido({}), 'Sin mensaje destacado');
-  assert.equal(contenido({ mensajeDestacado: '  ' }), 'Sin mensaje destacado');
+test('contenido de tu app: solo lo que sale hoy en su app, con la regla de la app', () => {
+  const foto = 'https://example.com/foto.jpg';
+  const tarjeta = (t: Partial<{ activo: boolean; imagenUrl: string; fechaInicio: string | null; fechaFin: string | null; ubicacion: string[] }>) =>
+    ({ id: `b-${Math.random()}`, activo: true, imagenUrl: foto, ...t });
+  const contenido = (tarjetas: ReturnType<typeof tarjeta>[], ahoraMs = AHORA) =>
+    resumenHerramienta('contenido-de-tu-app', { contenido: { tarjetas, ahoraMs } });
+  assert.equal(contenido([]), 'Ninguna tarjeta en su app');
+  assert.equal(contenido([tarjeta({}), tarjeta({})]), '2 tarjetas en su app');
+  // Oculta, caducada, aún por empezar o fuera del inicio: no sale, no cuenta.
   assert.equal(
-    contenido({ mensajeDestacado: 'Taller el sábado', tarjetas: [{ activo: true }, { activo: true }], avisos: [{ activo: true }] }),
-    'Con mensaje destacado · 2 tarjetas · 1 aviso',
+    contenido([tarjeta({ activo: false }), tarjeta({ fechaFin: AYER }), tarjeta({ fechaInicio: MANANA }), tarjeta({ ubicacion: ['otra'] }), tarjeta({})]),
+    '1 tarjeta en su app',
   );
-  // Oculta, caducada o aún por empezar: no se ve, no cuenta.
-  assert.equal(
-    contenido({ tarjetas: [{ activo: false }, { activo: true, fechaFin: AYER }, { activo: true, fechaInicio: MANANA }, { activo: true }] }),
-    'Sin mensaje destacado · 1 tarjeta',
-  );
-  assert.equal(contenido({ avisos: [{ activo: true }, { activo: false }] }), 'Sin mensaje destacado · 1 aviso');
+  // Sin foto, la app la descarta: la fila tampoco la cuenta.
+  assert.equal(contenido([tarjeta({ imagenUrl: '' })]), 'Ninguna tarjeta en su app');
+  // El «hasta» es inclusivo y del día de Madrid: el 15-sep a las 23:30 de Madrid (21:30 UTC) aún sale.
+  assert.equal(contenido([tarjeta({ fechaFin: '2026-09-15' })], Date.parse('2026-09-15T21:30:00Z')), '1 tarjeta en su app');
+  assert.equal(contenido([tarjeta({ fechaFin: '2026-09-15' })], Date.parse('2026-09-15T22:30:00Z')), 'Ninguna tarjeta en su app');
+});
+
+test('contenido de tu app: el mensaje destacado cuenta solo si su app lo enseña (MI_WEB_NUEVA)', () => {
+  const t = { id: 'b-1', activo: true, imagenUrl: 'https://example.com/foto.jpg' };
+  const fila = (mensaje: string | null | undefined, tarjetas = [t]) =>
+    resumenHerramienta('contenido-de-tu-app', { contenido: { tarjetas, ahoraMs: AHORA, mensaje } });
+  // Sin pasarlo (sin el interruptor, la app no lo pinta): como siempre.
+  assert.equal(fila(undefined), '1 tarjeta en su app');
+  assert.equal(fila('Cerramos el lunes'), '1 tarjeta en su app · con mensaje destacado');
+  assert.equal(fila('   '), '1 tarjeta en su app', 'un mensaje en blanco no sale en la app');
+  assert.equal(fila('Cerramos el lunes', []), 'Un mensaje destacado y ninguna tarjeta en su app');
+  assert.equal(fila(null, []), 'Ninguna tarjeta en su app');
 });
 
 test('widgets: solo se dice lo que se sabe (las webs autorizadas); sin ninguna, su descripción', () => {
-  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web con el widget nativo');
-  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs con el widget nativo');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://mi-estudio.example.com'] }), '1 web autorizada para ponerlo sin marco');
+  assert.equal(resumenHerramienta('widgets', { widgetDominios: ['https://a.example.com', 'https://b.example.com'] }), '2 webs autorizadas para ponerlo sin marco');
   assert.equal(resumenHerramienta('widgets', { widgetDominios: [] }), null);
   assert.equal(resumenHerramienta('widgets', { widgetDominios: null }), null);
 });
 
-test('recompensas y logros: lo que hay en cada catálogo, y nada inventado mientras carga', () => {
-  const m = (recompensas: number, logros: number, niveles: number, retos: number) =>
-    resumenHerramienta('recompensas-y-logros', { motivacion: { recompensas, logros, niveles, retos } });
-  assert.equal(m(4, 3, 0, 2), '4 recompensas · 3 logros · 2 retos');
-  assert.equal(m(1, 1, 1, 1), '1 recompensa · 1 logro · 1 reto · 1 nivel');
-  assert.equal(m(0, 5, 0, 0), 'Sin recompensas · 5 logros');
-  assert.equal(m(0, 0, 0, 0), 'Sin recompensas ni logros todavía');
-  assert.equal(resumenHerramienta('recompensas-y-logros', { motivacion: null }), null);
+test('canjes: cuántos esperan entrega, y nada inventado mientras carga', () => {
+  assert.equal(resumenHerramienta('canjes', { canjesPendientes: 3 }), '3 por entregar');
+  assert.equal(resumenHerramienta('canjes', { canjesPendientes: 0 }), 'Ninguno por entregar');
+  assert.equal(resumenHerramienta('canjes', { canjesPendientes: null }), null);
+  assert.equal(resumenHerramienta('canjes', {}), null);
 });
 
 test('códigos de descuento: cuántos hay, y nada inventado sin cargar', () => {
@@ -403,7 +415,7 @@ test('ninguna fila de herramienta pasa de una línea del móvil ni dice «client
     correos: [{ tipo: 'reserva', enviar: false }],
     contenido: { mensajeDestacado: 'Hola', tarjetas: Array.from({ length: 20 }, () => ({ activo: true })), avisos: Array.from({ length: 30 }, () => ({ activo: true })), ahoraMs: AHORA },
     widgetDominios: Array.from({ length: 12 }, (_, i) => `https://w${i}.example.com`),
-    motivacion: { recompensas: 120, logros: 340, niveles: 12, retos: 45 },
+    canjesPendientes: 999,
     avisos: { total: 12, encendidos: 7, push: 'unsupported' as const },
     avisosMovil: { largoHoras: 48, cortoMinutos: 120, textosPropios: 20 },
     codigosDescuento: 999,

@@ -55,7 +55,7 @@ export function SelectorPeriodo({ periodo, referencia, hoy, haySiguiente, onPeri
           <button
             key={p.id} type="button" onClick={() => onPeriodo(p.id)} aria-pressed={periodo === p.id}
             className={cn(
-              'min-h-8 items-center rounded-lg px-3 text-[13px] font-medium transition-colors',
+              'zona-tactil min-h-8 items-center rounded-lg px-3 text-[13px] font-medium transition-colors',
               p.soloAncho ? 'hidden sm:inline-flex' : 'inline-flex',
               periodo === p.id ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
             )}
@@ -65,13 +65,13 @@ export function SelectorPeriodo({ periodo, referencia, hoy, haySiguiente, onPeri
         ))}
       </div>
       <div className="inline-flex items-center rounded-lg border border-border bg-card">
-        <button type="button" onClick={() => onMover(-1)} aria-label="Periodo anterior" className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => onMover(-1)} aria-label="Periodo anterior" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
           <ChevronLeft size={16} />
         </button>
         <span className="min-w-32 border-x border-border px-3 py-1.5 text-center text-[13px] font-semibold text-foreground" aria-live="polite" data-testid="informe-periodo">
           {textoDelPeriodo(periodo, referencia, hoy)}
         </span>
-        <button type="button" onClick={() => onMover(1)} disabled={!haySiguiente} aria-label="Periodo siguiente" className="flex size-9 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30">
+        <button type="button" onClick={() => onMover(1)} disabled={!haySiguiente} aria-label="Periodo siguiente" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-30">
           <ChevronRight size={16} />
         </button>
       </div>

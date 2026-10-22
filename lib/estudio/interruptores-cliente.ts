@@ -21,6 +21,12 @@ const VIGENCIA_MS = 30 * 60_000;
 
 const memoria = new Map<string, Guardado>();
 const enCurso = new Set<string>();
+/**
+ * Estudios por los que ya se preguntó en esta carga de la página y la pregunta
+ * terminó (con respuesta, con un «no» o sin red). Solo lo usa
+ * `useInterruptorConEspera`: a partir de aquí ya no se espera, se decide.
+ */
+const respondidos = new Set<string>();
 const oyentes = new Set<() => void>();
 const avisar = () => { for (const f of oyentes) f(); };
 
@@ -66,14 +72,17 @@ function preguntar(studioId: string) {
       guardar(studioId, d && typeof d === 'object' && !Array.isArray(d) ? (d as Valores) : null);
     } finally {
       enCurso.delete(studioId);
+      respondidos.add(studioId);
+      avisar();
     }
   })();
 }
 
-export function useInterruptor(nombre: Interruptor, studioId: string | null | undefined): boolean {
-  // Estables por estudio: con funciones nuevas en cada render, React se
+/** Suscribirse a los interruptores de un estudio y, si no hay nada vigente, preguntar. */
+function useSuscripcion(studioId: string | null | undefined) {
+  // Estable por estudio: con una función nueva en cada render, React se
   // desuscribiría y volvería a suscribir en cada uno.
-  const suscribir = useCallback((alCambiar: () => void) => {
+  return useCallback((alCambiar: () => void) => {
     oyentes.add(alCambiar);
     if (studioId) {
       const g = leerGuardado(studioId);
@@ -81,6 +90,33 @@ export function useInterruptor(nombre: Interruptor, studioId: string | null | un
     }
     return () => { oyentes.delete(alCambiar); };
   }, [studioId]);
+}
+
+export function useInterruptor(nombre: Interruptor, studioId: string | null | undefined): boolean {
+  const suscribir = useSuscripcion(studioId);
   const leer = useCallback(() => (studioId ? leerGuardado(studioId)?.d[nombre] === true : false), [studioId, nombre]);
   return useSyncExternalStore(suscribir, leer, () => false);
+}
+
+/**
+ * Como `useInterruptor`, pero con TRES estados: `null` mientras todavía no se
+ * sabe (la primera pregunta de esta carga va de camino y no hay nada
+ * recordado), y después `true`/`false`.
+ *
+ * Para lo que sustituye una pantalla ENTERA por otra (la bienvenida nueva del
+ * alta frente a la de siempre): con `useInterruptor`, que contesta `false`
+ * mientras pregunta, se pintaría un instante la de siempre y saltaría a la
+ * nueva. Quien lo use pinta un esqueleto con `null`. Una pregunta que termina
+ * mal (sin red, un 401, una respuesta rara) es `false`: no se espera para
+ * siempre.
+ */
+export function useInterruptorConEspera(nombre: Interruptor, studioId: string | null | undefined): boolean | null {
+  const suscribir = useSuscripcion(studioId);
+  const leer = useCallback(() => {
+    if (!studioId) return null;
+    const g = leerGuardado(studioId);
+    if (g) return g.d[nombre] === true;
+    return respondidos.has(studioId) ? false : null;
+  }, [studioId, nombre]);
+  return useSyncExternalStore(suscribir, leer, () => null);
 }

@@ -1,19 +1,21 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
-import { getGamificacion, apuntarseReto, canjearRecompensa } from '@/lib/student/gamificacion-datos';
+import { getGamificacion, getRacha, apuntarseReto, canjearRecompensa, type RachaVista } from '@/lib/student/gamificacion-datos';
 import { useCreditosEnVivoPortal } from '@/lib/student/use-creditos-portal';
 import { nombreCreditos } from '@/lib/creditos-nombre';
 import { fechaCorta } from '@/lib/student/formato';
 import { Button } from '@/components/student/ui/Button';
 import { Badge } from '@/components/student/ui/Badge';
 import { EmptyState, ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
+import { Insignia } from '@/components/student/ui/Insignia';
+import { INSIGNIA_DE_FORMA, insigniaDeNivel, insigniaOPorDefecto } from '@/lib/gamificacion/insignias';
 
 // Logros y recompensas (§ gamificación).
 //
@@ -59,6 +61,15 @@ export default function LogrosPage() {
   // Un estudio puede dar créditos sin haber creado niveles: sin esto la
   // pantalla le decía «Aún sin nivel» de algo que no existe.
   const hayNiveles = Boolean(data?.nivel.actual || data?.nivel.siguiente);
+
+  // La racha va aparte de la gamificación: sale del historial de clases, que es
+  // otra petición, y si falla no puede tumbar la pantalla. Sin leerla, no se pinta.
+  const [racha, setRacha] = useState<RachaVista | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void getRacha(estudio.slug, estudio.id).then((r) => { if (vivo) setRacha(r); });
+    return () => { vivo = false; };
+  }, [estudio.slug, estudio.id]);
 
   const alternarReto = async (retoId: string, apuntada: boolean) => {
     if (ocupado) return;
@@ -113,20 +124,29 @@ export default function LogrosPage() {
                 hace bajar de nivel (misma regla que enuncia el panel). */}
             <section className="card card--pad-lg" data-testid="nivel">
               <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
-                {hayNiveles && (<div style={{ minWidth: 0 }}>
-                  <p className="t-label">Tu nivel</p>
-                  <p className="t-title" style={{ marginTop: 'var(--s-1)' }}>
-                    {data.nivel.actual ? `${data.nivel.actual.icono} ${data.nivel.actual.nombre}` : 'Aún sin nivel'}
-                  </p>
-                  {data.nivel.actual?.beneficios && (
-                    <p className="t-meta" style={{ marginTop: 2 }}>{data.nivel.actual.beneficios}</p>
+                {hayNiveles && (<div className="row row--top" style={{ ['--gap' as string]: 'var(--s-3)', minWidth: 0 }}>
+                  {/* Un número de nivel («1», «2»…) no es una insignia: estrella, y corona el último. */}
+                  {data.nivel.actual && (
+                    <Insignia insignia={insigniaDeNivel(data.nivel.actual.icono, !data.nivel.siguiente)} tamano={48} />
                   )}
+                  <div style={{ minWidth: 0 }}>
+                    <p className="t-label">Tu nivel</p>
+                    <p className="t-title" style={{ marginTop: 'var(--s-1)' }}>
+                      {data.nivel.actual ? data.nivel.actual.nombre : 'Aún sin nivel'}
+                    </p>
+                    {data.nivel.actual?.beneficios && (
+                      <p className="t-meta" style={{ marginTop: 2 }}>{data.nivel.actual.beneficios}</p>
+                    )}
+                  </div>
                 </div>)}
                 {/* Con el nombre que le da SU estudio: decía «Créditos» aunque
                     el estudio los llamara «puntos» en el resto de la pantalla. */}
                 <div className="no-shrink" style={{ textAlign: hayNiveles ? 'right' : 'left' }}>
                   <p className="t-label">Tus {moneda}</p>
-                  <p className="t-title t-num" style={{ marginTop: 'var(--s-1)' }}>{data.saldo}</p>
+                  <p className="t-title t-num row" style={{ marginTop: 'var(--s-1)', ['--gap' as string]: 'var(--s-1)', justifyContent: hayNiveles ? 'flex-end' : 'flex-start' }}>
+                    <Insignia icono="creditos" tamano={28} />
+                    {data.saldo}
+                  </p>
                 </div>
               </div>
               {data.nivel.siguiente && (
@@ -138,6 +158,40 @@ export default function LogrosPage() {
                 </>
               )}
             </section>
+
+            {/* ── RACHA ────────────────────────────────────────────────────
+                Solo con una racha de verdad (1 semana o más): un «0 semanas» no
+                motiva a nadie, y si no se ha podido leer no se inventa. */}
+            {racha && racha.semanas > 0 && (
+              <section className="card card--pad row" style={{ ['--gap' as string]: 'var(--s-3)' }} data-testid="racha">
+                <Insignia icono="racha" tamano={44} />
+                <div style={{ minWidth: 0 }}>
+                  <p className="t-card-title">
+                    {racha.semanas === 1 ? '1 semana seguida' : `${racha.semanas} semanas seguidas`}
+                  </p>
+                  <p className="t-meta" style={{ marginTop: 2 }}>
+                    {racha.minimo === 1
+                      ? 'Viniendo al menos una vez cada semana'
+                      : `Viniendo al menos ${racha.minimo} veces cada semana`}
+                  </p>
+                  {/* Racha única (`RACHA_UNICA`): la semana en curso y el respiro, sin tono de culpa. */}
+                  {racha.unica && (
+                    <>
+                      <p className="t-meta" style={{ marginTop: 2 }} data-testid="racha-semana">
+                        Esta semana: {racha.unica.semanaEnCurso.estado === 'hecha'
+                          ? `${racha.unica.semanaEnCurso.hechas} de ${racha.unica.semanaEnCurso.meta}, hecha`
+                          : racha.unica.semanaEnCurso.estado === 'reservada' ? 'reservada' : 'aún sin clase'}
+                      </p>
+                      {racha.unica.respiroDisponible && (
+                        <p className="t-meta" style={{ marginTop: 2 }} data-testid="racha-respiro">
+                          Respiro disponible: si una semana no puedes venir, tu racha sigue.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* ── CÓMO GANAR ───────────────────────────────────────────────
                 Las reglas ACTIVAS de su estudio, con lo que da cada una. Sin
@@ -151,7 +205,8 @@ export default function LogrosPage() {
                 <div className="card card--pad stack" style={{ ['--gap' as string]: 'var(--s-3)' }}>
                   {data.formasDeGanar.map((f) => (
                     <div key={f.trigger} className="row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }} data-testid="forma-de-ganar">
-                      <div style={{ minWidth: 0 }}>
+                      <Insignia icono={INSIGNIA_DE_FORMA[f.trigger] ?? null} tamano={32} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
                         <p className="t-card-title">{f.titulo}</p>
                         {f.detalle && <p className="t-meta" style={{ marginTop: 2 }}>{f.detalle}</p>}
                       </div>
@@ -171,8 +226,9 @@ export default function LogrosPage() {
                   {data.retos.map((r) => (
                     <div key={r.id} className="card card--pad">
                       <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <p className="t-card-title">{r.icono} {r.nombre}</p>
+                        <Insignia insignia={insigniaOPorDefecto(r.icono, 'objetivo')} tamano={40} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p className="t-card-title">{r.nombre}</p>
                           {r.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{r.descripcion}</p>}
                         </div>
                         {r.completado
@@ -183,8 +239,13 @@ export default function LogrosPage() {
                       <div className="row row--between" style={{ ['--gap' as string]: 'var(--s-2)', marginTop: 'var(--s-2)' }}>
                         <p className="t-meta">
                           {r.progresoActual} de {r.objetivo} · {r.creditosRecompensa} {moneda}
+                          {/* Dos clases de reto: en uno «del estudio» cuentan todas y no hay
+                              nada que pulsar; en uno con inscripción solo cuenta desde que
+                              se apunta. */}
+                          {!r.completado && !r.conInscripcion && <><br />Participas automáticamente</>}
+                          {!r.completado && r.conInscripcion && !r.apuntada && <><br />Apúntate para que cuente</>}
                         </p>
-                        {!r.completado && (
+                        {!r.completado && r.conInscripcion && (
                           <Button size="sm" variant={r.apuntada ? 'secondary' : 'primary'} disabled={!online || ocupado === r.id}
                             aria-pressed={r.apuntada} onClick={() => void alternarReto(r.id, r.apuntada)}>
                             {r.apuntada ? 'Ya no participo' : 'Me apunto'}
@@ -205,8 +266,12 @@ export default function LogrosPage() {
                   {data.logros.map((l) => (
                     <div key={l.id} className="card card--pad" style={{ opacity: l.completado ? 1 : 0.92 }}>
                       <div className="row row--top row--between" style={{ ['--gap' as string]: 'var(--s-2)' }}>
-                        <div style={{ minWidth: 0 }}>
-                          <p className="t-card-title">{l.icono} {l.nombre}</p>
+                        {/* Sin conseguir, en gris: se ve qué hay que ganar sin confundirlo con lo ganado. */}
+                        <span style={{ filter: l.completado ? undefined : 'grayscale(1)', opacity: l.completado ? 1 : 0.55, display: 'inline-flex' }}>
+                          <Insignia insignia={insigniaOPorDefecto(l.icono, 'trofeo')} tamano={44} />
+                        </span>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p className="t-card-title">{l.nombre}</p>
                           {l.descripcion && <p className="t-meta" style={{ marginTop: 2 }}>{l.descripcion}</p>}
                         </div>
                         {/* Con palabra, no «✓» suelto: un lector de pantalla leía
@@ -249,8 +314,9 @@ export default function LogrosPage() {
                 <div className="stack" style={{ ['--gap' as string]: 'var(--s-2)' }}>
                   {data.recompensas.map((p) => (
                     <div key={p.id} className="card card--pad row row--between" style={{ ['--gap' as string]: 'var(--s-3)' }}>
-                      <div style={{ minWidth: 0 }}>
-                        <p className="t-card-title">{p.icono} {p.nombre}</p>
+                      <Insignia insignia={insigniaOPorDefecto(p.icono, p.efecto === 'CLASE_GRATIS' ? 'entrada' : 'regalo')} tamano={44} />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p className="t-card-title">{p.nombre}</p>
                         <p className="t-meta" style={{ marginTop: 2 }}>
                           {p.costeCreditos} {moneda}
                           {/* El orden importa: primero por qué NO puede

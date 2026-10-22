@@ -1,18 +1,15 @@
-// Menú principal. También alimenta el `SiteNavigationElement` de
-// components/OrganizationStructuredData.tsx, así que cambiar esta lista mueve
-// las candidatas a sitelinks de Google — no es solo la barra de arriba.
-//
-// «Producto» y «Precio» apuntaban a anclas de la propia home (#recorrido,
-// #precio). Ahora van a páginas reales: una ancla no es una URL para Google, y
-// las dos consultas que traían («funcionalidades», «precio») merecen destino
-// propio. `#faq` se queda como ancla porque su contenido sigue viviendo aquí.
-export const NAV_LINKS = [
-  { href: '/funcionalidades', label: 'Funcionalidades' },
-  { href: '/funcionalidades/sustituciones', label: 'Sustituciones' },
-  { href: '/precios', label: 'Precios' },
-  { href: '#faq', label: 'FAQ' },
-  { href: '/recursos', label: 'Recursos' },
-];
+import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS_CON_COMPLEMENTOS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { PLAN_ENTITLEMENTS } from '@/lib/billing/entitlements';
+import { MENU_PUBLICO } from '@/lib/seo/navegacion-publica';
+
+// Los destinos de primer nivel de la isla (la navegación de toda la web
+// pública), para el `SiteNavigationElement` de
+// components/OrganizationStructuredData.tsx: cambiar esta lista mueve las
+// candidatas a sitelinks de Google. Desde la fase 2.1 (19-oct-2026) sale de la
+// misma lista que el menú (lib/seo/navegacion-publica.ts): antes llevaba `#faq`
+// y `/funcionalidades/sustituciones`, que no estaban en ningún menú, y le
+// faltaban Soluciones y Comparativa.
+export const NAV_LINKS = MENU_PUBLICO;
 
 // Solo integraciones CONECTABLES por el estudio hoy (auditoría 2026-07-23):
 // Mailchimp/Brevo eran "próximamente" en el producto y "Google" a secas y
@@ -29,14 +26,20 @@ export const INTEGRACIONES = [
 // no al alta (antes decía «Hablar con ventas» y llevaba a /crear-estudio).
 // ⚠️ Nada que el código no respalde: «Soporte dedicado» salió el 23-sep porque
 // no existe en los entitlements, y «EL MÁS ELEGIDO» también (0 estudios de pago).
+// Founding Studio es GRATIS desde el 15-oct-2026 (lib/landing/founding-gratis.ts):
+// todo menos varias sedes, con dos límites; si pasa de cualquiera, el mismo plan a
+// 29 €, sin tope. Por eso Estudio ya no se vende por las sustituciones autónomas,
+// el Centro de Control ni las alumnas ilimitadas: lo tiene Founding Studio. Lo que
+// lo distinguirá es la app propia del estudio (decisión del fundador), que todavía
+// no existe: hasta entonces, solo lo que es verdad hoy (las consultas al asistente).
 export const PLANS = [
   {
     id: 'BASE' as const,
     name: 'Founding Studio',
-    price: '29€',
-    desc: 'Para empezar. Hasta 150 alumnas.',
-    features: ['Reservas y calendario', 'Cobros, bonos y facturas', 'App con tu marca', 'Sustituciones asistidas'],
-    cta: 'Probar 7 días gratis',
+    price: 'Gratis',
+    desc: `Para empezar. ${TOPE_GRATIS}; ${SI_PASAS_CON_COMPLEMENTOS}.`,
+    features: [TODO_MENOS_SEDES, 'Reservas y calendario', 'Cobros, bonos y facturas', 'App con tu marca'],
+    cta: CTA_ALTA,
     dark: false,
     popular: false,
     contacto: false,
@@ -45,9 +48,9 @@ export const PLANS = [
     id: 'ESTUDIO' as const,
     name: 'Estudio',
     price: '59€',
-    desc: 'El plan completo. Alumnas ilimitadas.',
-    features: ['Todo lo de Founding Studio', 'Alumnas ilimitadas', 'Sustituciones autónomas', 'Centro de Control'],
-    cta: 'Probar 7 días gratis',
+    desc: `Todo lo de Founding Studio, con ${COMPLEMENTOS_CORTO} incluidos.`,
+    features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`, `${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al mes al asistente`],
+    cta: CTA_ALTA,
     dark: true,
     popular: true,
     contacto: false,
@@ -74,16 +77,14 @@ export const PLANS = [
 //    citas, nada se crea sin confirmar; no cobra, no borra, no edita, no
 //    escribe a nadie; lo usan propietaria y gerencia; límite mensual por plan;
 //  · (va la última: no es lo que más busca un estudio) la sustitución espera el visto bueno en el modo por defecto (asistido) y
-//    nunca cancela la clase sola; el autónomo es del plan Estudio;
+//    nunca cancela la clase sola; el autónomo está también en Founding Studio gratis;
 //  · varias sedes = plan Cadena, un acceso con selector de sede, sin vista que
-//    las sume; la prueba es del plan que eliges (no «todo abierto»); la
-//    migración no tiene plazo garantizado; las tarjetas guardadas no se migran;
-//    la exportación son CSV.
+//    las sume; no hay prueba: se empieza en Founding Studio gratis (15-oct-2026);
+//    la migración no tiene plazo garantizado; las tarjetas guardadas no se
+//    migran; la exportación son CSV.
 // Se quitaron las dos preguntas que nombraban otras marcas y la que repetía
 // «Nº1»: la home habla a quien ya tiene programa sin compararse (la comparativa
 // vive en /comparativa).
-const PRECIOS_FAQ = PLANS.map((p) => `${p.name} (${p.price.replace('€', ' €')})`);
-
 export const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: '¿Qué programa necesito para gestionar un centro de Pilates o yoga?',
@@ -91,11 +92,11 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Puedo traer mis alumnas desde Excel u otro programa?',
-    a: 'Sí. El importador reconoce las exportaciones de Timp, Momence, bsport, Eversports y Mindbody, y también Excel: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Si prefieres, lo hacemos contigo; las tarjetas guardadas no se pueden pasar de una plataforma a otra y te ayudamos con ese paso.',
+    a: 'Sí. El importador lee los archivos CSV o Excel que exportas de cualquier programa: alumnas, bonos, reservas y clases. Te enseña un acta con los números para comprobar que todo cuadra y, si algo no te convence, lo deshaces con un botón. Las tarjetas guardadas no se pueden pasar de una plataforma a otra.',
   },
   {
     q: '¿Cuánto cuesta Tentare?',
-    a: `Desde ${PLANS[0].price.replace('€', ' €')} al mes con IVA. Hay tres planes públicos: ${PRECIOS_FAQ.join(', ')}; el de Cadena es para varias sedes. Pagas mes a mes, Tentare no se queda comisión de lo que cobras a tus alumnas y la prueba de 7 días no pide tarjeta.`,
+    a: `Founding Studio es gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes, con todas las funcionalidades menos varias sedes; si pasas de ahí, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA, sin tope, y con ese plan ${COMPLEMENTOS_DE_PAGO} se contratan aparte. El plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
   },
   {
     q: '¿Hay permanencia?',
@@ -111,7 +112,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Cómo cobro a mis alumnas?',
-    a: 'Con Stripe: tarjeta, domiciliación SEPA y Bizum para pagos sueltos. Las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. También puedes apuntar pagos en efectivo o por transferencia, y cada cobro genera su recibo y su factura.',
+    a: 'Con tarjeta a través de tu cuenta de Stripe, y Bizum para pagos sueltos. Con la tarjeta guardada, las cuotas se cobran solas y, si un cobro falla, se reintenta automáticamente. Si cobras por domiciliación, Tentare te prepara la remesa SEPA para que la presentes en tu banco. También puedes apuntar pagos en efectivo o por transferencia; cada cobro genera su recibo y, salvo el efectivo, su factura.',
   },
   {
     q: '¿Sirve para varios centros o sedes?',
@@ -119,7 +120,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Están seguros los datos de mi estudio y mis alumnas?',
-    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. Los datos se alojan en la Unión Europea y Tentare está diseñado con el RGPD en mente.',
+    a: 'Cada estudio accede solo a sus datos, con la separación hecha en la propia base de datos, y la ficha de salud de cada alumna tiene permisos aparte. La base de datos está en la Unión Europea; algunos proveedores tratan datos fuera de ella y están listados en la política de privacidad. Tentare está diseñado con el RGPD en mente.',
   },
   {
     q: '¿Qué es «Pregúntale a Tentare»?',
@@ -127,6 +128,6 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Qué pasa si una instructora cancela su clase?',
-    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. El plan Estudio añade un modo autónomo.',
+    a: 'Tentare propone a quién avisar según su disponibilidad y su costumbre horaria y, en el modo por defecto, espera tu visto bueno antes de escribir a nadie. Cuando una candidata acepta, la clase queda cubierta. Si nadie acepta te avisa para que decidas —volver a buscar, reprogramar o cancelar avisando a las alumnas—: la clase nunca se cancela sola. Hay también un modo autónomo: en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.',
   },
 ];

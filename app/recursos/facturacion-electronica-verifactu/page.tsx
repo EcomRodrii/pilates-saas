@@ -9,17 +9,24 @@ import { BeforeAfterCols, Checklist, CtaBlock, RelatedLinks, StatBlock } from '@
 import { ArticleStructuredData, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { Check } from 'lucide-react';
 import { ACC } from '@/components/landing/theme';
-import { urlDe } from '@/lib/seo/paginas';
+import { urlDe, paginaDe } from '@/lib/seo/paginas';
 
 const GUIA = guia('facturacion-electronica-verifactu');
 
-const DESCRIPCION = 'Veri*Factu en tu estudio de Pilates: si es una sociedad, el programa debe estar adaptado antes del 1 de enero de 2027; si eres autónoma, antes del 1 de julio.';
+// El titular visible y el `headline` del BlogPosting son el MISMO texto: Google
+// compara los dos, y antes no coincidían (auditoría de la fase 1, 19-oct-2026).
+const TITULAR = 'Facturación electrónica: qué cambia con Veri*factu';
+
+// Título y descripción, del registro (lib/recursos/guias.ts → lib/seo/paginas.ts):
+// los mismos del sitemap, las migas y llms.txt.
+const SEO = paginaDe('/recursos/facturacion-electronica-verifactu')!;
 
 export const metadata: Metadata = {
-  title: 'Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu',
-  description: DESCRIPCION,
+  title: SEO.titulo,
+  description: SEO.descripcion,
   alternates: { canonical: urlDe('/recursos/facturacion-electronica-verifactu') },
   openGraph: {
+    siteName: 'Tentare',
     type: 'article',
     title: 'Facturación electrónica para estudios de Pilates: qué cambia con Veri*factu',
     description: 'Qué es Veri*factu, cuándo te obliga según seas sociedad o autónoma y qué debe tener cada factura de tu estudio.',
@@ -62,14 +69,14 @@ export default function VerifactuPage() {
   return (
     <PageShell>
       <ArticleStructuredData
-        title="Facturación electrónica para estudios de Pilates en España: qué cambia con Veri*factu"
-        description={DESCRIPCION}
+        title={TITULAR}
+        description={SEO.descripcion}
         slug="facturacion-electronica-verifactu"
       />
       <FaqStructuredData items={FAQ} />
       <ArticleShell
         category={GUIA.seccion}
-        title="Facturación electrónica: qué cambia con Veri*factu"
+        title={TITULAR}
         intro="Qué es, cuándo te obliga según seas sociedad o autónoma y qué debe tener cada factura de tu estudio. Sin letra pequeña."
         readTime={`${GUIA.lectura} min de lectura`}
         actualizado={fechaModificada(GUIA)}
@@ -122,7 +129,7 @@ export default function VerifactuPage() {
         />
 
         <h2 id="s4">País Vasco y Navarra: otro régimen</h2>
-        <p>Si tu domicilio fiscal está en el <strong>País Vasco o en Navarra</strong>, este reglamento estatal no se te aplica: rige la normativa de tu hacienda foral. En el País Vasco es <strong>TicketBAI</strong>; Navarra tiene su propia normativa. Hoy Tentare emite las facturas con numeración legal y huella encadenada; el QR se imprime cuando la AEAT ya tiene el registro, y el envío automático a la AEAT sigue en construcción. TicketBAI no está soportado. Si es tu caso, pregúntanoslo antes de decidirte — preferimos decírtelo aquí a que lo descubras después.</p>
+        <p>Si tu domicilio fiscal está en el <strong>País Vasco o en Navarra</strong>, este reglamento estatal no se te aplica: rige la normativa de tu hacienda foral. En el País Vasco es <strong>TicketBAI</strong>; Navarra tiene su propia normativa. Hoy Tentare emite las facturas con numeración legal correlativa, sin huella ni QR y sin envío a la AEAT: Veri*Factu todavía no está activo en ningún estudio. TicketBAI no está soportado. Si es tu caso, pregúntanoslo antes de decidirte — preferimos decírtelo aquí a que lo descubras después.</p>
 
         <h2 id="s5">La factura electrónica entre empresas es otra obligación</h2>
         <p>No confundas Veri*factu con la <strong>factura electrónica obligatoria entre empresas y profesionales</strong>, que regula el Real Decreto 238/2026. Solo afecta a las facturas que emites a otras empresas o profesionales, no a las de tus alumnas, que son particulares. Se aplicará doce meses después de la orden ministerial que regula la solución pública de facturación electrónica para quien facture más de 8 millones de euros al año, y veinticuatro meses después para el resto.</p>
@@ -148,7 +155,7 @@ export default function VerifactuPage() {
           ))}
         </ul>
 
-        <CtaBlock title="Numeración y huella, desde el primer cobro." body="Tentare emite tus facturas con numeración legal y huella encadenada desde el primer cobro. El QR se imprime cuando la AEAT tiene el registro, y el envío automático a la AEAT está en construcción: te lo contamos sin rodeos." />
+        <CtaBlock title="Numeración legal, desde el primer cobro." body="Tentare emite tus facturas con numeración legal correlativa desde el primer cobro. Veri*Factu (la huella, el QR y el envío a la AEAT) todavía no está activo en ningún estudio: te lo contamos sin rodeos." />
 
         <RelatedLinks
           items={[

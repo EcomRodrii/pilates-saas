@@ -63,7 +63,7 @@ export const METODOS: Record<MetodoIntegracion, { nombre: string; descripcion: s
   iframe: { nombre: 'Dentro de una página', descripcion: 'Por ejemplo, en tu página «Horarios». Se adapta sola a su alto.' },
   // La letra de su web, solo con la identidad del estudio: con un diseño propio, la de siempre del widget.
   nativa: { nombre: 'Sin marco', descripcion: 'Ocupa su hueco en tu web como si fuera suyo y, sin un diseño propio, toma la letra de tu web mientras no elijas otra en «Cómo se ve». Solo funciona en las webs que autorices.' },
-  popup: { nombre: 'Un botón que se abre encima', descripcion: 'Tu alumna no sale de tu web.' },
+  popup: { nombre: 'Un botón que se abre encima', descripcion: 'Se abre encima de tu web, sin cambiar de página.' },
   boton: { nombre: 'Un botón que lleva a tu página de reservas', descripcion: 'Se abre tu página de reservas.' },
   enlace: { nombre: 'Un enlace', descripcion: 'Para la bio de Instagram, WhatsApp o tu newsletter. Sin código.' },
 };
@@ -151,7 +151,7 @@ export const WIDGETS: readonly Widget[] = [
   {
     id: 'horario', estado: 'disponible', categoria: 'reservas', icono: 'CalendarDays',
     nombre: 'Horario y reservas', respuesta: 'Tu horario, para que reserven', principal: true,
-    descripcion: 'Ven tus clases, reservan y pagan sin salir de tu web.',
+    descripcion: 'Ven tus clases, reservan y pagan desde tu web.',
     embebido: { tab: 'clases' }, pagina: { tab: 'clases' },
     metodos: ['iframe', 'nativa', 'popup', 'boton', 'enlace'],
     contenido: ['horario'], alto: 640, anchoPopup: 720, textoBoton: 'Reservar clase',
@@ -287,6 +287,15 @@ export const WIDGETS: readonly Widget[] = [
     oculto: true,
   },
 ];
+
+/**
+ * ¿Es un widget de HORARIO propiamente dicho? La clase de prueba también pinta
+ * el horario (con `prueba=1`), pero es otra cosa: una vista única, sin lo de
+ * la página completa debajo, y sin ninguno de los ajustes de «qué clases salen».
+ */
+export function esHorarioPropio(w: WidgetDisponible): boolean {
+  return w.contenido.includes('horario') && !w.embebido.extra?.prueba;
+}
 
 export function widgetPorId(id: string): Widget | undefined {
   return WIDGETS.find(w => w.id === id);

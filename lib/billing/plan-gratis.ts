@@ -27,6 +27,8 @@
 //     luego baje: si no, se reabriría solo en temporada baja.
 //   · Se suma el uso de todos los estudios gratis de la misma dueña: trocear un
 //     estudio en dos no lo hace gratis (lo hace quien mide, uso-gratis-servidor).
+//   · Una cadena que deja de pagar: solo su sede principal pasa a gratis; las
+//     demás se quedan cerradas hasta que vuelva a pagar Cadena (`pasaAGratis`).
 //   · Se avisa antes (AVISO_PCT), no el día que se pasa; y si vuelve a bajar
 //     dentro del margen, el aviso se va solo.
 //   · Lo decide la DERIVACIÓN en cada petición (`estadoGratis`), no un reloj:
@@ -150,6 +152,62 @@ export function estadoGratis(entrada: { uso: UsoGratis | null; excedidoDesde: st
   return { fase: cerca.length > 0 ? 'CERCA' : 'DENTRO', uso, motivos: cerca, diasRestantes: 0, cierraEl: null };
 }
 
+// ─── El grupo de la dueña: sumar, y desde cuándo ─────────────────────────────
+// Las comparten quien mide y guarda (uso-gratis-servidor, el gate) y el informe
+// en seco de bajas (lib/retencion/gratis-en-seco.ts): una sola regla.
+
+/** El uso del grupo: la suma de lo de cada estudio. */
+export function sumarUsos(usos: Iterable<UsoGratis>): UsoGratis {
+  const t: UsoGratis = { alumnasActivas: 0, reservas30Dias: 0 };
+  for (const u of usos) {
+    t.alumnasActivas += u.alumnasActivas;
+    t.reservas30Dias += u.reservas30Dias;
+  }
+  return t;
+}
+
+/** Desde cuándo se pasó el grupo: la fecha más antigua de las guardadas. */
+export function excedidoMasAntiguo(fechas: Iterable<string | null>): string | null {
+  let m: string | null = null;
+  for (const f of fechas) if (f && (!m || f < m)) m = f;
+  return m;
+}
+
+/**
+ * Lo que deja una medición NUEVA de un grupo: el uso sumado y desde cuándo
+ * cuenta el margen (lo que guarda `refrescarUsoGratis` en cada estudio del grupo).
+ */
+export function medicionDelGrupo(
+  usos: readonly UsoGratis[], excedidosGuardados: readonly (string | null)[], hoy: string,
+): { uso: UsoGratis; excedidoDesde: string | null } {
+  const uso = sumarUsos(usos);
+  return { uso, excedidoDesde: siguienteExcedidoDesde(excedidoMasAntiguo(excedidosGuardados), uso, hoy) };
+}
+
+/** Lo guardado de un estudio (`uso_plan_gratis`). */
+export interface UsoGuardado {
+  alumnasActivas: number | null;
+  reservas30Dias: number | null;
+  excedidoDesde: string | null;
+  medidoEn: string | null;
+}
+
+/**
+ * Lo que dice lo GUARDADO de un grupo de `estudiosDelGrupo` estudios (lo que lee
+ * el gate): si alguno no tiene cifras, la suma saldría menor que la real y no hay
+ * uso (SIN_MEDIR), pero un margen ya acabado sigue cerrado.
+ */
+export function estadoDeLoGuardado(
+  guardado: readonly UsoGuardado[], estudiosDelGrupo: number, hoy: string,
+): { estado: EstadoGratis; excedidoDesde: string | null; medidas: UsoGuardado[] } {
+  const excedidoDesde = excedidoMasAntiguo(guardado.map(g => g.excedidoDesde));
+  const medidas = guardado.filter(g => g.medidoEn && g.alumnasActivas !== null && g.reservas30Dias !== null);
+  const uso = medidas.length < estudiosDelGrupo
+    ? null
+    : sumarUsos(medidas.map(g => ({ alumnasActivas: g.alumnasActivas!, reservas30Dias: g.reservas30Dias! })));
+  return { estado: estadoGratis({ uso, excedidoDesde, hoy }), excedidoDesde, medidas };
+}
+
 /** Lo que contesta /api/billing/status de un estudio gratis (ya derivado). */
 export interface EstadoGratisApi extends EstadoGratis {
   limites: { alumnas: number; reservasMes: number };
@@ -178,10 +236,74 @@ export function pagaPlan(s: { subscriptionStatus: string | null | undefined; sub
 // cobrar). Pasa a gratis cuando Stripe la cancele.
 const PASAN_A_GRATIS = new Set<string | null>([null, 'trialing', 'trial_expirado', 'canceled', 'incomplete_expired']);
 
-export function pasaAGratis(s: { subscriptionStatus: string | null | undefined; subscriptionId: string | null | undefined; cadenaId: string | null | undefined }): boolean {
-  if (s.cadenaId) return false; // una sede sigue a su cadena
+// ─── Una cadena que deja de pagar (decisión del fundador, 15-oct-2026) ───────
+// Su sede PRINCIPAL pasa a Founding Studio gratis con los límites de siempre
+// (el uso ya se suma por dueña); las DEMÁS siguen con el panel cerrado hasta que
+// vuelva a pagar Cadena, sin borrar nada, y la app de sus alumnas sigue. Si
+// vuelve a pagar, la cadena manda otra vez en todas: el trigger
+// `propagar_plan_cadena` pisa el 'gratis' de la principal en cuanto la cadena
+// paga, y solo entonces (migr 20261015141653).
+//
+// La principal es la sede más ANTIGUA de la cadena: la cadena nace siempre del
+// estudio desde el que se contrató (/api/billing/checkout lo vincula al crearla)
+// y las demás sedes se crean después (/api/cadena/sedes). No hay columna que lo
+// diga; la elige `leerCadenaParaGratis` (convertir-a-gratis.ts).
+
+/** Lo que hace falta saber de la cadena de una sede para decidir. */
+export interface CadenaParaGratis {
+  subscriptionStatus: string | null;
+  subscriptionId: string | null;
+  /** ¿Es esta sede la principal de su cadena (la más antigua)? */
+  esPrincipal: boolean;
+  /** ¿Hay OTRA sede de la cadena ya en el plan gratis (abierto o cerrado)? Nunca dos. */
+  otraSedeGratis: boolean;
+}
+
+/**
+ * Estados en que una cadena ya no paga (o nunca llegó a pagar: un Checkout de
+ * Cadena abandonado deja la cadena sin estado). Lo que no está aquí lo sigue
+ * gobernando la cadena: lo que paga, 'unpaid' (Stripe aún puede cobrarla) e
+ * 'incomplete' (un pago de Cadena a medias).
+ */
+const CADENA_SIN_PLAN = new Set<string | null>([null, 'canceled', 'incomplete_expired', 'trial_expirado']);
+
+/** ¿Ha dejado de pagar esta cadena? */
+export function cadenaSinPlan(c: Pick<CadenaParaGratis, 'subscriptionStatus' | 'subscriptionId'>): boolean {
+  return !pagaPlan(c) && CADENA_SIN_PLAN.has(c.subscriptionStatus ?? null);
+}
+
+/**
+ * ¿Puede este estudio estar en el plan gratis, por lo que toca a su cadena? Uno
+ * suelto, sí. Una sede, solo la principal, solo con la cadena sin pagar y solo
+ * si ninguna otra sede de la cadena lo está ya (si la principal cambiara, no
+ * habría dos); sin saber de la cadena (`cadena` null), no.
+ */
+export function sedeAdmiteGratis(s: { cadenaId: string | null | undefined; cadena?: CadenaParaGratis | null }): boolean {
+  if (!s.cadenaId) return true;
+  return !!s.cadena && s.cadena.esPrincipal && !s.cadena.otraSedeGratis && cadenaSinPlan(s.cadena);
+}
+
+export function pasaAGratis(s: {
+  subscriptionStatus: string | null | undefined;
+  subscriptionId: string | null | undefined;
+  cadenaId: string | null | undefined;
+  /** Solo para una sede (`cadenaId`): su cadena y si es la principal. */
+  cadena?: CadenaParaGratis | null;
+}): boolean {
+  if (!sedeAdmiteGratis(s)) return false;
   if (pagaPlan(s)) return false;
   return PASAN_A_GRATIS.has(s.subscriptionStatus ?? null);
+}
+
+/**
+ * Al pasar a gratis, ¿se empieza la medición de cero? Solo desde 'canceled': ha
+ * habido un periodo PAGADO, y una fecha de exceso de antes no puede dejarlo
+ * cerrado el primer día. Desde 'incomplete_expired' (un pago abandonado), una
+ * prueba agotada o nada, se conserva: si no, un 'gratis_cerrado' que abandona un
+ * pago con 3DS volvería abierto y con 30 días más de margen.
+ */
+export function empiezaDeCeroAlConvertir(estadoPrevio: string | null | undefined): boolean {
+  return estadoPrevio === 'canceled';
 }
 
 /** La frase de lo que se ha pasado, para los avisos: «150 alumnas activas», «250 reservas al mes». */

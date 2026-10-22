@@ -269,7 +269,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
         {canal === 'WHATSAPP' && (
           <p className="text-xs text-muted-foreground mt-1.5">
             Solo llega a quien tenga teléfono guardado. Necesitas tu número de WhatsApp conectado en{' '}
-            <Link href="/configuracion?tab=comunicacion#integracion-whatsapp" className="underline underline-offset-2">Configuración</Link>.
+            <Link href="/configuracion?tab=conexiones#integracion-whatsapp" className="underline underline-offset-2">Configuración</Link>.
           </p>
         )}
       </div>
@@ -507,7 +507,7 @@ export default function Mensajeria() {
           <>
           <Link href="/clientas"
             className={panelNuevo
-              ? 'inline-flex h-9 items-center gap-2 rounded-full border border-border px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted'
+              ? 'zona-tactil inline-flex h-9 items-center gap-2 rounded-full border border-border px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted'
               : 'flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors'}>
             <Users size={14} />
             Ver alumnas
@@ -574,15 +574,17 @@ export default function Mensajeria() {
         <div className={panelNuevo ? 'overflow-hidden rounded-t-card border border-border bg-card shadow-t-card' : 'bg-card rounded-2xl border border-border overflow-hidden'}>
           {/* Con flex-wrap: en el móvil «Marcar todas leídas» baja de línea en vez de salirse por la derecha. */}
           <div className="flex flex-wrap items-center gap-2 px-4 py-3.5 border-b border-border sm:gap-3 sm:px-5">
-            <div className="flex min-w-[12rem] items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1">
+            {/* Una <label> y no un <div>: tocar la caja (no solo la línea del texto,
+                de 23 px) pone el cursor en el buscador. Se ve igual. */}
+            <label className="flex min-w-[12rem] items-center gap-2 bg-muted border border-border rounded-xl px-3 py-2 flex-1 tactil:min-h-11">
               <Search size={14} className="text-muted-foreground shrink-0" />
               <input value={busqueda} onChange={e => setBusqueda(e.target.value)}
                 placeholder="Buscar notificaciones..."
                 className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1" />
-            </div>
+            </label>
             {noLeidas > 0 && (
               <button onClick={marcarTodasLeidas}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted border border-border transition-colors shrink-0">
+                className="zona-tactil flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-muted-foreground hover:bg-muted border border-border transition-colors shrink-0">
                 <Check size={12} />
                 Marcar todas leídas
               </button>
@@ -621,7 +623,7 @@ export default function Mensajeria() {
                       </div>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{n.body}</p>
                       {n.deepLink && (
-                        <Link href={n.deepLink} className="inline-flex items-center gap-1 text-xs text-brand-medio mt-1.5 hover:underline">
+                        <Link href={n.deepLink} className="zona-tactil inline-flex items-center gap-1 text-xs text-brand-medio mt-1.5 hover:underline">
                           Ver más <ChevronRight size={10} />
                         </Link>
                       )}

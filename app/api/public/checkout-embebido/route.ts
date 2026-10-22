@@ -19,6 +19,7 @@ import { planDeClaseSuelta } from '@/lib/reservas/clase-suelta';
 import { hidratarTiposDePlanes, mapPlanTarifa } from '@/lib/supabase-data';
 import { bloqueoPorPreguntasAlta } from '@/lib/db/preguntas-alta-admin';
 import { claveCheckoutEmbebido } from '@/lib/billing/clave-checkout-embebido';
+import { cobroCuotaOnline } from '@/lib/billing/cobro-cuota-online';
 import {
   metadataVolatilEmbebida, parametrosClienteInvitada, parametrosPaymentIntentEmbebido, type DatosCompraEmbebida,
 } from '@/lib/billing/pago-embebido-parametros';
@@ -274,7 +275,7 @@ export async function POST(req: NextRequest) {
 
   const { data: plan, error: errPlan } = await admin
     .from('planes_tarifa')
-    .select('nombre, precio, tipo, studio_id, activo, matricula, es_prueba')
+    .select('nombre, precio, tipo, studio_id, activo, matricula, es_prueba, periodicidad_meses')
     .eq('id', body.planId)
     .maybeSingle();
   if (errPlan || !plan) {
@@ -382,6 +383,23 @@ export async function POST(req: NextRequest) {
   if (!(importe > 0)) {
     return conCorsWidget(req, NextResponse.json({ error: 'Importe no válido' }, { status: 409 }));
   }
+  // Cobro proporcional del primer mes (opción del estudio, apagada de serie): el MISMO motor que el panel.
+  // El servidor recalcula; lo que la alumna vio solo se compara. Antes del código de descuento y de la
+  // matrícula (que no se prorratea). «Pagar y reservar» una clase conserva su precio de siempre.
+  const cobroCuota = await cobroCuotaOnline(admin, {
+    studioId: body.studioId, planId: body.planId, plan: { tipo: plan.tipo as string, precio: Number(plan.precio), periodicidad_meses: plan.periodicidad_meses as number | null },
+    socioId, conSesion: !!body.sesionId, conRecibo: false,
+  });
+  if (cobroCuota.tipo === 'rechazo') {
+    return conCorsWidget(req, NextResponse.json(
+      { error: cobroCuota.error, codigo: cobroCuota.codigo },
+      { status: cobroCuota.status },
+    ));
+  }
+  const cuotaProrrateada = cobroCuota.tipo === 'prorrateo'
+    ? { importeCentimos: Math.round(cobroCuota.importe * 100), cicloFin: cobroCuota.pr.fechaFin, texto: cobroCuota.pr.texto, frase: cobroCuota.pr.frase }
+    : null;
+  if (cobroCuota.tipo === 'prorrateo') importe = cobroCuota.importe;
 
   // Auditoría vs Momence: canje de código de descuento. Mismo criterio que
   // app/api/stripe/checkout — el servidor recalcula siempre, un código
@@ -407,13 +425,16 @@ export async function POST(req: NextRequest) {
       esNueva: await esSociaNueva(admin, body.studioId, socioId, socioEmail),
       codigosYaUsados: await codigosYaUsadosPorSocia(admin, socioId),
     });
-    if (resultado.ok) {
+    // Con la primera cuota ya prorrateada, un código que la dejara por debajo del mínimo de Stripe (o a 0 €)
+    // tumbaría una compra que sin él sale: se ignora y se dice por qué (como cualquier código que no vale).
+    const dejaMuyBajo = cuotaProrrateada !== null && resultado.ok && Math.round((importe - resultado.descuento) * 100) < 50;
+    if (resultado.ok && !dejaMuyBajo) {
       descuentoAplicado = resultado.descuento;
       importe = Math.max(0, Math.round((importe - resultado.descuento) * 100) / 100);
       const codigoAplicado = codigos.find(c => c.codigo.trim().toUpperCase() === body.codigoDescuento!.trim().toUpperCase());
       codigoDescuentoId = codigoAplicado?.id ?? null;
     } else {
-      motivoCodigo = resultado.motivo;
+      motivoCodigo = resultado.ok ? 'no se puede aplicar a una primera cuota con parte proporcional tan baja' : resultado.motivo;
     }
   }
 
@@ -538,7 +559,7 @@ export async function POST(req: NextRequest) {
     .eq('id', body.studioId)
     .maybeSingle();
   if (!studio?.stripe_account_id) {
-    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Cobros y facturas antes de cobrar.' }, { status: 409 }));
+    return conCorsWidget(req, NextResponse.json({ error: 'Conecta tu cuenta de Stripe desde Configuración → Integraciones antes de cobrar.' }, { status: 409 }));
   }
   const stripeAccount = studio.stripe_account_id;
 
@@ -743,6 +764,7 @@ export async function POST(req: NextRequest) {
     studioId: body.studioId, planId: body.planId, socioId,
     socioEmail, sesionId: body.sesionId ?? null,
     codigoDescuentoId,
+    prorrateo: cuotaProrrateada,
   });
 
   // Cupo EXACTO de una etapa «Cerrar la venta» (Opening OS): plaza reservada
@@ -901,6 +923,8 @@ export async function POST(req: NextRequest) {
     customerId,
     fee,
     pagoClaseId: pagoClase?.id ?? null,
+    cicloFin: cuotaProrrateada?.cicloFin ?? null,
+    cuotaTexto: cuotaProrrateada?.texto ?? null,
   };
   // Solo lo ESTABLE del intento: lo que el formulario puede cambiar va después
   // (`metadataVolatilEmbebida`, por `update`). Ver lib/billing/pago-embebido-parametros.ts.
@@ -1161,6 +1185,7 @@ export async function POST(req: NextRequest) {
       // El TOTAL del cargo (importe + matrícula): lo que la pantalla tiene que enseñar en el botón de pagar.
       total: paymentIntent.amount / 100,
       ...(pagoClase ? { pagoClaseId: pagoClase.id } : {}),
+      ...(cuotaProrrateada ? { cuotaFrase: cuotaProrrateada.frase } : {}),
     }));
   } catch (err) {
     // Stripe ya tiene un cobro con ESTA clave y otros parámetros: el mismo intento

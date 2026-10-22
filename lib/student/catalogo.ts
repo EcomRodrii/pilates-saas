@@ -70,6 +70,8 @@ export interface PayloadPublico {
     reservaExigirPlan?: boolean | null;
     /** Clases por semana que mantienen la racha. `null` = 1 (lo de siempre). */
     rachaClasesSemana?: number | null;
+    /** `RACHA_UNICA` encendida para este estudio: la racha la calcula el servidor (`/api/public/racha`). */
+    rachaUnica?: boolean;
     penalizacionImporteEur?: number | null;
   } | null;
   sesiones: Sesion[];
@@ -121,6 +123,12 @@ export interface PayloadPublico {
    * ⚠️ NO llegan en modo `liviano` — los widgets embebibles no las piden.
    */
   bannersPortal?: BannerPortal[];
+  /**
+   * El mensaje destacado del estudio, arriba del inicio (decisión 11A de «Mi app y mi web» v2,
+   * tras `MI_WEB_NUEVA`). Ya viene limpio del servidor (`mensajeParaLaApp`): `null` = no hay franja.
+   * ⚠️ No llega en modo `liviano`, como las tarjetas.
+   */
+  mensajeDestacado?: string | null;
   socia: {
     /** La ficha de la socia (el servidor manda `select('*')` de `socios`).
         Solo se declaran los campos que la app usa. */

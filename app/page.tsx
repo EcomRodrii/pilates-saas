@@ -1,10 +1,25 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
-import { SeccionGuias } from '@/components/landing/SeccionGuias';
-import { SeccionBento } from '@/components/landing/SeccionBento';
-import { SeccionEnUnaFrase } from '@/components/landing/SeccionEnUnaFrase';
-import { SeccionCambiarte } from '@/components/landing/SeccionCambiarte';
+import { Heroe } from '@/components/web/home/Heroe';
+import { SeOcupaDelResto } from '@/components/web/home/SeOcupaDelResto';
+import { PestanasProducto } from '@/components/web/home/PestanasProducto';
+import { Momentos } from '@/components/web/home/Momentos';
+import { AntesDespues } from '@/components/web/home/AntesDespues';
+import { CAPTURAS_APP } from '@/components/web/home/piezas';
+import { Etapas } from '@/components/web/home/Etapas';
+import { PrecioHome } from '@/components/web/home/PrecioHome';
+import { PreguntasHome } from '@/components/web/home/PreguntasHome';
+import { CierreHome } from '@/components/web/home/CierreHome';
+import '@/components/web/home/home.css';
+import { FranjaLogos } from '@/components/landing/FranjaLogos';
+import { logosClientesLanding } from '@/lib/landing/logos-clientes-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+
+// La franja de logos de clientes se lee en servidor (solo estudios con
+// consentimiento, lib/landing/logos-clientes-servidor.ts): la home se regenera
+// como mucho cada hora en vez de congelarse en el build. Un consentimiento que
+// se retira tarda como mucho una hora en salir de la landing.
+export const revalidate = 3600;
 
 // La home tiene sus PROPIOS metadatos (fase 5 del SEO, 23-sep). Hasta entonces
 // esta página era un componente de cliente, no podía exportarlos y heredaba
@@ -19,7 +34,7 @@ const pagina = paginaDe('/')!;
 
 const COMPARTIR = {
   titulo: 'El software que lleva tu estudio de Pilates y yoga.',
-  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel, para estudios de Pilates y yoga. Pruébalo 7 días gratis, sin tarjeta.',
+  descripcion: 'Reservas y lista de espera, app con tu marca para tus alumnas, bonos y cobros en un solo panel, para estudios de Pilates y yoga. Empieza gratis, sin tarjeta.',
   imagen: '/og-image.png',
   alt: 'Tentare',
 };
@@ -40,9 +55,9 @@ export const metadata: Metadata = {
   // `app/opengraph-image.tsx` que había (diseño anterior a la marca actual): con
   // ese fichero-convención al lado habría dos `og:image` en la misma página. Se declara aquí con URL absoluta (`metadataBase` del layout).
   openGraph: {
+    siteName: 'Tentare',
     type: 'website',
     locale: 'es_ES',
-    siteName: 'Tentare',
     title: COMPARTIR.titulo,
     description: COMPARTIR.descripcion,
     url: urlDe('/'),
@@ -56,6 +71,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
-  return <LandingCliente guias={<SeccionGuias />} bento={<SeccionBento />} frase={<SeccionEnUnaFrase />} cambiarte={<SeccionCambiarte />} />;
+// La composición de la home (v2, 20-oct-2026: el fundador la vio «horrible»: larga,
+// repetida, todo crema y tarjetas). De 12 secciones a 8, una idea por bloque y
+// alternando bandas oscuras y claras:
+//   héroe a sangre y luminoso (solo el móvil) con los logos → «Lo que antes te llevaba
+//   la tarde» → el producto por áreas + vídeo → «Un día cualquiera» (personas a sangre)
+//   → etapas → precio → preguntas → cierre.
+// Fuera: los seis verbos, el bento, las filas y la banda «hoy / con Tentare» (decían
+// lo mismo que las pestañas) y las guías (el blog está en el menú).
+export default async function HomePage() {
+  const logos = await logosClientesLanding();
+  return (
+    <LandingCliente>
+      <Heroe logos={<FranjaLogos logos={logos} />} />
+      <SeOcupaDelResto />
+      <PestanasProducto />
+      <Momentos />
+      <AntesDespues captura={CAPTURAS_APP.reservar.n} />
+      <Etapas />
+      <PrecioHome />
+      <PreguntasHome />
+      <CierreHome />
+    </LandingCliente>
+  );
 }

@@ -9,6 +9,9 @@
 // cancelacionVentanaHoras=12h, permiteListaEspera=true), no es un paso de
 // onboarding — está "hecho" desde el minuto cero y no representa ningún
 // trabajo real de la propietaria, así que no se incluye.
+import { tarjetasEnLaApp, type BannerDelEstudio } from './student/descubre.ts';
+import { hoyEnEstudio } from './utils.ts';
+
 export interface DatosOnboarding {
   nif: string | null | undefined;
   stripeAccountId: string | null | undefined;
@@ -27,7 +30,13 @@ export interface DatosOnboarding {
   /** Reservas del estudio. Es el activation event real: sin una reserva, todo
    *  lo demás es configuración que todavía no ha servido para nada. */
   numReservas: number;
-  contenidoPortalPersonalizado: boolean;
+  /**
+   * ¿Sale hoy alguna tarjeta de «Descubre» en su app? Con la regla de la app
+   * (`tarjetasEnLaApp`: publicada, en el inicio, con foto y en sus fechas). Antes
+   * era «tiene mensaje destacado», que ninguna pantalla de su app enseña: el paso
+   * se daba por hecho con algo que no veía nadie.
+   */
+  hayTarjetaEnLaApp: boolean;
   /** Solo los triggers relevantes para "Funciones inteligentes", con si están activos. */
   automatizacionesActivas: Set<string>;
   /**
@@ -96,7 +105,8 @@ export interface FuenteOnboarding {
   planesTarifa: readonly { activo: boolean; precio: number }[];
   suscripciones: readonly { estado: string }[];
   automationRules: readonly { activa: boolean; trigger: string }[];
-  contenidoPortal: { mensajeDestacado?: unknown } | null;
+  /** Los banners del estudio, tal cual los tiene el panel (las tarjetas de «Descubre»). */
+  bannersPortal: readonly BannerDelEstudio[];
 }
 
 /**
@@ -132,7 +142,9 @@ export function datosOnboardingDelEstudio(f: FuenteOnboarding): DatosOnboarding 
     numPlanesBorrador: planesTarifa.filter(p => !p.activo || !(p.precio > 0)).length,
     reservaExigirPlan: studio.reservaExigirPlan ?? true,
     numSuscripcionesActivas: f.suscripciones.filter(s => s.estado === 'ACTIVA').length,
-    contenidoPortalPersonalizado: !!f.contenidoPortal?.mensajeDestacado,
+    // `?? []`: la tarjeta de «Primeros pasos» se monta en TODAS las pantallas; un dato que
+    // no ha llegado no puede tumbarlas (el `contenidoPortal?.` de antes lo toleraba igual).
+    hayTarjetaEnLaApp: tarjetasEnLaApp(f.bannersPortal, hoyEnEstudio()).length > 0,
     automatizacionesActivas: new Set(f.automationRules.filter(r => r.activa).map(r => r.trigger)),
   };
 }
@@ -259,11 +271,13 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
+    // Se da por hecho con un TIPO de clase, y eso es lo que dice: «Crea tu primera
+    // clase» se marcaba sin ninguna clase en el calendario (alta nueva, PR-5).
+    { id: 'clase', label: 'Crea tu primer tipo de clase', descripcion: 'El tipo de clase (Reformer, Mat...) es la base de tu horario.', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
-    // superan). El calendario ya no recibe vacío: propone el horario a partir
-    // de lo que contestó en el asistente.
-    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Te proponemos un horario y lo confirmas.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
+    // superan). Ya no hay horario propuesto (se quitó el 8-oct): las clases se
+    // crean en el calendario, con «Crear clase» → «Clase» o «Clase semanal».
+    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Créalas en el calendario con «Crear clase»: una suelta o una clase semanal.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
     { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/productos' },
   ];
@@ -294,7 +308,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
   });
 
   const pagos: PasoOnboarding[] = [
-    { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta o SEPA — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=cobros#integracion-stripe' },
+    { id: 'stripe', label: 'Conecta Stripe', descripcion: 'Cobra online con tarjeta — sin esto, todos los cobros son manuales.', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
     { id: 'renovacion', label: 'Activa una membresía con renovación automática', descripcion: 'Cobra la cuota sola cada mes, sin que tengas que perseguir a nadie.', minutos: 2, done: d.numSuscripcionesActivas > 0, href: '/productos' },
   ];
 
@@ -308,7 +322,9 @@ export function calcularOnboarding(d: DatosOnboarding): {
   ];
 
   const portal: PasoOnboarding[] = [
-    { id: 'portal-contenido', label: 'Personaliza el contenido de tu portal', descripcion: 'El mensaje destacado y los banners que ven tus clientas al entrar en su app.', minutos: 3, done: d.contenidoPortalPersonalizado, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
+    // Solo lo que hoy sale en su app: las tarjetas de «Descubre». El mensaje destacado
+    // no lo pinta ninguna pantalla (cuando lo pinte, este paso vuelve a nombrarlo).
+    { id: 'portal-contenido', label: 'Publica una tarjeta en su app', descripcion: 'Una tarjeta con foto en «Descubre», en el inicio de su app: un taller, un bono o tu Instagram.', minutos: 3, done: d.hayTarjetaEnLaApp, href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
   ];
 
   const categorias: CategoriaOnboarding[] = [
@@ -371,7 +387,7 @@ export function guiaRapida(categorias: readonly CategoriaOnboarding[]): GuiaRapi
   const todos = new Map<string, PasoOnboarding>();
   for (const c of categorias) for (const p of c.pasos) todos.set(p.id, p);
   const creado: PasoOnboarding = {
-    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel, tu página de reservas y tu prueba de 7 días.',
+    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel y tu página de reservas.',
     minutos: 1, done: true, href: '/dashboard',
   };
   const pasos = [
@@ -398,8 +414,8 @@ function calcularRecomendaciones(d: DatosOnboarding): RecomendacionOnboarding[] 
   const candidatas: (RecomendacionOnboarding | null)[] = [
     // El aviso concreto sustituye al genérico de Stripe: dicen lo mismo, y el
     // concreto además explica qué se rompe.
-    ventaOnline ? { id: 'venta-online', texto: ventaOnline, href: '/configuracion?tab=cobros#integracion-stripe' } : null,
-    !d.stripeAccountId && !ventaOnline ? { id: 'stripe', texto: 'Vemos que todavía no has conectado Stripe.', href: '/configuracion?tab=cobros#integracion-stripe' } : null,
+    ventaOnline ? { id: 'venta-online', texto: ventaOnline, href: '/configuracion?tab=conexiones#integracion-stripe' } : null,
+    !d.stripeAccountId && !ventaOnline ? { id: 'stripe', texto: 'Vemos que todavía no has conectado Stripe.', href: '/configuracion?tab=conexiones#integracion-stripe' } : null,
     !d.slug ? { id: 'slug', texto: 'Las reservas online aún están desactivadas: falta la dirección pública de tu estudio.', href: '/configuracion?tab=estudio' } : null,
     // ⚠️ Decía «Todavía no has creado ningún bono» también cuando el asistente
     // ya había dejado el bono y la cuota creados en borrador (sin precio e
@@ -445,10 +461,10 @@ export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboardin
   const base: PasoOnboarding[] = [
     { id: 'estudio', label: 'Configura tu estudio', descripcion: '', minutos: 3, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: '', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
-    { id: 'clase', label: 'Crea tu primera clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
+    { id: 'clase', label: 'Crea tu primer tipo de clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     { id: 'horario', label: 'Configura tus horarios', descripcion: '', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
     { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: '', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
-    { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=cobros#integracion-stripe' },
+    { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
   ];
   const listo = base.every(p => p.done);
   const reservas: PasoOnboarding = {

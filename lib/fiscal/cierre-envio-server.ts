@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
+import { colorDeMarcaDelEstudio } from '@/lib/emails/plantillas-server';
 import { computeCierreAnual, mapFacturaRow, mapIngresoManual } from '@/lib/fiscal/cierre-engine';
 import { enviarCierreAGestoria } from '@/lib/emails/cierre-gestoria-server';
 import { fetchAllRows } from '@/lib/supabase-data';
@@ -30,10 +31,10 @@ export async function generarYEnviarCierreGestoria(params: {
     admin.from('studios').select('nombre, email, color_primario, logo_url').eq('id', sid).maybeSingle(),
     fetchAllRows<RowFacturas>(sid, 'facturas', (from, to) =>
       admin.from('facturas').select('*').eq('studio_id', sid)
-        .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`).range(from, to)),
+        .gte('fecha_emision', desde).lte('fecha_emision', `${hasta}T23:59:59`).order('id').range(from, to)),
     fetchAllRows<RowIngresosManuales>(sid, 'ingresos_manuales', (from, to) =>
       admin.from('ingresos_manuales').select('*').eq('studio_id', sid)
-        .gte('fecha', desde).lte('fecha', hasta).range(from, to)),
+        .gte('fecha', desde).lte('fecha', hasta).order('id').range(from, to)),
   ]);
 
   if (facRes.error || manRes.error) return { ok: false, error: facRes.error ?? manRes.error };
@@ -51,7 +52,7 @@ export async function generarYEnviarCierreGestoria(params: {
     estudioNombre: studio?.nombre ?? 'Tu estudio',
     estudioEmail: studio?.email,
     logoUrl: studio?.logo_url,
-    colorPrimario: studio?.color_primario,
+    colorPrimario: await colorDeMarcaDelEstudio(sid, studio?.color_primario),
     anio,
     trimestre,
     cierre,

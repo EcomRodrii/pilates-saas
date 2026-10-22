@@ -10,26 +10,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils';
 import { Field, inputCls, btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 import type { MostrarToast } from '@/components/ui/toast';
+import { MiniaturaInsignia, SelectorInsignia } from '@/components/configuracion/selector-insignia';
 
 // Punto de partida opcional (botón "Cargar logros sugeridos") — no se
 // insertan solos, el estudio decide si los quiere y puede editarlos después.
 const LOGROS_SUGERIDOS: Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'>[] = [
-  { metric: 'RESERVAS_TOTALES', nombre: 'Primera reserva', descripcion: 'Tu primera clase reservada.', umbral: 1, icono: '🌱', creditosRecompensa: 20, activo: true },
-  { metric: 'CLASES_ASISTIDAS', nombre: 'Primera clase', descripcion: 'Has asistido a tu primera clase.', umbral: 1, icono: '🎯', creditosRecompensa: 15, activo: true },
-  { metric: 'CLASES_ASISTIDAS', nombre: '5 clases', descripcion: 'Has asistido a 5 clases.', umbral: 5, icono: '⭐', creditosRecompensa: 25, activo: true },
-  { metric: 'CLASES_ASISTIDAS', nombre: '10 clases', descripcion: 'Has asistido a 10 clases.', umbral: 10, icono: '🥉', creditosRecompensa: 40, activo: true },
-  { metric: 'CLASES_ASISTIDAS', nombre: '25 clases', descripcion: 'Has asistido a 25 clases.', umbral: 25, icono: '🥈', creditosRecompensa: 75, activo: true },
-  { metric: 'CLASES_ASISTIDAS', nombre: '50 clases', descripcion: 'Has asistido a 50 clases.', umbral: 50, icono: '🥇', creditosRecompensa: 150, activo: true },
-  { metric: 'CLASES_ASISTIDAS', nombre: '100 clases', descripcion: 'Has asistido a 100 clases.', umbral: 100, icono: '💎', creditosRecompensa: 300, activo: true },
-  { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Entrenar 4 semanas', descripcion: '4 semanas seguidas entrenando.', umbral: 4, icono: '🔥', creditosRecompensa: 60, activo: true },
-  { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Entrenar 10 semanas', descripcion: '10 semanas seguidas entrenando.', umbral: 10, icono: '🏆', creditosRecompensa: 150, activo: true },
-  { metric: 'RESERVAS_TOTALES', nombre: '100 reservas', descripcion: 'Has hecho 100 reservas en total.', umbral: 100, icono: '🎖️', creditosRecompensa: 200, activo: true },
-  { metric: 'ASISTENCIA_MENSUAL_COMPLETA', nombre: '100% asistencia mensual', descripcion: 'Ni una sola falta este mes.', umbral: 1, icono: '✅', creditosRecompensa: 50, activo: true },
-  { metric: 'ASISTENCIA_CUMPLEANOS', nombre: 'Feliz cumpleaños', descripcion: 'Has entrenado el día de tu cumpleaños.', umbral: 1, icono: '🎂', creditosRecompensa: 100, activo: true },
+  { metric: 'RESERVAS_TOTALES', nombre: 'Primera reserva', descripcion: 'Tu primera clase reservada.', umbral: 1, icono: 'calendario', creditosRecompensa: 20, activo: true },
+  { metric: 'CLASES_ASISTIDAS', nombre: 'Primera clase', descripcion: 'Has asistido a tu primera clase.', umbral: 1, icono: 'hecho', creditosRecompensa: 15, activo: true },
+  { metric: 'CLASES_ASISTIDAS', nombre: '5 clases', descripcion: 'Has asistido a 5 clases.', umbral: 5, icono: 'estrella', creditosRecompensa: 25, activo: true },
+  { metric: 'CLASES_ASISTIDAS', nombre: '10 clases', descripcion: 'Has asistido a 10 clases.', umbral: 10, icono: 'medalla', creditosRecompensa: 40, activo: true },
+  { metric: 'CLASES_ASISTIDAS', nombre: '25 clases', descripcion: 'Has asistido a 25 clases.', umbral: 25, icono: 'premio', creditosRecompensa: 75, activo: true },
+  { metric: 'CLASES_ASISTIDAS', nombre: '50 clases', descripcion: 'Has asistido a 50 clases.', umbral: 50, icono: 'trofeo', creditosRecompensa: 150, activo: true },
+  { metric: 'CLASES_ASISTIDAS', nombre: '100 clases', descripcion: 'Has asistido a 100 clases.', umbral: 100, icono: 'corona', creditosRecompensa: 300, activo: true },
+  { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Entrenar 4 semanas', descripcion: '4 semanas seguidas entrenando.', umbral: 4, icono: 'racha', creditosRecompensa: 60, activo: true },
+  { metric: 'SEMANAS_CONSECUTIVAS', nombre: 'Entrenar 10 semanas', descripcion: '10 semanas seguidas entrenando.', umbral: 10, icono: 'destellos', creditosRecompensa: 150, activo: true },
+  { metric: 'RESERVAS_TOTALES', nombre: '100 reservas', descripcion: 'Has hecho 100 reservas en total.', umbral: 100, icono: 'medalla', creditosRecompensa: 200, activo: true },
+  { metric: 'ASISTENCIA_MENSUAL_COMPLETA', nombre: '100% asistencia mensual', descripcion: 'Un mes completo sin ninguna falta.', umbral: 1, icono: 'hecho', creditosRecompensa: 50, activo: true },
+  { metric: 'ASISTENCIA_CUMPLEANOS', nombre: 'Feliz cumpleaños', descripcion: 'Has entrenado el día de tu cumpleaños.', umbral: 1, icono: 'cumpleanos', creditosRecompensa: 100, activo: true },
 ];
 
 const emptyForm = (): Omit<AchievementDefinition, 'id' | 'studioId' | 'creadoEn'> => ({
-  metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', umbral: 5, icono: '🏆', creditosRecompensa: 0, activo: true,
+  metric: 'CLASES_ASISTIDAS', nombre: '', descripcion: '', umbral: 5, icono: 'trofeo', creditosRecompensa: 0, activo: true,
 });
 
 export function TabLogros({ showToast }: { showToast: MostrarToast }) {
@@ -102,7 +103,7 @@ export function TabLogros({ showToast }: { showToast: MostrarToast }) {
           {achievementDefinitions.map(a => (
             <div key={a.id} className={cn(cardCls, 'p-4 flex items-start gap-3')}>
               <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-[18px] shrink-0">
-                {a.icono}
+                <MiniaturaInsignia icono={a.icono} porDefecto="trofeo" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[13px] font-semibold text-foreground">{a.nombre}</p>
@@ -123,21 +124,17 @@ export function TabLogros({ showToast }: { showToast: MostrarToast }) {
             <DialogTitle>{modal === 'nuevo' ? 'Nuevo logro' : 'Editar logro'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="grid grid-cols-[80px_1fr] gap-3">
-              <div>
-                <Field label="Icono"
-                  description="Un emoji. Es lo que verá la alumna en su perfil al conseguirlo."
-                >
-                  <input className={inputCls} value={form.icono} onChange={e => setForm(f => ({ ...f, icono: e.target.value }))} maxLength={4} />
-                </Field>
-              </div>
-              <div>
-                <Field label="Nombre"
-                  description="Corto y celebratorio: es lo que aparece en la notificación de logro."
-                >
-                  <input className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
-                </Field>
-              </div>
+            <div>
+              <Field label="Nombre"
+                description="Corto y celebratorio: es lo que aparece en la notificación de logro."
+              >
+                <input className={inputCls} value={form.nombre} placeholder="Ej. 10 clases" onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} autoFocus />
+              </Field>
+            </div>
+            <div>
+              <Field label="Insignia" description="La que verá la alumna en su app al conseguirlo.">
+                <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
+              </Field>
             </div>
             <div>
               <Field label="Descripción"

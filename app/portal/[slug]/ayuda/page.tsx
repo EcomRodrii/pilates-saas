@@ -31,16 +31,16 @@ export default function AyudaPage() {
   ].filter(Boolean) as { label: string; href: string; valor: string }[];
 
   const faq: Array<[string, string]> = [
-    ['¿Cómo cancelo una clase?', `Desde Mis clases → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.`],
+    ['¿Cómo cancelo una clase?', `Desde Actividad → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.`],
     ['¿Qué pasa si la clase está llena?', 'Puedes apuntarte a la lista de espera. Si se libera una plaza, pasa a ser tuya y te avisamos al momento (algunos estudios te dan un plazo para aceptarla).'],
-    ['¿Qué es una clase fija y cómo la pido?', 'Tu sitio reservado cada semana en una clase, sin tener que volver a reservarla. Abre la clase en el horario y activa «Clase fija»; tu estudio revisa la petición (algunos la aprueban al momento). Si vienes dos días, actívala en las dos clases. Las que ya tienes las ves en Mis clases → «Fija»: si un día no vas, tócalo en «Próximas semanas» y se cancela solo ese día. Hace falta una cuota activa que cubra esa clase; con bono, puedes reservar varias semanas de una vez desde la misma ficha.'],
+    ['¿Qué es una clase fija y cómo la pido?', 'Tu sitio reservado cada semana en una clase, sin tener que volver a reservarla. Abre la clase en el horario y activa «Clase fija»; tu estudio revisa la petición (algunos la aprueban al momento). Si vienes dos días, actívala en las dos clases. Las que ya tienes las ves en Actividad → «Fija»: si un día no vas, tócalo en «Próximas semanas» y se cancela solo ese día. Hace falta una cuota activa que cubra esa clase; con bono, puedes reservar varias semanas de una vez desde la misma ficha.'],
     ['¿Qué pasa si mi clase fija tiene fecha de fin?', 'Te avisamos unos días antes. Si quieres seguir, vuelve a activar «Clase fija» en esa clase cuando termine.'],
     // El QR permanente (27-sep). Antes: un pase que «se validaba solo» y caducaba cada dos minutos.
     ...(estudio.qrAcceso ? [[
       '¿Para qué sirve mi QR de acceso?',
       'Lo tienes en Perfil → QR de acceso, y también en tu reserva. Enséñalo al llegar: el estudio lo escanea y comprueba en el momento si tienes plaza en la clase. Es siempre el mismo y no lleva tus datos. Si has compartido una captura o has perdido el móvil, genera uno nuevo desde esa misma pantalla.',
     ] as [string, string]] : []),
-    ['¿Caducan los bonos?', 'Depende del bono; lo ves en Bonos → detalle. Te avisamos antes de que caduque.'],
+    ['¿Caducan los bonos?', 'Depende del bono; lo ves en Bonos → detalle. Antes de que caduque te avisamos en la app (y al móvil, si tienes los avisos activados).'],
     ['¿Puedo cambiar mi email?', 'Sí, en Perfil → Datos. Te mandamos un enlace para confirmarlo; hasta entonces sigues entrando con el de ahora.'],
   ];
 

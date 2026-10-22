@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn, hoyEnEstudio } from '@/lib/utils';
+import { prorrateoDeAlta } from '@/lib/billing/prorrateo';
 import { useEsAncho } from '@/lib/hooks/use-es-ancho';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { useAvisosClientas } from '@/lib/clientas/use-avisos-clientas';
@@ -48,7 +49,7 @@ import { COLUMNAS_EXTRA, claveColumnas, guardarColumnas, leerColumnas, type Colu
 import { SelectorColumnas } from '@/components/clientas/selector-columnas';
 import { colorDeAvatar as avatarColor, cuandoClase, fechaCorta, haceCuanto, mesYAnio, textoDesde } from '@/lib/clientas/textos';
 import { PastillaAviso, PastillaEstado, PastillaSeguimiento, PuntoEstado } from '@/components/clientas/piezas';
-import { FichaClienta } from '@/components/clientas/ficha-clienta';
+import dynamic from 'next/dynamic';
 import { MenuAcciones, type AccionMenu } from '@/components/ui/menu-acciones';
 import { InteresadasYPruebas } from '@/components/clientas/interesadas-y-pruebas';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
@@ -62,10 +63,32 @@ import { construirContextoSegmento, evaluarSegmento } from '@/lib/segmentos/eval
 import type { SegmentoCliente } from '@/lib/segmentos/tipos';
 import { emiteFacturas } from '@/lib/factura-automatica';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useAltaNuevaPropia } from '@/components/guia/use-pon-en-marcha';
 import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
 import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
 import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import { CifrasClientas, type CifraClientas } from '@/components/clientas/cifras-clientas';
+
+// La ficha de la clienta solo se pinta al abrir una (panel al lado de la lista, pantallas
+// anchas): ~65 KB gz que no hacen falta para ver la lista. `ssr: false` porque el panel solo
+// sale tras medir el ancho en el navegador. El esqueleto reserva el alto de la ficha para que
+// la columna no salte al llegar el chunk.
+const FichaClienta = dynamic(() => import('@/components/clientas/ficha-clienta').then(m => m.FichaClienta), {
+  ssr: false,
+  loading: () => (
+    <div role="status" aria-busy="true" aria-label="Cargando la ficha…" className="min-h-[640px] space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="size-14 animate-pulse rounded-full bg-foreground/10" aria-hidden="true" />
+        <div className="space-y-2">
+          <div className="h-5 w-48 animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+          <div className="h-4 w-32 animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+        </div>
+      </div>
+      <div className="h-32 w-full animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+      <div className="h-64 w-full animate-pulse rounded-md bg-foreground/10" aria-hidden="true" />
+    </div>
+  ),
+});
 
 // ─── Shared style tokens ────────────────────────────────────────────────────
 const inputCls =
@@ -183,6 +206,18 @@ function FF({
   );
 }
 
+
+/**
+ * La casilla de seleccionar, con el dedo: con el panel nuevo va dentro de una
+ * etiqueta con zona táctil de 44 px (`.zona-tactil`, solo con `pointer: coarse`),
+ * así que tocar al lado también la marca. Una casilla de 16 px no puede llevar
+ * el `::after` (un <input> no lo pinta), y su celda corta el toque para no abrir
+ * la ficha: tocar a 5 px no hacía nada. Sin el panel nuevo, la casilla de
+ * siempre, sin envoltorio.
+ */
+function CasillaTactil({ panelNuevo, children }: { panelNuevo: boolean; children: ReactNode }) {
+  return panelNuevo ? <label className="zona-tactil inline-flex cursor-pointer align-middle">{children}</label> : <>{children}</>;
+}
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ChevronsUpDown size={11} className="text-muted-foreground ml-1 inline" />;
@@ -1230,6 +1265,8 @@ export default function Socios() {
   // Ni una ficha (con los datos enteros: mientras cargan, `socios` también está
   // vacío): en vez de la tabla vacía, la pantalla que enseña para qué sirve.
   const sinNingunaNueva = panelNuevo && dataLoaded && !datosIncompletos.includes('socios') && socios.length === 0;
+  // La propietaria de un estudio del alta nueva ve el vacío de la maqueta.
+  const altaNuevaPropia = useAltaNuevaPropia().activo === true;
   const abrirAlta = () => { setForm(emptyForm()); setShowForm('nueva'); };
   // La cabecera nueva: la acción principal con el degradado del logo e
   // «Importar» con borde; las respuestas a las preguntas del estudio, en el ⋯.
@@ -1447,9 +1484,17 @@ export default function Socios() {
         <PantallaVacia
           tono="magenta"
           Icono={Users}
-          titulo="Da de alta a tu primera clienta"
+          // Con el alta nueva (PR-5, maqueta «08 · El panel después»), las tres
+          // maneras de que lleguen. La primera es verdad sin hacer nada: quien
+          // reserva desde su página se da de alta sola (`registrarSociaPublica`).
+          titulo={altaNuevaPropia ? 'Aún no tienes alumnas' : 'Da de alta a tu primera clienta'}
           texto="Aquí tendrás a cada clienta con su plan, lo que le queda y cuándo vino por última vez."
-          ejemplos={[
+          etiquetaEjemplos={altaNuevaPropia ? 'Tres maneras' : undefined}
+          ejemplos={altaNuevaPropia ? [
+            { accion: 'Comparte tu enlace', cuando: 'y se dan de alta solas al reservar.' },
+            { accion: 'Impórtalas', cuando: 'de tu Excel o de tu programa anterior.' },
+            { accion: 'Añádelas', cuando: 'una a una desde Clientas.' },
+          ] : [
             { accion: 'Mira quién lleva un mes sin venir', cuando: 'antes de que se te vaya.' },
             { accion: 'Ve cuántas sesiones le quedan a cada una', cuando: 'sin abrir su ficha.' },
             { accion: 'Encuentra a quien se le acabó el plan', cuando: 'cuando aún estás a tiempo de recuperarla.' },
@@ -1479,7 +1524,7 @@ export default function Socios() {
                       data-estado-filtro={e}
                       onClick={() => setFiltroEstado(e)}
                       className={cn(
-                        'inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors',
+                        'zona-tactil inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-semibold transition-colors',
                         activo ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
                       )}
                     >
@@ -1790,28 +1835,30 @@ export default function Socios() {
               <tr className="border-b border-border text-left text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {gestionaClientas && (
                   <th className={cn('w-11 py-3 pl-4', fijaIzq && 'sticky left-0 z-[1] bg-card')}>
-                    <input
-                      type="checkbox"
-                      checked={allSelected}
-                      onChange={toggleSelectAll}
-                      aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
-                      className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
-                    />
+                    <CasillaTactil panelNuevo={panelNuevo}>
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
+                        className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                      />
+                    </CasillaTactil>
                   </th>
                 )}
                 <th className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1] bg-card', gestionaClientas ? 'left-11' : 'left-0'))}>
-                  <button onClick={() => toggleSort('nombre')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('nombre')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Clienta <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="py-3 pr-3">Estado</th>
                 <th className="py-3 pr-3">
-                  <button onClick={() => toggleSort('sesiones_restantes')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('sesiones_restantes')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Plan y saldo <SortIcon active={sortKey === 'sesiones_restantes'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="hidden py-3 pr-3 lg:table-cell">
-                  <button onClick={() => toggleSort('ultima_visita')} className="inline-flex items-center uppercase hover:text-foreground">
+                  <button onClick={() => toggleSort('ultima_visita')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                     Última clase <SortIcon active={sortKey === 'ultima_visita'} dir={sortDir} />
                   </button>
                 </th>
@@ -1819,7 +1866,7 @@ export default function Socios() {
                 {COLUMNAS_EXTRA.filter((c) => columnasExtra.includes(c.id)).map((c) => (
                   <th key={c.id} className={cn('whitespace-nowrap py-3 pr-3', c.id === 'frecuencia' && 'text-right')} data-columna-extra={c.id}>
                     {c.id === 'desde' ? (
-                      <button onClick={() => toggleSort('fecha_registro')} className="inline-flex items-center uppercase hover:text-foreground">
+                      <button onClick={() => toggleSort('fecha_registro')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
                         {c.titulo} <SortIcon active={sortKey === 'fecha_registro'} dir={sortDir} />
                       </button>
                     ) : c.titulo}
@@ -1842,13 +1889,15 @@ export default function Socios() {
                   >
                     {gestionaClientas && (
                       <td className={cn('py-3 pl-4', fijaIzq && cn('sticky left-0 z-[1]', fondoFija(isSelected)))} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(s.id)}
-                          aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
-                          className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
-                        />
+                        <CasillaTactil panelNuevo={panelNuevo}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelect(s.id)}
+                            aria-label={`Seleccionar a ${s.nombre} ${s.apellidos}`}
+                            className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
+                          />
+                        </CasillaTactil>
                       </td>
                     )}
                     <td className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1]', gestionaClientas ? 'left-11' : 'left-0', fondoFija(isSelected)))}>
@@ -1912,7 +1961,7 @@ export default function Socios() {
                       {gestionaClientas && (
                         <button
                           onClick={(e) => openEdit(s, e)}
-                          className="rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
+                          className="zona-tactil rounded-lg p-2 text-muted-foreground opacity-100 transition hover:bg-muted hover:text-foreground focus-visible:opacity-100 [@media(pointer:fine)]:opacity-0 [@media(pointer:fine)]:group-hover:opacity-100"
                           aria-label={`Editar a ${s.nombre} ${s.apellidos}`}
                         >
                           <Pencil size={15} />
@@ -2157,7 +2206,15 @@ export default function Socios() {
                   El manager da de alta clientas pero no cobra, así que ve el
                   formulario sin este campo. */}
               {mueveDinero && (
-              <FF label="Plan / Tarifa" description="Le crea su plan y su primer recibo. Tú dices si ya te lo ha pagado.">
+              <FF label="Plan / Tarifa" description={(() => {
+                const base = 'Le crea su plan y su primer recibo. Tú dices si ya te lo ha pagado.';
+                // Cobro proporcional: se dice ANTES de guardar lo que se le va a cobrar y por qué.
+                if (showForm !== 'nueva' || studio?.cobroProporcionalAltaActivo !== true) return base;
+                const plan = planesTarifa.find(p => p.id === form.planId);
+                const pr = plan ? prorrateoDeAlta(plan, hoyEnEstudio(), studio?.cobroProporcionalDiasMinimos) : null;
+                if (!plan || !pr || pr.mesCompleto) return base;
+                return `${base} ${pr.frase}`;
+              })()}>
                 <select
                   className={selectCls}
                   value={form.planId}

@@ -205,7 +205,7 @@ const articulo: Articulo = {
       bloques: [
         {
           t: 'p',
-          texto: 'En Tentare, la instructora avisa desde la app del estudio o desde un enlace en el móvil, sin instalar nada. El sistema mira quién da ese formato, su disponibilidad, sus vacaciones y bajas y las clases que ya tiene, y te propone la candidata. En el modo asistido, el que viene puesto, no escribe a nadie hasta que das el visto bueno; después la avisa por correo, con un enlace para aceptar o rechazar, se lo recuerda con los plazos de arriba (también por WhatsApp si lo conectaste) y, si sigue sin contestar, te avisa para que decidas a quién escribir. En el modo autónomo (planes Estudio y Cadena) pasa sola a la siguiente y lo hace todo sin ti.',
+          texto: 'En Tentare, la instructora avisa desde la app del estudio o desde un enlace en el móvil, sin instalar nada. El sistema mira quién da ese formato, su disponibilidad, sus vacaciones y bajas y las clases que ya tiene, y te propone la candidata. En el modo asistido, el que viene puesto, no escribe a nadie hasta que das el visto bueno; después la avisa por correo, con un enlace para aceptar o rechazar, se lo recuerda con los plazos de arriba (también por WhatsApp si lo conectaste) y, si sigue sin contestar, te avisa para que decidas a quién escribir. En el modo autónomo (en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes) pasa sola a la siguiente y lo hace todo sin ti.',
         },
         {
           t: 'p',
@@ -260,7 +260,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'La próxima baja, con la sustituta ya propuesta',
-    texto: 'Prueba Tentare 7 días sin tarjeta: da de alta a tu equipo con sus formatos y su disponibilidad, y empieza en modo asistido, aprobando cada aviso.',
+    texto: 'Empieza gratis con Tentare, sin tarjeta: da de alta a tu equipo con sus formatos y su disponibilidad, y arranca en modo asistido, aprobando cada aviso.',
   },
   revision: [
     'Incapacidad temporal: páginas de la Seguridad Social, 7-oct-2026; hay una reforma de la «baja flexible» en negociación sin texto en el BOE: revisar cuando se publique.',

@@ -37,7 +37,8 @@ import { usePermisos } from '@/lib/permisos';
 import { useCore } from '@/lib/core-context';
 import { useStudio } from '@/lib/studio-context';
 import { useTutorial } from '@/lib/tutorial-context';
-import { planQueFalta, type EstadoEnMenu, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
+import { ADDONS, type Addon } from '@/lib/billing/entitlements';
+import { complementoQueFalta, planQueFalta, type EstadoEnMenu, type ModuloTuTentare } from '@/lib/tu-tentare/catalogo';
 import { alOcultar, type DatosAlOcultar } from '@/lib/modulos/al-ocultar';
 import { estaSinCobrar } from '@/lib/billing/situacion-recibo';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
@@ -81,7 +82,7 @@ const sinTildes = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLo
 
 /** «Ir →» y «Configurar»: el botón pequeño azul de Bonsai, con el azul del logo. */
 const BOTON_PEQUENO =
-  'inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
+  'zona-tactil inline-flex h-7 items-center gap-1 rounded-full border px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50';
 const ESTILO_BOTON_PEQUENO: CSSProperties = {
   color: 'var(--t-text-link)',
   borderColor: 'color-mix(in srgb, var(--t-blue-500) 30%, var(--border))',
@@ -103,12 +104,14 @@ function Chapa({ estado }: { estado: 'activo' | 'oculto' | 'siempre' | 'cargando
   );
 }
 
-function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGuardando, recien, error, onCambiar, onIr }: {
+function TarjetaModulo({ m, estado, tinte, plan, complemento, puedeCambiar, guardando, otroGuardando, recien, error, onCambiar, onIr }: {
   m: ModuloTuTentare;
   /** `null`: el menú no se ha podido leer (o no ha llegado): no se dice si está puesto. */
   estado: EstadoEnMenu | null;
   tinte: string;
   plan: string | null;
+  /** El complemento que le falta (Founding con complementos aparte). */
+  complemento: Addon | null;
   puedeCambiar: boolean;
   guardando: boolean;
   otroGuardando: boolean;
@@ -164,6 +167,20 @@ function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGu
             <Chapa estado={chapa} />
           </div>
           <p className="mt-1.5 text-[12.5px] leading-[1.45] text-muted-foreground text-pretty">{m.frase}</p>
+          {complemento && (
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span
+                data-testid="chapa-complemento"
+                className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+                style={{ color: 'var(--warning)', backgroundColor: 'color-mix(in srgb, var(--warning) 12%, var(--card))' }}
+              >
+                Complemento · +{ADDONS[complemento].precioMes}€/mes
+              </span>
+              <Link href="/suscripcion#complementos" className="text-[12px] font-semibold underline-offset-2 hover:underline" style={{ color: 'var(--t-text-link)' }}>
+                Activar
+              </Link>
+            </p>
+          )}
           {plan && (
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span
@@ -179,8 +196,10 @@ function TarjetaModulo({ m, estado, tinte, plan, puedeCambiar, guardando, otroGu
             </p>
           )}
         </div>
-        {/* Como en Bonsai: el interruptor arriba a la derecha y, debajo, «Ir». */}
-        <div className="flex shrink-0 flex-col items-end gap-2.5">
+        {/* Como en Bonsai: el interruptor arriba a la derecha y, debajo, «Ir».
+            Con el dedo, 20 de hueco: el interruptor (24 px) llega a 44 de zona con
+            su `::before` y «Ir» (28) con la suya; con 10 se pisaban. */}
+        <div className="flex shrink-0 flex-col items-end gap-2.5 tactil:gap-5">
           {!m.fijo && puedeCambiar && estado !== null && (
             <Interruptor
               on={activo}
@@ -354,6 +373,7 @@ export function ModulosNuevo() {
                     estado={estado}
                     tinte={grupo.tinte}
                     plan={planQueFalta(m, studio)}
+                    complemento={complementoQueFalta(m, studio)}
                     puedeCambiar={esPropietaria}
                     guardando={guardando === m.href}
                     otroGuardando={guardando !== null && guardando !== m.href}

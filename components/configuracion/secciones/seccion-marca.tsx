@@ -1,12 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Image as ImageIcon, MessageSquareQuote, Palette, Type } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Image as ImageIcon, MessageSquareQuote, Palette, Smartphone, Type } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { tieneFeature } from '@/lib/billing/entitlements';
-import { fetchThemePublicado } from '@/lib/api-client';
-import type { ThemeConfig } from '@/lib/theme-schema';
+import { fetchThemeBorrador, fetchThemePublicado } from '@/lib/api-client';
+import { DEFAULT_THEME, type ThemeConfig } from '@/lib/theme-schema';
+import { hrefDeHerramienta, hrefDeTarjeta } from '@/lib/configuracion/destino';
+import { pasosMiApp, type IdPasoMiApp } from '@/lib/configuracion/mi-app-pasos';
+import { MiAppGuiada, useDatosMiApp, type AccionPaso } from '@/components/configuracion/secciones/mi-app-guiada';
 import {
   resumenLogoYFavicon, resumenPresentacion, resumenTextosBienvenida,
 } from '@/lib/configuracion/resumenes';
@@ -17,6 +20,10 @@ import { DetalleLogoYFavicon } from '@/components/configuracion/tab-marca';
 import { DetallePresentacion, DetalleTextosBienvenida } from '@/components/configuracion/tab-textos-app';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
+import { resumenHerramienta } from '@/lib/configuracion/resumenes';
+import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 
 // Marca: cómo te reconocen tus alumnas. El logo estaba en «Mi app y mi web» y el
 // color en otra pantalla (/configuracion/apariencia/panel); ahora van juntos.
@@ -39,6 +46,10 @@ import { FilaAjuste, FilaExterna, GrupoFilas } from '@/components/configuracion/
 
 const CAJONES = ['logo-y-favicon', 'textos-de-tu-app', 'textos-de-bienvenida'] as const satisfies readonly TarjetaId[];
 
+function pasoHecho(d: Parameters<typeof pasosMiApp>[0], id: IdPasoMiApp): boolean {
+  return pasosMiApp(d).find(p => p.id === id)?.hecho ?? false;
+}
+
 /** «Arena · Serena · #666DCC»: lo que tiene puesto, sin abrir la pantalla. */
 function resumenApariencia(tema: ThemeConfig | null): string | null {
   if (!tema) return null;
@@ -47,9 +58,19 @@ function resumenApariencia(tema: ThemeConfig | null): string | null {
 }
 
 export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, dataLoaded } = useStudio();
+  const { studio, dataLoaded, bannersPortal, contenidoPortal } = useStudio();
   const rol = useRol();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  // «Mi app» (MI_WEB_NUEVA): primero lo de la app —cómo se ve, qué enseña y su app en la App Store—,
+  // luego tu marca y tus textos. «Contenido de tu app» vive en los datos de `web` (su dirección de
+  // siempre) pero se pinta aquí (lib/configuracion/mi-web-nueva.ts).
+  const miWebNueva = useMiWebNueva();
+  const pedirApp = useInterruptor('pedirApp', studio?.id);
+  const [ahoraMs, setAhoraMs] = useState(0);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render.
+    if (miWebNueva) setAhoraMs(Date.now());
+  }, [miWebNueva]);
 
   // Editar la marca es de PROPIETARIO con suscripción activa (va en todos los
   // planes desde el 2-oct-2026) — lo exige
@@ -76,14 +97,129 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
     return () => { vivo = false; };
   }, []);
 
+  // «Mi app» guiada: ¿hay cambios de color o estilo guardados en el borrador y sin publicar? El editor
+  // de Apariencia publica sin pasar por el borrador, pero la biblioteca de temas sí lo escribe: se
+  // compara lo que ven (publicado) con lo guardado. Sin poder leerlo, no se avisa de nada.
+  const [sinPublicar, setSinPublicar] = useState(false);
+  useEffect(() => {
+    if (!miWebNueva || !tema || !soyPropietaria) return;
+    let vivo = true;
+    fetchThemeBorrador()
+      .then(b => {
+        if (!vivo) return;
+        const distinto = b.primary.toLowerCase() !== tema.primary.toLowerCase()
+          || b.secondary.toLowerCase() !== tema.secondary.toLowerCase()
+          || JSON.stringify(b.appAlumna ?? null) !== JSON.stringify(tema.appAlumna ?? null);
+        setSinPublicar(distinto);
+      })
+      .catch(() => {});
+    return () => { vivo = false; };
+  }, [miWebNueva, tema, soyPropietaria]);
+
+  const extraMiApp = useMemo(() => ({
+    favicon: puedeEditarFavicon && tema ? !!tema.faviconUrl : undefined,
+    apariencia: tema ? {
+      resumen: resumenApariencia(tema) ?? '',
+      propia: tema.primary.toLowerCase() !== DEFAULT_THEME.primary.toLowerCase() || !!tema.appAlumna,
+    } : null,
+    sinPublicar,
+    appEnTienda: pedirApp && soyPropietaria,
+  }), [puedeEditarFavicon, tema, sinPublicar, pedirApp, soyPropietaria]);
+  const datosMiApp = useDatosMiApp(extraMiApp, ahoraMs);
+
   const cargado = dataLoaded ? studio : null;
   function guardado(texto: string) {
     cerrar();
     showToast(texto);
   }
 
+  const filaApariencia = (
+    <FilaExterna
+      id="color-de-marca"
+      icono={Palette}
+      titulo={tarjetaPorId('color-de-marca').titulo}
+      valor={resumenApariencia(tema)}
+      descripcion={tarjetaPorId('color-de-marca').frase}
+      href="/configuracion/apariencia"
+    />
+  );
+  if (miWebNueva) {
+    const apariencia = (paso: string) => `/configuracion/apariencia?paso=${paso}`;
+    const acciones: Record<IdPasoMiApp, AccionPaso | null> = {
+      logo: { tipo: 'cajon', abrir: () => abrir('logo-y-favicon'), texto: studio?.logoUrl ? 'Cambiar' : 'Subir' },
+      estilo: { tipo: 'enlace', href: apariencia('estilo'), texto: 'Editar' },
+      // La portada vive en el paso «Fotos» del editor; el titular, en «Entrada».
+      entrada: { tipo: 'enlace', href: apariencia(studio?.imagenBienvenidaUrl ? 'entrada' : 'fotos'), texto: studio?.imagenBienvenidaUrl ? 'Editar' : 'Completar' },
+      fotos: { tipo: 'enlace', href: apariencia('fotos'), texto: datosMiApp && !pasoHecho(datosMiApp, 'fotos') ? 'Completar' : 'Ver' },
+      inicio: { tipo: 'enlace', href: hrefDeHerramienta('contenido-de-tu-app'), texto: 'Editar' },
+      frase: { tipo: 'cajon', abrir: () => abrir('textos-de-bienvenida'), texto: studio?.fraseManuscrita ? 'Cambiar' : 'Escribir' },
+      compartir: studio?.slug
+        ? { tipo: 'enlace', href: apariencia('instalar'), texto: 'Compartir' }
+        : { tipo: 'enlace', href: hrefDeTarjeta('direccion-y-enlaces'), texto: 'Ponerle dirección' },
+    };
+    return (
+      <>
+        {datosMiApp ? (
+          <MiAppGuiada datos={datosMiApp} acciones={acciones} slug={studio?.slug ?? null} hrefPresentacion={hrefDeTarjeta('textos-de-tu-app')} />
+        ) : (
+          <div aria-busy className="h-64 animate-pulse rounded-2xl bg-muted" />
+        )}
+
+        <CajonAjuste
+          id="logo-y-favicon" abierto={cajon === 'logo-y-favicon'} onCerrar={cerrar}
+          titulo="Tu logo y tu icono"
+          frase="Tu logo va arriba en su app y en tus correos; tu icono, en el móvil de tus alumnas y en la pestaña. Se aplican al momento."
+        >
+          <DetalleLogoYFavicon
+            favicon={puedeEditarFavicon ? (cargandoTema ? undefined : tema?.faviconUrl ?? null) : undefined}
+            puedeEditarFavicon={puedeEditarFavicon}
+            soyPropietaria={soyPropietaria}
+            showToast={showToast}
+            onFavicon={url => setTema(t => (t ? { ...t, faviconUrl: url } : t))}
+          />
+          <div className="mt-6 border-t border-border pt-5">
+            <DetallePresentacion showToast={showToast} onGuardado={guardado} campos="lema" />
+          </div>
+        </CajonAjuste>
+        {/* Por enlaces de antes (`#textos-de-tu-app`): la descripción y el lema, sin normas ni año (decisión 3). */}
+        <CajonAjuste id="textos-de-tu-app" abierto={cajon === 'textos-de-tu-app'} onCerrar={cerrar} frase="Tu descripción sale en tu página de reservas (Mi web); tu lema, bajo tu nombre en la app.">
+          <DetallePresentacion showToast={showToast} onGuardado={guardado} campos="descripcion-y-lema" />
+        </CajonAjuste>
+        <CajonAjuste
+          id="textos-de-bienvenida" abierto={cajon === 'textos-de-bienvenida'} onCerrar={cerrar}
+          titulo="Tu frase, a mano"
+          frase="Una frase tuya, con letra manuscrita, al final del inicio de su app. Vacía, no sale nada."
+        >
+          <DetalleTextosBienvenida showToast={showToast} onGuardado={guardado} soloFraseAMano />
+        </CajonAjuste>
+      </>
+    );
+  }
+
   return (
     <>
+      {miWebNueva ? (
+        <GrupoFilas titulo="Cómo es tu app">
+          {filaApariencia}
+          <FilaHerramienta
+            id="contenido-de-tu-app"
+            // Con el interruptor su app enseña el mensaje destacado, así que la fila también lo cuenta.
+            valor={resumenHerramienta('contenido-de-tu-app', {
+              contenido: dataLoaded && ahoraMs > 0 ? { tarjetas: bannersPortal, ahoraMs, mensaje: contenidoPortal?.mensajeDestacado } : null,
+            })}
+          />
+          {pedirApp && soyPropietaria && (
+            <FilaExterna
+              id="app-en-la-tienda"
+              icono={Smartphone}
+              titulo="Tu app en la App Store"
+              valor={null}
+              descripcion="Tu app con tu nombre y tu icono en la App Store: pídela y mira en qué punto está."
+              href="/configuracion/apariencia?paso=instalar"
+            />
+          )}
+        </GrupoFilas>
+      ) : null}
       <GrupoFilas titulo="Tu marca">
         <FilaAjuste
           id="logo-y-favicon"
@@ -96,14 +232,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
           })}
           onAbrir={abrir}
         />
-        <FilaExterna
-          id="color-de-marca"
-          icono={Palette}
-          titulo={tarjetaPorId('color-de-marca').titulo}
-          valor={resumenApariencia(tema)}
-          descripcion={tarjetaPorId('color-de-marca').frase}
-          href="/configuracion/apariencia"
-        />
+        {!miWebNueva && filaApariencia}
       </GrupoFilas>
 
       <GrupoFilas titulo="Lo que leen tus alumnas">

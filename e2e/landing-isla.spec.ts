@@ -16,6 +16,14 @@ import { test, expect, type Page } from '@playwright/test';
 
 const isla = (page: Page) => page.locator('nav.v5-nav');
 
+/**
+ * Por debajo de este ancho los enlaces viven tras el botón del menú. Era 760 hasta
+ * la fase 2.1 (19-oct-2026): la isla es ahora la de toda la web, con «Producto»,
+ * «Soluciones» y «Recursos», y va con los cortes de la web (640/1024/1280,
+ * components/web/README.md). Una tableta vertical ve el menú a pantalla completa.
+ */
+const CORTE_MENU = 1024;
+
 async function prepararPagina(page: Page) {
   await page.addInitScript(() => {
     // Sin cortina del logo ni popup de «Empieza gratis» por en medio.
@@ -44,16 +52,16 @@ test.describe('La isla de la landing', () => {
   test('arriba del todo está completa: enlaces y «Entrar» a la vista', async ({ page }, info) => {
     await prepararPagina(page);
     await expect(isla(page)).not.toHaveAttribute('data-compacta', /.*/);
-    await expect(page.getByRole('link', { name: 'Probar Tentare' })).toBeVisible();
-    // En móvil los enlaces viven en el menú; en escritorio, en la isla.
-    if ((info.project.use.viewport?.width ?? 1280) > 760) {
+    await expect(isla(page).getByRole('link', { name: 'Empezar gratis' })).toBeVisible();
+    // Por debajo de 1024 px los enlaces viven en el menú; por encima, en la isla.
+    if ((info.project.use.viewport?.width ?? 1280) >= CORTE_MENU) {
       await expect(isla(page).getByRole('link', { name: 'Precios' })).toBeVisible();
     }
   });
 
   test('al bajar se encoge y al subir se alarga', async ({ page }, info) => {
     await prepararPagina(page);
-    const escritorio = (info.project.use.viewport?.width ?? 1280) > 760;
+    const escritorio = (info.project.use.viewport?.width ?? 1280) >= CORTE_MENU;
     const anchoCompleta = await ancho(page);
     // Con movimiento normal sí hay resorte: la rejilla del envoltorio tarda más de 0,3 s.
     const largo = await page.evaluate(() => parseFloat(getComputedStyle(document.querySelector('nav.v5-nav .v5-nav-col') as Element).transitionDuration));
@@ -66,7 +74,7 @@ test.describe('La isla de la landing', () => {
       // Los enlaces plegados no se pueden tabular ni leer: no están.
       await expect(isla(page).getByRole('link', { name: 'Precios' })).toBeHidden();
     }
-    await expect(page.getByRole('link', { name: 'Probar Tentare' })).toBeVisible();
+    await expect(isla(page).getByRole('link', { name: 'Empezar gratis' })).toBeVisible();
 
     await desplazar(page, 900, 840);
     await expect(isla(page)).not.toHaveAttribute('data-compacta', /.*/);
@@ -111,7 +119,7 @@ test.describe('La isla de la landing', () => {
     await desplazar(page, 0, 900);
     await expect(isla(page)).toHaveAttribute('data-compacta', '');
     expect(await duracion()).toBeLessThan(0.001);
-    if ((info.project.use.viewport?.width ?? 1280) > 760) {
+    if ((info.project.use.viewport?.width ?? 1280) >= CORTE_MENU) {
       // Sin animación el ancho final se alcanza ya, sin esperar un resorte.
       const final = await ancho(page);
       await page.waitForTimeout(100);
@@ -128,7 +136,7 @@ test.describe('La isla de la landing', () => {
   });
 
   test('el menú móvil abre y cierra también con la isla encogida', async ({ page }, info) => {
-    test.skip((info.project.use.viewport?.width ?? 1280) > 760, 'el botón del menú solo existe en móvil');
+    test.skip((info.project.use.viewport?.width ?? 1280) >= CORTE_MENU, 'el botón del menú solo existe por debajo de 1024 px');
     await prepararPagina(page);
     await desplazar(page, 0, 900);
     await expect(isla(page)).toHaveAttribute('data-compacta', '');

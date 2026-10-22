@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { WIDGETS, esDisponible, widgetPorId, type WidgetDisponible } from './catalogo.ts';
+import { METODOS, WIDGETS, esDisponible, widgetPorId, type MetodoIntegracion, type WidgetDisponible } from './catalogo.ts';
 import { CONFIG_POR_DEFECTO } from './config.ts';
 import {
-  PLATAFORMAS_WEB, direccionLegible, guiaDe, leerWeb, mensajeParaTuWeb, metodoEnWeb, origenesConYSinWww,
+  DIBUJOS_PASO, MONOGRAMA, PLATAFORMAS_WEB, direccionLegible, pasosConDibujo, guiaDe, leerWeb, mensajeParaTuWeb, metodoEnWeb, origenesConYSinWww,
   pasosEnTuWeb, receta, usaBotonPropio, type PlataformaWeb,
 } from './recetas.ts';
 
@@ -144,4 +144,37 @@ test('se autorizan a la vez la web con y sin www, solo cuando es inequívoco', (
   assert.deepEqual(origenesConYSinWww('https://reservas.estudio.example'), ['https://reservas.estudio.example']);
   assert.deepEqual(origenesConYSinWww('http://localhost:3000'), ['http://localhost:3000']);
   assert.deepEqual(origenesConYSinWww('no-es-url'), ['no-es-url']);
+});
+
+// ── «Tu web» v2: monogramas y pasos con dibujo (decisiones 3 y 7) ─────────────
+
+test('cada plataforma tiene su monograma o, si no es una plataforma con nombre, su icono', () => {
+  for (const p of PLATAFORMAS_WEB) assert.ok(p.id in MONOGRAMA, p.id);
+  assert.deepEqual(Object.keys(MONOGRAMA).sort(), PLATAFORMAS_WEB.map(p => p.id).sort());
+  // Las cuatro con nombre llevan letras (ni logo ni color de nadie), y distintas.
+  const conNombre = (['wordpress', 'wix', 'squarespace', 'webflow'] as const).map(p => MONOGRAMA[p]);
+  for (const m of conNombre) assert.ok(m && m.length <= 3, String(m));
+  assert.equal(new Set(conNombre).size, 4);
+  // A mano, una agencia o sin web: el icono de lo que es.
+  assert.equal(MONOGRAMA.otra, null);
+  assert.equal(MONOGRAMA.agencia, null);
+  assert.equal(MONOGRAMA.sinweb, null);
+});
+
+test('cada paso de cada plataforma × forma tiene su dibujo, y los textos son los de siempre', () => {
+  const metodos = Object.keys(METODOS) as MetodoIntegracion[];
+  for (const p of TODAS) {
+    for (const m of metodos) {
+      const conDibujo = pasosConDibujo(p, m);
+      assert.ok(conDibujo.length >= 2, `${p}/${m}`);
+      for (const paso of conDibujo) assert.ok(DIBUJOS_PASO.includes(paso.dibujo), `${p}/${m}: ${paso.dibujo}`);
+      // Una sola fuente: lo que se dibuja es lo que dice el mensaje para quien lleva la web.
+      assert.deepEqual(conDibujo.map(x => x.texto), pasosEnTuWeb(p, m), `${p}/${m}`);
+    }
+  }
+  // El dibujo dice lo que dice el paso.
+  assert.deepEqual(pasosConDibujo('wordpress', 'iframe').map(x => x.dibujo), ['bloque', 'pegar', 'comprobar']);
+  assert.deepEqual(pasosConDibujo('wordpress', 'popup').map(x => x.dibujo), ['bloque', 'pegar', 'script']);
+  assert.deepEqual(pasosConDibujo('wix', 'boton').map(x => x.dibujo), ['boton', 'enlace', 'publicar']);
+  assert.deepEqual(pasosConDibujo('sinweb', 'enlace').map(x => x.dibujo), ['copiar', 'compartir']);
 });

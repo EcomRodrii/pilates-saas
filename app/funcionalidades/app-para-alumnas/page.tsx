@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CapturaMovil, CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
 import { InstalableVsNativa, MockMovil, PantallasDelPortal } from '@/components/funcionalidades/visuales/app-alumnas';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AppAlumna } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/app-para-alumnas';
 const pagina = paginaDe(PATH)!;
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -26,7 +27,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo cambiar los colores y las fuentes?',
-    a: 'Sí, con un editor propio (a partir del plan Estudio): paleta, tipografías, forma de los botones y qué bloques aparecen en su pantalla de inicio. Se previsualiza antes de publicarlo, así que nada cambia para tus alumnas hasta que tú lo publicas.',
+    a: 'Sí, con un editor propio (en todos los planes): paleta, tipografías, forma de los botones y qué bloques aparecen en su pantalla de inicio. Se previsualiza antes de publicarlo, así que nada cambia para tus alumnas hasta que tú lo publicas.',
   },
   {
     q: '¿Los avisos llegan al móvil de verdad?',
@@ -34,11 +35,11 @@ const FAQ = [
   },
   {
     q: '¿Aparece Tentare por algún lado?',
-    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida en todos los planes, también en el Founding Studio de 29 €/mes.',
+    a: 'Apenas. El nombre de la app instalada, el icono, el color y los correos que recibe son de tu estudio; Tentare solo aparece en una línea discreta al pie de su perfil y de la página de reservas. La app de marca está incluida en todos los planes, también en Founding Studio, que es gratis.',
   },
   {
     q: '¿Puede gestionar su plaza fija ella sola?',
-    a: 'Sí. Si un día no puede venir, la deja en pausa o cancela esa sesión concreta desde su portal, y si le corresponde recuperación, se genera sola — sin que tengas que dársela de baja tú ni que te escriba para avisarte.',
+    a: 'En parte. Si un día no puede venir, cancela esa sesión concreta desde su portal y, si le corresponde recuperación, se genera sola. La pausa, si lo tienes activado, la pide desde su app y la apruebas tú.',
   },
 ];
 
@@ -67,16 +68,14 @@ export default function AppAlumnasPage() {
 
       <Seccion id="pantallas" titulo="Qué tiene dentro">
         <PantallasDelPortal />
-        <CapturaMovil
-          src="/producto/portal-alumna.png"
-          alt="Página pública de reservas de un estudio de Pilates, vista en un móvil"
-          pie="La página de un estudio, en el móvil de su alumna: su nombre, su ciudad, su horario y quién da cada clase. La tipografía y el color son del estudio, no de Tentare."
-        />
+        <CapturaMovil pie="La app de un estudio en el móvil de su alumna: su próxima clase, sus accesos a reservar, a su plan y a la comunidad, y su progreso de la semana. El nombre, el logo y el color son del estudio, no de Tentare.">
+          <AppAlumna />
+        </CapturaMovil>
         <p>
           Además de consultar, puede actuar: cancelar dentro de plazo, apuntarse a la lista de espera de una clase llena,
-          comprar un bono cuando se le acaba y aceptar una plaza que se libera. Si tiene plaza fija cada semana, también la
-          gestiona ella sola — pausarla, retomarla o recuperar la sesión que le corresponde — sin escribirte para
-          avisarte. Las reglas que se aplican en cada caso son las que tú configuras en{' '}
+          comprar un bono cuando se le acaba y aceptar una plaza que se libera. Si tiene plaza fija cada semana, cancela un
+          día suelto ella sola y recupera la sesión que le corresponde; la pausa, si lo tienes activado, la pide desde su
+          app y la apruebas tú. Las reglas que se aplican en cada caso son las que tú configuras en{' '}
           <Link href="/funcionalidades/reservas-online">reservas</Link> y en{' '}
           <Link href="/funcionalidades/cancelaciones-y-politicas">cancelaciones</Link>.
         </p>

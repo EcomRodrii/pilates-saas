@@ -84,7 +84,8 @@ test('el alta de socia con cobro crea recibos pendientes y los cobra por el serv
   const alta = cuerpoDe(ctx, 'async function addSocio(');
   assert.match(alta, /estado: 'PENDIENTE'/);
   assert.match(alta, /recibosACobrar\.push\(reciboMatricula\.id\)/, 'la matrícula tiene que cobrarse con el alta');
-  assert.match(alta, /if \(cobrado\) \{[\s\S]*cobrarEnServidor\(recibosACobrar, cobroAlta\.metodo\)/);
+  // Con el cobro proporcional puede no haber nada que cobrar en el alta: la condición añade `recibosACobrar.length > 0`.
+  assert.match(alta, /if \(cobrado(?: && recibosACobrar\.length > 0)?\) \{[\s\S]*cobrarEnServidor\(recibosACobrar, cobroAlta\.metodo\)/);
   // Lo que antes hacía el navegador a mano: factura local + sellado. Ahora lo sella `confirmarCobro`.
   assert.doesNotMatch(alta, /buildFactura|sellarFacturaYActualizar/, 'el alta sigue sellando facturas desde el navegador');
   // El recibo existe ANTES de cobrarlo, y si el servidor no lo confirma se AVISA (no se da por cobrado).

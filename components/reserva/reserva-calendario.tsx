@@ -1586,6 +1586,13 @@ function TarjetaClaseImpl({ t, slot, onOpen, ocultarPrecio, origenTentare = '' }
 }
 // Mismo motivo que SlotRow — cada tarjeta de la lista, memoizada.
 const TarjetaClase = memo(TarjetaClaseImpl);
+/**
+ * La MISMA tarjeta, para la vista previa de «Tu primera clase» del alta nueva
+ * (components/alta-nueva/primera-clase.tsx): una clase que aún no está guardada
+ * no se puede enseñar en la página de verdad, así que se pinta esta, con la
+ * clase en memoria. Si la tarjeta cambia aquí, cambia allí.
+ */
+export { TarjetaClase as TarjetaClaseReservar };
 
 // ── Hoja inferior (bottom sheet) ─────────────────────────────────────────────
 

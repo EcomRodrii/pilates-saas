@@ -1,4 +1,5 @@
 import { MUTED } from '@/components/landing/theme';
+import { ADDONS } from '@/lib/billing/entitlements';
 import { PanelClaro, PanelOscuro, PasoVertical } from './comunes';
 
 // ── Dibujos propios de /funcionalidades/sustituciones ────────────────────────
@@ -110,11 +111,16 @@ export function EscaladoEnElTiempo() {
   );
 }
 
+// Autónomo y Vacaciones no van en todos los planes desde el 19/20-oct-2026: en
+// Founding Studio de pago son un complemento (`ADDONS.sustituciones`), y el
+// servidor contesta 403 sin él (app/api/sustituciones/route.ts).
+const SOLO_CON_AUTONOMIA = `Gratis, Estudio y Cadena; en Founding de pago, +${ADDONS.sustituciones.precioMes} €/mes`;
+
 const MODOS = [
   { n: 'Manual', nivel: 'Nivel 1', body: 'El sistema te propone a quién avisar. Tú das cada paso.', quien: 'Todos los planes' },
   { n: 'Asistido', nivel: 'Nivel 2 · por defecto', body: 'Te propone la candidata y, con tu visto bueno, la contacta y le insiste. Si acepta, la clase se reasigna sola.', quien: 'Todos los planes' },
-  { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: 'Plan Estudio o Cadena' },
-  { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: 'Plan Estudio o Cadena' },
+  { n: 'Autónomo', nivel: 'Nivel 3', body: 'Cubre la baja solo y te lo cuenta después.', quien: SOLO_CON_AUTONOMIA },
+  { n: 'Vacaciones', nivel: 'Nivel 3+', body: 'Opera de principio a fin sin molestarte, mientras estás fuera.', quien: SOLO_CON_AUTONOMIA },
 ];
 
 export function NivelesDeAutonomia() {
@@ -126,7 +132,7 @@ export function NivelesDeAutonomia() {
       <div className="sust-modos" style={{ display: 'grid', gap: 12 }}>
         {MODOS.map((m, i) => (
           <div key={m.n} style={{ background: i >= 2 ? '#22251A' : '#FAFAF6', border: `1px solid ${i >= 2 ? '#22251A' : '#EDEDE5'}`, borderRadius: 14, padding: '16px 17px' }}>
-            <div className="lp-mono" style={{ fontSize: 10, letterSpacing: '.12em', textTransform: 'uppercase', color: i >= 2 ? '#A8B080' : '#A8A89F', marginBottom: 8 }}>{m.nivel}</div>
+            <div style={{ fontWeight: 600, fontSize: 11.5, color: i >= 2 ? '#A8B080' : '#A8A89F', marginBottom: 8 }}>{m.nivel}</div>
             <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: '-.02em', color: i >= 2 ? '#fff' : '#1A1A1A', marginBottom: 6 }}>{m.n}</div>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: i >= 2 ? 'rgba(255,255,255,.7)' : MUTED, marginBottom: 10 }}>{m.body}</div>
             <div className="lp-mono" style={{ fontSize: 10.5, color: i >= 2 ? 'rgba(255,255,255,.45)' : '#A8A89F' }}>{m.quien}</div>

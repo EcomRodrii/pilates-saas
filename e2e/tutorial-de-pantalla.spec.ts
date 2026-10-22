@@ -345,7 +345,7 @@ test.describe('el arranque de un estudio nuevo (P1.4)', () => {
     await expect(lista).toContainText('Tu estudio, listo para reservar');
     const fila = lista.getByRole('listitem').filter({ hasText: 'Programa tus clases' });
     await expect(fila.getByRole('link', { name: 'Hacer' })).toHaveAttribute('href', '/calendario');
-    await expect(lista.getByRole('listitem').filter({ hasText: 'Crea tu primera clase' })).toContainText('hecho');
+    await expect(lista.getByRole('listitem').filter({ hasText: 'Crea tu primer tipo de clase' })).toContainText('hecho');
     await expect(page.getByTestId('siguiente-paso')).toHaveCount(0);
   });
 

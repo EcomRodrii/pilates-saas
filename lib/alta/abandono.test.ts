@@ -37,6 +37,7 @@ function alta(p: Partial<AltaEstudio> = {}): AltaEstudio {
     recordatorioPaso: null,
     recordatorioIntentos: 0,
     recordatorioDescartado: null,
+    version: 'v1',
     ...p,
   };
 }
@@ -209,11 +210,45 @@ test('el HTML lleva el botón a /login y escapa el nombre que escribió la perso
 // ── Lo que manda la pantalla ────────────────────────────────────────────────
 
 test('leerEventoProgreso: solo los tres eventos, y el nombre recortado', () => {
-  assert.deepEqual(leerEventoProgreso({ evento: 'plan', estudio: '  Aurora  ' }), { evento: 'plan', estudio: 'Aurora' });
-  assert.deepEqual(leerEventoProgreso({ evento: 'inicio' }), { evento: 'inicio', estudio: null });
+  assert.deepEqual(leerEventoProgreso({ evento: 'plan', estudio: '  Aurora  ' }),
+    { evento: 'plan', estudio: 'Aurora', version: null, condiciones: null });
+  assert.deepEqual(leerEventoProgreso({ evento: 'inicio' }), { evento: 'inicio', estudio: null, version: null, condiciones: null });
   assert.equal(leerEventoProgreso({ evento: 'terminada' }), null);
   assert.equal(leerEventoProgreso(null), null);
   assert.equal(leerEventoProgreso({ evento: 'plan', estudio: 'x'.repeat(500) })!.estudio!.length, 120);
+});
+
+test('leerEventoProgreso: la versión del alta y la de los textos legales, solo con su forma', () => {
+  assert.deepEqual(leerEventoProgreso({ evento: 'plan', estudio: 'Aurora', version: 'v2_prueba', condiciones: '2026-10-06' }),
+    { evento: 'plan', estudio: 'Aurora', version: 'v2_prueba', condiciones: '2026-10-06' });
+  // La de siempre no se anuncia ('v1' es lo de serie) y lo raro se tira sin romper el evento.
+  for (const raro of [{ version: 'v1' }, { version: 'v3' }, { version: 2 }, { condiciones: '6 de octubre' }, { condiciones: '2026-13-01' }]) {
+    const e = leerEventoProgreso({ evento: 'inicio', ...raro });
+    assert.ok(e, JSON.stringify(raro));
+    assert.equal(e.version, null, JSON.stringify(raro));
+    assert.equal(e.condiciones, null, JSON.stringify(raro));
+  }
+});
+
+test('al alta nueva no se le habla de elegir plan ni de «dos pasos»', () => {
+  for (const version of ['v2', 'v2_prueba'] as const) {
+    for (const foundingGratis of [true, false]) {
+      for (const [paso, origen] of [['formulario_plan', 'con_sesion'], ['error_estudio', 'con_sesion'], ['error_estudio', 'registro'], ['email_sin_confirmar', 'registro'], ['estudio_sin_crear', 'registro']] as const) {
+        const c = contenidoRecordatorio(paso, alta({ origen, version }), BASE, { foundingGratis });
+        const todo = [c.asunto, c.preheader, c.titular, ...c.parrafos, c.boton.texto].join(' ');
+        assert.doesNotMatch(todo, /plan|dos pasos/i, `${version} · ${paso} · ${origen} · gratis=${foundingGratis}: ${todo}`);
+      }
+    }
+  }
+  // El alta de siempre sigue igual.
+  assert.match(contenidoRecordatorio('formulario_plan', alta({ origen: 'con_sesion' }), BASE).titular, /elegir tu plan/);
+  assert.match(contenidoRecordatorio('error_estudio', alta({ origen: 'con_sesion' }), BASE).parrafos.join(' '), /dos pasos/);
+});
+
+test('la versión se lee de la fila, y lo que no se reconoce es el alta de siempre', () => {
+  assert.equal(altaDesdeFila({ auth_user_id: 'u', iniciada_en: hace(1), version: 'v2' }).version, 'v2');
+  assert.equal(altaDesdeFila({ auth_user_id: 'u', iniciada_en: hace(1) }).version, 'v1');
+  assert.equal(altaDesdeFila({ auth_user_id: 'u', iniciada_en: hace(1), version: 'v9' }).version, 'v1');
 });
 
 // ── /interno ────────────────────────────────────────────────────────────────
@@ -286,4 +321,13 @@ test('el where exists del cron es la MISMA condición que «pendiente» en la fu
   }
   assert.match(CRON, /url := 'https:\/\/www\.tentare\.app\/api\/cron\/altas-sin-terminar'/);
   assert.match(CRON, /'23 \* \* \* \*'/);
+});
+
+test('con Founding Studio gratis, el correo del paso del plan no habla de prueba', () => {
+  const c = contenidoRecordatorio('formulario_plan', alta(), BASE, { foundingGratis: true });
+  const todo = [c.asunto, c.preheader, c.titular, ...c.parrafos].join(' ');
+  assert.doesNotMatch(todo, /prueba|días gratis/);
+  assert.match(todo, /Empiezas gratis/);
+  // Apagado, lo de siempre.
+  assert.match(contenidoRecordatorio('formulario_plan', alta(), BASE).preheader, /días gratis/);
 });

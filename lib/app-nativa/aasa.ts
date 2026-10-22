@@ -22,17 +22,27 @@ export interface AppDeEstudioAasa { appId: string; slug: string }
 
 /**
  * `appsEstudio`: cada app de estudio reclama SOLO las rutas de su estudio
- * (`/portal/<slug>`), no `/app` ni `/portal/*`. Van ANTES de la entrada general: iOS
- * toma la primera que encaja, y si fuera detrás, `/portal/*` de la app «Tentare» se
+ * (`/portal/<slug>`), no `/app` ni `/portal/*`; la de una cadena, las de todas sus sedes (llegan
+ * como varias entradas con el mismo `appId` y van en un solo bloque). Van ANTES de la entrada
+ * general: iOS toma la primera que encaja, y si fuera detrás, `/portal/*` de la app «Tentare» se
  * las comería todas. Sin ninguna, el fichero es el de siempre.
  */
 export function contenidoAasa(appIds: readonly string[], appsEstudio: readonly AppDeEstudioAasa[] = []) {
-  const detallesDeEstudios = appsEstudio.map((a) => ({
-    appIDs: [a.appId],
-    components: [
-      { '/': `/portal/${a.slug}`, comment: 'La app de este estudio' },
-      { '/': `/portal/${a.slug}/*` },
-    ],
+  // El slug va dentro de un PATRÓN de iOS: un `*` o un `?` reclamaría rutas de otros estudios.
+  // Solo entra el formato de siempre (letras, números y guiones); lo demás se queda fuera.
+  const porApp = new Map<string, string[]>();
+  for (const a of appsEstudio) {
+    if (!/^[a-z0-9-]{1,80}$/.test(a.slug)) continue;
+    const slugs = porApp.get(a.appId) ?? [];
+    if (!slugs.includes(a.slug)) slugs.push(a.slug);
+    porApp.set(a.appId, slugs);
+  }
+  const detallesDeEstudios = [...porApp].map(([appId, slugs]) => ({
+    appIDs: [appId],
+    components: slugs.flatMap((slug, i) => [
+      { '/': `/portal/${slug}`, ...(i === 0 ? { comment: 'La app de este estudio' } : {}) },
+      { '/': `/portal/${slug}/*` },
+    ]),
   }));
   return {
     applinks: {

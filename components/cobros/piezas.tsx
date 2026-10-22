@@ -31,7 +31,7 @@ export function ChipFiltro({ children, activo, n, onClick }: { children: ReactNo
       onClick={onClick}
       aria-pressed={activo}
       className={cn(
-        'inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-medium transition-colors',
+        'zona-tactil inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-medium transition-colors',
         activo ? 'border-foreground bg-foreground text-background' : 'border-border bg-card text-foreground hover:bg-muted',
       )}
     >
@@ -51,10 +51,10 @@ export function Buscador({ valor, onCambio, texto, className }: { valor: string;
         onChange={e => onCambio(e.target.value)}
         placeholder={texto}
         aria-label={texto}
-        className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-8 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
+        className="h-9 tactil:h-11 w-full rounded-lg border border-border bg-card pl-9 pr-8 text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-brand/30"
       />
       {valor && (
-        <button type="button" onClick={() => onCambio('')} aria-label="Borrar la búsqueda" className="absolute right-2 rounded p-0.5 text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={() => onCambio('')} aria-label="Borrar la búsqueda" className="zona-tactil absolute right-2 rounded p-0.5 text-muted-foreground hover:text-foreground">
           <X size={14} />
         </button>
       )}

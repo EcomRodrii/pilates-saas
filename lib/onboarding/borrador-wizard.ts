@@ -23,7 +23,6 @@ export interface RespuestasWizard {
   alumnos?: string;
   importar?: string;
   foco?: string[];
-  ayuda?: string;
   salas?: string;
   /** Una etiqueta de aforo por sala, en orden. */
   aforos?: string[];
@@ -86,7 +85,7 @@ export function leerProgresoWizard(studioId: string): { paso: number; ans: Respu
     const a = (d.ans ?? {}) as Record<string, unknown>;
     const ans: RespuestasWizard = {
       centros: texto(a.centros), software: texto(a.software), alumnos: texto(a.alumnos),
-      importar: texto(a.importar), foco: listaTexto(a.foco), ayuda: texto(a.ayuda),
+      importar: texto(a.importar), foco: listaTexto(a.foco),
       salas: texto(a.salas), aforos: listaPorIndice(a.aforos), aforo: texto(a.aforo),
       duracion: texto(a.duracion),
       clases: listaTexto(a.clases), cobro: listaTexto(a.cobro), imparte: texto(a.imparte),

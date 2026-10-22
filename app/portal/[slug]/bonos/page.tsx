@@ -7,7 +7,7 @@ import { StudentShell } from '@/components/student/shell/StudentShell';
 import { PageHeader } from '@/components/student/shell/PageHeader';
 import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import { useAsync } from '@/lib/student/useAsync';
-import { getBonos, getClases, getNombresTiposClase, getPagos, getPlazaFija, getProductosTienda, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
+import { getBonos, getClases, getInstructoras, getNombresTiposClase, getPagos, getPlazaFija, getProductosTienda, getRenovacionPorPagar, getReservas } from '@/lib/student/datos';
 import { avisoBono, masParaCuota, reservadasConBono } from '@/lib/student/bonos-vista';
 import { loQueTengo, tieneAlgo } from '@/lib/student/lo-que-tengo';
 import { esCuota } from '@/lib/student/bono-cubre';
@@ -31,6 +31,8 @@ import { catalogo, invalidarCatalogo } from '@/lib/student/catalogo';
 import { clavePublicableStripe } from '@/lib/student/comprar';
 import { HojaPagarRecibo } from '@/components/student/domain/HojaPagarRecibo';
 import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar';
+import { getGamificacion } from '@/lib/student/gamificacion-datos';
+import { MisEstadisticas, MisLogros, ProximasClases } from '@/components/student/domain/MiPlanResumen';
 
 // Mi plan (antes «Bonos»; maqueta «Clase fija y bonos, ordenados», aprobada el 6-oct-2026). Responde UNA pregunta:
 // «¿qué tengo y cuánto me queda?». En este orden: lo que hay que pagar, la cuota, el bono, las recuperaciones, y al final
@@ -51,11 +53,13 @@ function MiPlan() {
 
   const cargar = useCallback(async () => {
     // Todo del MISMO payload cacheado.
-    const [bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, d] = await Promise.all([
+    // Instructoras y gamificación salen del MISMO catálogo: «Próximas clases» y «Mis logros» no piden nada de más.
+    const [bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, d, instructoras, gamificacion] = await Promise.all([
       getBonos(estudio.slug), getPlazaFija(estudio.slug), getRenovacionPorPagar(estudio.slug), getNombresTiposClase(estudio.slug),
       getReservas(estudio.slug), getClases(estudio.slug), getPagos(estudio.slug), getProductosTienda(estudio.slug), catalogo(estudio.slug),
+      getInstructoras(estudio.slug), getGamificacion(estudio.slug),
     ]);
-    return { bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, stripeAccountId: d?.studio?.stripeAccountId ?? null };
+    return { bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, stripeAccountId: d?.studio?.stripeAccountId ?? null, instructoras, gamificacion };
   }, [estudio.slug]);
   const { data: cargado, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:bonos`);
   const actualizar = useCallback(async () => {
@@ -125,9 +129,20 @@ function MiPlan() {
   const deudaAjena = !!cargado && hayDeudaQueNoSePagaAqui(cargado.pagos, pagosPendientes(cargado.pagos));
 
   return (
-    <StudentShell>
+    // Copia de la maqueta (fundador, 19-oct-2026): sin la barra del estudio, «Mi plan» grande y el engranaje a sus
+    // preferencias. La tarjeta del bono es la de siempre (lo único que el fundador dejó fuera de la copia).
+    <StudentShell sinCabecera>
       <TirarParaActualizar onRefrescar={actualizar} />
-      <PageHeader titulo="Mi plan" />
+      <div style={{ paddingTop: 'calc(8px + var(--safe-top))' }}>
+        <PageHeader
+          titulo="Mi plan"
+          accion={(
+            <Link href={href('/perfil/preferencias')} aria-label="Ajustes" className="tap tap--icono cabecera-pantalla__boton">
+              <Icono nombre="ajustes" tamano={24} />
+            </Link>
+          )}
+        />
+      </div>
 
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-3)', marginTop: 14 }}>
         {confirmando && (
@@ -221,6 +236,14 @@ function MiPlan() {
                 />
               )
             )}
+
+            {/* ── Debajo de lo que tiene (maqueta de oct-2026): sus próximas clases, sus cifras y sus logros. ── */}
+            <ProximasClases
+              reservas={cargado.reservas} clases={cargado.clases} instructoras={cargado.instructoras} hoy={hoy}
+              href={href} hrefTodas={href('/mis-reservas')}
+            />
+            <MisEstadisticas studioId={estudio.id} />
+            {cargado.gamificacion.hay && <MisLogros logros={cargado.gamificacion.logros} hrefTodos={href('/logros')} />}
 
             {/* Comprar y pagar: un nombre para cada cosa. */}
             <section className="card" aria-label="Tienda y recibos" style={{ padding: '0 16px', overflow: 'hidden' }}>

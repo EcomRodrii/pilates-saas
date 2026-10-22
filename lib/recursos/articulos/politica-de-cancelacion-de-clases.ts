@@ -3,12 +3,13 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'politica-de-cancelacion-de-clases',
   titulo: 'Política de cancelación de clases: plantilla para tu estudio y lo que dice la ley',
-  tituloSeo: 'Política de cancelación de clases: plantilla gratis y ley',
+  tituloSeo: 'Política de cancelación de clases: plantilla y ley',
   descripcion: 'Plantilla de política de cancelación lista para copiar en tu estudio de pilates o yoga: ventanas reales, no-shows y qué penalizaciones permite la ley.',
   resumen: 'Qué tiene que decir la política de cancelación de tu estudio, cuántas horas piden estudios reales, qué permite la ley (penalizaciones y desistimiento) y una plantilla lista para adaptar.',
   categoria: 'operacion',
   seccion: 'Operación',
   publicado: '2026-09-25',
+  actualizado: '2026-10-16',
   consultaPrincipal: 'política de cancelación de clases',
   consultas: [
     'plantilla de política de cancelación para un estudio',
@@ -260,7 +261,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Que tu política se aplique sola, igual para todas',
-    texto: 'Con Tentare, tus alumnas cancelan desde el móvil dentro de la ventana que fijas para cada tipo de clase, y la plaza pasa sola a la lista de espera. Pruébalo 7 días gratis, sin tarjeta, con el plan que elijas.',
+    texto: 'Con Tentare, tus alumnas cancelan desde el móvil dentro de la ventana que fijas para cada tipo de clase, y la plaza pasa sola a la lista de espera. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Parte legal (TRLGDCU, LCGC y LSSI): que la revise una abogada de consumo antes de publicar. La tabla de desistimiento es una lectura prudente de los artículos 102 y 103.l y de la guía de la Comisión Europea; no se ha encontrado resolución española sobre bonos o cuotas de clases comprados online.',

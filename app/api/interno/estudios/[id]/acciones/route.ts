@@ -6,7 +6,9 @@ import { PLANES } from '@/lib/billing/entitlements';
 import { DIAS_AMPLIACION_PRUEBA } from '@/lib/billing/trial';
 import { ampliarPruebaEstudio } from '@/lib/interno/ampliar-prueba';
 import { filtroClavesQueLleganA } from '@/lib/api-publica/gestion-reglas';
+import { apiActivaSegunFila } from '@/lib/api-publica/acceso';
 import { credencialesWellhub, productosWellhub } from '@/lib/plataformas/wellhub/cliente';
+import { reabrirPlanGratis } from '@/lib/billing/convertir-a-gratis';
 
 export const runtime = 'nodejs';
 
@@ -29,7 +31,8 @@ type Accion =
   | { accion: 'activar-api'; nota?: string }
   | { accion: 'desactivar-api' }
   | { accion: 'vincular-wellhub'; gymId?: string; productoId?: string }
-  | { accion: 'desvincular-wellhub' };
+  | { accion: 'desvincular-wellhub' }
+  | { accion: 'desvincular-cuenta'; otroId: string };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const g = await exigirPermiso(req, 'studios.update');
@@ -115,6 +118,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       antes: { suspendido: false }, despues: { suspendido: true, motivo },
     });
     return NextResponse.json({ ok: true, suspendido: true });
+  }
+
+  if (cuerpo.accion === 'desvincular-cuenta') {
+    // «No es el mismo negocio» (vinculos-gratis.ts): se descartan TODOS los
+    // vínculos entre los dos estudios, en las dos direcciones. Si alguno sumaba el
+    // uso, se reabre el estudio NUEVO de ese vínculo (`studio_id`, el que heredó
+    // el exceso), con todos los gratis de su dueña. El viejo no se toca: medir
+    // nunca escribe en él. Descartar solo un aviso (IP, navegador) no reabre nada.
+    const otroId = typeof cuerpo.otroId === 'string' ? cuerpo.otroId : '';
+    if (!otroId || otroId === id) return NextResponse.json({ error: 'Falta el otro estudio.' }, { status: 400 });
+    const ahora = new Date().toISOString();
+    const marca = { descartado_en: ahora, descartado_por: g.admin.email };
+    const [a, b] = await Promise.all([
+      db.from('vinculos_cuentas_gratis').update(marca).eq('studio_id', id).eq('vinculado_id', otroId).is('descartado_en', null).select('studio_id, motivo, cuenta'),
+      db.from('vinculos_cuentas_gratis').update(marca).eq('studio_id', otroId).eq('vinculado_id', id).is('descartado_en', null).select('studio_id, motivo, cuenta'),
+    ]);
+    if (a.error || b.error) return NextResponse.json({ error: 'No se ha podido desvincular.' }, { status: 500 });
+    const descartados = [...(a.data ?? []), ...(b.data ?? [])] as { studio_id: string; motivo: string; cuenta: boolean }[];
+    if (descartados.length === 0) return NextResponse.json({ error: 'No hay ningún vínculo activo entre los dos.' }, { status: 409 });
+
+    const heredaron = [...new Set(descartados.filter(d => d.cuenta).map(d => d.studio_id))];
+    const reabiertos: string[] = [];
+    for (const nuevo of heredaron) {
+      const r = await reabrirPlanGratis(db, nuevo);
+      if (r === null) return NextResponse.json({ error: 'Desvinculado, pero no se ha podido reabrir el estudio. Vuelve a intentarlo.' }, { status: 500 });
+      reabiertos.push(...r);
+    }
+    const motivos = [...new Set(descartados.map(d => d.motivo))];
+    // Auditado en los dos estudios: se busca por cualquiera de ellos.
+    for (const objetivo of [id, otroId]) {
+      await registrar(db, req, {
+        actor: g.admin,
+        accion: 'estudio.vinculo-gratis.descartado',
+        objetivoTipo: 'studio', objetivoId: objetivo,
+        resumen: `${nombre} y ${otroId} no son el mismo negocio (${motivos.join(', ')}).${reabiertos.length ? ` Reabiertos: ${reabiertos.join(', ')}.` : ''}`,
+        antes: { vinculo: [id, otroId], motivos }, despues: { vinculo: null, reabiertos },
+      });
+    }
+    return NextResponse.json({ ok: true, reabiertos });
   }
 
   if (cuerpo.accion === 'reactivar') {
@@ -239,18 +281,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ ok: true, wellhub: { gymId, productoId: productoId || null } });
   }
 
-  // API pública (F1, 1-oct-2026): se activa estudio a estudio. Decisión del
-  // fundador: no queda abierta a todos los planes, pero tampoco se inventan
-  // límites comerciales todavía. Sin activar, el estudio no puede crear claves
-  // y las que tuviera dejan de valer (lib/api-publica/servidor.ts). Los tokens
-  // OAuth de Zapier no dependen de esto.
+  // API pública: desde el 16-oct-2026 la tienen TODOS los estudios (decisión del
+  // fundador, que revierte la del 1-oct). Esto es el interruptor de apagado de
+  // uno concreto: desactivar revoca claves y webhooks y la API deja de valer en
+  // ese estudio (lib/api-publica/servidor.ts); activar solo quita la
+  // desactivación. Los tokens OAuth de Zapier no dependen de esto.
   if (cuerpo.accion === 'activar-api' || cuerpo.accion === 'desactivar-api') {
     const { data: acceso } = await db.from('api_acceso_estudios')
       .select('activada_en, desactivada_en').eq('studio_id', id).maybeSingle();
-    const activaAntes = !!acceso && !acceso.desactivada_en;
+    const activaAntes = apiActivaSegunFila(acceso);
     const activar = cuerpo.accion === 'activar-api';
     if (activar === activaAntes) {
-      return NextResponse.json({ error: activar ? 'La API ya está activada.' : 'La API no está activada.' }, { status: 409 });
+      return NextResponse.json({ error: activar ? 'La API ya está activada.' : 'La API ya está desactivada.' }, { status: 409 });
     }
     const nota = activar ? (cuerpo.nota ?? '').trim().slice(0, 500) || null : undefined;
     const { error } = activar
@@ -258,7 +300,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           studio_id: id, activada_en: new Date().toISOString(), activada_por: g.admin.userId,
           desactivada_en: null, nota,
         }, { onConflict: 'studio_id' })
-      : await db.from('api_acceso_estudios').update({ desactivada_en: new Date().toISOString() }).eq('studio_id', id);
+      // UPSERT, no UPDATE: casi ningún estudio tiene fila (sin fila = activa) y un
+      // UPDATE sobre cero filas «funciona» sin apagar nada.
+      : await db.from('api_acceso_estudios').upsert({
+          studio_id: id, activada_por: g.admin.userId, desactivada_en: new Date().toISOString(),
+        }, { onConflict: 'studio_id' });
     if (error) return NextResponse.json({ error: 'No se ha podido cambiar el acceso a la API.' }, { status: 500 });
 
     // Desactivar REVOCA las claves que llegan a la sede: las suyas y las de su

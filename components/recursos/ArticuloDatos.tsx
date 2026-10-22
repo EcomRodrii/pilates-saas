@@ -1,9 +1,10 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
-import { ACC } from '@/components/landing/theme';
 import { ArticleShell, type TocItem } from '@/components/recursos/ArticleShell';
 import { PageShell } from '@/components/recursos/PageShell';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
-import { Callout, CtaBlock, RelatedLinks, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { Callout, CtaBlock, StatBlock } from '@/components/recursos/ArticlePrimitives';
+import { ArticulosRelacionados } from '@/components/recursos/ArticulosRelacionados';
 import { TextoMarcado } from '@/components/recursos/TextoMarcado';
 import { PortadaCabecera } from '@/components/recursos/PortadaCabecera';
 import { portadaArticulo } from '@/lib/recursos/articulos/portadas';
@@ -12,12 +13,15 @@ import { CalculadoraBonos } from '@/components/recursos/CalculadoraBonos';
 import { DescargaRecurso } from '@/components/recursos/DescargaRecurso';
 import { RECURSOS_DESCARGABLES } from '@/lib/recursos/descargas';
 import { captchaDeServidorListo } from '@/lib/auth/captcha-servidor';
-import { CATEGORIAS_RECURSOS } from '@/lib/recursos/guias';
 import { fechaArticulo, minutosLectura } from '@/lib/recursos/articulos';
 import { articuloLd, faqLd, migasLd, textoPlano } from '@/lib/recursos/articulos/schema';
 import { contarPalabras } from '@/lib/recursos/articulos/validar';
+import { ARTICULOS_META } from '@/lib/recursos/articulos/meta';
+import { elegirRelacionados, relacionadasDeProducto } from '@/lib/recursos/articulos/relacionados';
+import { recursoIntermedio, seccionDeLaLlamada } from '@/lib/recursos/articulos/recursos-intermedios';
 import { PAGINAS } from '@/lib/seo/paginas';
 import type { Articulo, Bloque } from '@/lib/recursos/articulos/tipos';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 // Pinta un artículo de /recursos escrito como datos (lib/recursos/articulos).
 // Todo lo que no es contenido —JSON-LD, índice, «En resumen», FAQ, fuentes,
@@ -61,41 +65,41 @@ function BloqueArticulo({ b }: { b: Bloque }) {
       const ancha = b.cabecera.length > 3;
       return (
         <figure style={{ margin: '22px 0' }}>
-          <div className="art-tabla-marco" style={{ overflowX: 'auto', border: '1px solid #E7E7E0', borderRadius: 16, background: '#fff' }}>
+          <div className="art-tabla-marco" style={{ overflowX: 'auto', border: '1px solid var(--w-linea)', borderRadius: 16, background: 'var(--w-papel)' }}>
             <table role="table" className={ancha ? 'art-tabla art-tabla--ancha' : 'art-tabla'} style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
               <thead role="rowgroup">
-                <tr role="row" style={{ background: '#F5F5F1' }}>
+                <tr role="row" style={{ background: 'var(--w-cream)' }}>
                   {b.cabecera.map((c) => (
-                    <th key={c} role="columnheader" scope="col" style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, letterSpacing: '.05em', textTransform: 'uppercase', color: '#5A5A52', fontWeight: 700, borderBottom: '1px solid #E7E7E0' }}>{c}</th>
+                    <th key={c} role="columnheader" scope="col" style={{ textAlign: 'left', padding: '11px 14px', fontSize: 13, color: 'var(--w-texto-2)', fontWeight: 600, borderBottom: '1px solid var(--w-linea)' }}>{c}</th>
                   ))}
                 </tr>
               </thead>
               <tbody role="rowgroup">
                 {b.filas.map((f, i) => (
-                  <tr key={i} role="row" style={{ borderBottom: i < b.filas.length - 1 ? '1px solid #EDEDE6' : undefined }}>
+                  <tr key={i} role="row" style={{ borderBottom: i < b.filas.length - 1 ? '1px solid var(--w-linea)' : undefined }}>
                     {f.map((c, j) => (
-                      <td key={j} role="cell" data-columna={b.cabecera[j] || undefined} style={{ padding: '11px 14px', verticalAlign: 'top', lineHeight: 1.45, fontWeight: j === 0 ? 600 : 400, color: j === 0 ? '#1A1A1A' : '#3A3A34' }}><TextoMarcado texto={c} /></td>
+                      <td key={j} role="cell" data-columna={b.cabecera[j] || undefined} style={{ padding: '11px 14px', verticalAlign: 'top', lineHeight: 1.45, fontWeight: j === 0 ? 600 : 400, color: 'var(--w-texto)' }}><TextoMarcado texto={c} /></td>
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {b.nota && <figcaption style={{ fontSize: 12.5, color: '#6B6B63', marginTop: 8, lineHeight: 1.5 }}><TextoMarcado texto={b.nota} /></figcaption>}
+          {b.nota && <figcaption style={{ fontSize: 13, color: 'var(--w-texto-3)', marginTop: 8, lineHeight: 1.5 }}><TextoMarcado texto={b.nota} /></figcaption>}
         </figure>
       );
     }
     case 'nota':
       return <Callout title={b.titulo}><TextoMarcado texto={b.texto} /></Callout>;
     case 'producto':
-      return <CtaBlock title={b.titulo} body={textoPlano(b.texto)} cta="Probar 7 días gratis →" />;
+      return <CtaBlock title={b.titulo} body={textoPlano(b.texto)} cta={`${CTA_ALTA} →`} />;
     case 'llamada':
       return (
-        <aside style={{ borderLeft: `3px solid ${ACC}`, padding: '2px 0 2px 18px', margin: '26px 0' }}>
-          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, color: '#33332D' }}>
+        <aside style={{ borderLeft: '3px solid var(--w-olive)', padding: '2px 0 2px 18px', margin: '26px 0' }}>
+          <p style={{ margin: 0, fontSize: 17, lineHeight: 1.65, color: 'var(--w-texto)' }}>
             {b.texto}{' '}
-            <Link href="/crear-estudio" style={{ color: ACC, fontWeight: 700, textDecoration: 'underline', textUnderlineOffset: 3 }}>Prueba Tentare 7 días gratis</Link>
-            {' '}o <Link href="/precios" style={{ color: ACC, textDecoration: 'underline', textUnderlineOffset: 3 }}>mira los precios</Link>.
+            <Link href="/crear-estudio" style={{ color: 'var(--w-olive)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>Empieza gratis con Tentare</Link>
+            {' '}o <Link href="/precios" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>mira los precios</Link>.
           </p>
         </aside>
       );
@@ -122,11 +126,16 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
     { id: 'preguntas-frecuentes', label: 'Preguntas frecuentes' },
     ...(a.fuentes.length ? [{ id: 'fuentes', label: 'Fuentes' }] : []),
   ];
-  const categoria = CATEGORIAS_RECURSOS.find((c) => c.key === a.categoria);
-  const relacionadas = a.relacionadas.map((ruta) => {
-    const p = PAGINAS.find((x) => x.path === ruta);
-    return { href: ruta, category: categoria?.label ?? 'Recursos', categoryColor: '#6E7650', title: p?.etiqueta ?? ruta };
-  });
+  // «Sigue leyendo»: tres artículos (relacionados.ts) y, aparte, las páginas de
+  // producto que el artículo ya enlazaba en `relacionadas`.
+  const relacionados = elegirRelacionados(a.slug, ARTICULOS_META);
+  const deProducto = relacionadasDeProducto(a, ARTICULOS_META).map((href) => ({
+    href,
+    etiqueta: PAGINAS.find((x) => x.path === href)?.etiqueta ?? href,
+  }));
+  // La llamada a mitad de texto, solo donde hay un recurso relevante (recursos-intermedios.ts).
+  const recurso = recursoIntermedio(a.slug);
+  const trasSeccion = recurso ? seccionDeLaLlamada(a) : -1;
 
   return (
     <PageShell>
@@ -149,11 +158,21 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
           <p className="art-lead"><TextoMarcado texto={a.respuesta} /></p>
         </section>
 
-        {a.secciones.map((s) => (
-          <section key={s.id} aria-labelledby={s.id}>
-            <h2 id={s.id}>{s.titulo}</h2>
-            {s.bloques.map((b, i) => <BloqueArticulo key={i} b={b} />)}
-          </section>
+        {a.secciones.map((s, n) => (
+          <Fragment key={s.id}>
+            <section aria-labelledby={s.id}>
+              <h2 id={s.id}>{s.titulo}</h2>
+              {s.bloques.map((b, i) => <BloqueArticulo key={i} b={b} />)}
+            </section>
+            {recurso && n === trasSeccion && (
+              <aside className="art-recurso">
+                <p>
+                  {recurso.texto}{' '}
+                  <Link href={recurso.href}>{recurso.enlace}</Link>.
+                </p>
+              </aside>
+            )}
+          </Fragment>
         ))}
 
         <h2 id="preguntas-frecuentes">Preguntas frecuentes</h2>
@@ -162,11 +181,11 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
         {a.fuentes.length > 0 && (
           <>
             <h2 id="fuentes">Fuentes</h2>
-            <ol style={{ paddingLeft: 22, fontSize: 14, lineHeight: 1.55, color: '#3A3A34' }}>
+            <ol style={{ paddingLeft: 22, fontSize: 14, lineHeight: 1.55, color: 'var(--w-texto-2)' }}>
               {a.fuentes.map((f) => (
                 <li key={f.url} style={{ margin: '6px 0' }}>
-                  <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: '#3A3A34', textDecoration: 'underline', textUnderlineOffset: 3 }}>{f.titulo}</a>
-                  <span style={{ color: '#6B6B63' }}> · consultada el {fechaLarga(f.consultada)}</span>
+                  <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--w-texto-2)', textDecoration: 'underline', textUnderlineOffset: 3 }}>{f.titulo}</a>
+                  <span style={{ color: 'var(--w-texto-3)' }}> · consultada el {fechaLarga(f.consultada)}</span>
                 </li>
               ))}
             </ol>
@@ -175,8 +194,8 @@ export function ArticuloDatos({ a }: { a: Articulo }) {
 
         {a.cta.enlace
           ? <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} href={a.cta.enlace.href} cta={a.cta.enlace.texto} />
-          : <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta="Probar 7 días gratis →" />}
-        <RelatedLinks items={[...relacionadas, { href: '/recursos', category: 'Centro de Recursos', categoryColor: '#22251A', title: 'Ver todas las guías para tu estudio →' }]} />
+          : <CtaBlock title={a.cta.titulo} body={textoPlano(a.cta.texto)} cta={`${CTA_ALTA} →`} />}
+        <ArticulosRelacionados articulos={relacionados} deProducto={deProducto} />
       </ArticleShell>
     </PageShell>
   );

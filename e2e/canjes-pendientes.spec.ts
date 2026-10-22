@@ -81,11 +81,11 @@ async function base(page: Page) {
   await seedSesionDeDuena(page);
 }
 
-/** Abre Configuración › Motivación › Recompensas, logros y retos, donde están los canjes. */
+/** Abre Configuración › Motivación › Canjes. */
 async function abrirCanjes(page: Page) {
-  await page.goto('/configuracion?tab=motivacion&abrir=recompensas-y-logros');
-  // Desde el 15-sep (v2) los catálogos y los canjes tienen su propia pantalla.
-  await expect(page.getByRole('heading', { level: 2, name: 'Recompensas, logros y retos' })).toBeVisible({ timeout: 30_000 });
+  await page.goto('/configuracion?tab=motivacion&abrir=canjes');
+  // Desde el 20-oct los canjes tienen su propia pantalla, sin los catálogos.
+  await expect(page.getByRole('heading', { level: 2, name: 'Canjes' })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: 'Pendientes de entregar' })).toBeVisible({ timeout: 30_000 });
 }
 
@@ -98,8 +98,6 @@ test.describe('Canjes pendientes', () => {
 
     // Los tres datos que hacen falta para poder entregarlo: qué, a quién y
     // cuánto pagó. Sin el nombre de la socia la lista no sirve de nada.
-    // Dentro de «Canjes pendientes»: desde el 15-sep el catálogo de recompensas
-    // está en la misma pantalla y también dice «Clase invitada» y «500 créditos».
     const canjes = page.locator('#canjes');
     await expect(canjes.getByText('Clase invitada')).toBeVisible();
     await expect(canjes.getByText(/Marta Ruiz/)).toBeVisible();
@@ -118,15 +116,19 @@ test.describe('Canjes pendientes', () => {
       patchesDeEstado.push(route.request().method());
       return json(route, []);
     });
-    await page.route('**/rest/v1/rpc/cancelar_canje', route => {
+    await page.route('**/rest/v1/rpc/cancelar_canje_con_motivo', route => {
       llamadasRpc.push(route.request().postData() ?? '');
       return json(route, [{ estado: 'CANCELADO', saldo: 620 }]);
     });
 
     await abrirCanjes(page);
-    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await page.getByRole('button', { name: 'Cancelar', exact: true }).click();
+    // Cancelar pregunta el motivo (opcional) y lo guarda con quién y cuándo.
+    await page.getByLabel('Motivo (opcional)').fill('sin existencias');
+    await page.getByRole('button', { name: 'Cancelar canje' }).click();
 
     await expect.poll(() => llamadasRpc.length, { timeout: 10_000 }).toBe(1);
+    expect(llamadasRpc[0]).toContain('sin existencias');
     // Y la RPC recibe el canje y el estudio: sin `p_studio_id` el aislamiento
     // por estudio de la función no puede aplicarse.
     expect(llamadasRpc[0]).toContain('rwd-1');
@@ -160,7 +162,7 @@ test.describe('Canjes pendientes', () => {
       entregas.push(route.request().postData() ?? '');
       return json(route, 'rwd-1');
     });
-    await page.route('**/rest/v1/rpc/cancelar_canje', route => {
+    await page.route('**/rest/v1/rpc/cancelar_canje_con_motivo', route => {
       cancelaciones.push('no debería llamarse');
       return json(route, [{ estado: 'CANCELADO', saldo: 620 }]);
     });

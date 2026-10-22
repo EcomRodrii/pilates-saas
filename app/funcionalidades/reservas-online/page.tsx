@@ -4,6 +4,7 @@ import { FeatureShell } from '@/components/funcionalidades/FeatureShell';
 import { CierreCta, Entradilla, FeatureFaq, Limite, Rejilla, Seccion } from '@/components/funcionalidades/bloques';
 import { CicloDeReserva, ReglasQueSeHeredan } from '@/components/funcionalidades/visuales/reservas';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { AppAlumna } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/reservas-online';
 const pagina = paginaDe(PATH)!;
@@ -12,17 +13,17 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
   {
     q: '¿Cómo pagan mis alumnas al reservar?',
-    a: 'Con tarjeta a través de tu cuenta de Stripe. Si a una alumna le falta bono, lo compra en la propia página y reserva sin salir; Bizum también vale para bonos y pagos sueltos. Las cuotas mensuales se cobran con tarjeta o domiciliación SEPA, y el efectivo se registra como cobro de mostrador.',
+    a: 'Con tarjeta a través de tu cuenta de Stripe. Si a una alumna le falta bono, lo compra en la propia página y reserva sin salir; Bizum también vale para bonos y pagos sueltos. Las cuotas mensuales se cobran con la tarjeta guardada o por domiciliación, con la remesa SEPA que presentas en tu banco, y el efectivo se registra como cobro de mostrador.',
   },
   {
     q: '¿Cuánto cuesta un software de reservas y pagos para un estudio de Pilates?',
-    a: 'Tentare cuesta desde 29 € al mes con IVA incluido, sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
+    a: 'Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
   },
   {
     q: '¿Mis alumnas tienen que instalarse una app?',
@@ -54,7 +55,7 @@ export default function ReservasPage() {
       h1={<>Reservan solas, a las siete de la mañana.</>}
       intro={<>Tus alumnas reservan y cancelan desde el móvil sin escribirte. Y las reglas de tu estudio —qué se puede reservar, cuándo y con qué— se aplican solas, clase por clase.</>}
       chips={['Sin instalar nada', 'Reglas por tipo de clase', 'Aforo a prueba de carreras']}
-      captura={{ src: '/producto/calendario-dia.png', alt: 'Vista de día del calendario de Tentare, con las salas en columnas', pie: 'Un día por salas. Cada bloque lleva su aforo y quien la da.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Reservar en la app de una alumna, en un iPhone: las clases de mañana con su hora, su sala, su instructora y las plazas que quedan.', contenido: <AppAlumna captura="reservar" />, movil: true }}
     >
       <Seccion id="problema" titulo="El coste real de reservar por WhatsApp">
         <Entradilla>
@@ -91,7 +92,7 @@ export default function ReservasPage() {
           columnas={2}
           items={[
             { titulo: 'Lista, semana o día', body: 'Tres vistas de la misma agenda. En el móvil casi todo el mundo usa la de semana.' },
-            { titulo: 'Filtros que se usan', body: 'Por tipo de clase, instructora, nivel y franja horaria. Buscar «reformer de tarde con Marta» no debería ser scroll.' },
+            { titulo: 'Filtros que se usan', body: 'Por tipo de clase e instructora.' },
             { titulo: 'Tu marca, no la nuestra', body: 'Colores, tipografía, logo y hasta el icono del navegador son de tu estudio.' },
             { titulo: 'Compra si le falta bono', body: 'Si no tiene sesiones, puede comprar ahí mismo y reservar sin salir.' },
           ]}
@@ -114,10 +115,10 @@ export default function ReservasPage() {
           o cuota— sin pasar por WhatsApp, y que tú veas quién ha reservado, cuántas plazas quedan y qué se ha cobrado.
         </Entradilla>
         <p>
-          En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro va con tarjeta
-          o domiciliación SEPA a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare
-          no añade comisión; lo único aparte es la de Stripe. Las facturas se pueden emitir automáticamente, con numeración
-          legal. Desde 29 € al mes con IVA incluido y sin permanencia: los{' '}
+          En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro con tarjeta
+          va a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare no añade
+          comisión; lo único aparte es la de Stripe. Si cobras por domiciliación, Tentare te prepara la remesa SEPA para tu
+          banco. Las facturas se emiten automáticamente, con numeración legal. Gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia: los{' '}
           <Link href="/precios">planes y límites</Link> están en la página de precios.
         </p>
         <p>

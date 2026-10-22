@@ -24,7 +24,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // por `sentrySeguro` (el mismo Sentry de `confirmar-cobro.ts`, que no lanza fuera de Next).
 import { hoyEnEstudio } from '../utils.ts';
 import { escaparLike } from '../escapar-like.ts';
-import { cicloInicialDe } from '../bono-logic.ts';
+import { cicloInicialDe, mesesDeCiclo } from '../bono-logic.ts';
+import { fechaFinDeEntregaOnline } from './prorrateo.ts';
 import type { PlanTarifa } from '../types.ts';
 import { aplicarEfectosCobro, sentrySeguro, type DependenciasEfectos, type FuenteConfirmacion } from './confirmar-cobro.ts';
 import { facturaIdCheckout } from './cobro-confirmado-reglas.ts';
@@ -154,6 +155,14 @@ export interface CompraPlan {
    * en el alta/asignación de plan por mostrador (lib/studio-context.tsx).
    */
   matriculaCobradaCentimos?: number | null;
+  /**
+   * Cobro proporcional online: hasta cuándo vale el ciclo que se prometió al abrir
+   * el cobro (`metadata.cicloFin`, YYYY-MM-DD) y su porqué en palabras. El servidor
+   * los fijó al ABRIR el cobro; aquí nunca se recalculan con la fecha de hoy
+   * (ver `fechaFinDeEntregaOnline`). Ausentes = compra de siempre.
+   */
+  cicloFinISO?: string | null;
+  cuotaTexto?: string | null;
   /**
    * La sesión del widget público desde el que se pagó (`metadata.widgetSesion`)
    * y la clase, si la había. Con ella se anota la compra en el embudo del
@@ -378,7 +387,7 @@ export async function entregarPlanComprado(
   // `periodicidadMeses` viaja también: una cuota trimestral comprada por web
   // nacería con un mes de vigencia —y se le volvería a cobrar a los 30 días—
   // si aquí se leyera solo el tipo. El cron de renovación ya lee su columna.
-  const { fechaFin } = cicloInicialDe(
+  const { fechaFin: fechaFinDeSiempre } = cicloInicialDe(
     {
       tipo: plan.tipo as PlanTarifa['tipo'],
       sesiones: plan.sesiones as number | null,
@@ -387,6 +396,22 @@ export async function entregarPlanComprado(
     },
     hoy,
   );
+  // Cobro proporcional online: el ciclo prometido al abrir el cobro, solo en una
+  // cuota mensual de un mes (cualquier otra cosa con esa metadata se ignora).
+  let fechaFin = fechaFinDeSiempre;
+  const esCuotaDeUnMes = plan.tipo === 'MENSUAL' && mesesDeCiclo({ periodicidadMeses: plan.periodicidad_meses as number | null }) === 1;
+  if (compra.cicloFinISO && esCuotaDeUnMes) {
+    const r = fechaFinDeEntregaOnline({ cicloFinISO: compra.cicloFinISO, hoyISO: hoy, porDefecto: fechaFinDeSiempre,
+      cuotaCentimos: Math.round(Number(plan.precio) * 100), importeCuotaCentimos: compra.importeCobradoCentimos != null ? Math.round(importeReal * 100) : null });
+    fechaFin = r.fechaFin;
+    if (r.origen !== 'metadata') {
+      // El pago llegó con el ciclo ya vencido (cobro abierto antes de medianoche) o con una fecha que no vale.
+      sentrySeguro.captureMessage('[entregarPlanComprado] ciclo prometido no aplicable', {
+        level: r.origen === 'tarde' ? 'error' : 'warning', tags: { area: 'cobros', tipo: 'prorrateo-online' },
+        extra: { studioId: compra.studioId, sessionId: compra.sessionId, origen: r.origen, cicloFin: compra.cicloFinISO },
+      });
+    }
+  }
 
   // Cupo exacto (Opening OS): si este cobro reservó plaza en una etapa, pasa a
   // VENDIDA ligada a esta suscripción ANTES de insertarla, para que el trigger
@@ -431,7 +456,7 @@ export async function entregarPlanComprado(
     studio_id: compra.studioId,
     socio_id: socioId,
     suscripcion_id: ids.suscripcionId,
-    concepto: `Alta web — ${plan.nombre}`,
+    concepto: compra.cuotaTexto && esCuotaDeUnMes ? `Alta web — ${plan.nombre} · ${compra.cuotaTexto}` : `Alta web — ${plan.nombre}`,
     // Lo cobrado manda sobre el precio de catálogo: entre que se abre el
     // checkout y llega el webhook, el estudio puede haber cambiado el precio.
     importe: importeReal,

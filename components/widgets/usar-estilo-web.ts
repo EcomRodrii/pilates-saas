@@ -38,6 +38,14 @@ export type FaseCargaEstilo = 'cargando' | 'error-carga' | 'listo';
 export type EnvioEstilo = 'reposo' | 'aplicando' | 'aplicado' | 'fallo';
 /** Tras un 409: se está volviendo a leer lo publicado, o no se ha podido. */
 export type RelecturaEstilo = 'releyendo' | 'fallo';
+/**
+ * Lo que salió al aplicar, para quien lo pida (la barra única de «Tu web» v2:
+ * tiene que decir qué se publicó y qué no). `no-toca`: no había nada que se
+ * pudiera aplicar en ese momento, y no se mandó nada.
+ */
+export type ResultadoAplicarEstilo =
+  | { ok: true }
+  | { ok: false; motivo: 'contraste' | 'cambiado' | 'sesion' | 'permiso' | 'error' | 'no-toca'; mensaje: string };
 
 export interface EstiloWebPanel {
   fase: FaseCargaEstilo;
@@ -68,8 +76,9 @@ export interface EstiloWebPanel {
   relectura: RelecturaEstilo | null;
   cambiar: (parcial: Partial<WidgetWeb>) => void;
   descartar: () => void;
-  aplicar: () => Promise<void>;
-  deshacer: () => Promise<void>;
+  aplicar: () => Promise<ResultadoAplicarEstilo>;
+  /** `true` si su web volvió de verdad a lo de antes (lo dijo el servidor). */
+  deshacer: () => Promise<boolean>;
   reintentarCarga: () => void;
   /** Vuelve a leer lo publicado tras un 409, conservando el borrador que estaba probando. */
   releer: () => void;
@@ -171,8 +180,10 @@ export function useEstiloWeb(): EstiloWebPanel {
       .finally(() => { leyendo.current = false; });
   }
 
-  async function aplicar() {
-    if (enVuelo.current || relectura !== null || !pendiente || errores.length > 0) return;
+  async function aplicar(): Promise<ResultadoAplicarEstilo> {
+    if (enVuelo.current || relectura !== null || !pendiente || errores.length > 0) {
+      return { ok: false, motivo: 'no-toca', mensaje: 'El estilo no se puede publicar ahora mismo.' };
+    }
     enVuelo.current = true;
     setEnvio('aplicando');
     setMensajeFallo(null);
@@ -184,7 +195,7 @@ export function useEstiloWeb(): EstiloWebPanel {
       setEnvio('fallo');
       setMensajeFallo(motivoDe(r));
       if (r.motivo === 'cambiado') releer();
-      return;
+      return { ok: false, motivo: r.motivo, mensaje: motivoDe(r) };
     }
     setPublicado(r.aplicado);
     if (r.aplicado) setBorrador({ ...r.aplicado });
@@ -192,10 +203,11 @@ export function useEstiloWeb(): EstiloWebPanel {
     setEnvio('aplicado');
     setUltimo('aplicar');
     setVersion(v => v + 1);
+    return { ok: true };
   }
 
-  async function deshacer() {
-    if (enVuelo.current || relectura !== null || anterior === undefined || pendiente) return;
+  async function deshacer(): Promise<boolean> {
+    if (enVuelo.current || relectura !== null || anterior === undefined || pendiente) return false;
     enVuelo.current = true;
     setEnvio('aplicando');
     setMensajeFallo(null);
@@ -206,7 +218,7 @@ export function useEstiloWeb(): EstiloWebPanel {
       setEnvio('fallo');
       setMensajeFallo(motivoDe(r));
       if (r.motivo === 'cambiado') releer();
-      return;
+      return false;
     }
     setPublicado(r.aplicado);
     setBorrador(r.aplicado ? { ...r.aplicado } : { ...WIDGET_WEB_NEUTRO });
@@ -214,6 +226,7 @@ export function useEstiloWeb(): EstiloWebPanel {
     setEnvio('reposo');
     setUltimo('deshacer');
     setVersion(v => v + 1);
+    return true;
   }
 
   function reintentarCarga() {

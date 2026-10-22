@@ -1,14 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
-import { SiteNav } from '@/components/recursos/SiteNav';
-import { SiteFooter } from '@/components/recursos/SiteFooter';
-import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { IslaWeb } from '@/components/web/IslaWeb';
+import { PieWeb } from '@/components/web/PieWeb';
+import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
+import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
+import { FAQ_FUNCIONALIDADES } from '@/lib/seo/faq-hubs';
+import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 const PATH = '/funcionalidades';
 const pagina = paginaDe(PATH)!;
@@ -17,7 +19,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH), images: [{ url: '/funcionalidades/opengraph-image' }] },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH), images: [{ url: '/funcionalidades/opengraph-image' }] },
 };
 
 // Agrupación editorial del hub. Los `path` salen del registro, así que una
@@ -64,16 +66,15 @@ export default function FuncionalidadesPage() {
     <PageShell>
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Funcionalidades" />
-      <SiteNav backHref="/" backLabel="Volver a Tentare" />
+      <IslaWeb />
 
       <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(28px,4vw,44px)' }}>
-        <div style={{ position: 'absolute', top: -140, right: -120, width: 520, height: 520, borderRadius: '50%', background: 'radial-gradient(circle at 42% 42%, rgba(90,97,66,.16), transparent 62%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: '-.035em', margin: '0 0 20px' }}>
+          <h1 style={{ fontWeight: 600, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: 'var(--w-track-h1)', margin: '0 0 20px' }}>
             <PildoraBusqueda>Funcionalidades del software para estudios de Pilates</PildoraBusqueda>
             Todo lo que hace Tentare,<br />sin adjetivos.
           </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: MUTED, maxWidth: 600, margin: 0 }}>
+          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', maxWidth: 600, margin: 0 }}>
             {/* El número sale del registro. Escrito a mano decía «diez» y se
                 quedó desfasado en cuanto entraron dos páginas más. */}
             {funcionalidades().length} áreas, explicadas por lo que resuelven en un estudio de Pilates de verdad — con sus
@@ -86,18 +87,18 @@ export default function FuncionalidadesPage() {
         {BLOQUES.map((bloque) => (
           <section key={bloque.titulo} style={{ marginBottom: 'clamp(38px,5vw,58px)' }}>
             <div style={{ marginBottom: 18 }}>
-              <h2 style={{ fontWeight: 800, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: '-.028em', lineHeight: 1.15, margin: '0 0 6px' }}>{bloque.titulo}</h2>
-              <p style={{ fontSize: 15.5, lineHeight: 1.5, color: MUTED, margin: 0 }}>{bloque.lead}</p>
+              <h2 style={{ fontWeight: 600, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: 'var(--w-track-h2)', lineHeight: 1.15, margin: '0 0 6px' }}>{bloque.titulo}</h2>
+              <p style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--w-texto-2)', margin: 0 }}>{bloque.lead}</p>
             </div>
             <div className="fun-grid">
               {bloque.paths.map((p) => {
                 const f = paginaDe(p);
                 if (!f) return null;
                 return (
-                  <Link key={p} href={p} className="fun-card" style={{ display: 'flex', flexDirection: 'column', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 18, padding: '22px 23px', textDecoration: 'none', color: 'inherit' }}>
-                    <h3 style={{ fontSize: 17.5, fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1.2, margin: '0 0 8px' }}>{f.etiqueta}</h3>
-                    <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED, margin: '0 0 16px', flex: 1 }}>{f.resumen}</p>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 700, color: ACC }}>
+                  <Link key={p} href={p} className="fun-card" style={{ display: 'flex', flexDirection: 'column', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '22px 23px', textDecoration: 'none', color: 'inherit' }}>
+                    <h3 style={{ fontSize: 17.5, fontWeight: 600, letterSpacing: '-.02em', lineHeight: 1.2, margin: '0 0 8px' }}>{f.etiqueta}</h3>
+                    <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--w-texto-2)', margin: '0 0 16px', flex: 1 }}>{f.resumen}</p>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 600, color: 'var(--w-olive)' }}>
                       Ver cómo funciona
                       <ArrowRight size={15} />
                     </span>
@@ -110,38 +111,45 @@ export default function FuncionalidadesPage() {
 
         {SUELTAS.length > 0 && (
           <section style={{ marginBottom: 'clamp(38px,5vw,58px)' }}>
-            <h2 style={{ fontWeight: 800, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: '-.028em', margin: '0 0 18px' }}>Más funcionalidades</h2>
+            <h2 style={{ fontWeight: 600, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: 'var(--w-track-h2)', margin: '0 0 18px' }}>Más funcionalidades</h2>
             <div className="fun-grid">
               {SUELTAS.map((f) => (
-                <Link key={f.path} href={f.path} className="fun-card" style={{ display: 'block', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 18, padding: '22px 23px', textDecoration: 'none', color: 'inherit' }}>
-                  <h3 style={{ fontSize: 17.5, fontWeight: 700, letterSpacing: '-.02em', margin: '0 0 8px' }}>{f.etiqueta}</h3>
-                  <p style={{ fontSize: 14.5, lineHeight: 1.55, color: MUTED, margin: 0 }}>{f.resumen}</p>
+                <Link key={f.path} href={f.path} className="fun-card" style={{ display: 'block', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '22px 23px', textDecoration: 'none', color: 'inherit' }}>
+                  <h3 style={{ fontSize: 17.5, fontWeight: 600, letterSpacing: '-.02em', margin: '0 0 8px' }}>{f.etiqueta}</h3>
+                  <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--w-texto-2)', margin: 0 }}>{f.resumen}</p>
                 </Link>
               ))}
             </div>
           </section>
         )}
 
-        <section style={{ background: '#0F0F0F', color: '#E8E8E4', borderRadius: 24, padding: 'clamp(28px,4.5vw,48px)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: '-34%', right: '-6%', width: 420, height: 420, borderRadius: '50%', background: 'radial-gradient(circle, rgba(90,97,66,.32), transparent 64%)', pointerEvents: 'none' }} />
+        {/* Las preguntas del índice (Ronda 1, 19-oct-2026): las 17 áreas tienen la suya;
+            esta es la de quien aún no sabe en cuál mirar. Marcado y texto, del mismo array. */}
+        <section aria-labelledby="fun-faq-h" style={{ maxWidth: 780, marginBottom: 'clamp(38px,5vw,58px)' }}>
+          <FaqStructuredData items={FAQ_FUNCIONALIDADES} />
+          <h2 id="fun-faq-h" style={{ fontWeight: 600, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: 'var(--w-track-h2)', lineHeight: 1.15, margin: '0 0 6px' }}>Preguntas frecuentes</h2>
+          <ArticleFaq items={FAQ_FUNCIONALIDADES} />
+        </section>
+
+        <section style={{ background: 'var(--w-noche)', color: 'var(--w-sobre-noche)', borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(28px,4.5vw,48px)', position: 'relative', overflow: 'hidden' }}>
           <div style={{ position: 'relative', display: 'flex', gap: 'clamp(20px,4vw,48px)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ maxWidth: 470 }}>
-              <h2 style={{ fontWeight: 800, fontSize: 'clamp(23px,2.8vw,32px)', lineHeight: 1.12, letterSpacing: '-.03em', margin: '0 0 11px', color: '#fff' }}>Y lo que todavía no hacemos</h2>
-              <p style={{ fontSize: 15.5, lineHeight: 1.58, color: '#A6A69E', margin: 0 }}>
+              <h2 style={{ fontWeight: 600, fontSize: 'clamp(23px,2.8vw,32px)', lineHeight: 1.12, letterSpacing: 'var(--w-track-h2)', margin: '0 0 11px', color: 'var(--w-sobre-noche)' }}>Y lo que todavía no hacemos</h2>
+              <p style={{ fontSize: 15.5, lineHeight: 1.58, color: 'var(--w-sobre-noche-2)', margin: 0 }}>
                 No hay app nativa en las tiendas —tus alumnas usan un portal web instalable—, ni herramienta de campañas de
                 email marketing, ni pantalla de kiosko para fichar en tablet. Está en la{' '}
-                <Link href="/comparativa" style={{ color: '#D9C29E' }}>comparativa</Link>, sin rodeos.
+                <Link href="/comparativa" style={{ color: 'var(--w-sand)' }}>comparativa</Link>, sin rodeos.
               </p>
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Link href="/precios" className="hover:brightness-110" style={{ fontSize: 15.5, fontWeight: 700, color: '#343825', background: '#D9C29E', padding: '14px 26px', borderRadius: 999 }}>Ver precios</Link>
-              <Link href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', padding: '14px 26px', borderRadius: 999 }}>Crear mi estudio</Link>
+              <Link href="/precios" className="hover:brightness-110" style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--w-olive)', background: 'var(--w-sand)', padding: '14px 26px', borderRadius: 999 }}>Ver precios</Link>
+              <Link href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', padding: '14px 26px', borderRadius: 999 }}>{CTA_ALTA}</Link>
             </div>
           </div>
         </section>
       </div>
 
-      <SiteFooter />
+      <PieWeb />
 
       <style>{`
         .fun-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }

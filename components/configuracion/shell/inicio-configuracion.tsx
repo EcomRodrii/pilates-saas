@@ -1,6 +1,7 @@
 'use client';
 
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { useEffect, useId, useState, type ElementType, type MouseEvent } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, ChevronRight, Clock, Search } from 'lucide-react';
@@ -86,7 +87,7 @@ export function InicioConfiguracion({
 }) {
   const {
     studio, dataLoaded, salas, tiposClase, planesTarifa, integraciones,
-    instructores, sesiones, socios, reservas, suscripciones, automationRules, contenidoPortal,
+    instructores, sesiones, socios, reservas, suscripciones, automationRules, bannersPortal,
   } = useStudio();
   const idBuscador = useId();
   const { dark } = usePanelTheme();
@@ -142,7 +143,7 @@ export function InicioConfiguracion({
   const progreso = cargado
     ? calcularProgresoGuia(calcularOnboarding(datosOnboardingDelEstudio({
       studio, instructores, tiposClase, sesiones, socios, reservas,
-      salas, planesTarifa, suscripciones, automationRules, contenidoPortal,
+      salas, planesTarifa, suscripciones, automationRules, bannersPortal,
     })).categorias)
     : null;
   // «Pon tu estudio a punto» es la guía de la PROPIETARIA: sus pasos son el NIF,
@@ -151,6 +152,7 @@ export function InicioConfiguracion({
   // Con el panel nuevo, la guía de inicio es UNA: «Pon en marcha tu estudio» del
   // Resumen. Aquí no se repite (eran tres guías diciendo cosas distintas).
   const panelNuevo = usePanelNuevo();
+  const miWebNueva = useMiWebNueva();
   const aPunto = !panelNuevo && rol === 'PROPIETARIO' && progreso && progreso.esencialTotal > 0
     && progreso.esencialHechos < progreso.esencialTotal ? progreso : null;
 
@@ -158,7 +160,7 @@ export function InicioConfiguracion({
   // estudio» al abrirse: el buscador no espera a ninguna sección.
   const haySedes = !!studio && (tieneFeature(studio, 'multiCentro') || !!studio.cadenaId);
   const resultados = consulta.trim()
-    ? buscarAjustes(consulta, { secciones, externas, haySedes, esCadena: !!studio?.cadenaId, gmailConectado: !!studio?.gmailEmail })
+    ? buscarAjustes(consulta, { secciones, externas, haySedes, esCadena: !!studio?.cadenaId, gmailConectado: !!studio?.gmailEmail, miWebNueva })
     : null;
 
   const abrir = (tab: SeccionId, origen: string, ancla?: string, herramienta?: HerramientaId) => (e: MouseEvent) => {
@@ -264,7 +266,7 @@ export function InicioConfiguracion({
           )}
 
           <div className={panelNuevo ? 'grid items-start gap-5 xl:grid-cols-2' : 'contents'}>
-          {(panelNuevo ? GRUPOS_PANEL_NUEVO : GRUPOS).map(grupo => {
+          {(panelNuevo ? gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva) : GRUPOS).map(grupo => {
             const suyas = grupo.secciones
               .map(id => secciones.find(s => s.id === id))
               .filter((s): s is SeccionConfiguracion => !!s);
@@ -297,13 +299,16 @@ export function InicioConfiguracion({
                           <CajaIcono Icono={Icono} tono={TONO_SECCION_CONFIG[s.id]} nuevo={panelNuevo} />
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="text-[15px] font-semibold text-foreground">{s.titulo}</span>
+                              {/* «Mi app» / «Mi web»: la tarjeta ya lleva su nombre; la fila dice qué hay dentro. */}
+                              <span className="text-[15px] font-semibold text-foreground">{panelNuevo && grupoEsLaSeccion(grupo, s) ? s.resumen : s.titulo}</span>
                               {resumen?.estado && <EstadoAjuste tono={resumen.estado.tono}>{resumen.estado.etiqueta}</EstadoAjuste>}
                             </span>
                             {/* El valor de hoy; si no se sabe, lo que hay dentro. */}
-                            <span data-resumen={resumen?.valor ? 'valor' : 'descripcion'} className="line-clamp-2 block text-sm text-muted-foreground">
-                              {resumen?.valor ?? s.resumen}
-                            </span>
+                            {(resumen?.valor || !(panelNuevo && grupoEsLaSeccion(grupo, s))) && (
+                              <span data-resumen={resumen?.valor ? 'valor' : 'descripcion'} className="line-clamp-2 block text-sm text-muted-foreground">
+                                {resumen?.valor ?? s.resumen}
+                              </span>
+                            )}
                           </span>
                           <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
                         </Link>

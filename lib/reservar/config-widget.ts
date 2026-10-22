@@ -107,6 +107,16 @@ export interface ConfigWidget {
    * atributo se sigue viendo EXACTAMENTE igual que antes.
    */
   identidadEstudio: boolean;
+  /**
+   * `solo=1` (solo incrustado): el widget es SOLO lo que pide `?tab=` —el
+   * horario, por ejemplo—, sin las secciones de la página completa debajo: ni
+   * la banda de bonos y membresías, ni «Sobre nosotros», ni las cifras, ni los
+   * bloques del editor, ni el pie. Es lo que ya hacían `tab=planes|equipo|
+   * contacto` y la clase de prueba (`vistaUnica`, app/reservar/[slug]/page.tsx);
+   * el horario (`tab=clases`) es la vista que faltaba. Sin el parámetro (todos
+   * los códigos pegados antes del 17-oct-2026), la página de siempre.
+   */
+  solo: boolean;
 }
 
 export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
@@ -116,7 +126,7 @@ export const CONFIG_WIDGET_POR_DEFECTO: ConfigWidget = {
   diseno: null, presentacion: 'lista',
   colorFondo: null, colorPrimario: null, colorNegro: null,
   fuente: null, fuenteDisplay: null,
-  ref: null, identidadEstudio: false,
+  ref: null, identidadEstudio: false, solo: false,
 };
 
 /** Lo mínimo que hace falta de la fuente. Un `URLSearchParams` encaja tal cual. */
@@ -223,7 +233,8 @@ export function nativaTraeDisenoPropio(fuente: FuenteConfig): boolean {
  * (booleanos), `diseno` (`completo`|`ligero`), `presentacion` (`lista`|
  * `semana`, solo Modo A), `fondo`, `marca`, `negro`
  * (colores hex), `fuente`, `fuente-display` (nombres de familia de Google Fonts),
- * `ref` (etiqueta de seguimiento) e `identidad` (`estudio`, solo Modo B).
+ * `ref` (etiqueta de seguimiento), `identidad` (`estudio`, solo Modo B) y `solo`
+ * (`1`: sin las secciones de la página completa debajo, solo Modo A; el bundle lo ignora).
  *
  * ⚠️ En Modo A, `fondo` y `negro`/`tinta` los sigue resolviendo
  * `resolverApariencia` (mismos nombres de siempre, con lo guardado debajo) —
@@ -249,5 +260,6 @@ export function resolverConfigWidget(fuente: FuenteConfig): ConfigWidget {
     fuenteDisplay: leerFuente(fuente.get('fuente-display')),
     ref: leerRef(fuente.get('ref')),
     identidadEstudio: fuente.get('identidad')?.trim() === 'estudio',
+    solo: leerBooleano(fuente.get('solo')) ?? false,
   };
 }

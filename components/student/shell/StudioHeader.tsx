@@ -131,7 +131,13 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
   conLema?: boolean }) {
   const { estudio } = useEstudio();
   const href = usePortalHref();
-  const lema = conLema ? estudio.lema : null;
+  // Sin lema, la CIUDAD del estudio (maqueta de oct-2026: «Pilates Boutique / Barcelona»): un dato que ya tiene y que
+  // sitúa la app. El lema, si lo escribió, manda.
+  // Bajo el nombre, la CIUDAD (maqueta de oct-2026, copiada tal cual: «Pilates Boutique / Barcelona»), en caja normal.
+  // El lema, en versales, solo si el estudio no tiene ciudad.
+  const ciudad = conLema ? (estudio.ciudad?.trim() || null) : null;
+  const lema = ciudad ?? (conLema ? (estudio.lema?.trim() || null) : null);
+  const esCiudad = !!ciudad;
   // ⚠️ NO cuesta una petición. `useSesionStudent` resuelve por
   // `cacheSocia` —una sola llamada a `/api/public/session` por sesión,
   // compartida— y la pantalla de Inicio ya la hace. Por eso la cara sale de ahí
@@ -201,7 +207,6 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
         background: flotando
           ? 'linear-gradient(to bottom, rgba(8,8,8,.58), rgba(8,8,8,.52) 70%, rgba(8,8,8,.2) 92%, transparent)'
           : 'var(--velo)',
-        backdropFilter: flotando ? undefined : 'blur(16px)',
         borderBottom: flotando ? 'none' : '1px solid var(--border)',
         transition: 'background .18s linear',
       }}
@@ -230,7 +235,9 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
               // justo lo que no podemos permitirnos (mismo criterio que el
               // kicker del héroe, que ya subió de .72 a .9 por esto).
               <span style={{
-                fontSize: 'var(--t-micro)', fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase',
+                ...(esCiudad
+                  ? { fontSize: 'var(--t-meta)', fontWeight: 500 }
+                  : { fontSize: 'var(--t-micro)', fontWeight: 700, letterSpacing: '.16em', textTransform: 'uppercase' as const }),
                 color: flotando ? 'rgba(250,249,245,.82)' : 'var(--subtle-foreground)',
                 minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>{lema}</span>
@@ -250,7 +257,7 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
               badajo con la falda. */}
           <Icono nombre="campana" tamano={19} />
           {noLeidas > 0 && (
-            <span aria-hidden style={{ position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 99, background: 'var(--warning)', border: '1.5px solid #fff', animation: 'apDot .4s both' }} />
+            <span aria-hidden style={{ position: 'absolute', top: 8, right: 9, width: 8, height: 8, borderRadius: 99, background: 'var(--destructive)', border: '1.5px solid var(--card)', animation: 'apDot .4s both' }} />
           )}
         </Link>
 
@@ -266,13 +273,13 @@ export function StudioHeader({ noLeidas = 0, transparente = false, conLema = fal
             aria-label={`Tu perfil, ${socia.nombre}`}
             className="tap tap--icono"
             style={{
-              display: 'flex', width: 34, height: 34, flexShrink: 0, borderRadius: 999,
+              display: 'flex', width: 40, height: 40, flexShrink: 0, borderRadius: 999,
               // El aro despega la foto de lo que haya detrás: sobre el héroe es
               // una foto sobre otra foto.
               boxShadow: flotando ? '0 0 0 1.5px rgba(250,249,245,.55)' : '0 0 0 1.5px var(--border)',
             }}
           >
-            <AvatarSocia nombre={socia.nombre} fotoUrl={fotoFirmada} size={34} />
+            <AvatarSocia nombre={socia.nombre} fotoUrl={fotoFirmada} size={40} />
           </Link>
         )}
         </div>

@@ -260,3 +260,37 @@ export function asuntoAvisoEstudioVencido(
     ? `Último aviso: los datos de tu estudio se borrarán el ${fecha}`
     : `Último aviso: conservamos los datos de tu estudio solo hasta el ${fecha}`;
 }
+
+/**
+ * Los estudios que este tic del ciclo deja fuera por haber pasado (o intentado
+ * pasar) a Founding Studio gratis: los `tocados` y, en una cadena, sus sedes
+ * hermanas. Lo que se leyó de ellas es de ANTES de convertir la principal, y con
+ * ella la BD da por vivo su contrato (migr 20261015141653): en este tic no se
+ * les avisa de nada. Salvo a la que ya pidió el borrado: esa sigue su ciclo,
+ * como en la BD (`fijar_contrato_terminado` respeta la petición).
+ */
+export function fueraDelCicloPorElGratis(
+  estudios: readonly { id: string; cadena_id: string | null; supresion_pedida_en?: string | Date | null }[],
+  tocados: ReadonlySet<string>,
+): Set<string> {
+  const cadenas = new Set(estudios.filter(s => tocados.has(s.id) && s.cadena_id).map(s => s.cadena_id as string));
+  const fuera = new Set(tocados);
+  for (const s of estudios) {
+    if (s.cadena_id && cadenas.has(s.cadena_id) && !s.supresion_pedida_en) fuera.add(s.id);
+  }
+  return fuera;
+}
+
+/**
+ * Por qué no se puede pedir el borrado anticipado de un estudio sin el contrato
+ * terminado. Una sede cerrada de una cadena que dejó de pagar no lo tiene
+ * terminado mientras otra sede siga en Tentare (la principal en el plan gratis):
+ * decirle «tu suscripción sigue activa» sería falso.
+ */
+export function motivoSinBorradoAnticipado(e: { cadenaId: string | null; subscriptionStatus: string | null }): string {
+  const cerrada = e.subscriptionStatus === null || (ESTADOS_SUSCRIPCION_TERMINADA as readonly string[]).includes(e.subscriptionStatus);
+  if (e.cadenaId && cerrada) {
+    return 'Esta sede está cerrada, pero mientras otra sede de tu cadena siga en Tentare guardamos sus datos. Si quieres que los borremos ya, escríbenos a soporte.';
+  }
+  return 'Tu suscripción sigue activa: el borrado solo se puede pedir cuando ha terminado.';
+}

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { planDePriceId } from '@/lib/billing/billing';
+import { planDePriceId, addonDePriceId } from '@/lib/billing/billing';
+import { esRegimenAddons, lecturaSuscripcion } from '@/lib/billing/lectura-suscripcion';
 import { capturar } from '@/lib/analytics';
 import * as Sentry from '@sentry/nextjs';
 import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
@@ -9,6 +10,7 @@ import { enviarEmailFalloPagoSaas } from '@/lib/emails/fallo-pago-saas-server';
 import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import { cancelarSuscripcionAnteriorSiToca } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { desplazadaPorSuCadena } from '@/lib/billing/suscripcion-desplazada-por-cadena';
+import { cancelarSueltasDeLasSedes } from '@/lib/billing/sede-incluida-en-cadena';
 import { ESTADOS_VIVOS } from '@/lib/billing/checkout-saas-previo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decidirAcreditacion, disputaRetiraElPack, efectoDelReembolso, esDePack, idDeReferencia } from '@/lib/asistente/packs-stripe';
@@ -309,13 +311,54 @@ async function aplicarSiNoDesordenado(
   return fila ? 'desordenado' : 'no_encontrado';
 }
 
-async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub: Stripe.Subscription, eventCreated: number) {
+/**
+ * Un complemento solo se paga con Founding. Si el plan de la suscripción ya es
+ * otro (se cambió desde el Dashboard o por otra vía) y le quedan líneas de
+ * complemento, se quitan: Estudio y Cadena ya los incluyen y seguirían cobrando
+ * aparte. Idempotente (una línea que ya no existe cuenta como quitada); si no se
+ * puede, se avisa a Sentry como posible cobro doble y se sigue.
+ */
+async function quitarComplementosFueraDeFounding(stripe: Stripe, sub: Stripe.Subscription): Promise<Stripe.Subscription> {
+  if (sub.status === 'canceled' || sub.status === 'incomplete_expired') return sub;
+  const lineas = sub.items?.data ?? [];
+  const plan = lineas.map((l) => planDePriceId(l.price?.id)).find(Boolean);
+  const sobran = lineas.filter((l) => addonDePriceId(l.price?.id));
+  if (!plan || plan === 'BASE' || sobran.length === 0) return sub;
+  let quitadas = 0;
+  for (const l of sobran) {
+    try {
+      await stripe.subscriptionItems.del(l.id, { proration_behavior: 'create_prorations' });
+      quitadas++;
+    } catch (err) {
+      if ((err as { code?: string }).code === 'resource_missing') { quitadas++; continue; }
+      Sentry.captureMessage('billing: complemento cobrando fuera de Founding (posible cobro doble)', {
+        level: 'error', tags: { area: 'billing', tipo: 'complemento-fuera-de-founding' },
+        extra: { subscriptionId: sub.id, itemId: l.id, plan, error: (err as Error).message },
+      });
+    }
+  }
+  return quitadas ? stripe.subscriptions.retrieve(sub.id) : sub;
+}
+
+async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, subDelEvento: Stripe.Subscription, eventCreated: number) {
+  // Con varias líneas (complementos) la foto del evento puede ser vieja: un
+  // `.updated` de antes de activar un complemento, entregado tarde, lo borraría.
+  // Se lee la suscripción de AHORA; si Stripe no contesta, el webhook falla y
+  // Stripe lo reintenta.
+  let sub: Stripe.Subscription = await stripe.subscriptions.retrieve(subDelEvento.id);
+  sub = await quitarComplementosFueraDeFounding(stripe, sub);
   // Plan CADENA: una sola suscripción cubre varias sedes (studios.cadena_id).
   // metadata.cadenaId la puso el checkout (ver app/api/billing/checkout).
   const cadenaId = sub.metadata?.cadenaId ?? null;
   const studioId = sub.metadata?.studioId ?? null;
-  const priceId = sub.items?.data?.[0]?.price?.id ?? null;
-  const plan = planDePriceId(priceId) ?? (sub.metadata?.plan as string | undefined) ?? null;
+  // Varias líneas desde los complementos: el plan es la línea con precio de
+  // plan, no la primera (lib/billing/lectura-suscripcion.ts).
+  const lectura = lecturaSuscripcion(
+    (sub.items?.data ?? []).map((it) => ({ priceId: it.price?.id ?? null })),
+    sub.status,
+    { plan: planDePriceId, addon: addonDePriceId },
+  );
+  const plan = lectura.plan ?? (sub.metadata?.plan as string | undefined) ?? null;
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer.id;
 
   // current_period_end puede venir en la suscripción o en el item (según versión).
@@ -331,6 +374,16 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
     current_period_end: periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null,
   };
   if (plan) update.plan = plan;
+  // Solo para `studios` (`cadenas` no tiene estas columnas: Cadena lo trae todo).
+  // Los complementos, los que la suscripción tiene DE VERDAD; el régimen, solo
+  // se enciende (lo pone el checkout nuevo en la metadata) y nunca se apaga
+  // desde aquí: quien ya pagaba Founding sin él lo conserva todo.
+  const updateEstudio: Record<string, unknown> = {
+    ...update,
+    // Fuera de Founding no hay complementos que contar (Estudio y Cadena los traen).
+    addons: lectura.plan && lectura.plan !== 'BASE' ? [] : lectura.addons,
+    ...(esRegimenAddons(sub.metadata) ? { regimen_addons: true } : {}),
+  };
 
   // M-4: `event.created` (segundos) → timestamptz, para comparar con
   // `subscription_evento_en`. Stripe no garantiza el orden de entrega de sus
@@ -370,12 +423,32 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
         extra: { anteriorId: sub.metadata?.cancelarSuscripcionAnterior, nuevaId: sub.id },
       });
     }
+    // Y las sueltas de las DEMÁS sedes (la principal que pagaba Founding Studio
+    // desde el gratis, si la Cadena se contrató desde otra sede): la cadena ya las
+    // cubre. Mismo criterio que arriba (solo con la cadena viva) e idempotente.
+    // Avisa y sigue: la cadena ya está escrita, y un reintento de Stripe por esto
+    // no arreglaría nada que el siguiente evento no vuelva a intentar.
+    try {
+      const sueltas = await cancelarSueltasDeLasSedes(admin, stripe, { id: cadenaId, clienteStripe: customerId, suscripcion: sub });
+      for (const e of sueltas.errores) {
+        Sentry.captureException(e.error, {
+          tags: { area: 'billing', tipo: 'cancelar-sueltas-de-la-cadena' }, extra: { cadenaId, sueltaOCliente: e.id, nuevaId: sub.id },
+        });
+      }
+      if (sueltas.revisar.length > 0) {
+        Sentry.captureMessage('[billing webhook] cadena confirmada con otra suscripción viva en el cliente de una sede: revisar a mano', {
+          level: 'warning', tags: { area: 'billing', tipo: 'cancelar-sueltas-de-la-cadena' }, extra: { cadenaId, revisar: sueltas.revisar, nuevaId: sub.id },
+        });
+      }
+    } catch (err) {
+      Sentry.captureException(err, { tags: { area: 'billing', tipo: 'cancelar-sueltas-de-la-cadena' }, extra: { cadenaId, nuevaId: sub.id } });
+    }
     return;
   }
 
   if (studioId) {
     if (await ignorarPorLaCadena(admin, 'id', studioId, sub)) return;
-    const resultado = await aplicarSiNoDesordenado(admin, 'studios', 'id', studioId, update, eventoEn);
+    const resultado = await aplicarSiNoDesordenado(admin, 'studios', 'id', studioId, updateEstudio, eventoEn);
     if (resultado === 'desordenado') return;
     // Mismo criterio que la rama de `cadenas`: Sentry y seguir, no reintentar
     // para siempre algo que ningún reintento arregla.
@@ -402,7 +475,7 @@ async function actualizarSuscripcion(admin: SupabaseClient, stripe: Stripe, sub:
   // mismo stripe_customer_id puede pertenecer a un estudio individual o a una
   // cadena — son dos tablas independientes, así que hay que probar ambas.
   if (await ignorarPorLaCadena(admin, 'stripe_customer_id', customerId, sub)) return;
-  const enStudios = await aplicarSiNoDesordenado(admin, 'studios', 'stripe_customer_id', customerId, update, eventoEn);
+  const enStudios = await aplicarSiNoDesordenado(admin, 'studios', 'stripe_customer_id', customerId, updateEstudio, eventoEn);
   if (enStudios === 'aplicado' || enStudios === 'desordenado') return;
 
   const enCadenas = await aplicarSiNoDesordenado(admin, 'cadenas', 'stripe_customer_id', customerId, update, eventoEn);

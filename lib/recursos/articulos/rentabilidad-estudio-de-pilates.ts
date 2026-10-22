@@ -3,7 +3,7 @@ import type { Articulo } from './tipos.ts';
 const articulo: Articulo = {
   slug: 'rentabilidad-estudio-de-pilates',
   titulo: '¿Es rentable un estudio de pilates? Cómo calcularlo con tus números',
-  tituloSeo: '¿Es rentable un estudio de pilates? Números y calculadora',
+  tituloSeo: '¿Es rentable un estudio de pilates? Calculadora',
   descripcion: 'Cuánto gana un estudio de pilates: ingresos, costes y punto de equilibrio con 3 escenarios, precios de 32 estudios y una calculadora gratis.',
   resumen: 'La cuenta que dice si tu estudio gana dinero: plazas, clases, ocupación y precio medio por plaza, costes fijos y variables, punto de equilibrio y tres escenarios de ejemplo.',
   categoria: 'rentabilidad',
@@ -103,6 +103,7 @@ const articulo: Articulo = {
         },
         { t: 'p', texto: 'Haz la cuenta con tus números. La calculadora usa la misma fórmula y arranca con el escenario A de más abajo: en «costes fijos» van el local, los gastos generales y la reserva para máquinas, y en «ingreso medio por plaza», lo que te queda sin IVA y sin comisiones.' },
         { t: 'herramienta', id: 'calculadora-rentabilidad' },
+        { t: 'descarga', recurso: 'modelo-estudio-12-meses' },
         { t: 'p', texto: 'Clase a clase se entiende mejor: reparte los costes del estudio entre las clases del mes, suma la instructora y divide entre lo que deja una plaza. En el escenario A, cada clase necesita 3,2 alumnas de 6: con dos, pierde dinero aunque «se haya dado».' },
         { t: 'p', texto: 'Para pasar a alumnas, divide las plazas ocupadas a la semana entre las veces que viene cada una: por ejemplo, 108 plazas semanales son 72 alumnas que vienen una vez y media por semana.' },
       ],
@@ -216,7 +217,7 @@ const articulo: Articulo = {
   ],
   cta: {
     titulo: 'Mira qué clases pagan su coste, una a una',
-    texto: 'El informe de rentabilidad por clase de Tentare resta a lo que ingresó cada clase lo que costó su instructora, y la lista de espera automática ofrece las plazas que se liberan. Prueba 7 días gratis, sin tarjeta, el plan que elijas.',
+    texto: 'El informe de rentabilidad por clase de Tentare resta a lo que ingresó cada clase lo que costó su instructora, y la lista de espera automática ofrece las plazas que se liberan. Empieza gratis, sin tarjeta.',
   },
   revision: [
     'Los precios de los escenarios son medianas del artículo precio-clase-de-pilates (32 fuentes listadas allí); si se actualiza ese estudio, actualizar aquí.',

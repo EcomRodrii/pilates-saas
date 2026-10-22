@@ -220,6 +220,84 @@ fiable como el storage de terceros lo permita en cada navegador.
 
 ## 5. Captcha
 
+> **Corregido el 16-oct-2026, medido en producción: Turnstile NO funciona en la
+> web del estudio.** La site key de producción solo da token en los hostnames que
+> Cloudflare tiene autorizados (tentare.app); en cualquier otro contesta con el
+> error **110200** («domain not authorized») y no hay token. Con el captcha
+> exigido a nivel de proyecto, nadie podía entrar ni darse de alta desde el
+> widget sin marco en NINGUNA web, y añadir cada dominio de estudio en Cloudflare
+> no escala (el plan gratuito admite un puñado). El diseño de abajo (Turnstile
+> dentro del Shadow Root) queda **retirado**: ni el bundle carga Turnstile ni
+> llama a gotrue para entrar (lo vigila `lib/widget/acceso-en-tentare.test.ts`).
+>
+> Lo que hay ahora: el widget abre en el propio clic la ventana del puente
+> (`/widget-auth-retorno`, en tentare.app) y le **encarga** el acceso —entrar con
+> contraseña o mandar el correo— por `postMessage` (`lib/widget/puente-sesion.ts`,
+> `encargoDelIntento`). La ventana pasa el captcha (`useCaptcha`, el de siempre),
+> llama a gotrue y devuelve la sesión solo a `destino`. Modelo de amenazas:
+> - **Destino resuelto en servidor** contra `widget_dominios_autorizados`; sin
+>   destino la ventana no acepta encargos ni manda nada.
+> - El encargo solo se acepta de **la ventana que abrió esta** (`e.source ===
+>   window.opener`), desde `destino` y con el **nonce**; **uno por ventana** (no
+>   sirve para probar contraseñas en bucle con el captcha ya pasado).
+> - El widget solo acepta respuestas de **Tentare** (`e.origin === baseUrl`), de
+>   **su** ventana (`e.source`) y con **su** nonce. La contraseña viaja solo a esa
+>   ventana con `targetOrigin` = Tentare; ningún mensaje va a `'*'`.
+> - La sesión de la contraseña sale de un cliente **sin almacenamiento**
+>   (`persistSession: false`): no toca la sesión guardada en tentare.app ni la
+>   deja guardada (dos dueños del mismo refresh token se lo revocan al rotarlo), y
+>   se comprueba igual que la del correo: método `password` posterior a abrir la
+>   ventana. Igual que antes (§7.1), la web listada recibe la sesión de quien entra
+>   en ella; nada que no obtuviera ya con la contraseña tecleada en su DOM.
+> - **Sin ventana** (bloqueador, la alumna la cierra, o la web corta el vínculo
+>   con COOP): el widget lo detecta (`window.open` nulo o `closed`) y ofrece la
+>   página de reservas entera, `/reservar/<slug>`, en tentare.app.
+> - **La sesión del correo también tiene UN dueño** (20-oct-2026). Antes se abría
+>   en el cliente del portal (`sb-portal-auth`): se quedaba guardada en
+>   tentare.app Y se entregaba al widget (dos dueños del mismo refresh token: el
+>   primero que lo rotara podía hacer que gotrue revocara la familia entera), y
+>   pisaba la sesión que la alumna tuviera abierta en tentare.app. Ahora la
+>   ventana usa su propio cliente (`app/widget-auth-retorno/clientes-auth.ts`,
+>   clave `sb-puente-widget`, sin refresco automático), que comparte con la
+>   pestaña del enlace (mismo almacenamiento y BroadcastChannel por clave); el
+>   código de 6 cifras se abre en ese mismo cliente. Solo entrega a la ventana
+>   del widget que ya habló con ella en este intento. Al entregar la sesión, la
+>   clave se **borra a mano** (`olvidarSesionDelPuente`), **sin llamar a gotrue**:
+>   un `signOut`, aunque sea `local`, revocaría en el servidor la sesión que acaba
+>   de recibir el widget. La ventana no carga el cliente del portal: no
+>   lo importa (`lib/student/codigo-del-correo.ts` lo carga al usarlo) y la raíz
+>   no le monta los providers del panel, que lo traen por debajo
+>   (`sinProveedoresDeSesion`). Si algo volviera a traerlo, el portal no recoge
+>   la vuelta del correo en `/widget-auth-retorno`. Sin destino válido la ventana
+>   ni crea el cliente del puente; la que abre el widget empieza borrando restos
+>   de un intento anterior, y la pestaña del enlace olvida la sesión al minuto o
+>   al cerrarse. Lo vigilan `lib/widget/puente-sesion.test.ts` y
+>   `e2e/widget-nativa-acceso-otro-dominio.spec.ts` (la sesión de la alumna sigue
+>   intacta y no queda la del puente).
+> - **Las cuentas de EQUIPO no entran por el widget** (decisión del fundador,
+>   16-oct-2026). La sesión vale para la cuenta entera, y el widget es para
+>   alumnas: quien sea del equipo de algún estudio (propietaria de un estudio o
+>   una cadena, ficha en `instructores` con cualquier rol, activa o no) o de
+>   Tentare (`plataforma_admin`) entra desde tentare.app. Así que, antes de entregar NINGUNA sesión (contraseña, enlace o
+>   código), la ventana pregunta al **servidor** con el token recién emitido
+>   (`POST /api/auth/cuenta-de-equipo`, que lo valida con `getUser` y cuenta con
+>   `esCuentaDeEquipo`, el mismo dueño que usa «quitar la verificación» desde la
+>   ficha). Solo un `200` con `equipo: false` explícito deja entregarla
+>   (`veredictoCuenta`, fallo cerrado). Si es de equipo, no sale: la ventana
+>   cierra en gotrue la sesión de ESE token (solo esa, `scope: 'local'`: no la
+>   tiene nadie más), la borra de aquí y dice «Esta cuenta es de un equipo de
+>   Tentare: entra desde tentare.app» con el enlace a `/reservar/<slug>`; el
+>   widget lo dice igual (también si llega después de «revisa tu correo»). Vale
+>   también para quien es equipo en un estudio y alumna en otro: reserva desde
+>   la página entera. La ruta no corta por el segundo paso (tiene que contestar
+>   en `aal1`: a una alumna con verificación se la pide el widget) y solo dice
+>   el sí o el no de la propia cuenta del token, sin CORS.
+>
+> Pendiente de mirar en Safari real (WebKit de Playwright no es Safari de iOS):
+> que la ventana abierta desde el clic dentro del Shadow Root conserve
+> `window.opener` en iOS (se abre como pestaña), que `window.close()` la cierre y
+> vuelva a la web del estudio, y el reto de Turnstile cuando pide interacción.
+
 **Se exige, sin excepción — Turnstile dentro del Shadow Root, misma
 combinación `execution:'execute'`+`appearance:'interaction-only'` ya medida en
 producción.**

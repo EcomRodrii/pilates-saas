@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -34,7 +34,7 @@ const FAQ = [
   },
   {
     q: '¿Y si renueva sobre un festivo o una semana que cierro?',
-    a: 'No crea clase ese día. Tentare se salta las fechas en las que tengas cerrado el centro y te dice cuáles ha omitido, para que no acabes con clases publicadas un 25 de diciembre.',
+    a: 'No crea clase en los días que tengas cerrado el centro: se los salta y te dice cuáles ha omitido. Un festivo que no hayas cerrado sí recibe clase; de los festivos oficiales con clases, Tentare te avisa antes para que decidas si cierras.',
   },
   {
     q: '¿Qué pasa con las plazas fijas al renovar?',

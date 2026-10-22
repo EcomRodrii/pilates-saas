@@ -18,6 +18,7 @@ import { Campo } from '@/components/configuracion/formulario-estudio';
 import { BarraGuardar } from '@/components/configuracion/shell/barra-guardar';
 import type { PropsFormularioCajon } from '@/components/configuracion/shell/cajon-ajuste';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import type { RewardTriggerDef } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,6 +36,9 @@ const CONSECUENCIA = 'rounded-lg bg-muted px-3 py-2.5 text-sm text-foreground te
 /** Cómo se llaman, cuánto duran y la racha: tres columnas de `studios`. */
 export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'onGuardado'>) {
   const { studio, updateStudio } = useStudio();
+  // Racha única (`RACHA_UNICA`): la meta de la semana completa es FIJA (1 clase) y este ajuste se retira de
+  // la pantalla. La columna `racha_clases_semana` NO se borra ni se toca: los datos quedan por si se revierte.
+  const rachaUnica = useInterruptor('rachaUnica', studio?.id);
   const [form, setForm] = useState<ReglasCreditosForm>(() => reglasCreditosAFormulario(studio));
   const [base, setBase] = useState<ReglasCreditosForm>(() => reglasCreditosAFormulario(studio));
   // Si el estudio cambia por otro lado, lo que no se ha tocado se pone al día (#2027).
@@ -51,7 +55,7 @@ export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'o
     creditosNombre: normalizarNombreCreditos(form.nombre),
     creditosCaducanMeses: enteroPositivo(form.caducanMeses),
     rachaClasesSemana: enteroPositivo(form.rachaClases),
-  });
+  }, { sinRacha: rachaUnica });
   const cambiar = (cambio: Partial<ReglasCreditosForm>) => setForm(f => ({ ...f, ...cambio }));
 
   async function alGuardar(): Promise<string | null> {
@@ -77,7 +81,7 @@ export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'o
             />
           )}
         </Campo>
-        <Campo label="Meses que duran" ayuda="Desde la última vez que gana. Vacío = no caducan.">
+        <Campo label="Meses que duran" ayuda="Desde la última vez que gana. Vacío = no caducan. Cambiarlo no toca las fechas que ya tienen sus alumnas: se aplica a cada una la próxima vez que gane. Quitarlo no recupera los créditos que ya hayan caducado.">
           {id => (
             <input
               id={id}
@@ -92,21 +96,28 @@ export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'o
             />
           )}
         </Campo>
-        <Campo label="Clases por semana para mantener la racha" ayuda="La semana en curso nunca rompe la racha: cuenta cuando termina.">
-          {id => (
-            <input
-              id={id}
-              className={cn(inputCls, 'max-w-40')}
-              type="number"
-              min={0}
-              step={1}
-              inputMode="numeric"
-              value={form.rachaClases}
-              placeholder="1"
-              onChange={e => cambiar({ rachaClases: e.target.value })}
-            />
-          )}
-        </Campo>
+        {rachaUnica ? (
+          <p data-testid="racha-meta-fija" className={CONSECUENCIA}>
+            La semana cuenta como completa con una clase asistida y suma a la racha. Cada cuatro semanas
+            completas seguidas, la alumna gana un respiro para una semana que no pueda venir.
+          </p>
+        ) : (
+          <Campo label="Clases por semana para mantener la racha" ayuda="La semana en curso nunca rompe la racha: cuenta cuando termina.">
+            {id => (
+              <input
+                id={id}
+                className={cn(inputCls, 'max-w-40')}
+                type="number"
+                min={0}
+                step={1}
+                inputMode="numeric"
+                value={form.rachaClases}
+                placeholder="1"
+                onChange={e => cambiar({ rachaClases: e.target.value })}
+              />
+            )}
+          </Campo>
+        )}
         {asi && <p data-consecuencia="" className={CONSECUENCIA}>Así queda: {asi}.</p>}
       </div>
       <BarraGuardar

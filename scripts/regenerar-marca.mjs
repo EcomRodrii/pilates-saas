@@ -14,9 +14,7 @@
 // lo que se ve en el navegador, degradados y curvas incluidos.
 
 import { chromium } from 'playwright';
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -69,11 +67,6 @@ const TRABAJOS = [
   ['app/icon4.png', 'favicon/tentare-favicon-placa.svg', CAJA.placa, 16],
 ];
 
-/** Las cuatro piezas de la intro de la landing (components/landing/IntroLogo.tsx):
- *  mismo lienzo las cuatro, cada una con solo su trazado visible, para que
- *  superpuestas reconstruyan el isotipo exacto. */
-const PIEZAS = [['asta', 't-tallo'], ['bol', 't-disco'], ['hoja-izq', 't-hoja-i'], ['hoja-der', 't-hoja-d']];
-const ANCHO_PIEZA = 572; // 2× de los 266 px a los que se muestra
 const TAMANOS_ICO = [16, 32, 48];
 
 function prepara(svg, viewBox, soloClase) {
@@ -138,19 +131,6 @@ async function escribe(destino, ...args) {
 
 for (const [destino, origen, viewBox, ancho] of TRABAJOS) await escribe(destino, origen, viewBox, ancho);
 
-// Piezas de la intro: se rasterizan a PNG y se pasan a WebP, que es como las
-// consume IntroLogo (28 KB las cuatro, frente a 412 KB en PNG).
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'marca-'));
-for (const [nombre, clase] of PIEZAS) {
-  const { datos, ancho, alto } = await pinta('isotipo/tentare-isotipo-degradado.svg', CAJA.isotipo, ANCHO_PIEZA, clase);
-  const png = path.join(tmp, `${nombre}.png`);
-  fs.writeFileSync(png, datos);
-  const webp = path.join(REPO, `public/logo-piezas/${nombre}.webp`);
-  execFileSync('cwebp', ['-quiet', '-q', '90', '-alpha_q', '100', png, '-o', webp]);
-  hechos.push(`public/logo-piezas/${nombre}.webp`.padEnd(38)
-    + ` ${ancho}×${alto}  ${(fs.statSync(webp).size / 1024).toFixed(0)} KB`);
-}
-
 const ico = empaquetaIco(await Promise.all(TAMANOS_ICO.map(async px => ({
   px,
   datos: (await pinta('favicon/tentare-favicon-placa.svg', CAJA.placa, px)).datos,
@@ -168,5 +148,4 @@ hechos.push('app/icon.svg'.padEnd(38) + ' vectorial');
 hechos.push(`public/favicon.ico`.padEnd(38) + ` ${TAMANOS_ICO.join('/')}  ${(ico.length / 1024).toFixed(0)} KB`);
 
 await navegador.close();
-fs.rmSync(tmp, { recursive: true, force: true });
 console.log(hechos.join('\n'));

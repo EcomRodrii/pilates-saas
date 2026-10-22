@@ -212,9 +212,11 @@ export const tipografiaPorId = (id: TipografiaId): Tipografia => TIPOGRAFIAS.fin
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));
 
 /** El fondo de un estilo, translúcido, para las barras que flotan sobre el contenido. */
+// Casi opaco y SIN desenfoque detrás (20-oct-2026): el `backdrop-filter` de la barra y la cabecera se recalculaba en cada
+// fotograma de scroll y en iPhone era lo que daba los tirones. Al .97 lo de debajo ya no se lee, así que no hace falta.
 function velo(hex: string): string {
   const c = hexARgb(hex);
-  return c ? `rgba(${c.r}, ${c.g}, ${c.b}, .88)` : 'rgba(250, 249, 245, .88)';
+  return c ? `rgba(${c.r}, ${c.g}, ${c.b}, .97)` : 'rgba(250, 249, 245, .97)';
 }
 
 /**
@@ -291,10 +293,23 @@ export function acentoDe(colorPrimario: string | null | undefined, a: Apariencia
  *
  * `selector` existe para la vista previa del editor, que pisa lo publicado con
  * `.student-app.student-app` (más específico) sin tocar el `<style>` del layout.
+ *
+ * `completo` es para esa misma vista previa, y allí no es opcional: el borrador
+ * se pinta ENCIMA de lo publicado, así que si solo emitiera lo que difiere del
+ * kit, todo lo que el borrador devuelve al kit se quedaría con el valor
+ * publicado. Pasaba: con Carbón/Editorial/botón en su color publicados, volver
+ * a Crema/Moderna/tinta enseñaba el fondo, la letra y el botón de antes. Con
+ * `completo` sale el juego entero (neutros, radios, botón, letra, encuadre), y
+ * el fondo de la página y `color-scheme` con más especificidad que los del
+ * layout: el `<style>` publicado va en el `<body>`, DESPUÉS del del borrador
+ * (que va en el `<head>`), y a igual especificidad ganaría por orden.
  */
-export function temaAppCssText(colorPrimario: string | null | undefined, crudo: unknown, selector = '.student-app'): string {
+export function temaAppCssText(
+  colorPrimario: string | null | undefined, crudo: unknown, selector = '.student-app',
+  { completo = false }: { completo?: boolean } = {},
+): string {
   const a = resolverApariencia(crudo);
-  if (a.marca === 'suave' && a.estilo === 'crema' && a.tipografia === 'moderna' && a.boton === 'tinta' && !a.encuadre) {
+  if (!completo && a.marca === 'suave' && a.estilo === 'crema' && a.tipografia === 'moderna' && a.boton === 'tinta' && !a.encuadre) {
     return selector === '.student-app' ? acentoCssText(colorPrimario) : acentoCssText(colorPrimario).replace('.student-app{', `${selector}{`);
   }
   const acento = acentoDe(colorPrimario, a);
@@ -308,7 +323,7 @@ export function temaAppCssText(colorPrimario: string | null | undefined, crudo: 
     `--accent-deep-muted:${acento.accentDeepMuted}`,
   ];
   const e = estiloPorId(a.estilo);
-  if (e.id !== 'crema') {
+  if (completo || e.id !== 'crema') {
     decl.push(
       // El velo de las barras que flotan sobre el contenido: el fondo del
       // estilo, translúcido. Sin esto la barra de abajo se queda crema sobre
@@ -323,24 +338,28 @@ export function temaAppCssText(colorPrimario: string | null | undefined, crudo: 
   }
   if (a.boton === 'marca') {
     decl.push(`--primary:${acento.accent}`, `--primary-foreground:${acento.accentForeground}`);
-  } else if (e.id !== 'crema') {
+  } else if (completo || e.id !== 'crema') {
     decl.push(`--primary:${e.tinta}`, `--primary-foreground:${e.tintaForeground}`);
   }
   const t = tipografiaPorId(a.tipografia);
-  if (t.id !== 'moderna') {
+  if (completo || t.id !== 'moderna') {
     decl.push(
       `--font-sans:${t.texto}`, `--font-heading:${t.titulos}`, `--heading-weight:${t.pesoTitulo}`,
       `--heading-scale:${t.escalaTitulo}`, `--heading-tracking:${t.trackingTitulo}`,
     );
   }
+  // Sin encuadre, cada pantalla usa el suyo (`var(--portada-y, 32%)`): en la
+  // vista previa se ANULA el publicado con `initial`, que hace caer al de serie.
   if (a.encuadre) decl.push(`--portada-y:${Y_ENCUADRE[a.encuadre]}`);
+  else if (completo) decl.push('--portada-y:initial');
   // ⚠️ El `body` es de la hoja del PANEL, no de la app, así que se queda con su
   // crema: al rebotar el scroll en el móvil (y en el hueco bajo la barra del
   // navegador) asomaba una franja blanca debajo de una app oscura. Y
   // `color-scheme` es lo que tiñe lo que pinta el navegador y no el CSS: la
   // barra de desplazamiento y ese mismo rebote.
-  const fondoPagina = e.id === 'crema' ? '' :
-    `body{background:${e.background};}` + (e.oscuro ? `:root{color-scheme:dark;}` : '');
+  const fondoPagina = completo
+    ? `html body{background:${e.background};}:root:root{color-scheme:${e.oscuro ? 'dark' : 'light'};}`
+    : e.id === 'crema' ? '' : `body{background:${e.background};}` + (e.oscuro ? `:root{color-scheme:dark;}` : '');
   return `${selector}{${decl.join(';')};}` + fondoPagina;
 }
 

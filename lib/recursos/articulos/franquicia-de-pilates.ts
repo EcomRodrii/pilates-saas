@@ -11,6 +11,7 @@ const articulo: Articulo = {
   categoria: 'abrir',
   seccion: 'Abrir un estudio',
   publicado: '2026-09-25',
+  actualizado: '2026-10-15',
   consultaPrincipal: 'franquicia de pilates',
   consultas: [
     'franquicia de pilates en España',
@@ -198,7 +199,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'En el software, Tentare cubre lo que en algunas franquicias pone la central: tus alumnas reservan y cancelan solas desde el móvil, vendes bonos y cuotas, cobras de forma recurrente con tarjeta o SEPA a través de Stripe, la lista de espera funciona sola y gestionas las sustituciones de instructoras con tu visto bueno. Cuesta desde 29 €/mes con IVA incluido y sin permanencia, y si abres más sedes, el plan Cadena, de 149 €/mes, las reúne en [un solo acceso](/funcionalidades/multi-centro).',
+            'En el software, Tentare cubre lo que en algunas franquicias pone la central: tus alumnas reservan y cancelan solas desde el móvil, vendes bonos y cuotas, cobras de forma recurrente con tarjeta a través de Stripe o por remesa SEPA en tu banco, la lista de espera funciona sola y gestionas las sustituciones de instructoras con tu visto bueno. Es gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia, y si abres más sedes, el plan Cadena, de 149 €/mes con IVA, las reúne en [un solo acceso](/funcionalidades/multi-centro).',
         },
       ],
     },
@@ -296,7 +297,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Si montas tu propio estudio, empieza con el sistema listo',
     texto:
-      'Reservas desde el móvil, bonos, cobros recurrentes, lista de espera y sustituciones en un solo programa. Prueba Tentare 7 días gratis, sin tarjeta, con el plan que elijas: desde 29 €/mes, IVA incluido y sin permanencia.',
+      'Reservas desde el móvil, bonos, cobros recurrentes, lista de espera y sustituciones en un solo programa. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Las condiciones de las franquicias cambian: reconfirmar la tabla en cada revisión. La ficha de Nexes en Tormo Franquicias es de 2023.',

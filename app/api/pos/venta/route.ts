@@ -10,7 +10,10 @@ import { uid } from '@/lib/utils';
 import { proveedorPara, MAX_CENTIMOS_POS } from '@/lib/pos/terminal';
 import { prepararCobroNuevo } from '@/lib/pos/cobro-del-estudio';
 import { entregarVentaPOS } from '@/lib/pos/venta-servidor';
-import { CODIGO_INTENTO_CERRADO, mensajeErrorVenta, codigoDeErrorPg, type LineaVentaPeticion } from '@/lib/pos/tipos';
+import { confirmarTicketACero } from '@/lib/pos/ticket-a-cero';
+import { CODIGO_INTENTO_CERRADO, mensajeErrorVenta, codigoDeErrorPg } from '@/lib/pos/tipos';
+import { saneaLineas } from '@/lib/pos/sanear-lineas';
+import { leerTotalNoCoincide, mensajeTotalNoCoincide, MENSAJE_TOTAL_CAMBIADO, MENSAJE_CAJA_DESACTUALIZADA } from '@/lib/pos/total-esperado';
 import { cuotaSinClienta, MENSAJE_CUOTA_SIN_CLIENTA } from '@/lib/pos/cuota-exige-clienta';
 import { bizumPermitidoPara, MENSAJE_BIZUM_EN_CUOTA } from '@/lib/billing/bizum-permitido';
 import type { MetodoPago } from '@/lib/types';
@@ -21,9 +24,10 @@ export const dynamic = 'force-dynamic';
 // ─────────────────────────────────────────────────────────────────────────────
 // La ÚNICA puerta por la que se registra una venta del mostrador.
 //
-// Recibe ids y cantidades. Nunca precios, nunca totales. Los calcula
-// `registrar_venta_pos` releyendo el catálogo dentro de una transacción que
-// además reserva el stock y numera la venta.
+// Recibe ids y cantidades. Nunca precios. Los calcula `registrar_venta_pos`
+// releyendo el catálogo dentro de una transacción que además reserva el stock y
+// numera la venta. El total que manda el navegador (`totalEsperado`) no decide
+// nada: solo se compara, y si no coincide la venta no existe.
 //
 // ─── Las dos mitades del cobro ────────────────────────────────────────────
 //
@@ -47,36 +51,6 @@ export const dynamic = 'force-dynamic';
 
 const METODOS: MetodoPago[] = ['EFECTIVO', 'TARJETA', 'BIZUM', 'TRANSFERENCIA', 'DATAFONO'];
 
-function saneaLineas(bruto: unknown): { lineas: LineaVentaPeticion[] } | { error: string } {
-  if (!Array.isArray(bruto) || bruto.length === 0) return { error: 'El ticket está vacío.' };
-  if (bruto.length > 100) return { error: 'Demasiadas líneas en un solo ticket.' };
-
-  const lineas: LineaVentaPeticion[] = [];
-  for (const raw of bruto) {
-    if (typeof raw !== 'object' || raw === null) return { error: 'Línea no válida.' };
-    const l = raw as Record<string, unknown>;
-    const tipo = l.tipo;
-    if (tipo !== 'PRODUCTO' && tipo !== 'PLAN' && tipo !== 'LIBRE') return { error: 'Línea no válida.' };
-
-    const cantidad = Number(l.cantidad ?? 1);
-    if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > 999) return { error: 'Cantidad no válida.' };
-
-    if (tipo === 'LIBRE') {
-      const nombre = String(l.nombre ?? '').trim();
-      const precio = Number(l.precio);
-      if (!nombre) return { error: 'Pon un concepto al importe libre.' };
-      if (!Number.isFinite(precio) || precio < 0 || precio > 10000) return { error: 'Ese importe libre no es válido.' };
-      lineas.push({ tipo, cantidad, nombre: nombre.slice(0, 120), precio, referenciaId: null });
-      continue;
-    }
-
-    const referenciaId = typeof l.referenciaId === 'string' ? l.referenciaId : '';
-    if (!referenciaId) return { error: 'Línea sin artículo.' };
-    lineas.push({ tipo, cantidad, referenciaId });
-  }
-  return { lineas };
-}
-
 /**
  * Anula una venta que no llegó a cobrarse. Sin `cerrado`, ERROR: el cobro podría
  * seguir vivo y la Caja mantiene el intento. Con `cerrado` (no hay cobro que pueda
@@ -91,17 +65,27 @@ function saneaLineas(bruto: unknown): { lineas: LineaVentaPeticion[] } | { error
 async function anularVentaSinCobro(
   admin: NonNullable<ReturnType<typeof getSupabaseAdmin>>,
   p: { studioId: string; ventaId: string; plazas: string[]; motivo: string; cerrado: boolean },
-): Promise<{ codigo?: typeof CODIGO_INTENTO_CERRADO }> {
-  const { error } = await admin.rpc('fallar_pago_venta_pos', {
+): Promise<{ codigo?: typeof CODIGO_INTENTO_CERRADO; pagada?: true }> {
+  const { data: anulada, error } = await admin.rpc('fallar_pago_venta_pos', {
     p_venta_id: p.ventaId, p_studio_id: p.studioId,
     p_pago_estado: p.cerrado ? 'CANCELADO' : 'ERROR', p_motivo: p.motivo,
   });
   if (!p.cerrado) return {};
-  for (const id of p.plazas) await liberarPlaza(admin, id);
   if (error) {
     console.error('[pos/venta] no se pudo anular la venta sin cobro', p.ventaId, error.message);
     return {};
   }
+  // `false`: ya no estaba pendiente. Si la anuló otro, el intento sigue cerrado; si se
+  // pagó entretanto (una confirmación que se guardó aunque contestara con error), ni
+  // se sueltan sus plazas ni se cierra el intento: quien llama la entrega.
+  if (anulada !== true) {
+    const { data: v, error: errLectura } = await admin.from('ventas_pos')
+      .select('estado').eq('id', p.ventaId).eq('studio_id', p.studioId).maybeSingle();
+    if (errLectura || !v) return {};
+    if (v.estado === 'PAGADA') return { pagada: true };
+    if (v.estado !== 'ANULADA') return {};
+  }
+  for (const id of p.plazas) await liberarPlaza(admin, id);
   return { codigo: CODIGO_INTENTO_CERRADO };
 }
 
@@ -145,12 +129,26 @@ export async function POST(req: NextRequest) {
   const codigoDescuentoId = typeof body.codigoDescuentoId === 'string' && body.codigoDescuentoId ? body.codigoDescuentoId : null;
   const efectivoRecibido = body.efectivoRecibido == null ? null : Number(body.efectivoRecibido);
   const notas = typeof body.notas === 'string' ? body.notas.slice(0, 500) : null;
+  // El total que ha visto quien cobra (la vista previa de la hoja de cobro). Si no es
+  // el que calcula la RPC —la matrícula, un precio cambiado—, la venta no se registra
+  // ni se cobra (`IMPORTE_NO_COINCIDE`). La Caja lo manda siempre; falta solo en una
+  // pestaña abierta antes del despliegue (ver abajo).
+  const totalEsperado = body.totalEsperado == null ? null : Number(body.totalEsperado);
 
   if (descuentoTipo && (!Number.isFinite(descuentoValor) || descuentoValor < 0)) {
     return NextResponse.json({ error: 'Ese descuento no es válido.' }, { status: 400 });
   }
   if (efectivoRecibido !== null && (!Number.isFinite(efectivoRecibido) || efectivoRecibido < 0)) {
     return NextResponse.json({ error: 'Ese importe en efectivo no es válido.' }, { status: 400 });
+  }
+  if (totalEsperado !== null && (!Number.isFinite(totalEsperado) || totalEsperado < 0 || totalEsperado > 100000)) {
+    return NextResponse.json({ error: 'El total de la venta no es válido.' }, { status: 400 });
+  }
+  // Sin él, una Caja de antes seguiría registrando la matrícula sin haberla enseñado. Solo
+  // puede pasar con clienta y plan (es cuando la RPC añade esa línea): ahí se le pide que
+  // recargue; el resto de ventas sigue como siempre.
+  if (totalEsperado === null && socioId && sane.lineas.some((l) => l.tipo === 'PLAN')) {
+    return NextResponse.json({ error: MENSAJE_CAJA_DESACTUALIZADA, codigo: 'CAJA_DESACTUALIZADA' }, { status: 409 });
   }
 
   // La socia, si viene, tiene que ser de ESTE estudio. El id lo manda el
@@ -248,6 +246,7 @@ export async function POST(req: NextRequest) {
     p_idempotencia_clave: idempotenciaClave,
     p_estado_inicial: estadoInicial,
     p_notas: notas,
+    p_total_esperado: totalEsperado,
   });
 
   if (error) {
@@ -256,6 +255,17 @@ export async function POST(req: NextRequest) {
     // Los códigos de negocio de la RPC (`SIN_STOCK:Calcetines:1`) se traducen a
     // una frase; el resto es un fallo de verdad y se reporta.
     const codigo = codigoDeErrorPg(error.message);
+    // El total no es el que vio quien cobra: no hay venta ni cobro. Se devuelve el de
+    // verdad para que la hoja lo enseñe. Nunca el mensaje genérico de ese código, que
+    // es el de la confirmación («Se cobraron X €…») y aquí no se ha cobrado nada.
+    if (codigo?.startsWith('IMPORTE_NO_COINCIDE')) {
+      const d = leerTotalNoCoincide(error.message);
+      if (!d) return NextResponse.json({ error: MENSAJE_TOTAL_CAMBIADO, codigo: 'IMPORTE_NO_COINCIDE' }, { status: 409 });
+      return NextResponse.json({
+        error: mensajeTotalNoCoincide(d, metodoPago), codigo: 'IMPORTE_NO_COINCIDE',
+        total: d.total, matricula: d.matricula, matriculaPlanId: d.matriculaPlanId,
+      }, { status: 409 });
+    }
     const conocido = mensajeErrorVenta(codigo);
     if (codigo && conocido !== 'No se ha podido completar la operación. Inténtalo de nuevo.') {
       return NextResponse.json({ error: conocido, codigo }, { status: 409 });
@@ -279,17 +289,58 @@ export async function POST(req: NextRequest) {
     yaExistia: fila.r_ya_existia === true,
   };
 
+  // Un ticket a 0 € (todo descontado) no pasa por el proveedor: lo confirma esta ruta,
+  // y solo con la confirmación hecha se entrega y se dice «Cobrado» (lib/pos/ticket-a-cero.ts).
+  // Sin pagar, se anula con el intento cerrado: a 0 € no hay cobro que pueda llegar. Sin
+  // saberlo, no se toca: el reintento con la misma clave vuelve aquí y lo termina.
+  const cerrarTicketACero = async (): Promise<NextResponse> => {
+    const resultado = await confirmarTicketACero(admin, { studioId: sesion.studioId, ventaId: base.ventaId });
+    let pagada = resultado === 'pagada';
+    let cierre: { codigo?: typeof CODIGO_INTENTO_CERRADO } = {};
+    if (resultado === 'sin-pagar') {
+      const { pagada: sePago, ...resto } = await anularVentaSinCobro(admin, {
+        studioId: sesion.studioId, ventaId: base.ventaId, plazas: plazasPOS,
+        motivo: 'No se pudo confirmar el ticket a 0 €', cerrado: true,
+      });
+      pagada = sePago === true;
+      cierre = resto;
+    }
+    if (!pagada) {
+      Sentry.captureMessage('[pos/venta] no se pudo confirmar un ticket a 0 €', {
+        level: 'error', tags: { area: 'cobros' },
+        extra: { ventaId: base.ventaId, studioId: sesion.studioId, resultado },
+      });
+      return NextResponse.json(
+        { error: 'No se ha podido comprobar la venta. No se ha cobrado nada: vuelve a intentarlo.', ...cierre },
+        { status: 503 },
+      );
+    }
+    const entrega = await entregarVentaPOS(admin, { studioId: sesion.studioId, ventaId: base.ventaId });
+    return NextResponse.json({
+      ...base, estado: 'PAGADA', pagoEstado: 'PAGADO',
+      entrega: { bonos: entrega.suscripcionesCreadas, creditos: entrega.creditos, facturaSellada: entrega.facturaSellada, avisos: entrega.avisos },
+    });
+  };
+
   // Reintento de una venta ya registrada: se devuelve tal cual, sin volver a
-  // cobrar ni a entregar nada.
+  // cobrar ni a entregar nada. Salvo un ticket a 0 €, que se termina aquí si la
+  // primera vez se quedó a medias (la entrega no repite nada: sus ids salen de la venta).
   if (base.yaExistia) {
-    const { data: v } = await admin.from('ventas_pos')
+    const { data: v, error: errV } = await admin.from('ventas_pos')
       .select('estado, pago_estado, stripe_payment_intent_id')
       .eq('id', base.ventaId).eq('studio_id', sesion.studioId).maybeSingle();
+    // Sin poder leerla no se dice nada: inventar PAGADA era decir «Cobrado» sin saberlo.
+    if (errV || !v) {
+      return NextResponse.json({ error: 'No se ha podido comprobar la venta. Vuelve a intentarlo.' }, { status: 503 });
+    }
+    if (Math.round(total * 100) <= 0 && (v.estado === 'PENDIENTE_PAGO' || v.estado === 'PAGADA')) {
+      return cerrarTicketACero();
+    }
     return NextResponse.json({
       ...base,
-      estado: v?.estado ?? 'PAGADA',
-      pagoEstado: v?.pago_estado ?? 'PAGADO',
-      pago: v?.stripe_payment_intent_id ? { referencia: v.stripe_payment_intent_id } : undefined,
+      estado: v.estado,
+      pagoEstado: v.pago_estado,
+      pago: v.stripe_payment_intent_id ? { referencia: v.stripe_payment_intent_id } : undefined,
     });
   }
 
@@ -307,18 +358,8 @@ export async function POST(req: NextRequest) {
 
   // ── Cobro con proveedor: se lanza y se espera confirmación real ──────────
   const centimos = Math.round(total * 100);
-  if (centimos <= 0) {
-    // Un ticket a 0 € (todo descontado) no necesita pasar por el datáfono.
-    await admin.rpc('confirmar_pago_venta_pos', {
-      p_venta_id: base.ventaId, p_studio_id: sesion.studioId,
-      p_payment_intent_id: null, p_importe_confirmado: 0,
-    });
-    const entrega = await entregarVentaPOS(admin, { studioId: sesion.studioId, ventaId: base.ventaId });
-    return NextResponse.json({
-      ...base, estado: 'PAGADA', pagoEstado: 'PAGADO',
-      entrega: { bonos: entrega.suscripcionesCreadas, creditos: entrega.creditos, facturaSellada: entrega.facturaSellada, avisos: entrega.avisos },
-    });
-  }
+  // Un ticket a 0 € no necesita pasar por el datáfono (ver `cerrarTicketACero`, arriba).
+  if (centimos <= 0) return cerrarTicketACero();
   if (centimos > MAX_CENTIMOS_POS) {
     await admin.rpc('fallar_pago_venta_pos', {
       p_venta_id: base.ventaId, p_studio_id: sesion.studioId,

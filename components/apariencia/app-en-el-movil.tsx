@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { btnSecondary } from '@/components/configuracion/estilos';
+import dynamic from 'next/dynamic';
 import { urlIconoEstudio } from '@/lib/monograma-estudio';
 import { qrSvgMarkup } from '@/lib/qr-svg';
 import { copiarAlPortapapeles } from '@/lib/utils';
@@ -15,6 +16,9 @@ import { copiarAlPortapapeles } from '@/lib/utils';
 //
 // El enlace sale del origen desde el que se abre el panel (como la invitación de
 // la alumna): en local, en preview y en producción es el de DONDE está.
+// El diálogo del cartel (con su generador de PDF) solo se carga al abrirlo, como en «Tu estudio está listo».
+const BotonQr = dynamic(() => import('@/components/configuracion/dialogo-qr').then((m) => m.BotonQr), { ssr: false });
+
 export function AppEnElMovil({ nombre, slug, colorPrimario, faviconUrl, logoUrl }: {
   nombre: string;
   slug: string;
@@ -65,6 +69,9 @@ export function AppEnElMovil({ nombre, slug, colorPrimario, faviconUrl, logoUrl 
             <button type="button" className={btnSecondary} onClick={() => void copiar()} data-testid="copiar-enlace-app">
               Copiar enlace
             </button>
+            {/* El cartel con el QR para imprimir (recepción, la puerta): antes solo estaba en «Mi web →
+                Dirección y enlaces», y desde «Mi web» guiada (21-oct-2026) el enlace de la app vive aquí. */}
+            {enlace && <BotonQr destino="app" url={enlace} slug={slug} estudio={nombre} nombreEnlace="App de tus alumnas" />}
             {copiado !== null && (
               <span role="status" className="text-[12px] text-muted-foreground" data-testid="copiado-app">
                 {copiado ? 'Copiado.' : 'No hemos podido copiarlo. Selecciónalo y cópialo a mano.'}
@@ -85,7 +92,7 @@ export function AppEnElMovil({ nombre, slug, colorPrimario, faviconUrl, logoUrl 
 
       <p className="text-[12px] leading-relaxed text-muted-foreground">
         Es la app web de tu estudio: se abre a pantalla completa, con tu nombre y tu icono. No está en la App Store ni en Google Play.
-        En iPhone, los avisos de plaza libre y los recordatorios solo llegan desde la app instalada.
+        En iPhone, los avisos al móvil de plaza libre y de recordatorio solo llegan con la app instalada.
       </p>
     </div>
   );

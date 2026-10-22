@@ -6,6 +6,7 @@ import {
   ComoSeEligeLaCandidata, EscaladoEnElTiempo, NivelesDeAutonomia, ResumenSustitucion,
 } from '@/components/funcionalidades/visuales/sustituciones';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
+import { PanelSustitucion } from '@/components/web/home/piezas';
 
 const PATH = '/funcionalidades/sustituciones';
 const pagina = paginaDe(PATH)!;
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe(PATH) },
-  openGraph: { type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
+  openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH) },
 };
 
 const FAQ = [
@@ -28,7 +29,7 @@ const FAQ = [
   },
   {
     q: '¿Puedo seguir aprobando cada sustitución a mano?',
-    a: 'Sí, y es el modo por defecto. En asistido el sistema te propone la candidata y no escribe a nadie hasta que das el visto bueno; a partir de ahí la contacta, le insiste y, si acepta, la clase se reasigna sola. Solo pasas a autónomo (plan Estudio o Cadena) si quieres.',
+    a: 'Sí, y es el modo por defecto. En asistido el sistema te propone la candidata y no escribe a nadie hasta que das el visto bueno; a partir de ahí la contacta, le insiste y, si acepta, la clase se reasigna sola. Solo pasas a autónomo si quieres.',
   },
   {
     q: '¿Cómo sabe el sistema quién puede dar cada clase?',
@@ -49,11 +50,11 @@ export default function SustitucionesPage() {
     <FeatureShell
       path={PATH}
       busqueda="Sustituciones automáticas de instructoras de Pilates"
-      h1={<>La baja se cubre sola.</>}
+      h1={<>Tentare busca quién cubre la baja.</>}
       intro={<>Una instructora avisa de que no puede dar su clase. Antes de que llegues a leer el mensaje, el sistema ya sabe quién puede cubrirla y te la propone. Con tu visto bueno —o solo, si lo dejas en autónomo— le escribe y le insiste.</>}
       chips={['Candidatas por disponibilidad real', 'Escalado automático', 'Cuatro niveles de autonomía']}
       foto={{ src: '/disciplinas/pilates.jpg', alt: 'Sala de reformers de un estudio de Pilates', encuadre: 'center 42%' }}
-      captura={{ src: '/producto/sustituciones.png', alt: 'Pantalla de sustituciones de Tentare', pie: 'Las bajas abiertas y en qué punto está cada una.', ancho: 2880, alto: 1624 }}
+      pieza={{ descripcion: 'Ejemplo de una sustitución en Tentare: la clase sin instructora, las candidatas por orden y en qué punto está el contacto.', contenido: <PanelSustitucion completo /> }}
     >
       <Seccion id="problema" titulo="El problema no es la baja. Es todo lo que cuelga de ella">
         <Entradilla>
@@ -112,7 +113,7 @@ export default function SustitucionesPage() {
         <NivelesDeAutonomia />
         <p>
           Todo estudio arranca en <strong>asistido</strong>, el modo por defecto —el sistema hace el trabajo pesado y tú das
-          el visto bueno—, y puede subir a autónomo (plan Estudio o Cadena) cuando lleva unas semanas acertando. El modo
+          el visto bueno—, y puede subir a autónomo cuando lleva unas semanas acertando. El modo
           Vacaciones existe porque el peor momento para una baja es justo cuando la propietaria no está.
         </p>
       </Seccion>

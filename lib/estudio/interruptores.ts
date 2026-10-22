@@ -43,6 +43,29 @@ export const INTERRUPTORES = {
    * «marta» y a todos cuando el fundador dé el sí.
    */
   pedirApp: 'APP_PROPIA_PEDIR',
+  /**
+   * «Tu app» y «Tu web» rehechos (16-oct-2026, maqueta aprobada por el fundador): dos entradas
+   * propias del menú, la portada «Tus widgets» de la v2 y «Contenido de tu app» v2. Apagado de
+   * serie: PANEL_NUEVO ya está encendido para todos y no esconde nada, así que todo lo nuevo de
+   * estas pantallas va detrás de este. Primero en el estudio de prueba; a todos con el sí del fundador.
+   */
+  miWebNueva: 'MI_WEB_NUEVA',
+  /**
+   * Semana y racha únicas (Fase 3, PR 3.3): una sola función de racha (`calcularRachaUnica`) para el
+   * motor, la app de la alumna y el panel, con las reglas aprobadas por el fundador (solo ASISTIDA,
+   * semanas neutras, respiro). Apagado de serie: con él apagado nada cambia en ningún estudio. Se
+   * enciende estudio a estudio tras revisar con el fundador los casos de la Fase 3 (§4).
+   */
+  rachaUnica: 'RACHA_UNICA',
+  /**
+   * El alta nueva dentro del panel (21-oct-2026, maqueta aprobada): la bienvenida
+   * de los pasos 3 a 5 en lugar de la de siempre, y la visita de 43 pasos que ya
+   * no arranca sola. Primero en el estudio de prueba del fundador. ⚠️ No es solo
+   * la variable: `/api/estudio/interruptores` lo enciende también para el estudio
+   * que NACIÓ del alta nueva (`altas_estudio.version`, lib/alta/bienvenida-nueva.ts),
+   * cuyo registro ya no le preguntó lo que la bienvenida de siempre da por hecho.
+   */
+  altaNueva: 'ALTA_NUEVA',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

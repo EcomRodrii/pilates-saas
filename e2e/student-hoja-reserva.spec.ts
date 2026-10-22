@@ -50,7 +50,7 @@ async function montar(page: Page, o: { llena?: boolean; conBono?: boolean; reloj
 
 async function abrirYConfirmar(page: Page) {
   await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 45_000 });
+  await page.getByRole('button', { name: /^Reservar clase$/ }).first().click({ timeout: 45_000 });
   await page.getByRole('button', { name: /^Confirmar/ }).click();
 }
 
@@ -107,7 +107,7 @@ test.describe('Student PWA · la hoja de reserva, sacada de la ficha', () => {
     const m = await montar(page, { conBono: true, relojMadrid: true });
     await m.responder({ ok: true, estado: 'CONFIRMADA', reservaId: 'res-1' });
     await page.goto(`${base}/reservar/${SESION_ID}`, { waitUntil: 'domcontentloaded' });
-    await page.getByRole('button', { name: /^Reservar$/ }).first().click({ timeout: 45_000 });
+    await page.getByRole('button', { name: /^Reservar clase$/ }).first().click({ timeout: 45_000 });
     await expect(page.getByRole('button', { name: /^Confirmar/ })).toBeVisible();
     // La clase del fixture es a las 10:00 (sin zona: hora de la máquina) y el reloj, a las 08:00 de Madrid. Cinco horas
     // después ha empezado (y terminado) tanto con la máquina en Madrid como en UTC (el CI).
