@@ -377,6 +377,20 @@ así que todo lo que se versiona lo lee cualquiera:
   borra la credencial. ⚠️ Revoca el permiso en Google **solo si Calendar no está en la misma
   cuenta**: comparten app de Google, y Google retira TODOS los permisos de la app a la vez
   (`lib/integraciones/desconectar-gmail.ts`). No reintroducir sin pedirlo.
+- **El enlace que se da por defecto a un estudio para sus alumnas es el de LA APP, no el de la página
+  de reservas (22-oct-2026, decisión del fundador).** `/portal/<slug>` (marca blanca, instalable; la
+  alumna entra con su email y un código de 6 cifras) es lo que Tentare le da y le manda a un estudio
+  nuevo: correos del alta y su QR (`/api/public/qr-app/<slug>`), «Comparte el enlace de tu app»,
+  «¡Listo!», la guía, la visita, el aviso de las 72 h y el primer enlace de Configuración › Dirección y
+  enlaces. `/reservar/<slug>` es la página que el estudio INTEGRA EN SU WEB (botón o widget, «Mi web»), y
+  así se dice donde se nombra. Las dos direcciones se quedan y comparten slug; las rutas
+  (`lib/enlaces-estudio.ts`) y el QR viejo (`/api/public/qr-reservas/<slug>`, ya en correos y en el CDN)
+  no cambian. Lo vigila `lib/enlace-por-defecto.test.ts`. ⚠️ El veredicto de
+  `lib/onboarding/puede-reservar.ts` vale para las dos puertas porque comparten la regla entera (mismo
+  catálogo, mismas escrituras, misma página oculta, misma tienda): si una regla de reserva se aplicara en
+  una y no en la otra, deja de ser una garantía. ⚠️ La plantilla del correo del código
+  (`supabase/templates/confirmation.html`) NO se despliega con el merge: hay que reaplicarla
+  (`scripts/alta-nueva-plantilla-codigo.ts`).
 
 ## El logotipo: un componente en línea, y `docs/marca/` como única fuente
 

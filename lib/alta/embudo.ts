@@ -25,7 +25,7 @@ import { masDias } from '../utils.ts';
 export const PASOS_EMBUDO = [
   'panel_abierto', // la propietaria abre el panel: d1, d7 y d30
   'clase_reservable', // una alumna nueva ya puede reservar (el «sí» de puedeReservarAlumnaNueva)
-  'enlace_compartido', // copió, mandó o bajó el QR de su enlace de reservas
+  'enlace_compartido', // copió, mandó o bajó el QR del enlace de su app
   'config_completada', // «Tu estudio» de la bienvenida nueva (PR-3), comprobado en la base de datos
   'correo_cuenta_activa', // el correo «Tu cuenta está activa» (PR-2: hoy sin filas)
   'plan_ensenado', // la tarjeta «Tu plan, sin sorpresas», enseñada UNA vez tras la primera reserva (PR-5)

@@ -6,8 +6,15 @@
 // que en /login.
 //
 // Es de la familia de Tentare (`plantilla.ts`: el marco, el logo, la regla y el
-// botón), pero con su propio orden de bloques —la dirección de su página va
-// entre dos párrafos— y su propio pie, el de la maqueta. Los textos, tal cual.
+// botón), pero con su propio orden de bloques —la dirección de su app va entre
+// dos párrafos— y su propio pie, el de la maqueta.
+//
+// ⚠️ El enlace que se le da al estudio es el de LA APP DE SUS ALUMNAS
+// (`/portal/<slug>`), nunca el de la página de reservas (`/reservar/<slug>`):
+// esa es para integrarla en su web, no para pasársela a las alumnas (decisión
+// del fundador, 22-oct-2026; lib/enlaces-estudio.ts). Y el texto no promete lo
+// que la app no hace: la alumna entra con su email y un código, y desde ahí
+// reserva.
 //
 // El plan no se escribe a mano: sale de las constantes que el producto aplica
 // (lib/landing/founding-gratis.ts), y solo dice «gratis» si el alta empieza
@@ -29,7 +36,7 @@ import { botonTentare, cabeceraTentare, marcoTentare, PILA_TENTARE as PILA, TENT
 export const PRIMEROS_PASOS_ALTA = [
   'Crea tu cuenta',
   'Crea tu primera clase',
-  'Comparte tu enlace de reservas',
+  'Comparte el enlace de tu app',
   'Trae a tus alumnas',
   'Recibe tu primera reserva',
 ] as const;
@@ -53,8 +60,8 @@ export interface CorreoCuentaActiva {
 
 export function correoCuentaActiva(p: {
   estudioNombre: string;
-  /** La dirección REAL de su página (`…/reservar/<slug>`), la del estudio ya creado. */
-  urlPagina: string;
+  /** La dirección REAL de la app de sus alumnas (`…/portal/<slug>`), la del estudio ya creado. */
+  urlApp: string;
   /** A dónde lleva «Crear mi primera clase». */
   urlPrimeraClase: string;
   foundingGratis: boolean;
@@ -85,9 +92,9 @@ ${contenido}
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
 <div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Tu cuenta está activa</div>
-${parrafo(`<b>${escaparHtml(estudio)}</b> ya tiene su página de reservas:`)}
-<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlPagina)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlPagina)}</a></div>
-${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus alumnas podrán reservar desde ahí, sin descargarse nada.')}
+${parrafo(`<b>${escaparHtml(estudio)}</b> ya tiene la app de sus alumnas:`)}
+<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
+${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus alumnas podrán entrar con su email y reservar desde el móvil, sin descargarse nada.')}
 </td></tr>`,
     botonTentare({ href: p.urlPrimeraClase, texto: 'Crear mi primera clase' }),
     caja(`${etiqueta('Primeros pasos · 1 de 5')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${pasos}</table>`),
@@ -116,20 +123,20 @@ function pieDelAlta(estudio: string): string {
 // «Ya puedes recibir reservas»: el correo n.º 4 (maqueta, «09 · Correos»). Sale
 // UNA vez por estudio, al publicar la primera clase y solo si el servidor ha
 // comprobado que una alumna nueva ya puede reservar (`puedeReservarEnServidor`,
-// app/api/alta/primera-clase). Lleva el enlace y el QR en PNG
-// (/api/public/qr-reservas/<slug>): Gmail no pinta un SVG.
+// app/api/alta/primera-clase). Lleva el enlace de la app de sus alumnas y su QR
+// en PNG (/api/public/qr-app/<slug>): Gmail no pinta un SVG.
 // ─────────────────────────────────────────────────────────────────────────────
 
 
 export function correoRecibirReservas(p: {
   estudioNombre: string;
-  /** El nombre de la clase, tal y como sale en su página. */
+  /** El nombre de la clase, tal y como sale en la app de sus alumnas. */
   claseNombre: string;
   /** «lunes 26 a las 18:30, cada semana» (`cuandoCorto`, lib/alta/primera-clase.ts). */
   cuando: string;
-  /** La dirección REAL de su página (`…/reservar/<slug>`). */
-  urlPagina: string;
-  /** El PNG del QR de esa dirección. */
+  /** La dirección REAL de la app de sus alumnas (`…/portal/<slug>`). */
+  urlApp: string;
+  /** El PNG del QR de esa dirección (`/api/public/qr-app/<slug>`). */
   urlQr: string;
 }): { asunto: string; preheader: string; html: string } {
   const t = TENTARE;
@@ -143,14 +150,15 @@ export function correoRecibirReservas(p: {
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
 <div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Ya puedes recibir reservas</div>
 ${parrafo(`Tu clase <b>${escaparHtml(p.claseNombre.trim() || 'de hoy')}</b> está publicada (${escaparHtml(p.cuando)}). Copia este enlace y mándalo:`)}
-<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlPagina)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlPagina)}</a></div>
+<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.arena}" style="background:${t.arena};border-radius:8px;margin:0 0 14px;"><tr>
-<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de tu página de reservas" style="display:block;border:0;width:120px;height:120px;background:${t.papel};"></td>
-<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre tu página.</td>
+<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus alumnas" style="display:block;border:0;width:120px;height:120px;background:${t.papel};"></td>
+<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus alumnas.</td>
 </tr></table>
-${parrafo('Pégalo en tu Instagram, en el grupo de WhatsApp de tus alumnas o en tu web. No hace falta que se descarguen nada.')}
+${parrafo('Pégalo en tu Instagram o en el grupo de WhatsApp de tus alumnas. Entran con su email, sin descargarse nada.')}
+${parrafo('Si quieres que reserven desde tu propia web, lo preparas en Configuración › Mi app y mi web.')}
 </td></tr>`,
-    botonTentare({ href: p.urlPagina, texto: 'Abrir mi página' }),
+    botonTentare({ href: p.urlApp, texto: 'Abrir mi app' }),
   ].join('');
 
   return {

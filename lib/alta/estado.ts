@@ -77,7 +77,7 @@ export function leerEstadoAlta(x: unknown): EstadoAlta | null {
 }
 
 /** Lo que se dice al ir a compartir el enlace sin ninguna clase que reservar todavía. */
-export const AVISO_SIN_CLASE_AL_COMPARTIR = 'Tu página ya existe, pero todavía no hay ninguna clase que una alumna nueva pueda reservar: crea tu primera clase antes de mandarlo.';
+export const AVISO_SIN_CLASE_AL_COMPARTIR = 'Tu app ya existe, pero todavía no hay ninguna clase que una alumna nueva pueda reservar: crea tu primera clase antes de mandarlo.';
 
 /**
  * Antes de mandar el enlace: si una alumna nueva todavía no puede reservar, por

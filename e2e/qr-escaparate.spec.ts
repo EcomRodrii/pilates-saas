@@ -4,9 +4,10 @@ import { test, expect, type Download, type Page, type Route } from '@playwright/
 // ─────────────────────────────────────────────────────────────────────────────
 // El código QR de cada enlace del estudio, para el escaparate.
 //
-// Quien pasa por delante no va a teclear «tentare.app/reservar/…»: lo escanea
-// o no entra. En «Dirección y enlaces» cada enlace —página de reservas, app de
-// las alumnas y la web del estudio— lleva «Código QR»: el cartel A4 con los
+// Quien pasa por delante no va a teclear «tentare.app/portal/…»: lo escanea
+// o no entra. En «Dirección y enlaces» cada enlace —la app de las alumnas (el que
+// se reparte por defecto), la página de reservas (la de la web) y la web del
+// estudio— lleva «Código QR»: el cartel A4 con los
 // colores que elija el estudio (PDF y PNG) y solo el código (PNG y SVG). Todo se
 // genera en el navegador.
 //
@@ -54,7 +55,7 @@ async function prepararPanel(page: Page, estudio: Record<string, unknown>) {
 
   await page.goto('/configuracion?tab=estudio&sub=enlaces');
   await expect(page.getByRole('heading', { level: 2, name: 'Dirección y enlaces' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('textbox', { name: 'Dirección de tu página de reservas' }))
+  await expect(page.getByRole('textbox', { name: 'Dirección de tu app' }))
     .toHaveValue('pilates-boutique-mar', { timeout: 30_000 });
 }
 
@@ -76,46 +77,50 @@ async function leer(descarga: Download): Promise<Buffer> {
 const ladoPng = (bytes: Buffer) => ({ ancho: bytes.readUInt32BE(16), alto: bytes.readUInt32BE(20) });
 
 test.describe('Código QR para el escaparate', () => {
-  test('la página de reservas: cartel con el color de la marca, en PDF y PNG, y solo el código en PNG y SVG', async ({ page, baseURL }) => {
+  test('la app de tus alumnas va primero: cartel con el color de la marca, en PDF y PNG, y solo el código en PNG y SVG', async ({ page, baseURL }) => {
     await prepararPanel(page, { ...STUDIO_ROW, sitio_web: 'pilatesboutiquemar.example.com' });
 
-    // Reservas, app y web: un QR por enlace.
+    // App, página de reservas y web: un QR por enlace, y la app —el enlace que se reparte— la primera.
     await expect(botonesQr(page)).toHaveCount(3);
+    await expect(page.getByText('Para tu web: la que se integra en tu web')).toBeVisible();
+    const yApp = (await page.getByText('App de tus alumnas', { exact: true }).first().boundingBox())!.y;
+    const yPagina = (await page.getByText('Página de reservas', { exact: true }).first().boundingBox())!.y;
+    expect(yApp, 'la app va antes que la página de reservas').toBeLessThan(yPagina);
     await botonesQr(page).first().click();
 
-    const dialogo = page.getByRole('dialog', { name: 'Código QR · Página de reservas' });
+    const dialogo = page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' });
     await expect(dialogo).toBeVisible();
     // Se ve el cartel de verdad y a dónde lleva, antes de descargar nada.
-    await expect(dialogo.getByRole('img', { name: 'Cartel con el código QR de Página de reservas' })).toBeVisible();
-    const legible = `${new URL(baseURL!).host}/reservar/pilates-boutique-mar`;
+    await expect(dialogo.getByRole('img', { name: 'Cartel con el código QR de App de tus alumnas' })).toBeVisible();
+    const legible = `${new URL(baseURL!).host}/portal/pilates-boutique-mar`;
     await expect(dialogo.locator('figcaption')).toHaveText(legible);
     // Arranca con el color de su marca (el tema: #6D28D9 en el mock).
     await expect(dialogo.getByRole('radiogroup', { name: 'Fondo del cartel' }).getByRole('radio', { name: 'El color de tu marca' }))
       .toHaveAttribute('aria-checked', 'true');
 
     const pdf = await descargar(page, /cartel.*PDF para imprimir/);
-    expect(pdf.nombre).toBe('cartel-qr-reservas-pilates-boutique-mar.pdf');
+    expect(pdf.nombre).toBe('cartel-qr-app-pilates-boutique-mar.pdf');
     const textoPdf = pdf.bytes.toString('latin1');
     expect(textoPdf.startsWith('%PDF-1.4')).toBe(true);
     expect(textoPdf.trimEnd().endsWith('%%EOF')).toBe(true);
     expect(textoPdf).toContain('(PILATES BOUTIQUE MAR)');
-    expect(textoPdf).toContain('(Reserva tu clase)');
+    expect(textoPdf).toContain('(Entra en la app del estudio)');
     expect(textoPdf).toContain(`(${legible})`);
     expect(textoPdf, 'el fondo es el morado de la marca').toContain('0.427 0.157 0.851 rg');
 
     const cartelPng = await descargar(page, /cartel.*Imagen PNG/);
-    expect(cartelPng.nombre).toBe('cartel-qr-reservas-pilates-boutique-mar.png');
+    expect(cartelPng.nombre).toBe('cartel-qr-app-pilates-boutique-mar.png');
     expect(cartelPng.bytes.subarray(0, 8).toString('hex'), 'firma PNG').toBe('89504e470d0a1a0a');
     expect(ladoPng(cartelPng.bytes), 'A4 a 200 ppp').toEqual({ ancho: 1654, alto: 2339 });
 
     const codigoPng = await descargar(page, /solo el código.*PNG/);
-    expect(codigoPng.nombre).toBe('qr-reservas-pilates-boutique-mar.png');
+    expect(codigoPng.nombre).toBe('qr-app-pilates-boutique-mar.png');
     const { ancho, alto } = ladoPng(codigoPng.bytes);
     expect(ancho).toBe(alto);
     expect(ancho, 'de sobra para imprimir o Instagram').toBeGreaterThanOrEqual(1600);
 
     const svg = await descargar(page, /solo el código.*SVG/);
-    expect(svg.nombre).toBe('qr-reservas-pilates-boutique-mar.svg');
+    expect(svg.nombre).toBe('qr-app-pilates-boutique-mar.svg');
     expect(svg.bytes.toString('utf8')).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/);
 
     // Escape cierra el QR y deja el cajón donde estaba.
@@ -127,7 +132,7 @@ test.describe('Código QR para el escaparate', () => {
   test('los colores los elige el estudio, el código solo en tonos que se leen, y se recuerdan para los otros carteles', async ({ page }) => {
     await prepararPanel(page, { ...STUDIO_ROW, sitio_web: 'pilatesboutiquemar.example.com' });
     await botonesQr(page).first().click();
-    const dialogo = page.getByRole('dialog', { name: 'Código QR · Página de reservas' });
+    const dialogo = page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' });
 
     await dialogo.getByLabel('Otro color para el fondo').fill('#0f766e');
     const pdf = await descargar(page, /cartel.*PDF para imprimir/);
@@ -145,15 +150,15 @@ test.describe('Código QR para el escaparate', () => {
     expect(svgColor.bytes.toString('utf8')).toContain('fill="#8A2451"');
     await page.keyboard.press('Escape');
 
-    // El cartel de la app sale con los mismos colores, sin volver a elegirlos.
+    // El cartel de la página de reservas (la de la web) sale con los mismos colores, sin volver a elegirlos.
     await botonesQr(page).nth(1).click();
-    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' })).toBeVisible();
-    const app = await descargar(page, /cartel.*PDF para imprimir/);
-    expect(app.nombre).toBe('cartel-qr-app-pilates-boutique-mar.pdf');
-    const textoApp = app.bytes.toString('latin1');
-    expect(textoApp).toContain('/portal/pilates-boutique-mar)');
-    expect(textoApp).toContain('0.059 0.463 0.431 rg');
-    expect(textoApp).toContain('0.541 0.141 0.318 rg');
+    await expect(page.getByRole('dialog', { name: 'Código QR · Página de reservas' })).toBeVisible();
+    const reservas = await descargar(page, /cartel.*PDF para imprimir/);
+    expect(reservas.nombre).toBe('cartel-qr-reservas-pilates-boutique-mar.pdf');
+    const textoReservas = reservas.bytes.toString('latin1');
+    expect(textoReservas).toContain('/reservar/pilates-boutique-mar)');
+    expect(textoReservas).toContain('0.059 0.463 0.431 rg');
+    expect(textoReservas).toContain('0.541 0.141 0.318 rg');
     await page.keyboard.press('Escape');
 
     await botonesQr(page).nth(2).click();

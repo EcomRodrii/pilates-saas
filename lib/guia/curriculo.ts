@@ -129,7 +129,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Empieza por lo que desbloquea el resto',
-        texto: 'El orden de esta guía no es caprichoso: sin salas no puedes decir cuánta gente cabe, sin tipos de clase no puedes programar, y sin clases programadas tu página de reservas no tiene nada que enseñar. Los cinco primeros capítulos son ese camino. El resto puede esperar a la semana que viene.',
+        texto: 'El orden de esta guía no es caprichoso: sin salas no puedes decir cuánta gente cabe, sin tipos de clase no puedes programar, y sin clases programadas la app de tus alumnas no tiene nada que enseñar. Los cinco primeros capítulos son ese camino. El resto puede esperar a la semana que viene.',
       },
       {
         titulo: 'No necesitas configurarlo todo para empezar',
@@ -298,7 +298,7 @@ export const CAPITULOS: CapituloGuia[] = [
       'Cambiar una clase de una serie sin romper el resto',
       'Mover, duplicar y cancelar sin perder a nadie por el camino',
     ],
-    porQue: 'Es el paso donde se queda la mitad de los estudios, y sin él tu página de reservas no tiene nada que enseñar.',
+    porQue: 'Es el paso donde se queda la mitad de los estudios, y sin él la app de tus alumnas no tiene nada que enseñar.',
     apartados: [
       {
         titulo: 'Créalas en serie, no una a una',
@@ -335,19 +335,19 @@ export const CAPITULOS: CapituloGuia[] = [
     id: 'abre-reservas',
     numero: '06',
     titulo: 'Abre las reservas',
-    resumen: 'Tu página pública, el enlace que compartes y la primera reserva de verdad.',
+    resumen: 'La app de tus alumnas, el enlace que compartes y la primera reserva de verdad.',
     nivel: 'esencial',
     minutos: 4,
     queAprendes: [
-      'Dónde está tu página de reservas y cómo se comparte',
+      'Dónde está la app de tus alumnas y cómo se comparte',
       'Qué ve una alumna que entra por primera vez',
       'Cómo meter el calendario en tu propia web',
     ],
     porQue: 'Es el momento en que Tentare empieza a trabajar para ti en vez de al revés.',
     apartados: [
       {
-        titulo: 'Ya tienes página, aunque no lo sepas',
-        texto: 'Tu estudio tiene una dirección pública desde el primer día. Ahí se ve tu horario y desde ahí se reserva. No hay que publicarla ni activarla: en cuanto tienes clases programadas, funciona.',
+        titulo: 'Ya tienes app, aunque no lo sepas',
+        texto: 'Tu estudio tiene la app de sus alumnas desde el primer día, con tu nombre y tu color. Ahí se ve tu horario y desde ahí se reserva. No hay que publicarla ni activarla: en cuanto tienes clases programadas, funciona.',
       },
       {
         titulo: 'No necesitas Stripe para esto',
@@ -355,15 +355,15 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Comparte el enlace donde ya te buscan',
-        texto: 'En la biografía de Instagram, en tu ficha de Google, en el grupo de WhatsApp de tus alumnas. La mayoría de las primeras reservas llegan del sitio donde ya te conocían, no de gente nueva.',
+        texto: 'En la biografía de Instagram, en tu ficha de Google, en el grupo de WhatsApp de tus alumnas. Entran con su email y un código, sin contraseña y sin descargarse nada. La mayoría de las primeras reservas llegan del sitio donde ya te conocían, no de gente nueva.',
       },
       {
         titulo: 'Si tienes web propia',
-        texto: 'Puedes incrustar el calendario de reservas dentro de tu web, con tus colores y tu tipografía, de dos formas: un recuadro que se pega tal cual, o un trozo de código que se integra sin marco. La segunda necesita que autorices tu dominio.',
+        texto: 'Para tu web está la página de reservas: puedes incrustar el calendario dentro de ella, con tus colores y tu tipografía, de dos formas: un recuadro que se pega tal cual, o un trozo de código que se integra sin marco. La segunda necesita que autorices tu dominio. No es el enlace que repartes a tus alumnas: ese es el de su app.',
       },
     ],
     acciones: [
-      { label: 'Ver mi página de reservas', href: '/configuracion?tab=web#direccion-y-enlaces' },
+      { label: 'Ver el enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
       { label: 'Meter el calendario en mi web', href: '/configuracion?tab=web&abrir=widgets' },
     ],
     consejo: 'Antes de compartirlo, ábrelo tú desde el móvil y reserva una clase como si fueras una alumna. Es la mejor forma de ver lo que ve ella.',
@@ -482,7 +482,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Cuando una alumna compra por internet',
-        texto: 'Paga con tarjeta desde su app o desde tu página. Se le entrega el bono o la cuota al instante, se le genera el recibo y, si tienes la facturación lista, su factura. Tú no tienes que hacer nada.',
+        texto: 'Paga con tarjeta desde su app o desde tu web. Se le entrega el bono o la cuota al instante, se le genera el recibo y, si tienes la facturación lista, su factura. Tú no tienes que hacer nada.',
       },
       {
         titulo: 'Cobrar en el mostrador',
@@ -545,7 +545,7 @@ export const CAPITULOS: CapituloGuia[] = [
       { label: 'Dar de alta a una alumna', href: '/clientas?nuevo=1' },
       { label: 'Traer mis datos de otro software', href: '/migracion' },
     ],
-    consejo: 'Empieza por las que ya tienes. Las nuevas se dan de alta solas al reservar desde tu página, sin que tú toques nada.',
+    consejo: 'Empieza por las que ya tienes. Las nuevas se dan de alta solas al entrar en la app de tus alumnas, sin que tú toques nada.',
     pasos: ['clientes'],
   },
 

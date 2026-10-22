@@ -59,7 +59,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        La clase aparece en tu Calendario y, si no está oculta, en tu portal de reservas públicas — al momento, sin
+        La clase aparece en tu Calendario y, si no está oculta, en la app de tus alumnas y en tu página de reservas — al momento, sin
         publicar nada aparte.
       </AyudaResultado>
 

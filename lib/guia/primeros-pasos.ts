@@ -65,7 +65,7 @@ export const TAREAS: readonly TareaPrimerosPasos[] = [
   {
     id: 'primera-reserva',
     titulo: 'Recibe tu primera reserva',
-    para: 'Comparte tu página de reservas: ahí empieza Tentare a trabajar por ti.',
+    para: 'Comparte el enlace de tu app: ahí empieza Tentare a trabajar por ti.',
     href: '/configuracion?tab=web#direccion-y-enlaces',
   },
 ];
@@ -152,13 +152,13 @@ export interface TareaAlta {
 
 /** Los textos de la maqueta, tal cual. */
 export const TAREAS_ALTA_NUEVA: readonly TareaAlta[] = [
-  { id: 'cuenta', titulo: 'Crea tu cuenta', para: 'Hecho: tu página de reservas ya existe.' },
+  { id: 'cuenta', titulo: 'Crea tu cuenta', para: 'Hecho: la app de tus alumnas ya existe.' },
   {
     id: 'primera-clase', titulo: 'Crea tu primera clase', para: 'Con una clase y su precio, tus alumnas ya pueden reservar.',
     accion: { label: 'Crear mi primera clase', href: ENTRADA_PRIMERA_CLASE }, minutos: 5,
   },
   {
-    id: 'compartir', titulo: 'Comparte tu enlace de reservas', para: 'Por WhatsApp, en Instagram o con el QR en recepción.',
+    id: 'compartir', titulo: 'Comparte el enlace de tu app', para: 'Por WhatsApp, en Instagram o con el QR en recepción.',
     accion: { label: 'Compartir mi enlace', abre: 'compartir' }, minutos: 2,
   },
   {
@@ -166,7 +166,7 @@ export const TAREAS_ALTA_NUEVA: readonly TareaAlta[] = [
     // La Migración Mágica lee el export de su programa y un Excel; una a una, en Clientas.
     accion: { label: 'Importar', href: '/migracion' }, otro: { label: 'Añadir una', href: '/clientas?nuevo=1' }, minutos: 3,
   },
-  { id: 'primera-reserva', titulo: 'Recibe tu primera reserva', para: 'Se marca sola cuando alguien reserve desde tu página.' },
+  { id: 'primera-reserva', titulo: 'Recibe tu primera reserva', para: 'Se marca sola cuando una alumna reserve desde tu app.' },
 ];
 
 export type IdOpcionalAlta = 'marca' | 'stripe' | 'fiscales' | 'equipo' | 'sedes';

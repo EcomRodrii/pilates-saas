@@ -66,8 +66,8 @@ export function OnboardingChecklist() {
     const primeraPendiente = filas.find(f => !f.done)?.id;
     // «Hacer» solo hacia donde este rol puede entrar: la pantalla (`puedeVer`) y,
     // en Configuración, la sección y la herramienta (recepción no abre Salas): la
-    // misma regla que ⌘K. La página pública no es del panel: se abre aparte.
-    const publica = (href: string) => href.startsWith('/reservar/');
+    // misma regla que ⌘K. La app de las alumnas no es del panel: se abre aparte.
+    const publica = (href: string) => href.startsWith('/portal/');
     const puedeIr = (href: string) => publica(href)
       || (puedeVer(href.split(/[?#]/)[0]) && puedeAbrirEnConfiguracion(rol ?? '', href));
     return (

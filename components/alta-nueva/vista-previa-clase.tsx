@@ -3,14 +3,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // «Así la verá tu alumna · en vivo» de «Tu primera clase» (paso 6 del alta).
 //
-// La maqueta pide «tu página real», y eso no se puede: una clase que todavía no
-// está guardada no sale en /reservar, y un iframe solo enseñaría la página
-// vacía. Lo que se pinta es la MISMA tarjeta de clase de la página de reservas
+// La maqueta pide «tu app real», y eso no se puede: una clase que todavía no
+// está guardada no sale en la app, y un iframe solo enseñaría el horario
+// vacío. Lo que se pinta es la tarjeta de clase de la página de reservas
 // (`TarjetaClaseReservar`, components/reserva/reserva-calendario.tsx) con la
 // clase en memoria, el color publicado del estudio (sus variables
 // `--portal-*`, `themeToCssVars`) y la paleta de día de la página. Lo de
-// alrededor (el nombre del estudio, el día, qué se vende) es un marco sencillo,
-// y se dice: «la misma tarjeta de tu página».
+// alrededor (el nombre del estudio, el día, qué se vende) es un marco sencillo.
+// ⚠️ Es un dibujo del mismo contenido (nombre, hora, plazas, precio), no la
+// tarjeta de la app: por eso el pie no dice «así es tu app», dice qué verá.
 //
 // Sin interacción: es una vista previa (`inert`).
 // ─────────────────────────────────────────────────────────────────────────────

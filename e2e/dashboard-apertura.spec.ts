@@ -494,7 +494,7 @@ test.describe('Comunicaciones de la apertura', () => {
     await expect(avisar).toBeVisible({ timeout: ARRANQUE_MS });
     const href = decodeURIComponent((await avisar.getAttribute('href'))!.replace(/\+/g, ' '));
     expect(href).toContain('/mensajeria?segmento=ETAPA:INTERESADA');
-    expect(href).toContain('/reservar/studio-carmen');
+    expect(href).toContain('/portal/studio-carmen');
     // La que termina mañana cambia el atajo: recordatorio con las plazas que quedan.
     const recordar = page.getByRole('link', { name: 'Recordarles que termina' });
     await expect(recordar).toBeVisible();

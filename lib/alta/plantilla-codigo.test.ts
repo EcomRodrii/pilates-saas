@@ -34,7 +34,7 @@ test('la rama nueva: el código, los textos de la maqueta y NINGÚN enlace', () 
     'Lo que viene después, en unos 10 minutos:',
     'Dónde está tu estudio y cuándo abre',
     'Tu primera clase, con su precio',
-    'Tu enlace de reservas, listo para mandar',
+    'El enlace de la app de tus alumnas, listo para mandar',
     'Si no has sido tú, ignora este correo: sin el código no se crea nada.',
     'te responde una persona',
     'Tentare · Software para estudios de Pilates · Hecho en España',

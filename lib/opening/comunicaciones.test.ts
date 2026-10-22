@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  borradorFinEtapa, borradorInvitadas, borradorVentaEtapa, diasParaFinEtapa, enlaceReservas,
+  borradorFinEtapa, borradorInvitadas, borradorVentaEtapa, diasParaFinEtapa, enlaceApp,
   hrefMensajeria, leerBorradorMensajeria, tocaAvisarAbrimos, tocaRecordarFinEtapa,
 } from './comunicaciones.ts';
 import { detectarAlertas } from './alertas.ts';
@@ -12,7 +12,7 @@ const etapa = (p: Partial<EtapaVista> = {}): EtapaVista => ({
   id: 'e1', etapa: 'FUNDADORA', planId: 'p1', planNombre: 'Cuota Fundadora', desde: '2026-10-01', hasta: '2026-10-20',
   limitePlazas: 10, alCompletar: 'AVISAR', cerrada: false, cerradaMotivo: null, ventas: 4, ...p,
 });
-const ENLACE = 'https://tentare.app/reservar/mi-estudio';
+const ENLACE = 'https://tentare.app/portal/mi-estudio';
 
 test('el borrador viaja por URL y vuelve igual, con saltos de línea y tildes', () => {
   const b = borradorVentaEtapa(etapa(), 'Estudio Luz', ENLACE);
@@ -29,7 +29,7 @@ test('un segmento que el motor de campañas no entiende no rellena nada', () => 
   assert.ok(leerBorradorMensajeria('segmento=TODAS'));
 });
 
-test('los borradores llevan a quién, la etapa, la fecha y el enlace de reservas', () => {
+test('los borradores llevan a quién, la etapa, la fecha y el enlace de la app', () => {
   const v = borradorVentaEtapa(etapa(), 'Estudio Luz', ENLACE);
   assert.equal(v.segmento, 'ETAPA:INTERESADA');
   assert.match(v.mensaje, /Fundadora.*Cuota Fundadora.*20 de octubre.*Hay 10 plazas/s);
@@ -75,9 +75,11 @@ test('«abrimos mañana» solo encendido, la víspera y con fecha exacta', () =>
   assert.equal(tocaAvisarAbrimos({ encendido: true, diasHastaApertura: 1, fechaAproximada: true }), false);
 });
 
-test('enlaceReservas apunta a /reservar/{slug}: tentare.app/{slug} a secas da 404', () => {
+test('enlaceApp apunta a /portal/{slug} (la app), no a /reservar: tentare.app/{slug} a secas da 404', () => {
   // Fuera del navegador cae al dominio canónico. El alta enseñaba
-  // «tentare.app/{slug}» justo cuando la propietaria iba a compartirlo.
-  assert.equal(enlaceReservas('mi-estudio'), 'https://www.tentare.app/reservar/mi-estudio');
-  assert.equal(enlaceReservas('a b'), 'https://www.tentare.app/reservar/a%20b');
+  // «tentare.app/{slug}» justo cuando la propietaria iba a compartirlo. Y desde
+  // el 22-oct-2026 lo que se manda a las alumnas es su app, no la página de
+  // reservas (que es para la web del estudio).
+  assert.equal(enlaceApp('mi-estudio'), 'https://www.tentare.app/portal/mi-estudio');
+  assert.equal(enlaceApp('a b'), 'https://www.tentare.app/portal/a%20b');
 });

@@ -189,7 +189,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
           tituloRef={titulo}
         />
         <p className="mt-2.5 max-w-[48ch] text-[16px] leading-[25px] text-muted-foreground">
-          Tu logo y tu color en la app y la página de reservas de tus alumnas. Lo cambias cuando quieras en Configuración › Marca.
+          Tu logo y tu color en la app de tus alumnas, y también en tu página de reservas. Lo cambias cuando quieras en Configuración › Marca.
         </p>
 
         {/* Móvil: la franja fija con su marca y «Ver en grande». */}

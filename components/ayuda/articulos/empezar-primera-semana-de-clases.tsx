@@ -22,7 +22,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        En cuanto tienes horario, tu portal de reservas ya tiene algo que mostrar — es el momento de compartir el
+        En cuanto tienes horario, la app de tus alumnas ya tiene algo que mostrar — es el momento de compartir su
         enlace con tu primera alumna.
       </AyudaResultado>
     </>

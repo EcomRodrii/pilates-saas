@@ -11,6 +11,7 @@
 // trabajo real de la propietaria, así que no se incluye.
 import { tarjetasEnLaApp, type BannerDelEstudio } from './student/descubre.ts';
 import { hoyEnEstudio } from './utils.ts';
+import { rutaApp } from './enlaces-estudio.ts';
 
 export interface DatosOnboarding {
   nif: string | null | undefined;
@@ -80,7 +81,7 @@ export function avisoVentaOnline(
 }
 
 /** El aviso de arriba, tal cual: lo repite el servidor cuando confirma el mismo caso (lib/onboarding/puede-reservar.ts). */
-export const AVISO_VENTA_SIN_STRIPE = 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
+export const AVISO_VENTA_SIN_STRIPE = 'Una alumna nueva todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
 
 /**
  * Lo que el panel ya tiene cargado (`useStudio()`) y hace falta para el checklist.
@@ -266,7 +267,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // Se da por hecho con el NIF, que vive en «Datos fiscales e IVA»: el paso
     // llevaba a Mi estudio y prometía «nombre y contacto», que no cuentan.
     { id: 'estudio', label: 'Pon tus datos fiscales', descripcion: 'Razón social y NIF: sin NIF no sale ninguna factura de tus cobros.', minutos: 2, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
-    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en tu página de reservas y en la app de tus alumnas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=marca' },
+    { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en la app de tus alumnas y en tu página de reservas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=marca' },
     { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio&abrir=salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
@@ -277,8 +278,8 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // El paso donde se pierde más de la mitad de los estudios (4 de 10 lo
     // superan). Ya no hay horario propuesto (se quitó el 8-oct): las clases se
     // crean en el calendario, con «Crear clase» → «Clase» o «Clase semanal».
-    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, tu página de reservas no tiene nada que enseñar. Créalas en el calendario con «Crear clase»: una suelta o una clase semanal.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
-    { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde tu página de reservas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
+    { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, la app de tus alumnas no tiene nada que enseñar. Créalas en el calendario con «Crear clase»: una suelta o una clase semanal.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
+    { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde la app de tus alumnas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
     { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/productos' },
   ];
   // ⚠️ EL CANDADO DE STRIPE ERA FALSO. Este paso exigía `stripeAccountId`, y
@@ -295,8 +296,8 @@ export function calcularOnboarding(d: DatosOnboarding): {
   // pública. Cobrar online es otra cosa, y ya tiene su paso en «Pagos».
   const puedeRecibirReservas = d.numSesiones > 0 && !!d.slug;
   configuracionInicial.push({
-    id: 'reservas', label: 'Abre las reservas', descripcion: 'Tu página pública, lista para compartir con tus alumnas. No necesitas Stripe para recibir reservas.',
-    minutos: 1, done: puedeRecibirReservas, href: d.slug ? `/reservar/${d.slug}` : '/configuracion?tab=estudio', externo: puedeRecibirReservas,
+    id: 'reservas', label: 'Abre las reservas', descripcion: 'La app de tus alumnas, lista para compartir con ellas. No necesitas Stripe para recibir reservas.',
+    minutos: 1, done: puedeRecibirReservas, href: d.slug ? rutaApp(d.slug) : '/configuracion?tab=estudio', externo: puedeRecibirReservas,
   });
   // El final del embudo, y el único paso que mide VALOR en vez de
   // configuración: alguien ha reservado. Medido en producción, solo 2 de 10
@@ -387,7 +388,7 @@ export function guiaRapida(categorias: readonly CategoriaOnboarding[]): GuiaRapi
   const todos = new Map<string, PasoOnboarding>();
   for (const c of categorias) for (const p of c.pasos) todos.set(p.id, p);
   const creado: PasoOnboarding = {
-    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel y tu página de reservas.',
+    id: 'estudio-creado', label: 'Crea tu estudio', descripcion: 'Hecho: ya tienes tu panel y la app de tus alumnas.',
     minutos: 1, done: true, href: '/dashboard',
   };
   const pasos = [
@@ -469,7 +470,7 @@ export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboardin
   const listo = base.every(p => p.done);
   const reservas: PasoOnboarding = {
     id: 'reservas', label: 'Abre las reservas', descripcion: '', minutos: 1,
-    done: listo, href: d.slug ? `/reservar/${d.slug}` : '/configuracion?tab=estudio', externo: listo,
+    done: listo, href: d.slug ? rutaApp(d.slug) : '/configuracion?tab=estudio', externo: listo,
   };
   return [...base, reservas];
 }

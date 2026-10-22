@@ -57,7 +57,7 @@ const PANTALLAS: Pantalla[] = [
     id: 'reservas',
     problema: '«Me escriben a las once de la noche para apuntarse»',
     titular: 'Tus alumnas reservan solas, a cualquier hora',
-    apoyo: 'Tienes una página de reservas propia. Se apuntan ellas, y Tentare respeta tu aforo y tus normas de cancelación.',
+    apoyo: 'Tienes la app de tus alumnas, con tu nombre y tu color. Se apuntan ellas, y Tentare respeta tu aforo y tus normas de cancelación.',
     puntos: ['Aforo por sala', 'Lista de espera', 'Cancelan según tus normas'],
     Escena: EscenaReservas,
   },

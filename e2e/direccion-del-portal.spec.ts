@@ -74,7 +74,7 @@ async function abrirEstudio(page: Page) {
   await expect(campoDireccion(page)).toHaveValue('pilates-boutique-mar', { timeout: 30_000 });
 }
 
-const campoDireccion = (page: Page) => page.getByRole('textbox', { name: 'Dirección de tu página de reservas' });
+const campoDireccion = (page: Page) => page.getByRole('textbox', { name: 'Dirección de tu app' });
 const guardar = (page: Page) => page.getByRole('button', { name: 'Guardar', exact: true });
 
 test.describe('La dirección del portal', () => {
@@ -85,8 +85,10 @@ test.describe('La dirección del portal', () => {
     await seedSesionDeDuena(page);
     await abrirEstudio(page);
 
-    // En su fila, detrás del cajón, y entera dentro de él.
-    await expect(page.locator('[data-resumen="valor"]').filter({ hasText: '/reservar/pilates-boutique-mar' })).toHaveCount(1);
+    // En su fila, detrás del cajón, y entera dentro de él. La de la fila y la primera del cajón es la de la
+    // APP de sus alumnas (el enlace por defecto); la de la página de reservas, la de su web, va después.
+    await expect(page.locator('[data-resumen="valor"]').filter({ hasText: '/portal/pilates-boutique-mar' })).toHaveCount(1);
+    await expect(page.getByRole('dialog').getByText(/\/portal\/pilates-boutique-mar$/).first()).toBeVisible();
     await expect(page.getByRole('dialog').getByText(/\/reservar\/pilates-boutique-mar$/).first()).toBeVisible();
     // Sin cambios, ni barra ni «Guardar» gris en reposo.
     await expect(guardar(page)).toHaveCount(0);
@@ -104,7 +106,8 @@ test.describe('La dirección del portal', () => {
     const campo = campoDireccion(page);
     await campo.fill('estudio Núñez');
     // Se enseña cómo va a quedar antes de guardar: nadie sabe qué es un slug.
-    await expect(page.getByText('/reservar/estudio-nunez')).toBeVisible();
+    await expect(page.getByText('/portal/estudio-nunez').first()).toBeVisible();
+    await expect(page.getByText('/reservar/estudio-nunez').first()).toBeVisible();
 
     await guardar(page).click();
 

@@ -84,9 +84,9 @@ function VistaMiWeb({ datos: base, acciones, network, showToast, slug, widgets, 
       {urlPagina && (
         <div className="flex flex-wrap items-start justify-end gap-2">
           <a href={urlPagina} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-            <ExternalLink size={16} aria-hidden />Abrir mi página
+            <ExternalLink size={16} aria-hidden />Abrir mi página de reservas
           </a>
-          {origen && <BotonCopiar texto={`${origen}${urlPagina}`} que="El enlace de tu página" showToast={showToast} className="h-11" />}
+          {origen && <BotonCopiar texto={`${origen}${urlPagina}`} que="El enlace de la página de reservas" showToast={showToast} className="h-11" />}
         </div>
       )}
 

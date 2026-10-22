@@ -5,14 +5,16 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        La mayoría de tus clientas no las das de alta tú: se apuntan solas al reservar por primera vez desde tu{' '}
-        <Link href="/ayuda/portal/que-es-el-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>portal de reservas</Link>.
+        La mayoría de tus clientas no las das de alta tú: se apuntan solas al reservar por primera vez desde{' '}
+        <Link href="/ayuda/portal/que-es-el-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>la app de tus alumnas</Link>.
       </AyudaAntesDeEmpezar>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Alta automática desde el portal</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Alta automática desde la app</h2>
       <p>
-        Cuando alguien reserva una clase desde tu página pública con un email que no reconocemos, Tentare crea su
-        ficha de clienta sola, en el momento de esa primera reserva — no hace falta que tú hagas nada antes.
+        Cuando alguien entra en la app de tus alumnas con un email que no reconocemos, escribe el código que le llega y
+        acepta las condiciones de tu estudio, Tentare crea su ficha de clienta sola — no hace falta que tú hagas nada
+        antes. Si reserva desde tu web con el widget o con la página de reservas, su ficha se crea en esa primera
+        reserva.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Alta manual desde el panel</h2>

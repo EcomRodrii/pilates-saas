@@ -10,7 +10,7 @@ import { TRIAL_DIAS } from '../../billing/trial.ts';
 
 const BASE = {
   estudioNombre: 'Estudio Alba Pilates',
-  urlPagina: 'https://www.example.com/reservar/estudio-alba-pilates',
+  urlApp: 'https://www.example.com/portal/estudio-alba-pilates',
   urlPrimeraClase: 'https://www.example.com/calendario',
   foundingGratis: true,
 };
@@ -22,12 +22,14 @@ test('el asunto y la vista previa son los de la maqueta', () => {
   assert.ok(c.html.includes(c.preheader));
 });
 
-test('el cuerpo: su página de verdad, un solo botón y los primeros pasos', () => {
+test('el cuerpo: la APP de sus alumnas (no la página de reservas), un solo botón y los primeros pasos', () => {
   const { html } = correoCuentaActiva(BASE);
   assert.match(html, /Tu cuenta está activa/);
-  assert.match(html, /<b>Estudio Alba Pilates<\/b> ya tiene su página de reservas:/);
-  assert.match(html, /href="https:\/\/www\.example\.com\/reservar\/estudio-alba-pilates"/);
-  assert.match(html, /Todavía está vacía\. En cuanto crees tu primera clase, tus alumnas podrán reservar desde ahí, sin descargarse nada\./);
+  assert.match(html, /<b>Estudio Alba Pilates<\/b> ya tiene la app de sus alumnas:/);
+  assert.match(html, /href="https:\/\/www\.example\.com\/portal\/estudio-alba-pilates"/);
+  assert.doesNotMatch(html, /\/reservar\//, 'el enlace por defecto es la app; /reservar es para su web');
+  assert.doesNotMatch(html, /página de reservas/);
+  assert.match(html, /Todavía está vacía\. En cuanto crees tu primera clase, tus alumnas podrán entrar con su email y reservar desde el móvil, sin descargarse nada\./);
   assert.match(html, /Crear mi primera clase<\/a>/);
   assert.equal((html.match(/mso-padding-alt/g) ?? []).length, 1, 'un correo, una llamada a la acción');
   assert.match(html, /Primeros pasos · 1 de 5/);
@@ -52,7 +54,7 @@ test('el nombre del estudio se escapa: lo escribió una persona', () => {
   assert.doesNotMatch(c.html, /<b>&<\/b>/);
   assert.match(c.html, /Pilates &lt;b&gt;&amp;&lt;\/b&gt; &quot;Co&quot;/);
   // Un enlace que no es http(s) no llega a ser un enlace.
-  assert.doesNotMatch(correoCuentaActiva({ ...BASE, urlPagina: 'javascript:alert(1)' }).html, /href="javascript/);
+  assert.doesNotMatch(correoCuentaActiva({ ...BASE, urlApp: 'javascript:alert(1)' }).html, /href="javascript/);
 });
 
 // «Ya puedes recibir reservas» (correo 4): sale una vez, al publicar la primera
@@ -62,8 +64,8 @@ const PUBLICADA = {
   estudioNombre: 'Estudio Alba Pilates',
   claseNombre: 'Reformer para principiantes',
   cuando: 'lunes 26 a las 18:30, cada semana',
-  urlPagina: 'https://www.example.com/reservar/estudio-alba-pilates',
-  urlQr: 'https://www.example.com/api/public/qr-reservas/estudio-alba-pilates',
+  urlApp: 'https://www.example.com/portal/estudio-alba-pilates',
+  urlQr: 'https://www.example.com/api/public/qr-app/estudio-alba-pilates',
 };
 
 test('correo 4: asunto, vista previa y cuerpo de la maqueta, con el QR en PNG y un solo botón', () => {
@@ -74,13 +76,15 @@ test('correo 4: asunto, vista previa y cuerpo de la maqueta, con el QR en PNG y 
   assert.ok(html.includes(c.preheader));
   assert.match(html, />Ya puedes recibir reservas</);
   assert.match(html, /Tu clase <b>Reformer para principiantes<\/b> está publicada \(lunes 26 a las 18:30, cada semana\)\. Copia este enlace y mándalo:/);
-  assert.match(html, /href="https:\/\/www\.example\.com\/reservar\/estudio-alba-pilates"/);
-  // El QR es una imagen PNG servida, nunca un SVG (Gmail no lo pinta).
-  assert.match(html, /<img src="https:\/\/www\.example\.com\/api\/public\/qr-reservas\/estudio-alba-pilates" width="120" height="120" alt="QR de tu página de reservas"/);
+  assert.match(html, /href="https:\/\/www\.example\.com\/portal\/estudio-alba-pilates"/);
+  // El QR es una imagen PNG servida, nunca un SVG (Gmail no lo pinta), y es el de la APP.
+  assert.match(html, /<img src="https:\/\/www\.example\.com\/api\/public\/qr-app\/estudio-alba-pilates" width="120" height="120" alt="QR de la app de tus alumnas"/);
   assert.doesNotMatch(html, /<svg/);
-  assert.match(html, /<b>Tu QR\.<\/b> Imprímelo y ponlo en recepción: al escanearlo, se abre tu página\./);
-  assert.match(html, /Pégalo en tu Instagram, en el grupo de WhatsApp de tus alumnas o en tu web\. No hace falta que se descarguen nada\./);
-  assert.match(html, /Abrir mi página<\/a>/);
+  assert.doesNotMatch(html, /\/reservar\/|qr-reservas|página de reservas/, 'la página de reservas es para su web: no se reparte');
+  assert.match(html, /<b>Tu QR\.<\/b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus alumnas\./);
+  assert.match(html, /Pégalo en tu Instagram o en el grupo de WhatsApp de tus alumnas\. Entran con su email, sin descargarse nada\./);
+  assert.match(html, /Si quieres que reserven desde tu propia web, lo preparas en Configuración › Mi app y mi web\./);
+  assert.match(html, /Abrir mi app<\/a>/);
   assert.equal((html.match(/mso-padding-alt/g) ?? []).length, 1, 'un correo, una llamada a la acción');
   assert.match(html, /te responde una persona/);
   assert.match(html, /Tentare · Software para estudios de Pilates · Hecho en España/);

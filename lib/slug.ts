@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// La dirección pública de un estudio (`/reservar/mi-estudio`).
+// La dirección pública de un estudio: la de su app (`/portal/mi-estudio`) y la de su
+// página de reservas (`/reservar/mi-estudio`), que comparten ese mismo nombre.
 //
 // Puro y sin dependencias, para poder probarlo: el servidor valida lo que llega
 // y la pantalla enseña el mismo aviso mientras se escribe. Si las dos reglas no

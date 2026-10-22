@@ -11,7 +11,7 @@ export interface FaqItem {
 }
 
 export const FAQS: FaqItem[] = [
-  { categoria: 'Reservas', pregunta: '¿Cómo reservan clase mis clientas?', respuesta: 'Desde tu página de reservas pública. También puedes reservarles clase tú desde el Calendario del panel.' },
+  { categoria: 'Reservas', pregunta: '¿Cómo reservan clase mis clientas?', respuesta: 'Desde la app de tus alumnas, con el enlace de Configuración > Mi app y mi web > Dirección y enlaces. También pueden reservar desde tu web, si pones el widget o el botón de tu página de reservas, y puedes reservarles clase tú desde el Calendario del panel.' },
   { categoria: 'Reservas', pregunta: '¿Qué pasa si una clase está completa?', respuesta: 'Si tienes la lista de espera encendida (lo está de serie, y cada tipo de clase puede apagarla), la clienta entra en ella. Si se libera una plaza (cancelación), pasa a la primera de la lista —o se le ofrece con un plazo para aceptarla, si lo tienes configurado— y se le notifica.' },
   { categoria: 'Reservas', pregunta: '¿Puedo cancelar una clase y avisar a los inscritos?', respuesta: 'Sí, desde Calendario > clase > Cancelar. Se marca como cancelada y las clientas con reserva reciben un aviso.' },
   { categoria: 'Planes y cobros', pregunta: '¿Cómo creo un nuevo plan o bono?', respuesta: 'En Paquetes > Crear. Define nombre, tipo (mensual, bono o puntual), precio y sesiones incluidas.' },
@@ -22,7 +22,7 @@ export const FAQS: FaqItem[] = [
   // existe es exactamente el fallo que `e2e/ayuda-no-miente.spec.ts` llevaba
   // tres rondas cazando: la dueña lo lee, se lo repite a su clienta, y la
   // manda a la nada. Se sustituyen por lo que SÍ es cierto hoy.
-  { categoria: 'Reservas', pregunta: '¿Cómo se apunta una clienta nueva?', respuesta: 'Sola, desde tu página pública de reservas: solo necesita su email. Tú no tienes que darla de alta ni enviarle nada. Si prefieres hacerlo tú, la das de alta desde Clientas > Nueva clienta.' },
+  { categoria: 'Reservas', pregunta: '¿Cómo se apunta una clienta nueva?', respuesta: 'Sola, desde la app de tus alumnas: entra con su email y un código que le llega, sin contraseña. Tú no tienes que darla de alta ni enviarle nada. Si prefieres hacerlo tú, la das de alta desde Clientas > Nueva clienta.' },
   { categoria: 'Gamificación', pregunta: '¿Qué son los créditos y cómo se ganan?', respuesta: 'Recompensan acciones como asistir a clase, completar una semana o renovar un plan. Tú decides cuántos créditos vale cada una en Configuración > Motivación > Cómo funcionan tus créditos.' },
   { categoria: 'Gamificación', pregunta: '¿Para qué sirven los créditos?', respuesta: 'Las clientas los canjean por recompensas de tu catálogo (Configuración > Motivación > Recompensas) — una clase gratis, merchandising, lo que tú ofrezcas.' },
   { categoria: 'Gamificación', pregunta: '¿Cómo funcionan los logros?', respuesta: 'Se desbloquean automáticamente al alcanzar un umbral (ej. 10 clases asistidas). Los defines en Configuración > Motivación > Logros, con su icono y créditos de regalo.' },

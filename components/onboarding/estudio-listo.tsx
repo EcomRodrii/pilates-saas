@@ -10,8 +10,9 @@
 //     previo y su «deshacer»; o añadir una a mano → /clientas). Antes de esto, 5
 //     de 7 altas se quedaban con cero alumnas y no volvían.
 //   · La guía rápida con su progreso REAL (lib/onboarding.ts → guiaRapida).
-//   · Su enlace de reservas, para copiar, y su QR descargable (el mismo que
-//     Configuración → Estudio).
+//   · El enlace de LA APP de sus alumnas (`/portal/<slug>`, no la página de
+//     reservas: esa es para su web), para copiar, y su QR descargable (el mismo
+//     que Configuración → Mi app y mi web).
 //
 // La celebración: Tenti en 'hecho' con su celebración breve (lib/tenti/momentos.ts,
 // decisión del fundador del 7-oct-2026). Sin sonido (Tenti no suena) y con el
@@ -27,6 +28,7 @@ import { LogoTentare } from '@/components/marca/logo-tentare';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
 import { copiarAlPortapapeles } from '@/lib/utils';
+import { rutaApp } from '@/lib/enlaces-estudio';
 import type { Studio } from '@/lib/types';
 import type { RespuestasWizard } from '@/lib/onboarding/borrador-wizard';
 import { vieneDeOtraPlataforma } from '@/lib/onboarding/asistente-rapido';
@@ -60,7 +62,7 @@ export function EstudioListo({
   }, []);
 
   const origen = typeof window === 'undefined' ? '' : window.location.origin;
-  const urlReservas = studio.slug ? `${origen}/reservar/${studio.slug}` : null;
+  const urlApp = studio.slug ? `${origen}${rutaApp(studio.slug)}` : null;
 
   async function ir(destino: string, evento: string) {
     if (saliendo) return;
@@ -71,8 +73,8 @@ export function EstudioListo({
   }
 
   async function copiar() {
-    if (!urlReservas) return;
-    const ok = await copiarAlPortapapeles(urlReservas);
+    if (!urlApp) return;
+    const ok = await copiarAlPortapapeles(urlApp);
     // Al embudo del alta solo lo que de verdad se copió.
     if (ok) apuntarEnlaceCompartido('copiar');
     setCopiado(ok ? 'ok' : 'fallo');
@@ -155,11 +157,11 @@ export function EstudioListo({
               </div>
             )}
 
-            {urlReservas && (
+            {urlApp && (
               <section aria-labelledby="enlace-t" className="ob-sube rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '240ms' }}>
-                <h2 id="enlace-t" className="flex items-center gap-1.5 text-[14px] font-bold"><Link2 size={15} aria-hidden /> Tu enlace de reservas</h2>
-                <p className="mt-1 break-all text-[13px] text-muted-foreground" data-testid="url-reservas">{urlReservas}</p>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Una alumna reserva solo con su email, sin contraseña.</p>
+                <h2 id="enlace-t" className="flex items-center gap-1.5 text-[14px] font-bold"><Link2 size={15} aria-hidden /> El enlace de tu app</h2>
+                <p className="mt-1 break-all text-[13px] text-muted-foreground" data-testid="url-app">{urlApp}</p>
+                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Tu alumna entra con su email y un código, sin contraseña y sin descargarse nada.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -168,7 +170,7 @@ export function EstudioListo({
                   >
                     <Copy size={14} aria-hidden /> Copiar enlace
                   </button>
-                  {studio.slug && <BotonQr destino="reservas" url={urlReservas} slug={studio.slug} estudio={nombre} nombreEnlace="Página de reservas" onDescargado={() => apuntarEnlaceCompartido('qr')} />}
+                  {studio.slug && <BotonQr destino="app" url={urlApp} slug={studio.slug} estudio={nombre} nombreEnlace="App de tus alumnas" onDescargado={() => apuntarEnlaceCompartido('qr')} />}
                   <span role="status" className="text-[12.5px] text-muted-foreground">
                     {copiado === 'ok' ? 'Enlace copiado' : copiado === 'fallo' ? 'No se ha podido copiar: selecciónalo y cópialo a mano.' : ''}
                   </span>

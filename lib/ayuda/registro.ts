@@ -37,7 +37,7 @@ export const CATEGORIAS: CategoriaAyuda[] = [
   { slug: 'instructores', titulo: 'Instructoras y equipo', descripcion: 'Altas, disponibilidad, tarifas, permisos y sustituciones cuando alguien no puede dar su clase.', icono: 'UserRound' },
   { slug: 'pagos', titulo: 'Pagos y facturación', descripcion: 'Stripe, tarjeta guardada, cobros fallidos, reembolsos y factura de cada cobro.', icono: 'CreditCard' },
   { slug: 'bonos', titulo: 'Bonos y membresías', descripcion: 'Bonos de sesiones, cuotas mensuales, clases fijas, créditos y caducidades.', icono: 'Ticket' },
-  { slug: 'portal', titulo: 'Portal de reservas', descripcion: 'La página pública donde tus alumnas reservan: personalización, marca y acceso.', icono: 'LayoutTemplate' },
+  { slug: 'portal', titulo: 'App y página de reservas', descripcion: 'La app donde tus alumnas reservan, su enlace y su QR, y la página de reservas que va en tu web: personalización, marca y acceso.', icono: 'LayoutTemplate' },
   { slug: 'widget', titulo: 'Widget para tu web', descripcion: 'Incrusta las reservas de Tentare en tu propia web, con WordPress, Webflow o HTML.', icono: 'CodeXml' },
   { slug: 'automatizaciones', titulo: 'Automatizaciones y avisos', descripcion: 'Recordatorios, avisos de bono a punto de acabar y lo que Tentare avisa solo, en la app, por email y por WhatsApp.', icono: 'Zap' },
   { slug: 'integraciones', titulo: 'Integraciones', descripcion: 'Qué conecta con Tentare hoy y cómo activarlo.', icono: 'Plug' },
@@ -170,7 +170,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'crear-una-clienta', categoria: 'clientes', tipo: 'guia',
     titulo: 'Dar de alta una clienta',
-    descripcion: 'A mano desde el panel, o dejando que se apunte sola desde tu página de reservas.',
+    descripcion: 'A mano desde el panel, o dejando que se apunte sola desde la app de tus alumnas.',
     actualizado: '2026-09-14',
     relacionados: ['clientes/ficha-de-clienta', 'clientes/importar-clientes'],
     estado: 'publicado',
@@ -433,9 +433,9 @@ export const ARTICULOS: ArticuloAyuda[] = [
   // ─── Portal de reservas ─────────────────────────────────────────────────
   {
     slug: 'que-es-el-portal', categoria: 'portal', tipo: 'guia',
-    titulo: 'Qué es el portal de reservas',
-    descripcion: 'La página pública donde tus alumnas ven tu horario y reservan, con o sin cuenta, y su código QR para el escaparate.',
-    actualizado: '2026-09-16',
+    titulo: 'La app de tus alumnas y tu página de reservas',
+    descripcion: 'Qué enlace compartes con tus alumnas (el de su app), cuál es el de tu web, y el código QR para el escaparate.',
+    actualizado: '2026-10-22',
     relacionados: ['portal/acceso-de-una-clienta', 'portal/personalizar-tu-portal', 'widget/que-es-el-widget', 'portal/ocultar-tu-pagina'],
     estado: 'publicado',
   },

@@ -20,6 +20,7 @@ import { useStudio } from '@/lib/studio-context';
 import { calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding';
 import { primerosPasos, type TareaConEstado } from '@/lib/guia/primeros-pasos';
 import { cn } from '@/lib/utils';
+import { rutaApp } from '@/lib/enlaces-estudio';
 import { DEGRADADO_LOGO, BOTON_DESTACADO } from '@/components/dashboard/vivo';
 import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
@@ -82,11 +83,11 @@ export function PrimerosPasosTarjeta() {
           <div className="min-w-0 flex-1">
             <h2 className="text-[20px] font-bold leading-tight text-foreground">Tu estudio está listo para recibir reservas</h2>
             <p className="mt-1.5 text-[13.5px] text-foreground/75 text-pretty">
-              Has hecho los seis pasos. Comparte tu página donde ya te buscan: Instagram, Google o el grupo de WhatsApp de tus alumnas.
+              Has hecho los seis pasos. Comparte la app de tus alumnas donde ya te buscan: Instagram, Google o el grupo de WhatsApp.
             </p>
             {studio.slug && (
-              <a href={`/reservar/${studio.slug}`} target="_blank" rel="noreferrer" className={cn(BOTON_DESTACADO, 'mt-4 h-10 px-4 text-[13.5px]')}>
-                Ver mi página de reservas <ExternalLink size={14} aria-hidden />
+              <a href={rutaApp(studio.slug)} target="_blank" rel="noreferrer" className={cn(BOTON_DESTACADO, 'mt-4 h-10 px-4 text-[13.5px]')}>
+                Ver la app de mis alumnas <ExternalLink size={14} aria-hidden />
               </a>
             )}
             {fallo && <p className="mt-2 text-[12px] text-destructive">No se ha podido ocultar. Inténtalo otra vez.</p>}

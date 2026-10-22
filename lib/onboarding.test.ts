@@ -53,7 +53,7 @@ test('legacy: "Abre las reservas" se marca hecho solo cuando TODO lo demás lo e
   const ultimo = pasos[6];
   assert.equal(ultimo.done, true);
   assert.equal(ultimo.externo, true, 'al estar todo listo, el enlace se abre en pestaña nueva');
-  assert.equal(ultimo.href, '/reservar/mi-estudio');
+  assert.equal(ultimo.href, '/portal/mi-estudio');
 });
 
 test('legacy: sin slug todavía, "Abre las reservas" no enlaza a una página pública rota', () => {

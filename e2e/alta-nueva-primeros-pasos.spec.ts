@@ -6,7 +6,7 @@ import { json, montarAlta } from './onboarding-andamio';
 // el Resumen, que se marca con lo que dice el servidor (GET /api/alta/estado),
 // «Paso n de 5», los opcionales, «Omitir», el recorrido rápido de tres paradas,
 // el WhatsApp que se va al terminar la lista, «Tu plan, sin sorpresas» una sola
-// vez, los vacíos del Calendario y de Clientas y «Comparte tu enlace».
+// vez, los vacíos del Calendario y de Clientas y «Comparte el enlace de tu app».
 //
 // Mismo andamio que el resto del alta (e2e/onboarding-andamio.ts): sesión
 // sembrada y la red mockeada con `page.route`, con la bienvenida ya sellada.
@@ -55,7 +55,7 @@ async function montar(page: Page, o: {
       await p.route('**/api/billing/status**', (r) => json(r, {
         bloqueado: false, activo: true, plan: 'BASE', configurado: true, subscriptionStatus: 'gratis', ...o.billing,
       }));
-      await p.route('**/reservar/studio-carmen**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body>Reservar</body></html>' }));
+      await p.route('**/portal/studio-carmen**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body>App</body></html>' }));
       if (o.antes) await o.antes(p);
     },
   });
@@ -95,7 +95,7 @@ test.describe('«Pon en marcha tu estudio» del alta nueva', () => {
   });
 
   test('con clase que una alumna nueva no puede reservar, dice qué falta en vez de «crea tu primera clase»', async ({ page }) => {
-    await montar(page, { estado: { ...RECIEN, avisoClase: { texto: 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online.', href: '/configuracion?tab=conexiones#integracion-stripe' } } });
+    await montar(page, { estado: { ...RECIEN, avisoClase: { texto: 'Una alumna nueva todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online.', href: '/configuracion?tab=conexiones#integracion-stripe' } } });
     const clase = tarea(page, 'primera-clase');
     await expect(clase).toContainText('sin Stripe, no puede comprarlo online', { timeout: 60_000 });
     await expect(clase.getByRole('link', { name: 'Ver qué falta' })).toHaveAttribute('href', '/configuracion?tab=conexiones#integracion-stripe');
@@ -128,15 +128,45 @@ test.describe('«Pon en marcha tu estudio» del alta nueva', () => {
     const red = await montar(page, { estado: { ...RECIEN, claseReservable: true } });
     await tarea(page, 'compartir').getByRole('button', { name: 'Compartir mi enlace' }).click({ timeout: 60_000 });
     const dialogo = page.getByTestId('compartir-enlace');
-    await expect(dialogo.getByRole('heading', { name: 'Comparte tu enlace de reservas' })).toBeVisible();
-    await expect(dialogo).toContainText('/reservar/studio-carmen');
+    await expect(dialogo.getByRole('heading', { name: 'Comparte el enlace de tu app' })).toBeVisible();
+    await expect(dialogo).toContainText('/portal/studio-carmen');
+    await expect(dialogo).not.toContainText('/reservar/');
+    // El QR para recepción es el de la app (no el de la página de reservas).
+    await dialogo.getByRole('button', { name: 'Código QR' }).click();
+    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' })).toBeVisible();
+    await page.keyboard.press('Escape');
     await dialogo.getByRole('button', { name: 'Copiar' }).click();
     await expect(dialogo.getByRole('button', { name: 'Copiado' })).toBeVisible();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/reservar\/studio-carmen$/);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/portal\/studio-carmen$/);
     await expect.poll(() => pasos(red, 'enlace_compartido').length).toBe(1);
     expect(pasos(red, 'enlace_compartido')[0].detalle).toBe('copiar');
     await page.keyboard.press('Escape');
     await expect(tarea(page, 'compartir')).toHaveAttribute('data-estado', 'hecha');
+  });
+
+  test('si el navegador no deja copiar (Safari), no dice «Copiado» ni apunta nada en el embudo — y se intentó de verdad', async ({ page }) => {
+    // Con un contador: «no dijo Copiado» puede ser verdad porque no se intentó nada.
+    await page.addInitScript(() => {
+      (window as unknown as { __intentosCopiar: number }).__intentosCopiar = 0;
+      Object.defineProperty(navigator, 'clipboard', {
+        value: {
+          writeText: () => {
+            (window as unknown as { __intentosCopiar: number }).__intentosCopiar++;
+            return Promise.reject(new DOMException('NotAllowedError'));
+          },
+        },
+        configurable: true,
+      });
+    });
+    const red = await montar(page, { estado: { ...RECIEN, claseReservable: true } });
+    await tarea(page, 'compartir').getByRole('button', { name: 'Compartir mi enlace' }).click({ timeout: 60_000 });
+    const dialogo = page.getByTestId('compartir-enlace');
+    await expect(dialogo).toContainText('/portal/studio-carmen');
+    await dialogo.getByRole('button', { name: 'Copiar' }).click();
+    await expect(dialogo.getByText('No hemos podido copiar. Selecciona el enlace y cópialo a mano.')).toBeVisible();
+    await expect(dialogo.getByRole('button', { name: 'Copiado' })).toHaveCount(0);
+    expect(await page.evaluate(() => (window as unknown as { __intentosCopiar: number }).__intentosCopiar)).toBeGreaterThan(0);
+    expect(pasos(red, 'enlace_compartido')).toHaveLength(0);
   });
 
   test('sin clase reservable, antes de mandar el enlace se dice', async ({ page }) => {
@@ -284,7 +314,7 @@ test.describe('los vacíos que enseñan', () => {
     await expect(vacio.getByRole('heading', { name: 'Crea tu primera clase' })).toBeVisible({ timeout: 60_000 });
     await expect(vacio).toContainText('Calendario · esta semana');
     await expect(vacio.getByLabel('Tu horario: de 07:00 a 22:00, todavía sin clases')).toBeVisible();
-    await expect(vacio).toContainText('En cuanto haya una clase aquí, tus alumnas podrán reservarla desde tu página.');
+    await expect(vacio).toContainText('En cuanto haya una clase aquí, tus alumnas podrán reservarla desde su app.');
     await expect(vacio.getByRole('link', { name: 'Importar mi horario (Excel)' })).toHaveAttribute('href', '/calendario/importar');
     await vacio.getByRole('button', { name: 'Crear mi primera clase' }).click();
     await expect(page.getByTestId('primera-clase-en-calendario')).toBeVisible();
@@ -333,7 +363,7 @@ test.describe('fuera del Resumen y en el móvil', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 
-  test('`/dashboard?compartir=1` (el aviso de las 72 h) abre «Comparte tu enlace»', async ({ page }) => {
+  test('`/dashboard?compartir=1` (el aviso de las 72 h) abre «Comparte el enlace de tu app»', async ({ page }) => {
     await montar(page);
     await page.goto('/dashboard?compartir=1');
     await expect(page.getByTestId('compartir-enlace')).toBeVisible({ timeout: 60_000 });

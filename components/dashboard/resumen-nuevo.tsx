@@ -47,6 +47,7 @@ import {
 } from '@/lib/inicio/cifras';
 import { GraficaIngresos, formatoEuros, ladoIngresos } from '@/components/dashboard/ingresos-nuevo';
 import { cn, hoyEnEstudio } from '@/lib/utils';
+import { rutaApp } from '@/lib/enlaces-estudio';
 import {
   CabeceraTarjeta, Comparacion, TONOS, TarjetaCifra, TarjetaGrafica, TarjetaOcupacion, VacioPositivo, VerMas, type Tono,
 } from '@/components/dashboard/vivo';
@@ -244,7 +245,7 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
     ...(props.mueveDinero ? [{ href: '/cobros?nuevo=cobro', label: 'Cobrar', Icono: CreditCard, tono: 'verde' as Tono }] : []),
     ...(props.puedeIr('/mensajeria') ? [{ href: '/mensajeria', label: 'Mensajes', Icono: MessageCircle, tono: 'indigo' as Tono }] : []),
     ...(props.puedeIr('/productos') ? [{ href: '/productos', label: 'Cuotas y bonos', Icono: Package, tono: 'verde' as Tono }] : []),
-    ...(props.slug ? [{ href: `/reservar/${props.slug}`, label: 'Tu página', Icono: ExternalLink, tono: 'magenta' as Tono, externo: true }] : []),
+    ...(props.slug ? [{ href: rutaApp(props.slug), label: 'Tu app', Icono: ExternalLink, tono: 'magenta' as Tono, externo: true }] : []),
   ];
   if (accesos.length === 0) return null;
   return (

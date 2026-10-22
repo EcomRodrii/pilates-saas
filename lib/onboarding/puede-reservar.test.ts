@@ -365,7 +365,7 @@ test('el aviso y la promesa salen de la MISMA respuesta', () => {
   assert.deepEqual(stripeSinContestar, { estado: 'SIN_COMPROBAR', motivo: 'STRIPE' });
   assert.equal(prometeReservas(stripeSinContestar, null), false);
   assert.match(avisoListo(stripeSinContestar, null) ?? '', /No hemos podido comprobar si Stripe ya puede cobrar/);
-  assert.equal(finalDelParrafo(stripeSinContestar, null), 'Tu página está abierta.');
+  assert.equal(finalDelParrafo(stripeSinContestar, null), 'Tu app está abierta.');
   // Un motivo de duda que esta versión no conoce: tampoco promete.
   assert.equal(prometeReservas({ estado: 'SIN_COMPROBAR', motivo: 'OTRO' }, null), false);
   assert.equal(avisoListo({ estado: 'SIN_COMPROBAR', motivo: 'OTRO' }, cliente), cliente);
@@ -377,10 +377,11 @@ test('el párrafo no dice nada de la página hasta saberlo', () => {
   // Mientras espera, ni «abierta» (con la página oculta es falso) ni la promesa.
   assert.equal(finalDelParrafo(null, null), null);
   assert.equal(finalDelParrafo(null, AVISO_VENTA_SIN_STRIPE), null);
-  assert.equal(finalDelParrafo({ estado: 'SI' }, null), 'Tu página está abierta: cualquiera con este enlace puede reservar.');
-  assert.equal(finalDelParrafo({ estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' }, null), 'Tu página está abierta.');
-  assert.equal(finalDelParrafo({ estado: 'SIN_COMPROBAR' }, null), 'Tu página está abierta: cualquiera con este enlace puede reservar.');
-  assert.equal(finalDelParrafo({ estado: 'SIN_COMPROBAR' }, AVISO_VENTA_SIN_STRIPE), 'Tu página está abierta.');
+  const ABIERTA = 'Tu app está abierta: cualquiera con este enlace puede entrar con su email y reservar.';
+  assert.equal(finalDelParrafo({ estado: 'SI' }, null), ABIERTA);
+  assert.equal(finalDelParrafo({ estado: 'NO', motivo: 'STRIPE_SIN_CUENTA' }, null), 'Tu app está abierta.');
+  assert.equal(finalDelParrafo({ estado: 'SIN_COMPROBAR' }, null), ABIERTA);
+  assert.equal(finalDelParrafo({ estado: 'SIN_COMPROBAR' }, AVISO_VENTA_SIN_STRIPE), 'Tu app está abierta.');
 });
 
 test('los avisos con fecha la escriben en el día del estudio', () => {

@@ -345,7 +345,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
           {!conSesion && <p className="t-label mt-[18px] text-t-tertiary">Código correcto</p>}
           <h1 ref={tituloRef} tabIndex={-1} className={cn(TITULO, conSesion && 'mt-[18px]')}>{estudioCreado ?? nombreVisible} ya existe</h1>
           <p className={SUBTITULO}>
-            Hemos creado tu estudio y tu página de reservas. Ahora, lo esencial: dos pantallas con casi todo puesto y,
+            Hemos creado tu estudio y la app de tus alumnas. Ahora, lo esencial: dos pantallas con casi todo puesto y,
             después, tu primera clase.
           </p>
           <ul className="relative mt-5 grid">
