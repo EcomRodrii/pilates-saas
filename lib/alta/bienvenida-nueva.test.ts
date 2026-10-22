@@ -24,7 +24,7 @@ test('la línea son los cinco pasos del alta; obligatorios 1, 2 y 3', () => {
 
 test('«Tus primeros pasos» cuenta las tareas que vienen, con los nombres de «Pon en marcha tu estudio»', () => {
   assert.deepEqual(PRIMEROS_PASOS_DEL_ALTA.map(p => p.titulo), [
-    'Crea tu primera clase', 'Comparte tu enlace de reservas', 'Trae a tus alumnas', 'Recibe tu primera reserva',
+    'Crea tu primera clase', 'Comparte el enlace de tu app', 'Trae a tus alumnas', 'Recibe tu primera reserva',
   ]);
   // La primera clase lo crea todo: lo que faltaba (sala, quién la da, precio) se dice.
   const clase = PRIMEROS_PASOS_DEL_ALTA[0].que;

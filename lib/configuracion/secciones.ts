@@ -257,7 +257,7 @@ export const SECCIONES = [
     frase: 'Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'La dirección de tu página de reservas, el enlace a la app de tus alumnas y el código QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
+      { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'El enlace de la app de tus alumnas, el de tu página de reservas (para tu web) y el QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'app', 'portal', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
       // «Mi web» guiada (21-oct-2026, decisión 4 de «Mi app»): la descripción sale en tu página de
       // reservas y en Network, no en la app. El dato es el mismo que el de «Cómo te presentas» de «Mi app».
       { id: 'presentacion-web', titulo: 'Cómo te presentas', frase: 'Dos o tres frases sobre tu estudio. Salen en tu página de reservas y en Tentare Network.', guardado: 'barra', condicion: 'miWebNueva', palabras: ['descripción', 'presentación', 'sobre nosotros'] },

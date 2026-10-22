@@ -43,8 +43,8 @@ test.describe('el asistente rápido', () => {
     await expect(traer).toBeVisible();
     await expect(traer.getByRole('button', { name: 'Subir mi archivo' })).toBeVisible();
     await expect(traer.getByRole('button', { name: 'Añadir una alumna ahora' })).toBeVisible();
-    // Su enlace de reservas, para copiar, y el QR.
-    await expect(page.getByTestId('url-reservas')).toContainText('/reservar/studio-carmen');
+    // El enlace de su app, para copiar, y el QR.
+    await expect(page.getByTestId('url-app')).toContainText('/portal/studio-carmen');
     await expect(page.getByRole('button', { name: 'Copiar enlace' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Código QR' })).toBeVisible({ timeout: 15_000 });
     // El servidor creó 2 clases: la guía lo ve como hecho (no se marca a mano).

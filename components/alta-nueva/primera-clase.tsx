@@ -180,7 +180,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
   }), [sesiones, salas, instructores, fichaPropia, form.sala, form.quien, form.otraPersona]);
 
   const errores = useMemo(() => validarPrimeraClase(form, new Date(), choques), [form, choques]);
-  const errorNombrePropio = pideNombre && !nombrePropio.trim() ? 'Escribe tu nombre: así sale en tu ficha y en tu página.' : null;
+  const errorNombrePropio = pideNombre && !nombrePropio.trim() ? 'Escribe tu nombre: así sale en tu ficha y en tu app.' : null;
   const ver = (c: Campo) => (intentado || tocados.has(c)
     ? (c === 'nombrePropio' ? errorNombrePropio : errores[c as CampoPrimeraClase]) ?? null
     : null);
@@ -307,7 +307,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                 aria-describedby={`${id}-nombre-a`}
               />
               <p id={`${id}-nombre-a`} className={ver('nombre') ? CLASE_ERROR : CLASE_AYUDA}>
-                {ver('nombre') ?? 'Así sale en tu página. Puedes añadir el nivel: «para principiantes», «intermedio».'}
+                {ver('nombre') ?? 'Así sale en tu app. Puedes añadir el nivel: «para principiantes», «intermedio».'}
               </p>
             </div>
             <div>
@@ -397,7 +397,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                   onBlur={() => tocar('nombrePropio')}
                   aria-invalid={!!ver('nombrePropio')}
                 />
-                <p className={ver('nombrePropio') ? CLASE_ERROR : CLASE_AYUDA}>{ver('nombrePropio') ?? 'Para tu ficha de instructora: así sale en tu página.'}</p>
+                <p className={ver('nombrePropio') ? CLASE_ERROR : CLASE_AYUDA}>{ver('nombrePropio') ?? 'Para tu ficha de instructora: así sale en tu app.'}</p>
               </div>
             )}
             {form.quien === 'otra' && (
@@ -539,7 +539,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                   <p className={CLASE_ETIQUETA} id={`${id}-cobro`}>¿Cómo te pagan?</p>
                   <div role="radiogroup" aria-labelledby={`${id}-cobro`} className="mt-2 grid gap-2 sm:grid-cols-2">
                     {([
-                      ['estudio', 'En el estudio', 'Reservan desde tu página y te pagan al llegar: efectivo, Bizum o datáfono.'],
+                      ['estudio', 'En el estudio', 'Reservan desde tu app y te pagan al llegar: efectivo, Bizum o datáfono.'],
                       ['online', 'Online, con tarjeta', 'Pagan al reservar. Necesita conectar Stripe.'],
                     ] as const).map(([valor, texto, d]) => {
                       const activo = form.cobro === valor;
@@ -607,7 +607,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
       <aside aria-label="Así la verá tu alumna" className="hidden min-w-0 flex-col gap-4 self-start rounded-3xl bg-muted/70 p-8 lg:sticky lg:top-6 lg:flex">
         <p className="text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así la verá tu alumna · en vivo</p>
         <VistaPreviaClase studio={studio} form={form} instructora={form.quien === 'yo' ? yo : form.otraPersona} />
-        <p className="text-center text-[12.5px] text-muted-foreground">La misma tarjeta de tu página de reservas, con tu clase antes de publicarla.</p>
+        <p className="text-center text-[12.5px] text-muted-foreground">Tu clase antes de publicarla: nombre, hora, plazas y precio como los verá tu alumna en la app.</p>
       </aside>
 
       <DashboardSheet

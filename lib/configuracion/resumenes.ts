@@ -1199,11 +1199,11 @@ export function resumenAppsConAcceso(apps: readonly { nombre: string }[] | null)
 
 // ─── Mi app y mi web ─────────────────────────────────────────────────────────
 
-/** «tentare.es/reservar/pilates-centro»: la dirección corta de la página de reservas. `null` = sin dirección. */
+/** «tentare.es/portal/pilates-centro»: la dirección corta de la app de las alumnas (el enlace por defecto). `null` = sin dirección. */
 export function resumenDireccion(e: { slug: string | null | undefined; origen: string }): string | null {
   const slug = limpio(e.slug);
   if (!slug) return null;
-  return `${hostCorto(e.origen)}/reservar/${slug}`;
+  return `${hostCorto(e.origen)}/portal/${slug}`;
 }
 
 /** «https://www.tentare.es/» → «tentare.es». */

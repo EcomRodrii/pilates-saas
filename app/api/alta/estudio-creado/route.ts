@@ -8,6 +8,7 @@ import { foundingGratisEnAltas } from '@/lib/alta/founding-gratis-alta';
 import { claveCuentaActiva, decidirCuentaActiva } from '@/lib/alta/cuenta-activa';
 import { apuntarPaso } from '@/lib/alta/embudo-servidor';
 import { correoCuentaActiva } from '@/lib/emails/tentare/alta';
+import { rutaApp, urlAbsoluta } from '@/lib/enlaces-estudio';
 import { enviarCorreoAlta } from '@/lib/emails/embudo-alta-server';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -57,11 +58,12 @@ export async function POST(req: NextRequest) {
   });
   if (!decision.enviar) return NextResponse.json({ ok: true, enviado: false, motivo: decision.motivo });
 
-  const base = (process.env.NEXT_PUBLIC_APP_URL || LEGAL.url).replace(/\/+$/, '');
+  const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
   const slug = String(estudio!.slug ?? '');
   const correo = correoCuentaActiva({
     estudioNombre: String(estudio!.nombre ?? ''),
-    urlPagina: `${base}/reservar/${encodeURIComponent(slug)}`,
+    // La APP de sus alumnas, no la página de reservas (esa es para su web).
+    urlApp: urlAbsoluta(base, rutaApp(slug)),
     // «Tu primera clase» del alta nueva (PR-4): dentro de la bienvenida si aún
     // no la ha terminado, o sobre el Calendario si ya entró al panel.
     urlPrimeraClase: `${base}/calendario?primera=1`,

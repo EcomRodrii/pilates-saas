@@ -108,7 +108,7 @@ test('un precio raro avisa con los topes de la maqueta y NUNCA bloquea', () => {
 
 test('validar: nombre, hora pasada, medianoche, otra persona, sala, plazas y bono', () => {
   assert.deepEqual(validarPrimeraClase(form(), AHORA), {});
-  assert.equal(validarPrimeraClase(form({ nombre: '  ' }), AHORA).nombre, 'Ponle un nombre: así sale en tu página.');
+  assert.equal(validarPrimeraClase(form({ nombre: '  ' }), AHORA).nombre, 'Ponle un nombre: así sale en tu app.');
   assert.match(validarPrimeraClase(form({ nombre: 'x'.repeat(61) }), AHORA).nombre ?? '', /Como mucho 60/);
   // Hoy a las 10:00 ya ha pasado (son las 15:00 en Madrid); a las 18:30, no.
   assert.equal(validarPrimeraClase(form({ fecha: HOY, hora: '10:00' }), AHORA).hora, 'Esa hora ya ha pasado hoy. Elige otra hora u otro día.');

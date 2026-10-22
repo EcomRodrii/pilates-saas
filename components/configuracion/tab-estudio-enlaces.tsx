@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentType } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from 'react';
 import { Calendar as CalendarLinkIcon, Check, ChevronRight, Copy, ExternalLink, Globe, Link2, Smartphone } from 'lucide-react';
 import { cn, copiarAlPortapapeles } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -9,6 +9,7 @@ import { normalizarSlug, motivoSlugInvalido } from '@/lib/slug';
 import { resumenDireccion } from '@/lib/configuracion/resumenes';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
 import { hrefCanal } from '@/lib/canales-estudio';
+import { rutaApp, rutaPaginaReservas } from '@/lib/enlaces-estudio';
 import type { DestinoQr } from '@/lib/qr/escaparate';
 import { btnSecondary, inputCls } from '@/components/configuracion/estilos';
 import { Campo } from '@/components/configuracion/formulario-estudio';
@@ -27,8 +28,13 @@ import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
 // cambia con «Guardar», y los enlaces que se comparten, cada uno con su código
 // QR para imprimir (dialogo-qr.tsx).
 //
-// Son dos cosas DISTINTAS que se confundían bajo «portal»: la página de reservas
-// (sin cuenta, para captar) y la app de tus alumnas (con cuenta, instalable).
+// Son dos cosas DISTINTAS que se confundían bajo «portal»: la app de tus alumnas
+// (con cuenta, instalable) y la página de reservas (la que se integra en tu web).
+//
+// ⚠️ El enlace POR DEFECTO es el de la app (`/portal/<slug>`): el de la fila, el que
+// se copia y el del QR para Instagram, la puerta y los folletos (decisión del
+// fundador, 22-oct-2026; lib/enlaces-estudio.ts). La página de reservas
+// (`/reservar/<slug>`) es la de la web del estudio y va después, dicho así.
 //
 // Aparecer en Tentare Network es un sí/no de su sección (FilaInterruptor).
 // Los widgets tienen su pantalla (components/widgets/, «Tentare Widgets»).
@@ -110,16 +116,18 @@ export function FilaDireccionYEnlaces({ onAbrir, showToast }: { onAbrir: () => v
         <TituloFila titulo={tarjeta.titulo} />
         <ValorFila valor={resumenDireccion({ slug, origen })} descripcion={tarjeta.frase} />
       </span>
-      {slug && <BotonCopiar texto={`${origen}/reservar/${slug}`} que="El enlace de tu página" showToast={showToast} compacto className="relative z-10" />}
+      {slug && <BotonCopiar texto={`${origen}${rutaApp(slug)}`} que="El enlace de tu app" showToast={showToast} compacto className="relative z-10" />}
       <ChevronRight size={18} className="pointer-events-none shrink-0 text-muted-foreground" aria-hidden />
     </li>
   );
 }
 
-function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, qr, showToast }: {
+function EnlacePublico({ icono: Icono, titulo, detalle, nota, url, que, abrir, qr, showToast }: {
   icono: ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean }>;
   titulo: string;
   detalle: string;
+  /** Una línea más bajo el detalle (un enlace a otra pantalla). */
+  nota?: ReactNode;
   url: string;
   que: string;
   abrir?: boolean;
@@ -134,6 +142,7 @@ function EnlacePublico({ icono: Icono, titulo, detalle, url, que, abrir, qr, sho
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-foreground">{titulo}</span>
           <span className="block text-sm text-muted-foreground text-pretty">{detalle}</span>
+          {nota && <span className="block text-sm text-muted-foreground text-pretty">{nota}</span>}
           <span className="mt-1 block select-all break-all text-sm text-foreground">{url}</span>
         </span>
       </span>
@@ -190,7 +199,7 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
     : new URLSearchParams(window.location.search).get('direccion-anterior');
 
   if (!slug) {
-    return <p className="pb-6 text-sm text-muted-foreground text-pretty">Tu estudio todavía no tiene dirección de reservas.</p>;
+    return <p className="pb-6 text-sm text-muted-foreground text-pretty">Tu estudio todavía no tiene dirección.</p>;
   }
 
   const propuesto = normalizarSlug(valor);
@@ -217,22 +226,22 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
       <div className="flex flex-col gap-6 pb-6">
         {hecho && (
           <p role="status" className="rounded-lg bg-muted px-3 py-2.5 text-sm text-foreground text-pretty">
-            Hecho. <b>/reservar/{hecho}</b> sigue llevando aquí, así que lo que ya habías compartido sigue funcionando.
+            Hecho. <b>/portal/{hecho}</b> y <b>/reservar/{hecho}</b> siguen llevando aquí, así que lo que ya habías compartido sigue funcionando.
           </p>
         )}
         <Campo
-          label="Dirección de tu página de reservas"
+          label="Dirección de tu app"
           error={motivo}
           ayuda={(
             <>
-              {propuesto && propuesto !== valor && <>Quedará así: <b>/reservar/{propuesto}</b>. </>}
-              La de ahora, <b>/reservar/{slug}</b>, seguirá funcionando: lo que ya has compartido no deja de servir.
+              {propuesto && propuesto !== valor && <>Quedará así: <b>/portal/{propuesto}</b> (y tu página de reservas, <b>/reservar/{propuesto}</b>). </>}
+              La de ahora, <b>/portal/{slug}</b>, seguirá funcionando: lo que ya has compartido no deja de servir.
             </>
           )}
         >
           {id => (
             <span className="flex items-center gap-1.5">
-              <span className="shrink-0 text-sm text-muted-foreground">/reservar/</span>
+              <span className="shrink-0 text-sm text-muted-foreground">/portal/</span>
               <input
                 id={id}
                 className={inputCls}
@@ -251,37 +260,36 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
         <div>
           <h3 className="text-sm font-semibold text-foreground">Tus enlaces</h3>
           <ul className="mt-1 flex flex-col divide-y divide-border">
+            {/* El enlace por defecto: el que se pasa a las alumnas. Entran con su email y un código. */}
+            <EnlacePublico
+              icono={Smartphone}
+              titulo="App de tus alumnas"
+              detalle="El enlace que compartes con tus alumnas: Instagram, WhatsApp, la puerta o tus folletos. Entran con su email, reservan, ven su bono y su progreso, y se instala en el móvil."
+              nota={miWebNueva ? (
+                <>Cómo se instala y cómo se ve, en{' '}
+                  <Link href="/configuracion/apariencia?paso=instalar" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app → Compártela</Link>.</>
+              ) : undefined}
+              url={`${origen}${rutaApp(slug)}`}
+              que="El enlace de la app"
+              abrir
+              qr={{ destino: 'app', estudio, slug }}
+              showToast={showToast}
+            />
+            {/* La de la WEB del estudio: se integra con un botón o un widget, no se reparte a las alumnas. */}
             <EnlacePublico
               icono={CalendarLinkIcon}
               titulo="Página de reservas"
-              detalle="Sin cuenta: cualquiera reserva una clase suelta. Para Instagram, la puerta o tus folletos."
-              url={`${origen}/reservar/${slug}`}
-              que="El enlace de tu página"
+              detalle="Para tu web: la que se integra en tu web, con un botón o un widget. No es el enlace que repartes a tus alumnas, ese es el de su app."
+              nota={(
+                <>Cómo ponerla en tu web, en{' '}
+                  <Link href="/configuracion?tab=web&abrir=widgets" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Widgets para tu web</Link>.</>
+              )}
+              url={`${origen}${rutaPaginaReservas(slug)}`}
+              que="El enlace de la página de reservas"
               abrir
               qr={{ destino: 'reservas', estudio, slug }}
               showToast={showToast}
             />
-            {/* Sin sesión de alumna no lleva a nada útil: se copia para pasarlo, no se abre. */}
-            {miWebNueva ? (
-              <li className="flex items-start gap-2.5 py-3">
-                <Smartphone size={16} className="mt-0.5 shrink-0 text-muted-foreground" aria-hidden />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-foreground">App de tus alumnas</span>
-                  <span className="block text-sm text-muted-foreground text-pretty">
-                    Su enlace, su código QR y cómo se instala están en{' '}
-                    <Link href="/configuracion/apariencia?paso=instalar" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app → Compártela</Link>.
-                  </span>
-                </span>
-              </li>
-            ) : <EnlacePublico
-              icono={Smartphone}
-              titulo="App de tus alumnas"
-              detalle="Para alumnas ya dadas de alta: reservan, ven su bono y su progreso. Se instala en el móvil."
-              url={`${origen}/portal/${slug}`}
-              que="El enlace de la app"
-              qr={{ destino: 'app', estudio, slug }}
-              showToast={showToast}
-            />}
             {web ? (
               <EnlacePublico
                 icono={Globe}

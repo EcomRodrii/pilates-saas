@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// `/dashboard?compartir=1` abre «Comparte tu enlace de reservas» (PR-5). Es a
+// `/dashboard?compartir=1` abre «Comparte el enlace de tu app» (PR-5). Es a
 // donde lleva el aviso de las 72 h sin ninguna reserva («Tu horario está listo:
 // falta que lo sepan tus alumnas», lib/notifications/catalog.ts): antes llevaba
 // a /primeros-pasos, que no compartía nada. Vale para cualquier estudio, con el

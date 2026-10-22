@@ -114,9 +114,9 @@ test.describe('Después de registrarse se pide el CÓDIGO, no un enlace', () => 
     await expect(page.getByRole('heading', { name: /ya está en marcha/ })).toBeVisible();
 
     // La dirección que se le da para compartir tiene que EXISTIR: decía
-    // «tentare.app/estudio-aurora», que da 404. La página pública es /reservar/.
+    // «tentare.app/estudio-aurora», que da 404. La app de las alumnas es /portal/.
     const origen = new URL(page.url()).origin;
-    await expect(page.getByTestId('enlace-reservas-alta')).toHaveText(`${origen}/reservar/estudio-aurora`);
+    await expect(page.getByTestId('enlace-app-alta')).toHaveText(`${origen}/portal/estudio-aurora`);
   });
 });
 

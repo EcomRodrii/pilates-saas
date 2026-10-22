@@ -2,6 +2,7 @@ import type { DestinatariosCampana } from '../types.ts';
 import { SEGMENTOS_AUDIENCIA } from '../marketing/segmentos.ts';
 import { NOMBRE_ETAPA, type EtapaVista } from './etapas.ts';
 import { LEGAL } from '../legal-info.ts';
+import { rutaApp, urlAbsoluta } from '../enlaces-estudio.ts';
 
 // Atajos de Opening OS a Mensajería: la tarjeta de apertura PROPONE el envío
 // (a quién y con qué texto) y Mensajería lo manda como cualquier campaña, con
@@ -26,10 +27,15 @@ function segmentoValido(s: string | null): DestinatariosCampana | null {
   return null;
 }
 
-/** Enlace absoluto a la página de reservas del estudio, para el texto del correo (solo en el navegador). */
-export function enlaceReservas(slug: string): string {
+/**
+ * Enlace absoluto a la APP de las alumnas del estudio (`/portal/<slug>`), para el
+ * texto del correo (solo en el navegador). No es la página de reservas
+ * (`/reservar/<slug>`): esa es para integrarla en su web, no para mandarla a
+ * quien se invita (lib/enlaces-estudio.ts).
+ */
+export function enlaceApp(slug: string): string {
   const origen = typeof window !== 'undefined' ? window.location.origin : LEGAL.url;
-  return `${origen}/reservar/${encodeURIComponent(slug)}`;
+  return urlAbsoluta(origen, rutaApp(slug));
 }
 
 export function hrefMensajeria(b: BorradorMensajeria): string {
@@ -69,33 +75,33 @@ const fechaLarga = (f: string) => new Intl.DateTimeFormat('es-ES', { day: 'numer
   .format(new Date(`${f}T00:00:00Z`));
 
 /** A las interesadas: la venta de esta etapa está abierta. */
-export function borradorVentaEtapa(e: Pick<EtapaVista, 'etapa' | 'planNombre' | 'hasta' | 'limitePlazas'>, nombreEstudio: string, enlaceReservas: string): BorradorMensajeria {
+export function borradorVentaEtapa(e: Pick<EtapaVista, 'etapa' | 'planNombre' | 'hasta' | 'limitePlazas'>, nombreEstudio: string, enlaceApp: string): BorradorMensajeria {
   const nombre = NOMBRE_ETAPA[e.etapa];
   const plazas = e.limitePlazas !== null ? ` Hay ${e.limitePlazas} plazas.` : '';
   return {
     segmento: 'ETAPA:INTERESADA',
     asunto: `${nombreEstudio}: ya puedes conseguir tu plaza ${nombre.toLowerCase()}`,
-    mensaje: `Hola:\n\nYa está abierta la etapa ${nombre}${e.planNombre ? ` con «${e.planNombre}»` : ''}, hasta el ${fechaLarga(e.hasta)}.${plazas}\n\nPuedes hacerte con la tuya aquí: ${enlaceReservas}\n\nTe esperamos.`,
+    mensaje: `Hola:\n\nYa está abierta la etapa ${nombre}${e.planNombre ? ` con «${e.planNombre}»` : ''}, hasta el ${fechaLarga(e.hasta)}.${plazas}\n\nPuedes hacerte con la tuya aquí: ${enlaceApp}\n\nTe esperamos.`,
   };
 }
 
 /** A las interesadas: la etapa se acaba y quedan plazas. */
-export function borradorFinEtapa(e: Pick<EtapaVista, 'etapa' | 'planNombre' | 'hasta' | 'limitePlazas' | 'ventas'>, nombreEstudio: string, enlaceReservas: string): BorradorMensajeria {
+export function borradorFinEtapa(e: Pick<EtapaVista, 'etapa' | 'planNombre' | 'hasta' | 'limitePlazas' | 'ventas'>, nombreEstudio: string, enlaceApp: string): BorradorMensajeria {
   const nombre = NOMBRE_ETAPA[e.etapa];
   const quedan = e.limitePlazas !== null ? ` Quedan ${Math.max(0, e.limitePlazas - e.ventas)} plazas.` : '';
   return {
     segmento: 'ETAPA:INTERESADA',
     asunto: `${nombreEstudio}: la etapa ${nombre} termina el ${fechaLarga(e.hasta)}`,
-    mensaje: `Hola:\n\nLa etapa ${nombre}${e.planNombre ? ` («${e.planNombre}»)` : ''} termina el ${fechaLarga(e.hasta)}.${quedan}\n\nSi quieres la tuya, es aquí: ${enlaceReservas}`,
+    mensaje: `Hola:\n\nLa etapa ${nombre}${e.planNombre ? ` («${e.planNombre}»)` : ''} termina el ${fechaLarga(e.hasta)}.${quedan}\n\nSi quieres la tuya, es aquí: ${enlaceApp}`,
   };
 }
 
 /** A las invitadas de la apertura suave. */
-export function borradorInvitadas(fechaApertura: string, nombreEstudio: string, enlaceReservas: string): BorradorMensajeria {
+export function borradorInvitadas(fechaApertura: string, nombreEstudio: string, enlaceApp: string): BorradorMensajeria {
   return {
     segmento: 'ETIQUETA:apertura-suave',
     asunto: `${nombreEstudio}: estás invitada a nuestra apertura suave`,
-    mensaje: `Hola:\n\nAntes de abrir a todo el mundo el ${fechaLarga(fechaApertura)}, abrimos unos días solo para ti y unas pocas personas más. Ya puedes reservar tu clase aquí: ${enlaceReservas}\n\nNos hace mucha ilusión verte.`,
+    mensaje: `Hola:\n\nAntes de abrir a todo el mundo el ${fechaLarga(fechaApertura)}, abrimos unos días solo para ti y unas pocas personas más. Ya puedes reservar tu clase aquí: ${enlaceApp}\n\nNos hace mucha ilusión verte.`,
   };
 }
 

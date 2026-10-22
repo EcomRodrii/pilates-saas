@@ -68,7 +68,7 @@ const RECIEN: DatosAltaNueva = {
 
 test('alta nueva: cinco tareas en el orden del valor, con los textos de la maqueta', () => {
   assert.deepEqual(TAREAS_ALTA_NUEVA.map(t => t.titulo), [
-    'Crea tu cuenta', 'Crea tu primera clase', 'Comparte tu enlace de reservas', 'Trae a tus alumnas', 'Recibe tu primera reserva',
+    'Crea tu cuenta', 'Crea tu primera clase', 'Comparte el enlace de tu app', 'Trae a tus alumnas', 'Recibe tu primera reserva',
   ]);
   // La primera clase va a «Tu primera clase» del PR-4, no a Configuración.
   const clase = TAREAS_ALTA_NUEVA.find(t => t.id === 'primera-clase')!;

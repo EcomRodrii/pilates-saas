@@ -729,10 +729,10 @@ test('apps con acceso y la dirección corta de tu página', () => {
   assert.equal(resumenAppsConAcceso([{ nombre: 'Zapier' }]), 'Zapier');
   assert.equal(resumenAppsConAcceso([{ nombre: 'Zapier' }, { nombre: 'Make' }]), '2 apps: Zapier, Make');
 
-  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: 'https://www.tentare.example' }), 'tentare.example/reservar/pilates-centro');
-  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: 'http://localhost:3000/' }), 'localhost:3000/reservar/pilates-centro');
+  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: 'https://www.tentare.example' }), 'tentare.example/portal/pilates-centro');
+  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: 'http://localhost:3000/' }), 'localhost:3000/portal/pilates-centro');
   // Antes de saber dónde está, la ruta sola; sin dirección, nada.
-  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: '' }), '/reservar/pilates-centro');
+  assert.equal(resumenDireccion({ slug: 'pilates-centro', origen: '' }), '/portal/pilates-centro');
   assert.equal(resumenDireccion({ slug: null, origen: 'https://tentare.example' }), null);
 
   assert.equal(resumenPaginaPublica({ oculta: false, tieneClave: true }), 'Visible para todo el mundo');

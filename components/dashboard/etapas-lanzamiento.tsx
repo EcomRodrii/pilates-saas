@@ -6,7 +6,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { authHeader } from '@/lib/api-client';
 import { useRol } from '@/lib/permisos';
 import { useStudio } from '@/lib/studio-context';
-import { borradorFinEtapa, borradorVentaEtapa, enlaceReservas, hrefMensajeria, tocaRecordarFinEtapa } from '@/lib/opening/comunicaciones';
+import { borradorFinEtapa, borradorVentaEtapa, enlaceApp, hrefMensajeria, tocaRecordarFinEtapa } from '@/lib/opening/comunicaciones';
 import { estadoEtapa, NOMBRE_ETAPA, TIPOS_ETAPA, type AlCompletar, type EtapaVista, type TipoEtapa } from '@/lib/opening/etapas';
 
 interface PlanVenta { id: string; nombre: string; tipo: string; precio: number }
@@ -142,7 +142,7 @@ export function EtapasLanzamiento({ onCambio }: { onCambio?: () => void }) {
                     <p className={`text-[11.5px] ${TONO[est.tono]}`}>{est.texto}</p>
                     {envia && studio?.slug && !e.cerrada && hoy >= e.desde && (
                       <Link
-                        href={hrefMensajeria((tocaRecordarFinEtapa(e, hoy) ? borradorFinEtapa : borradorVentaEtapa)(e, studio.nombre, enlaceReservas(studio.slug)))}
+                        href={hrefMensajeria((tocaRecordarFinEtapa(e, hoy) ? borradorFinEtapa : borradorVentaEtapa)(e, studio.nombre, enlaceApp(studio.slug)))}
                         className="mt-0.5 inline-block text-[11.5px] font-medium text-brand-secondary hover:underline"
                       >
                         {tocaRecordarFinEtapa(e, hoy) ? 'Recordarles que termina' : 'Avisar a tus interesadas'}

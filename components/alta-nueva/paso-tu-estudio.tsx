@@ -135,7 +135,7 @@ export function PasoDonde({ studio, sedes, onSedes, onListo, saliendo }: {
         <CabeceraPaso
           etiqueta={etiquetaDonde(sedes)}
           titulo={tituloDonde(sedes)}
-          sub="Lo verán tus alumnas en tu página de reservas. Lo demás ya viene puesto."
+          sub="Lo verán tus alumnas en su app. Lo demás ya viene puesto."
           tituloRef={titulo}
         />
 
@@ -199,7 +199,7 @@ export function PasoDonde({ studio, sedes, onSedes, onListo, saliendo }: {
             Aquí saldrán tus clases
           </div>
         </div>
-        <p className="max-w-[300px] text-[12.5px] leading-[18px] text-muted-foreground">Tu página de reservas pone «ciudad · dirección» bajo tu nombre.</p>
+        <p className="max-w-[300px] text-[12.5px] leading-[18px] text-muted-foreground">Tu app pone tu ciudad bajo tu nombre, y tu dirección en «Cómo llegar».</p>
         {sedes.tipo === 'varias' && <DibujoSedes total={sedes.total} />}
       </aside>
     </div>

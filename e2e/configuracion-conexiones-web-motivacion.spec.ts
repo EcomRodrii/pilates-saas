@@ -149,8 +149,8 @@ for (const vista of VISTAS) {
     test('Mi app y mi web: la dirección corta con «Copiar», Network como un sí/no y las herramientas', async ({ page }) => {
       await abrir(page, 'configuracion?tab=web');
       // El botón de la fila (con el id) ocupa el fondo; el valor va a su lado, no dentro.
-      await expect(page.locator('li:has(> #direccion-y-enlaces) [data-resumen]')).toHaveText(/\/reservar\/pilates-centro$/, { timeout: 30_000 });
-      await expect(page.getByRole('button', { name: 'Copiar el enlace de tu página' })).toBeVisible();
+      await expect(page.locator('li:has(> #direccion-y-enlaces) [data-resumen]')).toHaveText(/\/portal\/pilates-centro$/, { timeout: 30_000 });
+      await expect(page.getByRole('button', { name: 'Copiar el enlace de tu app' })).toBeVisible();
       await expect(valor(page, 'pagina-publica')).toHaveText('Visible para todo el mundo');
       await expect(page.getByRole('switch', { name: 'Aparecer en Tentare Network' })).toHaveAttribute('aria-checked', 'false');
       await expect(page.locator('#fila-herramienta-contenido-de-tu-app')).toBeVisible();
@@ -160,7 +160,7 @@ for (const vista of VISTAS) {
 
       await page.locator('#direccion-y-enlaces').click();
       await expect(titulo(page, 'Dirección y enlaces')).toBeFocused();
-      await expect(cajon(page).getByRole('textbox', { name: 'Dirección de tu página de reservas' })).toHaveValue('pilates-centro');
+      await expect(cajon(page).getByRole('textbox', { name: 'Dirección de tu app' })).toHaveValue('pilates-centro');
       await expect(cajon(page).getByText('Página de reservas', { exact: true })).toBeVisible();
       await expect(cajon(page).getByText('App de tus alumnas', { exact: true })).toBeVisible();
       await expect(guardar(page), 'sin cambios, ni barra ni «Guardar» gris').toHaveCount(0);
@@ -325,11 +325,11 @@ test.describe('Estados y portapapeles', () => {
   test('«Copiar» solo dice «Copiado» si el portapapeles lo tiene', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write']);
     await abrir(page, 'configuracion?tab=web');
-    const copiar = page.getByRole('button', { name: 'Copiar el enlace de tu página' });
+    const copiar = page.getByRole('button', { name: 'Copiar el enlace de tu app' });
     await expect(copiar).toBeVisible({ timeout: 30_000 });
     await copiar.click();
     await expect(copiar).toHaveText('Copiado');
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/reservar\/pilates-centro$/);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/portal\/pilates-centro$/);
   });
 
   test('si el navegador no deja copiar (Safari sin permiso), no dice «Copiado»', async ({ page }) => {
@@ -340,7 +340,7 @@ test.describe('Estados y portapapeles', () => {
       });
     });
     await abrir(page, 'configuracion?tab=web');
-    const copiar = page.getByRole('button', { name: 'Copiar el enlace de tu página' });
+    const copiar = page.getByRole('button', { name: 'Copiar el enlace de tu app' });
     await expect(copiar).toBeVisible({ timeout: 30_000 });
     await copiar.click();
     await expect(page.getByText('No se ha podido copiar. Selecciona el enlace y cópialo a mano.')).toBeVisible();

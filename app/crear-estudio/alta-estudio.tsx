@@ -17,7 +17,7 @@ import { SelectorPlan } from '@/components/planes/selector-plan';
 import { PlanGratisAlta } from '@/components/planes/plan-gratis-alta';
 import { HojaComparativa } from '@/components/planes/comparativa-planes';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
-import { enlaceReservas } from '@/lib/opening/comunicaciones';
+import { enlaceApp } from '@/lib/opening/comunicaciones';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { type Plan, PLAN_INFO } from '@/lib/billing/entitlements';
 import { LIMITES_GRATIS } from '@/lib/landing/founding-gratis';
@@ -512,21 +512,22 @@ export function AltaEstudio({ foundingGratis }: { foundingGratis: boolean }) {
             )}
           </p>
           {slugCreado && (
-            // ⚠️ Decía «tentare.app/{slug}», que da 404: la página pública vive
-            // en /reservar/{slug}. Justo aquí es donde la propietaria apunta el
+            // ⚠️ Decía «tentare.app/{slug}», que da 404: la app de las alumnas
+            // vive en /portal/{slug} (y la página de reservas, que es para su web,
+            // en /reservar/{slug}). Justo aquí es donde la propietaria apunta el
             // enlace para mandárselo a sus alumnas, así que sale del mismo
             // helper que el resto del panel y no se escribe a mano.
             <div className="mt-4 rounded-xl bg-muted px-4 py-3 text-[13px] text-muted-foreground">
-              <p>La dirección de tus alumnas será</p>
+              <p>La app de tus alumnas será</p>
               <p
-                data-testid="enlace-reservas-alta"
+                data-testid="enlace-app-alta"
                 className="mt-1 select-all break-all font-semibold text-foreground"
               >
-                {enlaceReservas(slugCreado)}
+                {enlaceApp(slugCreado)}
               </p>
               <button
                 type="button"
-                onClick={() => void copiarAlPortapapeles(enlaceReservas(slugCreado)).then(setEnlaceCopiado)}
+                onClick={() => void copiarAlPortapapeles(enlaceApp(slugCreado)).then(setEnlaceCopiado)}
                 className="mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-secondary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 {enlaceCopiado ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}

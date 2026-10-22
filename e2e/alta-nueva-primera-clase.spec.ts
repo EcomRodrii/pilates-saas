@@ -13,7 +13,7 @@ import { json, montarAlta } from './onboarding-andamio';
 // y lo que la pantalla corta antes de llamar exige CERO.
 
 const CORS = { 'access-control-allow-origin': '*' };
-const AVISO_VENTA_SIN_STRIPE = 'Una alumna nueva todavía no puede reservar desde tu página: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
+const AVISO_VENTA_SIN_STRIPE = 'Una alumna nueva todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
 
 type Respuesta = { status: number; body: unknown; espera?: number };
 const EXITO_SI: Respuesta = {
@@ -53,8 +53,8 @@ async function montarPrimeraClase(page: Page, { respuesta = EXITO_SI, estudio = 
         return json(r, respuesta.body, respuesta.status);
       });
       await p.route('**/api/onboarding/puede-reservar', (r) => { red.puedeReservar++; return json(r, { estado: 'SI' }); });
-      // La página de reservas del marco del paso 7: una mínima, sin montar /reservar entero.
-      await p.route('**/reservar/studio-carmen**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body>Reservar</body></html>' }));
+      // La app del marco del paso 7: una mínima, sin montar /portal entero.
+      await p.route('**/portal/studio-carmen**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><html><body>App</body></html>' }));
     },
   });
   await page.goto('/calendario?primera=1');
@@ -191,9 +191,16 @@ test.describe('la primera clase del alta nueva', () => {
     await publicar(page);
     await expect(page.getByRole('heading', { name: '¡Listo! Tu clase «Reformer» ya está publicada' })).toBeVisible();
     await expect(page.getByTestId('comprobado-reservar')).toHaveText('Comprobado: una alumna nueva puede reservar');
-    await expect(page.getByText('Cualquiera con tu enlace puede reservarla desde el móvil, sin descargarse nada. Mándaselo a tus alumnas: así llega tu primera reserva.')).toBeVisible();
+    await expect(page.getByText('Tus alumnas entran con su email, sin descargarse nada, y la reservan desde el móvil. Mándales el enlace de tu app: así llega tu primera reserva.')).toBeVisible();
+    // El enlace es el de la APP (no el de la página de reservas, que es para su web) y su vista previa, la app de verdad en el marco de solo mirar.
+    await expect(page.getByText(/\/portal\/studio-carmen$/).first()).toBeVisible();
+    await expect(page.getByText('/reservar/studio-carmen')).toHaveCount(0);
+    const marco = page.locator('iframe[name="tentare-solo-mirar"]');
+    await expect(marco).toHaveAttribute('src', '/portal/studio-carmen');
     await expect(page.getByTestId('aviso-correo-reservas')).toHaveText('Te lo mandamos también por correo, con el QR, para tenerlo a mano.');
-    await expect(page.getByRole('button', { name: 'Código QR' })).toBeVisible();
+    await page.getByRole('button', { name: 'Código QR' }).click();
+    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' })).toBeVisible();
+    await page.keyboard.press('Escape');
     expect(red.puedeReservar).toBe(0);
 
     // Lo que se mandó: el formulario y un intento; ni el estudio ni quién es «Yo».

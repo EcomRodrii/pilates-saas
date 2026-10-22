@@ -200,7 +200,7 @@ function MaquetaListo() {
             </div>
             <h3 className="text-[17px] font-bold leading-tight tracking-tight text-foreground">Tu estudio ya puede recibir reservas</h3>
             <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">
-              Has dejado <strong className="text-foreground">1 clase</strong> programada. Tu página está abierta: cualquiera con este enlace puede reservar.
+              Has dejado <strong className="text-foreground">1 clase</strong> programada. Tu app está abierta: cualquiera con este enlace puede entrar con su email y reservar.
             </p>
           </div>
         ))}

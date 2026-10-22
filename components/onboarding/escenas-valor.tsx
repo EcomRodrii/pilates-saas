@@ -160,7 +160,7 @@ export function EscenaReservas({ activa }: PropsEscena) {
     <AntesDespues
       activa={activa}
       captura={{ src: '/onboarding/reservar.webp', alt: 'La página de reservas de un estudio, con su horario y su botón de reservar' }}
-      pie="Ninguna te escribió a ti. Se apuntaron desde tu página, cada una a su hora."
+      pie="Ninguna te escribió a ti. Se apuntaron solas, cada una a su hora."
       antes={<>
         <Suelto texto="«¿Queda sitio el jueves?»" meta="23:47" />
         <Suelto texto="«Me apuntas al de las 10»" meta="07:12" />

@@ -11,12 +11,12 @@ export const web: Capitulo = {
       'Noveno capítulo: mi app y mi web. Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.');
 
     g.momento('direccion-y-enlaces');
-    await g.mientras('Dirección y enlaces. Aquí está la dirección de tu página de reservas, el enlace a la app de tus alumnas y el código QR de cada uno, para imprimir y poner en el escaparate o en la recepción.', async () => {
+    await g.mientras('Dirección y enlaces. Aquí está el enlace de la app de tus alumnas, el que compartes con ellas, y la dirección de tu página de reservas, la que va en tu web, con el código QR de cada uno, para imprimir y poner en el escaparate o en la recepción.', async () => {
       await abrirCajon(g, 'direccion-y-enlaces');
     });
     await g.mientras('La dirección se forma con el nombre corto de tu estudio. Si la cambias, la anterior sigue funcionando: lo que ya hayas repartido no se pierde. Con un botón copias el enlace; con otro, abres el código QR.', async () => {
-      await g.ir(cajon(page).getByLabel('Dirección de tu página de reservas'));
-      await g.clic(cajon(page).getByRole('button', { name: 'Copiar el enlace de tu página' }));
+      await g.ir(cajon(page).getByLabel('Dirección de tu app'));
+      await g.clic(cajon(page).getByRole('button', { name: 'Copiar el enlace de la app' }));
     });
     await g.mientras('El código QR se puede descargar como cartel, en PDF o en imagen, para imprimirlo, o solo el código. Cerramos.', async () => {
       await g.clic(cajon(page).getByRole('button', { name: 'Código QR' }).first());

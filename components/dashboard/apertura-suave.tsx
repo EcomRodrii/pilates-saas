@@ -7,7 +7,7 @@ import { useStudio } from '@/lib/studio-context';
 import { useRol } from '@/lib/permisos';
 import { copiarAlPortapapeles } from '@/lib/utils';
 import { ANCLA_APERTURA_SUAVE } from '@/lib/opening/listo';
-import { borradorInvitadas, enlaceReservas, hrefMensajeria } from '@/lib/opening/comunicaciones';
+import { borradorInvitadas, enlaceApp, hrefMensajeria } from '@/lib/opening/comunicaciones';
 
 export interface EstadoAperturaSuave {
   activa: boolean;
@@ -113,20 +113,20 @@ export function AperturaSuave({ estado, fechaApertura, onGuardar }: {
           {studio?.slug && fechaApertura && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]">
               {envia && invitadas.length > 0 && (
-                <Link href={hrefMensajeria(borradorInvitadas(fechaApertura, studio.nombre, enlaceReservas(studio.slug)))}
+                <Link href={hrefMensajeria(borradorInvitadas(fechaApertura, studio.nombre, enlaceApp(studio.slug)))}
                   className="font-medium text-brand-secondary hover:underline">
                   Escribir a tus invitadas
                 </Link>
               )}
               <button type="button" className="font-medium text-brand-secondary hover:underline"
-                onClick={() => void copiarAlPortapapeles(enlaceReservas(studio.slug!)).then(setCopiado)}>
-                {copiado ? 'Enlace copiado' : 'Copiar enlace de reservas'}
+                onClick={() => void copiarAlPortapapeles(enlaceApp(studio.slug!)).then(setCopiado)}>
+                {copiado ? 'Enlace copiado' : 'Copiar enlace de la app'}
               </button>
             </div>
           )}
           {copiado === false && studio?.slug && (
             <p className="text-[11px] text-muted-foreground">
-              Tu navegador no deja copiar: mándales este enlace por WhatsApp, <span className="select-all font-medium text-foreground">{enlaceReservas(studio.slug)}</span>
+              Tu navegador no deja copiar: mándales este enlace por WhatsApp, <span className="select-all font-medium text-foreground">{enlaceApp(studio.slug)}</span>
             </p>
           )}
           <p className="text-[11px] text-muted-foreground">Desde el mostrador puedes apuntar a cualquiera, esté o no en el grupo.</p>

@@ -175,7 +175,7 @@ test.describe('tras el paso 5: «Tus primeros pasos», y la primera clase en el 
     await expect(pasos).toHaveCount(4);
     await expect(pasos.nth(0)).toContainText('Crea tu primera clase');
     await expect(pasos.nth(0)).toContainText('quién la da, en qué sala');
-    await expect(pasos.nth(1)).toContainText('Comparte tu enlace de reservas');
+    await expect(pasos.nth(1)).toContainText('Comparte el enlace de tu app');
     await expect(pasos.nth(2)).toContainText('Trae a tus alumnas');
     await expect(pasos.nth(3)).toContainText('Recibe tu primera reserva');
     // Los cinco del alta, hechos.

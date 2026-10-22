@@ -285,8 +285,8 @@ export function validarPrimeraClase(
 ): Partial<Record<CampoPrimeraClase, string>> {
   const e: Partial<Record<CampoPrimeraClase, string>> = {};
   const nombre = f.nombre.trim();
-  if (!nombre) e.nombre = 'Ponle un nombre: así sale en tu página.';
-  else if (nombre.length > MAX_NOMBRE) e.nombre = `Como mucho ${MAX_NOMBRE} letras: así cabe en tu página.`;
+  if (!nombre) e.nombre = 'Ponle un nombre: así sale en tu app.';
+  else if (nombre.length > MAX_NOMBRE) e.nombre = `Como mucho ${MAX_NOMBRE} letras: así cabe en tu app.`;
 
   const hoy = hoyEnEstudio(ahora);
   const fin = esHoraHHMM(f.hora) ? finConDuracion(f.hora, f.duracion) : null;
@@ -487,7 +487,7 @@ export function precioEnTarjeta(f: FormPrimeraClase): number | null {
 const ERRORES_RPC: Readonly<Record<string, { texto: string; campo?: CampoPrimeraClase }>> = {
   FECHA_PASADA: { texto: 'Esa hora ya ha pasado. Elige otra hora u otro día.', campo: 'hora' },
   HORA_INVALIDA: { texto: 'Revisa la hora y la duración de la clase.', campo: 'hora' },
-  NOMBRE_INVALIDO: { texto: 'Ponle un nombre de 1 a 60 letras: así sale en tu página.', campo: 'nombre' },
+  NOMBRE_INVALIDO: { texto: 'Ponle un nombre de 1 a 60 letras: así sale en tu app.', campo: 'nombre' },
   SALA_INVALIDA: { texto: 'Ponle nombre a la sala, aunque sea «Sala 1».', campo: 'sala' },
   AFORO_INVALIDO: { texto: `Entre 1 y ${MAX_PLAZAS} plazas.`, campo: 'plazas' },
   SIN_PRECIO: { texto: TEXTO_PRECIO.falta, campo: 'precio' },

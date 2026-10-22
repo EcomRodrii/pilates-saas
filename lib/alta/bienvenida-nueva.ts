@@ -68,7 +68,7 @@ export const PRIMEROS_PASOS_DEL_ALTA: readonly { titulo: string; que: string; cu
     cuanto: '≈ 5 min',
   },
   {
-    titulo: 'Comparte tu enlace de reservas',
+    titulo: 'Comparte el enlace de tu app',
     que: 'Por WhatsApp, en Instagram o con el QR en recepción. Con eso ya te pueden reservar.',
     cuanto: '≈ 2 min',
   },
@@ -79,7 +79,7 @@ export const PRIMEROS_PASOS_DEL_ALTA: readonly { titulo: string; que: string; cu
   },
   {
     titulo: 'Recibe tu primera reserva',
-    que: 'Se marca sola cuando alguien reserve desde tu página.',
+    que: 'Se marca sola cuando una alumna reserve desde tu app.',
     cuanto: 'sola',
   },
 ];

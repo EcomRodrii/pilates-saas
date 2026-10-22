@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// ¿Puede una alumna NUEVA reservar ya desde la página del estudio?
+// ¿Puede una alumna NUEVA reservar ya desde el enlace que se comparte?
 //
 // Es la verdad que hay detrás de «Tu estudio ya puede recibir reservas»
 // (components/onboarding/listo-para-reservar.tsx): esa pantalla prometía
@@ -9,6 +9,19 @@
 // false (lib/billing/cuenta-puede-cobrar.ts) y la alumna no puede comprar el
 // bono que se le exige. Mientras, el «¿Lista para abrir?» de Inicio le decía a
 // la misma propietaria lo contrario.
+//
+// ⚠️ El enlace que se comparte es la APP de las alumnas (`/portal/<slug>`), no la
+// página de reservas (`/reservar/<slug>`, que es para la web del estudio): el
+// veredicto vale para las dos puertas porque comparten la regla entera. Mismo
+// catálogo (`/api/public/studio-data`), mismas escrituras (`/api/public/reserva`
+// y el checkout, que son los que llaman `crearReservaPublica` y
+// `reservar_plaza`), misma página oculta (`paginaCerradaParaPeticion` en las
+// escrituras y el aviso del layout del portal) y la misma tienda (planes
+// activos, con precio y sin la clase de prueba). Lo único que cambia es el
+// trámite de la alumna nueva —cuenta por código y su ficha con el consentimiento
+// antes de reservar—, que no depende de nada que configure el estudio. Si una
+// regla de reserva se aplicara en una puerta y no en la otra, este fichero
+// dejaría de ser una garantía: se mira aquí primero.
 //
 // ⚠️ Se evalúa CLASE A CLASE con las MISMAS funciones que el gate real
 // (`crearReservaPublica` en TS y `reservar_plaza`/`evaluar_reserva` en SQL):
@@ -136,9 +149,10 @@ const no = (motivo: MotivoNoReserva, extra: ExtraNo = {}): ResultadoPuedeReserva
   ({ estado: 'NO', motivo, ...extra });
 
 /**
- * Lo que vende el checkout desde el enlace que se comparte (`/reservar/<slug>`,
- * sin `?prueba=1`): activas, con precio y que no sean la clase de prueba. Es el
- * criterio de `planesComprablesParaReservar` y de la tienda; la prueba solo se
+ * Lo que vende el checkout desde el enlace que se comparte (la app, o la página
+ * de reservas sin `?prueba=1`): activas, con precio y que no sean la clase de
+ * prueba. Es el criterio de `planesComprablesParaReservar` y de la tienda de la
+ * app (`catalogoTienda`, lib/student/tienda.ts); la prueba solo se
  * ofrece en su propia vista, y contarla aquí daba un sí que nadie podía comprar.
  */
 export const esVendibleDesdeElEnlace = (p: PlanPuedeReservar): boolean =>
@@ -286,7 +300,7 @@ export function leerRespuestaPuedeReservar(x: unknown): RespuestaPuedeReservar {
   return SIN_COMPROBAR;
 }
 
-const NO_PUEDE_AUN = 'Una alumna nueva todavía no puede reservar desde tu página';
+const NO_PUEDE_AUN = 'Una alumna nueva todavía no puede reservar desde tu app';
 const DONDE_SE_ABRE = 'Para abrirla, ve a Configuración > Mi app y mi web > Ocultar tu página.';
 
 // `undefined`: con lo que ha llegado no se puede escribir una frase cierta (un
@@ -322,7 +336,7 @@ const esMotivo = (m: string): m is MotivoNoReserva => Object.hasOwn(TEXTO_MOTIVO
  * contestado (o no hay clave para preguntarle). No se sabe si cobra, y eso es lo
  * que se dice: ni la promesa ni un «no cobra» que quizá no es verdad.
  */
-const TEXTO_STRIPE_SIN_COMPROBAR = 'No hemos podido comprobar si Stripe ya puede cobrar, y pides bono para reservar: mientras no cobre, una alumna nueva no podrá comprarlo desde tu página. Míralo en Stripe o véndeselo tú en el mostrador.';
+const TEXTO_STRIPE_SIN_COMPROBAR = 'No hemos podido comprobar si Stripe ya puede cobrar, y pides bono para reservar: mientras no cobre, una alumna nueva no podrá comprarlo desde tu app. Míralo en Stripe o véndeselo tú en el mostrador.';
 
 /**
  * El aviso que se pinta bajo «Tu estudio ya puede recibir reservas».
@@ -361,7 +375,7 @@ export function prometeReservas(srv: RespuestaPuedeReservar | null, avisoCliente
  */
 export function finalDelParrafo(srv: RespuestaPuedeReservar | null, avisoCliente: string | null): string | null {
   if (!srv) return null;
-  if (prometeReservas(srv, avisoCliente)) return 'Tu página está abierta: cualquiera con este enlace puede reservar.';
+  if (prometeReservas(srv, avisoCliente)) return 'Tu app está abierta: cualquiera con este enlace puede entrar con su email y reservar.';
   if (srv.estado === 'NO' && srv.motivo === 'PAGINA_OCULTA') return null;
-  return 'Tu página está abierta.';
+  return 'Tu app está abierta.';
 }

@@ -48,7 +48,7 @@ export function CalendarioSinClases({ puedeCrear, hayTiposDeClase, onCrearClase,
             </div>
           )}
           <p className="text-[14px] leading-[21px] text-muted-foreground text-pretty">
-            En cuanto haya una clase aquí, tus alumnas podrán reservarla desde tu página.
+            En cuanto haya una clase aquí, tus alumnas podrán reservarla desde su app.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
             <button
@@ -76,7 +76,7 @@ export function CalendarioSinClases({ puedeCrear, hayTiposDeClase, onCrearClase,
         <h2 className="text-lg font-semibold text-foreground">Tu horario todavía está vacío</h2>
         <p className="mt-1.5 text-[13.5px] text-muted-foreground text-pretty">
           {puedeCrear
-            ? 'En cuanto haya clases aquí, tus alumnas podrán reservarlas desde tu página.'
+            ? 'En cuanto haya clases aquí, tus alumnas podrán reservarlas desde su app.'
             : 'Cuando haya clases programadas aparecerán aquí.'}
         </p>
       </div>

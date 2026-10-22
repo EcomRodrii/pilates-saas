@@ -90,8 +90,8 @@ export function pasosMiWeb(d: DatosMiWeb): PasoMiWeb[] {
   return [
     {
       id: 'direccion', orden: 1, titulo: 'Tu dirección y tus enlaces', peso: 'imprescindible',
-      porque: 'Es la puerta de todo: tu página de reservas, el QR de la puerta, la bio de Instagram y tus widgets cuelgan de esta dirección. Aquí tienes también el enlace y el QR de tu web.',
-      donde: 'La barra del navegador, el QR impreso y cada enlace que compartes',
+      porque: 'Es la dirección de tu estudio en Tentare: la app de tus alumnas (lo que compartes en Instagram o en la puerta), tu página de reservas (la que se integra en tu web) y tus widgets cuelgan de ella. Aquí tienes también el enlace y el QR de tu web.',
+      donde: 'La barra del navegador, el QR impreso y cada enlace que compartes o pegas en tu web',
       cuando: 'Al guardar. La de antes sigue llevando aquí',
       estado: d.direccion ? d.direccion : 'Tu estudio aún no tiene dirección de reservas',
       tono: d.direccion ? 'hecho' : 'falta',

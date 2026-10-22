@@ -16,10 +16,16 @@
 //
 // Tres cosas, en este orden:
 //   1. Lo que ha conseguido, dicho en una frase.
-//   2. Su página DE VERDAD, dentro de un móvil. No una ilustración: el
-//      iframe carga `/reservar/[slug]`, el mismo sitio al que va a entrar su
-//      alumna. Si algo no está bien, lo ve aquí y no cuando ya lo ha mandado.
-//   3. El enlace, listo para pegar donde ella ya habla con sus alumnas.
+//   2. Su APP DE VERDAD, dentro de un móvil. No una ilustración: el iframe
+//      carga `/portal/[slug]`, el mismo sitio al que va a entrar su alumna, y
+//      se puede tocar pero no escribe nada (`AppEnVivo`, el marco «solo
+//      mirar»). Si algo no está bien, lo ve aquí y no cuando ya lo ha mandado.
+//   3. El enlace de esa app, listo para pegar donde ella ya habla con sus
+//      alumnas.
+//
+// ⚠️ El enlace es el de LA APP (`/portal/[slug]`), no el de la página de
+// reservas (`/reservar/[slug]`): esa es para integrarla en su web, no para
+// repartirla (decisión del fundador, 22-oct-2026; lib/enlaces-estudio.ts).
 //
 // Y es el paso 7 del alta nueva (PR-4, «¡Listo! Tu clase … ya está
 // publicada»), con props opcionales que el Calendario no pasa (y no ve):
@@ -41,6 +47,8 @@ import {
 } from '@/lib/onboarding/puede-reservar';
 import { authHeader } from '@/lib/api-client';
 import { anfitrionPortal } from '@/lib/panel-portal';
+import { rutaApp } from '@/lib/enlaces-estudio';
+import { AppEnVivo } from '@/components/alta-nueva/app-en-vivo';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
 import { useRol } from '@/lib/permisos';
@@ -49,13 +57,9 @@ import { useRol } from '@/lib/permisos';
 // el motor de la mascota en cada carga del calendario, para todos los roles.
 import { TentiDiferido } from '@/components/tenti/tenti-diferido';
 
-// El móvil de la vista previa. Se dibuja a tamaño de teléfono de verdad
-// (iPhone 14/15, el más común entre las alumnas) y se encoge para caber.
-const ANCHO_MOVIL = 390;
-const ALTO_MOVIL = 720;
-const ESCALA = 0.62;
-const ANCHO_MARCO = Math.round(ANCHO_MOVIL * ESCALA);
-const ALTO_MARCO = Math.round(ALTO_MOVIL * ESCALA);
+// El móvil de la vista previa: el iPhone de `AppEnVivo` (402 × 874 pt) encogido
+// para caber en la columna de 260 px.
+const ESCALA_MOVIL = 0.6;
 
 export function ListoParaReservar({
   slug,
@@ -91,6 +95,7 @@ export function ListoParaReservar({
 }) {
   const [copiado, setCopiado] = useState(false);
   const [cargada, setCargada] = useState(false);
+  const alCargar = useCallback(() => setCargada(true), []);
   const [error, setError] = useState<string | null>(null);
   // La frase grande dice «ya puede recibir reservas». Si una alumna nueva no va
   // a poder (exige bono, hay tarifas activas y no hay Stripe), se dice aquí
@@ -136,7 +141,7 @@ export function ListoParaReservar({
 
   // Tenti celebra ('hecho') con TRES condiciones y ninguna menos: que el
   // servidor haya dicho que una alumna nueva puede reservar (la MISMA respuesta
-  // que pinta la promesa de al lado), que su página ya se vea dentro del móvil
+  // que pinta la promesa de al lado), que su app ya se vea dentro del móvil
   // y que haya pasado un momento, para que primero se lea el titular. Con 'NO',
   // sin comprobar o con la red caída se queda en reposo: lo que no se ha podido
   // confirmar no se celebra.
@@ -157,7 +162,7 @@ export function ListoParaReservar({
   // `window.location.origin` y no una variable de entorno: el enlace que se
   // copia tiene que ser el del sitio donde ESTÁ, no el de producción cuando
   // alguien lo prueba en otro dominio.
-  const url = typeof window === 'undefined' ? `/reservar/${slug}` : `${window.location.origin}/reservar/${slug}`;
+  const url = typeof window === 'undefined' ? rutaApp(slug) : `${window.location.origin}${rutaApp(slug)}`;
 
   const copiar = useCallback(async () => {
     setError(null);
@@ -187,7 +192,7 @@ export function ListoParaReservar({
     try {
       await navigator.share({
         title: nombreEstudio,
-        text: `¡Ya puedes reservar tus clases en ${nombreEstudio}!`,
+        text: `¡Ya tienes la app de ${nombreEstudio}! Entra con tu email y reserva tus clases.`,
         url,
       });
       capturarEvento('enlace_compartido', { via: 'nativo' });
@@ -200,7 +205,7 @@ export function ListoParaReservar({
   }, [url, nombreEstudio, esPropietaria]);
 
   const textoWhatsApp = encodeURIComponent(
-    `¡Ya puedes reservar tus clases en ${nombreEstudio}! Entra aquí y elige la que quieras: ${url}`,
+    `¡Ya tienes la app de ${nombreEstudio}! Entra aquí con tu email y reserva tus clases: ${url}`,
   );
 
   return (
@@ -228,7 +233,7 @@ export function ListoParaReservar({
     // momento se pintaba en claro. Era el único componente del panel que lo
     // hacía, y la guardia (lib/panel-portal.test.ts) no lo veía porque su regex
     // se cortaba en el primer `)`. El marco del móvil sigue el tema; lo de dentro
-    // es la página de reservas, que es marca blanca y va en claro.
+    // es la app de la alumna, que es marca blanca y va en claro.
     //
     // ⚠️ `grid-cols-[minmax(0,1fr)]`, aquí y en la rejilla de abajo, y no un
     // `grid` a secas: la columna implícita es `auto` y crece hasta el ancho
@@ -261,7 +266,7 @@ export function ListoParaReservar({
               aviso; y mientras el servidor contesta, ni lo uno ni lo otro. En el
               paso 7 del alta, con el SÍ, la frase de la maqueta. */}
           {nombreClase && comprobado
-            ? 'Cualquiera con tu enlace puede reservarla desde el móvil, sin descargarse nada. Mándaselo a tus alumnas: así llega tu primera reserva.'
+            ? 'Tus alumnas entran con su email, sin descargarse nada, y la reservan desde el móvil. Mándales el enlace de tu app: así llega tu primera reserva.'
             : finalParrafo}
         </p>
         {nombreClase && comprobado && (
@@ -282,7 +287,7 @@ export function ListoParaReservar({
         {/* El enlace, primero: es lo único que tiene que hacer ahora. */}
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Tu enlace de reservas
+            El enlace de tu app
           </p>
           {puedeCompartirNativo && (
             <button
@@ -327,33 +332,33 @@ export function ListoParaReservar({
               Mandarlo por WhatsApp
             </a>
             <a
-              href={`/reservar/${slug}`}
+              href={rutaApp(slug)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-medio hover:underline"
             >
               <ExternalLink size={14} aria-hidden />
-              Abrirla en grande
+              Abrir mi app
             </a>
           </div>
 
           {conQr && (
             <div className="mt-3">
               <BotonQr
-                destino="reservas"
+                destino="app"
                 url={url}
                 slug={slug}
                 estudio={nombreEstudio}
-                nombreEnlace="Página de reservas"
+                nombreEnlace="App de tus alumnas"
                 onDescargado={() => { if (esPropietaria) apuntarEnlaceCompartido('qr'); }}
               />
-              <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre tu página.</p>
+              <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus alumnas.</p>
             </div>
           )}
 
           <p className="mt-5 text-[12.5px] leading-relaxed text-muted-foreground">
             Pégalo en tu Instagram, en el grupo de WhatsApp o donde ya hablas con tus alumnas.
-            No hace falta que se descarguen nada.
+            Entran con su email y un código, sin descargarse nada.
           </p>
           {/* Solo si el servidor lo ha mandado de verdad: sale una vez y con el SÍ. */}
           {correoEnviado && comprobado && (
@@ -375,41 +380,22 @@ export function ListoParaReservar({
           )}
         </div>
 
-        {/* Su página DE VERDAD, no una ilustración. */}
+        {/* Su app DE VERDAD, no una ilustración. */}
         <div>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
             Así lo ve tu alumna
           </p>
-          <div className="relative mx-auto overflow-hidden rounded-[26px] border-[6px] border-foreground/85 bg-card shadow-xl"
-               style={{ width: ANCHO_MARCO, height: ALTO_MARCO }}>
-            {/* Mientras carga, un esqueleto — nunca un rectángulo vacío, que es
-                justo lo que parece «no funciona». */}
-            {!cargada && (
-              <div className="absolute inset-0 animate-pulse bg-muted/50" aria-hidden />
-            )}
-            <iframe
-              src={`/reservar/${slug}`}
-              title={`Página de reservas de ${nombreEstudio}`}
-              onLoad={() => setCargada(true)}
-              // `loading="lazy"` no: esto es lo que se ha venido a ver.
-              //
-              // ⚠️ Se renderiza a ANCHO DE MÓVIL REAL y se encoge con `scale`,
-              // en vez de darle un iframe de 240 px. Un iframe de 240 px es un
-              // viewport de 240 px: la página de reservas entra en su layout
-              // más estrecho, que no existe en ningún teléfono, y lo que se
-              // enseña como «así lo ve tu alumna» no es lo que ve nadie.
-              style={{
-                width: ANCHO_MOVIL,
-                height: ALTO_MOVIL,
-                transform: `scale(${ESCALA})`,
-                transformOrigin: 'top left',
-              }}
-              className="absolute left-0 top-0 border-0"
-            />
-          </div>
-          <p className="mt-2 text-center text-[11.5px] text-muted-foreground">
-            Es tu página real, no un ejemplo.
-          </p>
+          {/* ⚠️ A ancho de móvil real (402 pt) y encogida con `scale`: un iframe de
+              240 px sería un viewport que no existe en ningún teléfono. Es el marco
+              «solo mirar»: se toca, pero no reserva ni crea ninguna cuenta. */}
+          <AppEnVivo
+            slug={slug}
+            css=""
+            recarga={0}
+            escala={ESCALA_MOVIL}
+            onCargada={alCargar}
+            pie={{ cargando: 'Cargando tu app…', cargada: 'Es tu app real, no un ejemplo. Tócala: aquí no se reserva nada.' }}
+          />
         </div>
         </div>
       </div>

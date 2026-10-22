@@ -8,6 +8,10 @@
 // previa ni Tenti: el enlace, Copiar, WhatsApp, la hoja de compartir del móvil
 // y el QR para recepción.
 //
+//   · Lo que se comparte es LA APP DE SUS ALUMNAS (`/portal/<slug>`), no la
+//     página de reservas (`/reservar/<slug>`): esa es para integrarla en su web,
+//     no para repartirla (decisión del fundador, 22-oct-2026;
+//     lib/enlaces-estudio.ts). El QR es el de la app (`destino="app"`).
 //   · «Copiado» solo si el portapapeles lo confirma: Safari falla sin avisar
 //     (#994), y decir «Copiado» con el portapapeles vacío es peor que nada.
 //   · Lo que de verdad sale del panel (copiado, mandado, compartido, el QR
@@ -18,10 +22,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Check, Copy, ExternalLink, MessageCircle, Share2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { BotonQr } from '@/components/configuracion/dialogo-qr';
 import { copiarAlPortapapeles } from '@/lib/utils';
+import { rutaApp } from '@/lib/enlaces-estudio';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { apuntarEnlaceCompartido } from '@/lib/alta/embudo-cliente';
 import { anotarEnEstadoAlta } from '@/lib/alta/estado-cliente';
@@ -39,8 +45,8 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
 }) {
   const [copiado, setCopiado] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const url = typeof window === 'undefined' ? `/reservar/${slug}` : `${window.location.origin}/reservar/${slug}`;
-  const textoWhatsApp = encodeURIComponent(`¡Ya puedes reservar tus clases en ${nombreEstudio}! Entra aquí y elige la que quieras: ${url}`);
+  const url = typeof window === 'undefined' ? rutaApp(slug) : `${window.location.origin}${rutaApp(slug)}`;
+  const textoWhatsApp = encodeURIComponent(`¡Ya tienes la app de ${nombreEstudio}! Entra aquí con tu email y reserva tus clases: ${url}`);
   const puedeCompartirNativo = typeof navigator !== 'undefined' && typeof navigator.share === 'function'
     && typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
@@ -65,7 +71,7 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
   async function compartir() {
     setError(null);
     try {
-      await navigator.share({ title: nombreEstudio, text: `¡Ya puedes reservar tus clases en ${nombreEstudio}!`, url });
+      await navigator.share({ title: nombreEstudio, text: `¡Ya tienes la app de ${nombreEstudio}! Entra con tu email y reserva tus clases.`, url });
       compartido('compartir');
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -79,9 +85,9 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
           enlace entero sin cortar; en un móvil el diálogo se salía por la izquierda (como pasó en «¡Listo!»). */}
       <DialogContent className="grid-cols-[minmax(0,1fr)] sm:max-w-md" data-testid="compartir-enlace">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold text-foreground">Comparte tu enlace de reservas</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-foreground">Comparte el enlace de tu app</DialogTitle>
           <DialogDescription className="text-[13.5px] text-muted-foreground text-pretty">
-            Pégalo en tu Instagram, en el grupo de WhatsApp de tus alumnas o en tu web. No hace falta que se descarguen nada.
+            Pégalo en tu Instagram o en el grupo de WhatsApp de tus alumnas. Entran con su email, sin descargarse nada, y reservan desde el móvil.
           </DialogDescription>
         </DialogHeader>
 
@@ -125,26 +131,32 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
             <MessageCircle size={14} aria-hidden /> Mandarlo por WhatsApp
           </a>
           <a
-            href={`/reservar/${slug}`}
+            href={rutaApp(slug)}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-medio hover:underline"
           >
-            <ExternalLink size={14} aria-hidden /> Ver mi página
+            <ExternalLink size={14} aria-hidden /> Ver mi app
           </a>
         </div>
 
         <div>
           <BotonQr
-            destino="reservas"
+            destino="app"
             url={url}
             slug={slug}
             estudio={nombreEstudio}
-            nombreEnlace="Página de reservas"
+            nombreEnlace="App de tus alumnas"
             onDescargado={() => compartido('qr')}
           />
-          <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre tu página.</p>
+          <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus alumnas.</p>
         </div>
+
+        {/* La página de reservas existe, pero es OTRA cosa: la que se integra en su web. */}
+        <p className="text-[12px] leading-snug text-muted-foreground text-pretty">
+          ¿Quieres que reserven desde tu propia web? Eso se prepara en{' '}
+          <Link href="/configuracion?tab=web" onClick={onCerrar} className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app y mi web</Link>.
+        </p>
       </DialogContent>
     </Dialog>
   );

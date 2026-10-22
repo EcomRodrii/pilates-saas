@@ -20,12 +20,16 @@ import { MarcoIphone, PANTALLA_IPHONE } from '@/components/ui/marco-iphone';
 import { pintarBorrador } from '@/lib/apariencia/borrador-en-marco';
 import { NOMBRE_MARCO_SOLO_MIRAR } from '@/lib/student/solo-mirar';
 
-export function AppEnVivo({ slug, css, recarga, escala }: {
+export function AppEnVivo({ slug, css, recarga, escala, pie, onCargada }: {
   slug: string;
-  /** El borrador, ya en CSS (`temaAppCssText(..., { completo: true })`). */
+  /** El borrador, ya en CSS (`temaAppCssText(..., { completo: true })`). Vacío = la app tal cual está guardada. */
   css: string;
   recarga: number;
   escala: number;
+  /** El pie de la figura, si no vale el de «Tu marca» (que habla del color que se está eligiendo). */
+  pie?: { cargando: string; cargada: string };
+  /** Avisa cuando la app ya ha cargado en el marco (cada vez que carga). */
+  onCargada?: () => void;
 }) {
   const ref = useRef<HTMLIFrameElement>(null);
   const [cargando, setCargando] = useState(true);
@@ -42,13 +46,13 @@ export function AppEnVivo({ slug, css, recarga, escala }: {
           name={NOMBRE_MARCO_SOLO_MIRAR}
           title="La app de tus alumnas, con tu color. Puedes tocarla: aquí no se reserva ni se crea nada"
           src={`/portal/${encodeURIComponent(slug)}`}
-          onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
+          onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); onCargada?.(); }}
           className="bg-white transition-opacity duration-300"
           style={{ width: PANTALLA_IPHONE.ancho, height: PANTALLA_IPHONE.alto, border: 0, opacity: cargando ? 0.35 : 1 }}
         />
       </MarcoIphone>
       <figcaption className="mt-3 text-center text-[12.5px] text-muted-foreground" aria-live="polite">
-        {cargando ? 'Cargando tu app…' : 'Tu app de verdad, con el color que eliges. Tócala: aquí no se reserva ni se crea nada.'}
+        {cargando ? (pie?.cargando ?? 'Cargando tu app…') : (pie?.cargada ?? 'Tu app de verdad, con el color que eliges. Tócala: aquí no se reserva ni se crea nada.')}
       </figcaption>
     </figure>
   );

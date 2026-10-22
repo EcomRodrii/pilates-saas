@@ -14,6 +14,7 @@ import { apuntarPaso } from '@/lib/alta/embudo-servidor';
 import { puedeReservarEnServidor } from '@/lib/onboarding/puede-reservar-servidor';
 import type { ResultadoPuedeReservar } from '@/lib/onboarding/puede-reservar';
 import { correoRecibirReservas } from '@/lib/emails/tentare/alta';
+import { rutaApp, rutaQrApp, urlAbsoluta } from '@/lib/enlaces-estudio';
 import { enviarCorreoAlta } from '@/lib/emails/embudo-alta-server';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,14 +131,15 @@ export async function POST(req: NextRequest) {
       // El hito 1 del embudo: un hecho del ESTUDIO, solo con el «sí» del servidor.
       await apuntarPaso(admin, studioId, 'clase_reservable', { creadoEn: (fila?.creado_en as string | null | undefined) ?? undefined });
       if (!decision.enviar) return;
-      const base = (process.env.NEXT_PUBLIC_APP_URL || LEGAL.url).replace(/\/+$/, '');
-      const slug = encodeURIComponent(String(fila!.slug));
+      const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
+      const slug = String(fila!.slug);
+      // La APP de sus alumnas y su QR, no la página de reservas (esa es para su web).
       const correo = correoRecibirReservas({
         estudioNombre: String(fila?.nombre ?? ''),
         claseNombre,
         cuando,
-        urlPagina: `${base}/reservar/${slug}`,
-        urlQr: `${base}/api/public/qr-reservas/${slug}`,
+        urlApp: urlAbsoluta(base, rutaApp(slug)),
+        urlQr: urlAbsoluta(base, rutaQrApp(slug)),
       });
       const res = await enviarCorreoAlta({
         to: sesion.email!, asunto: correo.asunto, html: correo.html, idempotencyKey: claveRecibirReservas(studioId),

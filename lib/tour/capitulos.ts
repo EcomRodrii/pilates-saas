@@ -17,7 +17,7 @@
 //    y los de las secciones de Configuración (lib/configuracion/secciones.ts).
 //    Un nombre inventado manda a buscar algo que no está.
 // 3. Cada paso dice el QUÉ y, sobre todo, el PORQUÉ. «Ve a Calendario» no
-//    convence a nadie; «sin clases, tu página de reservas no tiene nada que
+//    convence a nadie; «sin clases, la app de tus alumnas no tiene nada que
 //    enseñar» sí.
 // 4. Un paso «hacer» se da por cumplido cuando cambian los DATOS REALES
 //    (lib/tour/hecho.ts), no cuando se pulsa un botón. Ningún paso crea datos
@@ -152,7 +152,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   {
     id: 'c3',
     titulo: 'Tu horario',
-    paraQue: 'Para que tus alumnas tengan clases a las que apuntarse: sin clases, tu página de reservas no tiene nada que enseñar.',
+    paraQue: 'Para que tus alumnas tengan clases a las que apuntarse: sin clases, la app de tus alumnas no tiene nada que enseñar.',
     minutos: 6,
     aprendido: ['cómo programar una clase o una serie', 'qué se puede hacer desde la ficha de una clase', 'cómo mover una clase arrastrándola'],
     pasos: [
@@ -269,13 +269,13 @@ export const CAPITULOS: readonly CapituloVisita[] = [
     titulo: 'Reservas y cobros',
     paraQue: 'Para que tus alumnas reserven y tú cobres sin líos: tu enlace, tus reglas y tu forma de cobrar.',
     minutos: 8,
-    aprendido: ['dónde está tu enlace de reservas', 'qué reglas puedes poner a las reservas', 'cómo cobrar en el mostrador y con tarjeta'],
+    aprendido: ['dónde está el enlace de la app de tus alumnas', 'qué reglas puedes poner a las reservas', 'cómo cobrar en el mostrador y con tarjeta'],
     pasos: [
       {
         id: 'c6.1', ruta: '/configuracion', href: '/configuracion?tab=web', selector: '#direccion-y-enlaces', tipo: 'mira',
-        titulo: 'Tu página de reservas',
-        texto: 'Es por donde reservarán tus alumnas. Tienes un enlace y un QR: ponlos en tu Instagram, en WhatsApp o en la puerta del estudio.',
-        accion: 'Mira la fila «Dirección y enlaces»: ahí está tu enlace de reservas.',
+        titulo: 'La app de tus alumnas',
+        texto: 'Es por donde entrarán y reservarán tus alumnas, con su email. Tienes un enlace y un QR: ponlos en tu Instagram, en WhatsApp o en la puerta del estudio. (La página de reservas es otra cosa: la que se integra en tu web.)',
+        accion: 'Mira la fila «Dirección y enlaces»: ahí está el enlace de la app de tus alumnas.',
       },
       {
         id: 'c6.2', ruta: '/configuracion', href: '/configuracion?tab=reservas', selector: '#cancelar-y-recuperar', tipo: 'mira',
