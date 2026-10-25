@@ -17,11 +17,14 @@ export interface Pestana {
 
 export function PestanasCliente({ pestanas, etiqueta }: { pestanas: readonly Pestana[]; etiqueta: string }) {
   const [activa, setActiva] = useState(0);
+  // El panel solo se anima tras el primer gesto: el que viene abierto no «entra» al cargar la página.
+  const [tocado, setTocado] = useState(false);
   const base = useId();
   const botones = useRef<(HTMLButtonElement | null)[]>([]);
 
   function ir(i: number) {
     const n = (i + pestanas.length) % pestanas.length;
+    setTocado(true);
     setActiva(n);
     botones.current[n]?.focus();
   }
@@ -34,7 +37,7 @@ export function PestanasCliente({ pestanas, etiqueta }: { pestanas: readonly Pes
   }
 
   return (
-    <div className="wh-tabs">
+    <div className={tocado ? 'wh-tabs wh-tabs-vivo' : 'wh-tabs'}>
       <div role="tablist" aria-label={etiqueta} className="wh-tabs-lista">
         {pestanas.map((p, i) => (
           <button
@@ -47,7 +50,7 @@ export function PestanasCliente({ pestanas, etiqueta }: { pestanas: readonly Pes
             aria-selected={i === activa}
             tabIndex={i === activa ? 0 : -1}
             className="wh-tab"
-            onClick={() => setActiva(i)}
+            onClick={() => { setTocado(true); setActiva(i); }}
             onKeyDown={(e) => alTeclear(e, i)}
           >
             {p.etiqueta}

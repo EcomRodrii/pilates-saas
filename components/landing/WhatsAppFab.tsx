@@ -88,7 +88,9 @@ export function WhatsAppFab() {
         .v5-wa-toggle:active { transform: scale(.95); }
         .v5-wa-toggle-icono { position: relative; }
         .v5-wa-toggle-icono path { fill: #fff; }
-        .v5-wa-anillo { position: absolute; inset: 0; border-radius: 50%; background: #25D366; animation: v5-wa-ping 2.2s ease-out infinite; }
+        /* Late TRES veces, pasados 4 s, y se queda quieto: sin fin era la única animación que no paraba nunca
+           (batería, y ruido junto al contenido) y arrancaba a la vez que la carga. */
+        .v5-wa-anillo { position: absolute; inset: 0; border-radius: 50%; background: #25D366; animation: v5-wa-ping 2.2s ease-out 4s 3 both; }
         @keyframes v5-wa-ping { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.7); opacity: 0; } }
         @media (prefers-reduced-motion: reduce) { .v5-wa-anillo { animation: none; } }
 
