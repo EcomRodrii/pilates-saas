@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { MarcoIphone } from '@/components/ui/marco-iphone';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,13 +70,55 @@ function App({ n }: { n: string }) {
 
 // `captura` llega del servidor (app/page.tsx, CAPTURAS_APP.reservar): así este componente
 // de cliente no arrastra piezas.tsx entero al JavaScript de la home.
+const textoDe = (v: number) => (v > 60 ? 'Se ve sobre todo el WhatsApp' : v < 40 ? 'Se ve sobre todo la app' : 'Mitad y mitad');
+
 export function AntesDespues({ captura }: { captura: string }) {
-  const [pos, setPos] = useState(50);
+  // La posición NO es estado de React: moverla re-renderizaba el móvil entero (chat, captura y marco)
+  // en cada píxel del arrastre. Se escribe directo en la variable CSS `--pos`, que es lo único que
+  // el chat lee (`clip-path`) y la línea (`left`).
+  const tel = useRef<HTMLDivElement>(null);
+  const rango = useRef<HTMLInputElement>(null);
+  const gesto = useRef(false);
+
+  const poner = (v: number) => {
+    tel.current?.style.setProperty('--pos', `${v}%`);
+    rango.current?.setAttribute('aria-valuetext', textoDe(v));
+  };
+
+  // Un gesto, una sola vez, al verse: el móvil se desliza un poco y vuelve, para que se note que se
+  // arrastra. Quieto si ya lo ha tocado o si pide «reducir movimiento».
+  useEffect(() => {
+    const el = tel.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let raf = 0;
+    let espera = 0;
+    const ver = new IntersectionObserver(([e]) => {
+      if (!e.isIntersecting) return;
+      ver.disconnect();
+      espera = window.setTimeout(() => {
+        const t0 = performance.now();
+        const paso = (t: number) => {
+          if (gesto.current) return;
+          const k = Math.min(1, (t - t0) / 1100);
+          const v = 50 - 17 * Math.sin(Math.PI * k);
+          poner(v);
+          if (rango.current) rango.current.value = String(Math.round(v));
+          if (k < 1) raf = requestAnimationFrame(paso);
+          else poner(50);
+        };
+        raf = requestAnimationFrame(paso);
+      }, 500);
+    }, { threshold: 0.6 });
+    ver.observe(el);
+    return () => { ver.disconnect(); clearTimeout(espera); cancelAnimationFrame(raf); };
+  }, []);
+
   return (
     <section id="antes-y-ahora" className="wh-seccion wh-ad" aria-labelledby="wh-ad-h">
       <div className="wh-contenedor wh-ad-rejilla">
         <div className="wh-ad-visual">
-          <div className="wh-ad-tel" style={{ ['--pos' as string]: `${pos}%` }}>
+          <div className="wh-ad-tel" ref={tel}>
             <MarcoIphone modelo="17-pro" escala={0.78} tinta="oscura" indicador="oscura">
               <div className="wh-ad-pantalla">
                 <App n={captura} />
@@ -85,14 +127,17 @@ export function AntesDespues({ captura }: { captura: string }) {
               </div>
             </MarcoIphone>
             <input
+              ref={rango}
               type="range"
               min={0}
               max={100}
-              value={pos}
-              onChange={(e) => setPos(Number(e.target.value))}
+              defaultValue={50}
+              onPointerDown={() => { gesto.current = true; }}
+              onKeyDown={() => { gesto.current = true; }}
+              onInput={(e) => poner(Number(e.currentTarget.value))}
               className="wh-ad-rango"
               aria-label="Comparar: a la izquierda, pedir la plaza por WhatsApp; a la derecha, reservarla en la app"
-              aria-valuetext={pos > 60 ? 'Se ve sobre todo el WhatsApp' : pos < 40 ? 'Se ve sobre todo la app' : 'Mitad y mitad'}
+              aria-valuetext="Mitad y mitad"
             />
           </div>
           <div className="wh-ad-etiquetas" aria-hidden="true"><span>Por WhatsApp</span><span>Con Tentare</span></div>
