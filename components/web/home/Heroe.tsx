@@ -62,7 +62,7 @@ export function Heroe({ logos }: { logos?: ReactNode }) {
             <span className="wh-heroe-promesa v5-hero-promesa">Tu estudio sigue funcionando aunque sueltes el móvil.</span>
           </h1>
           <p className="wh-heroe-lead">
-            Las reservas y las cuotas van solas, las bajas se cubren con un solo sí y tus alumnas lo tienen todo en una app con tu nombre.
+            Las reservas y las cuotas van solas y tus alumnas lo tienen todo en una app con tu nombre.
           </p>
           <div className="wh-heroe-acciones v5-hero-acciones">
             <Link href={ALTA} className="wh-boton wh-boton-arena v5-hero-cta">{CTA_ALTA}</Link>

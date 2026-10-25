@@ -242,17 +242,19 @@ export function PasarLista({ className = '' }: { className?: string }) {
  * home (sin la marca de ningún estudio real: components/web/home/piezas.tsx). Para
  * una `pieza` con `movil: true` (soluciones y funcionalidades, fases 2.3 y 2.4).
  */
-export function AppAlumna({ captura = 'inicio' }: { captura?: keyof typeof CAPTURAS_APP }) {
+export function AppAlumna({ captura = 'inicio', escala = 0.5 }: { captura?: keyof typeof CAPTURAS_APP; escala?: number }) {
   const c = CAPTURAS_APP[captura];
+  // El ancho del móvil en pantalla (la pantalla mide 402 pt): lo que el navegador debe pedir.
+  const ancho = `${Math.round(402 * escala)}px`;
   return (
-    <MarcoIphone modelo="17-pro" escala={0.5} tinta={c.tinta} indicador="oscura">
+    <MarcoIphone modelo="17-pro" escala={escala} tinta={c.tinta} indicador="oscura">
       <div style={{ height: '100%', background: '#F4EEE5' }}>
         <picture>
-          <source type="image/avif" srcSet={`/landing/capturas/${c.n}-390.avif 390w, /landing/capturas/${c.n}-780.avif 780w`} sizes="210px" />
+          <source type="image/avif" srcSet={`/landing/capturas/${c.n}-390.avif 390w, /landing/capturas/${c.n}-780.avif 780w`} sizes={ancho} />
           <img
             src={`/landing/capturas/${c.n}-390.webp`}
             srcSet={`/landing/capturas/${c.n}-390.webp 390w, /landing/capturas/${c.n}-780.webp 780w`}
-            sizes="210px"
+            sizes={ancho}
             width={780}
             height={1696}
             alt=""

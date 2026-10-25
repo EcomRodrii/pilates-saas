@@ -10,7 +10,6 @@ import { FOTOS, FOTOS_APORTADAS, rutaFoto } from '@/components/landing/fotos';
 // fundador), con su texto alternativo. Cada frase, contra el producto:
 //  · las reservas desde la app del estudio, a cualquier hora (reservas online);
 //  · la clase fija se reserva sola cada semana, con cuota (`plazas_fijas`);
-//  · la sustitución espera el visto bueno: es el modo por defecto (asistido);
 //  · las cuotas se cobran solas y, si una falla, se reintenta (dunning).
 // Server Component: ni un byte de JavaScript.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,16 +46,6 @@ const MOMENTOS: readonly Momento[] = [
     ancho: FOTOS_APORTADAS.reservas.ancho,
     alto: FOTOS_APORTADAS.reservas.alto,
     posicion: '50% 35%',
-  },
-  {
-    verbo: 'Cubre.',
-    texto: 'Si una instructora no puede, Tentare propone quién la sustituye y espera tu sí.',
-    src: `/landing/fotos-aportadas/${FOTOS_APORTADAS.equipo.base}.webp`,
-    srcAvif: `/landing/fotos-aportadas/${FOTOS_APORTADAS.equipo.base}.avif`,
-    alt: 'Una instructora y una alumna charlando sobre sus reformers en un estudio de Pilates',
-    ancho: FOTOS_APORTADAS.equipo.ancho,
-    alto: FOTOS_APORTADAS.equipo.alto,
-    posicion: '50% 40%',
   },
   {
     verbo: 'Cobra.',

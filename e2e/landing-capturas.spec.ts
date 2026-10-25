@@ -71,6 +71,16 @@ test.describe('app de la alumna', () => {
   // scripts/capturas-landing.mjs añade encima: así el marco de components/ui/marco-iphone.tsx
   // dibuja la hora y la isla sin tapar la cabecera de la app.
   test.use({ viewport: { width: 402, height: 815 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+  test('más pantallas de la app', async ({ page }) => {
+    test.setTimeout(240_000);
+    await portalDeMuestra(page, { alDia: true });
+    for (const [nombre, ruta] of [['comunidad', '/comunidad'], ['logros', '/logros'], ['perfil', '/perfil'], ['mensajes', '/mensajes'], ['mis-reservas', '/mis-reservas'], ['calendario', '/calendario']] as const) {
+      await page.goto(`/portal/${SLUG}${ruta}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForTimeout(3000);
+      await nombrar(page);
+      await page.screenshot({ path: `${DESTINO}/app-${nombre}.png` });
+    }
+  });
   test('mi plan al día', async ({ page }) => {
     test.setTimeout(240_000);
     await portalDeMuestra(page, { alDia: true });
