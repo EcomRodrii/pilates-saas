@@ -46,12 +46,12 @@ test('el producto por áreas: cada pestaña lleva a su función, cinco rutas dis
   expect((await request.get('/funcionalidades/no-existe', { timeout: 120_000 })).status()).toBe(404);
 });
 
-test('«Un día cualquiera»: cuatro momentos con su verbo, su foto cargada y ni una cifra', async ({ page }) => {
+test('«Un día cualquiera»: tres momentos con su verbo, su foto cargada y ni una cifra', async ({ page }) => {
   await abrir(page, 1440);
   const tarjetas = page.locator('#momentos .wh-mom-tarjeta');
-  await expect(tarjetas).toHaveCount(4);
-  expect((await page.locator('#momentos .wh-mom-verbo').allTextContents()).map((t) => t.trim())).toEqual(['Reserva.', 'Repite.', 'Cubre.', 'Cobra.']);
-  for (let i = 0; i < 4; i++) {
+  await expect(tarjetas).toHaveCount(3);
+  expect((await page.locator('#momentos .wh-mom-verbo').allTextContents()).map((t) => t.trim())).toEqual(['Reserva.', 'Repite.', 'Cobra.']);
+  for (let i = 0; i < 3; i++) {
     const img = tarjetas.nth(i).locator('img');
     await img.scrollIntoViewIfNeeded();
     await expect(img).not.toHaveAttribute('alt', '');

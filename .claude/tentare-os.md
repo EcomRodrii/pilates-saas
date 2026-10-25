@@ -291,6 +291,7 @@ así que todo lo que se versiona lo lee cualquiera:
 
 ## Decisiones de producto/arquitectura ya cerradas (no reabrir sin pedirlo expresamente)
 
+- **La landing NUNCA habla de «baja cubierta» ni de sustituciones** (orden del fundador, 25-oct-2026, «anotado para siempre»). Ni en el héroe, ni en las tarjetas, momentos, pestañas, FAQ o JSON-LD de la home, ni como ejemplo en una captura. La función existe en el producto y en `/funcionalidades/sustituciones`, pero no se usa como argumento de venta en la home; `lib/landing/ronda-3.test.ts` lo vigila en «Un día cualquiera». No reintroducir sin pedirlo expresamente.
 - No trocear los "god files" (`lib/supabase-data.ts`, `studio-context.tsx`...) — propuesto y
   rechazado dos veces.
 - Feature-freeze activo sobre Kiosko, VOD y Chat de equipo (`lib/frozen-features.ts`,

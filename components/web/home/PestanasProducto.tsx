@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { VideoProducto } from '@/components/landing/VideoProducto';
-import { AgendaDia, Escena, Ficha, PanelCobros, PanelInformes, PanelSustitucion } from './piezas';
+import { AgendaDia, Escena, Ficha, PanelCobros, PanelInformes, PasarLista } from './piezas';
 import { PestanasCliente, type Pestana } from './PestanasCliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,8 +67,8 @@ export const PESTANAS_PRODUCTO: readonly PestanaProducto[] = [
     titulo: 'Tu equipo, coordinado desde su móvil.',
     puntos: [
       'Cada instructora ve su agenda, pasa lista y marca su disponibilidad y sus ausencias en la app del estudio.',
-      'Si alguien no puede dar su clase, Tentare propone quién la cubre y tú das el visto bueno.',
       'La tarifa por hora de cada instructora, a la vista solo de quien debe verla.',
+      'Liquidación mensual: horas impartidas por tarifa, listo para pasarlo a tu gestoría.',
     ],
     enlace: { href: '/funcionalidades/gestion-de-instructoras', texto: 'Ver la gestión de instructoras' },
   },
@@ -116,8 +116,8 @@ const ESCENAS: Record<string, { descripcion: string; contenido: React.ReactNode 
     ),
   },
   equipo: {
-    descripcion: 'Ejemplo de una baja en Sustituciones: Marta no puede dar Reformer Avanzado a las 19:00 y Tentare propone a tres instructoras ordenadas por encaje, a la espera de tu visto bueno.',
-    contenido: <PanelSustitucion className="wh-tab-ui" completo />,
+    descripcion: 'Ejemplo de pasar lista desde la app de la instructora: tres alumnas han venido y una está sin marcar.',
+    contenido: <PasarLista className="wh-tab-ui" />,
   },
   informes: {
     descripcion: 'Ejemplo de los informes: evolución de ingresos de seis meses y ocupación por tipo de clase.',

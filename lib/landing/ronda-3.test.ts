@@ -45,18 +45,18 @@ const frasesQueFaltan = (fichero: string, frases: readonly string[]) => {
 
 // ── «Un día cualquiera» (home v2) ───────────────────────────────────────────
 
-test('los cuatro momentos: un verbo cada uno, sin cifras y sin nombrar nada congelado o apagado', () => {
+test('los tres momentos: un verbo cada uno, sin cifras y sin nombrar nada congelado o apagado', () => {
   const fuente = leer('components/web/home/Momentos.tsx');
   const verbos = [...fuente.matchAll(/verbo: '([^']+)'/g)].map((m) => m[1]);
   const textos = [...fuente.matchAll(/texto: '([^']+)'/g)].map((m) => m[1]);
-  assert.deepEqual(verbos, ['Reserva.', 'Repite.', 'Cubre.', 'Cobra.']);
-  assert.equal(textos.length, 4);
+  assert.deepEqual(verbos, ['Reserva.', 'Repite.', 'Cobra.']);
+  assert.equal(textos.length, 3);
   for (const t of textos) {
     assert.doesNotMatch(t, CIFRA, t);
     assert.doesNotMatch(t, /ClassPass|Wellhub|Urban|Gmail|Kiosko|Network|Core|Veri\*?Factu/i, t);
   }
-  // La sustitución espera el sí de la propietaria: es el modo por defecto (asistido).
-  assert.match(textos[2], /espera tu sí/);
+  // Nada de «baja cubierta» / sustituciones en la home (orden del fundador, 25-oct-2026).
+  for (const t of textos) assert.doesNotMatch(t, /sustitu|cubre|baja/i, t);
 });
 
 // ── Migración ───────────────────────────────────────────────────────────────

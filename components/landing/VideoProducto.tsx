@@ -28,7 +28,7 @@
 
 const ANCHO = 1920;
 const ALTO = 1080;
-const ALT = 'Tentare por dentro: quién cubre una baja, la semana entera en el calendario, reservas online y los cobros del mes.';
+const ALT = 'Tentare por dentro: la semana entera en el calendario, reservas online y los cobros del mes.';
 
 export function VideoProducto() {
   return (
