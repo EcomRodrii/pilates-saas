@@ -4639,8 +4639,8 @@ export async function cancelarSesionPorMinimoNoAlcanzado(params: {
 async function otorgarRecuperacionPlazaFijaSiAplica(
   admin: SupabaseClient,
   params: { studioId: string; socioId: string; reservaId: string; eraConfirmada: boolean },
-): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null; recuperacionAlCerrarSemana: boolean }> {
-  const nada = { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false };
+): Promise<{ recuperacionCreada: boolean; recuperacionCaducaEl: string | null; recuperacionAlCerrarSemana: boolean; recuperacionSoloEstaSemana: boolean }> {
+  const nada = { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false, recuperacionSoloEstaSemana: false };
   if (!esReservaPlazaFija(params.reservaId) || !params.eraConfirmada) return nada;
 
   // `cancelada_tardia` la escribe el trigger al cancelar, con la ventana del
@@ -4652,7 +4652,7 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
 
   const [{ data: ses }, { data: estudio }, { data: susRows }, { data: planRows }] = await Promise.all([
     admin.from('sesiones').select('tipo_clase_id').eq('id', reserva.sesion_id as string).maybeSingle(),
-    admin.from('studios').select('recuperacion_auto_semanal').eq('id', params.studioId).maybeSingle(),
+    admin.from('studios').select('recuperacion_auto_semanal, recuperacion_solo_en_la_semana').eq('id', params.studioId).maybeSingle(),
     admin.from('suscripciones').select('*').eq('studio_id', params.studioId).eq('socio_id', params.socioId).eq('estado', 'ACTIVA'),
     admin.from('planes_tarifa').select('*').eq('studio_id', params.studioId),
   ]);
@@ -4664,6 +4664,9 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
     return !!plan && planLimitaSemanaDeClase(plan, tipoClaseId);
   });
   if (!leSirve) return nada;
+  // «La semana es la ventana»: el hueco que libera ya es lo único que se le da, y solo hasta el domingo
+  // (el límite semanal no cuenta una reserva cancelada). Ni crédito ahora ni crédito al cerrar la semana.
+  if (estudio?.recuperacion_solo_en_la_semana === true) return { ...nada, recuperacionSoloEstaSemana: true };
   if (estudio?.recuperacion_auto_semanal === true) return { ...nada, recuperacionAlCerrarSemana: true };
 
   const recupId = `recup-${uid()}`;
@@ -4683,7 +4686,7 @@ async function otorgarRecuperacionPlazaFijaSiAplica(
     const { data: fila } = await admin.from('recuperaciones').select('caduca_el').eq('id', recupId).maybeSingle();
     recuperacionCaducaEl = (fila?.caduca_el as string | undefined) ?? null;
   }
-  return { recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana: false };
+  return { recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana: false, recuperacionSoloEstaSemana: false };
 }
 
 export async function ejecutarCancelacionReserva(
@@ -4719,6 +4722,8 @@ export async function ejecutarCancelacionReserva(
   // mostrador y portal enseñen el mismo "recupérala antes del [fecha]".
   recuperacionCreada: boolean; recuperacionCaducaEl: string | null;
   recuperacionAlCerrarSemana: boolean;
+  /** «La semana es la ventana»: se le dice que puede reservar otra clase de esta semana y que no hay recuperación. */
+  recuperacionSoloEstaSemana: boolean;
 } | { error: string }> {
   // Con motivo, se mira ANTES si la reserva seguía activa: `cancelar_reserva_plaza`
   // no falla sobre una reserva ya CANCELADA (sale sin tocar nada), así que sin
@@ -4847,20 +4852,20 @@ export async function ejecutarCancelacionReserva(
   }
 
   const eraConfirmada = row?.era_confirmada === true;
-  const { recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana } =
+  const { recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana, recuperacionSoloEstaSemana } =
     params.otorgarRecuperacionPlazaFija !== false && cancelada?.socio_id
       ? await otorgarRecuperacionPlazaFijaSiAplica(admin, {
           studioId: params.studioId, socioId: cancelada.socio_id as string,
           reservaId: params.reservaId, eraConfirmada,
         })
-      : { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false };
+      : { recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false, recuperacionSoloEstaSemana: false };
 
   return {
     ok: true as const, tardia, bonoDevuelto, eraConfirmada,
     promovidaSocioId: (row?.promovida_socio_id as string | null) ?? null,
     ofertaSocioId: (row?.oferta_socio_id as string | null) ?? null,
     ofertaExpiraEn: (row?.oferta_expira_en as string | null) ?? null,
-    recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana,
+    recuperacionCreada, recuperacionCaducaEl, recuperacionAlCerrarSemana, recuperacionSoloEstaSemana,
   };
 }
 

@@ -12,6 +12,7 @@ export interface RespuestaCancelar {
   recuperacionCreada?: boolean;
   recuperacionCaducaEl?: string | null;
   recuperacionAlCerrarSemana?: boolean;
+  recuperacionSoloEstaSemana?: boolean;
   bonoDevuelto?: boolean;
 }
 
@@ -24,6 +25,9 @@ export function mensajeTrasCancelar(
   const hasta = res.recuperacionCaducaEl ? ` hasta el ${opciones.fechaCorta(res.recuperacionCaducaEl)}` : '';
   const prefijo = opciones.esClaseFija ? 'Cancelada solo esta semana' : 'Cancelada';
   if (res.recuperacionCreada) return `${prefijo} · tienes una clase para recuperar${hasta} ✓`;
+  if (res.recuperacionSoloEstaSemana) {
+    return `${prefijo} · puedes reservar otra clase de esta semana, hasta el domingo ✓`;
+  }
   if (res.recuperacionAlCerrarSemana) {
     return `${prefijo} · si no usas ese hueco esta semana, al acabarla tendrás una clase para recuperar ✓`;
   }

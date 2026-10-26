@@ -133,6 +133,7 @@ export interface RespuestaNoVoy {
   recuperacionCreada?: boolean;
   recuperacionCaducaEl?: string | null;
   recuperacionAlCerrarSemana?: boolean;
+  recuperacionSoloEstaSemana?: boolean;
 }
 
 /**
@@ -141,6 +142,7 @@ export interface RespuestaNoVoy {
  * cuando volver no le regala nada ni le esconde nada:
  * - con una recuperación ya creada, NO: se quedaría con la clase y la recuperación;
  * - tardía, NO: volver a ir no anula la cancelación tardía (ni una penalización);
+ * - con «la semana es la ventana», SÍ: el hueco es lo único que se le da y vale hasta el domingo;
  * - si la recuperación se reparte al cerrar la semana, SÍ: el barrido no compensa
  *   una clase a la que volvió (`canceladasCompensables`).
  */
@@ -151,6 +153,12 @@ export function trasNoIr(res: RespuestaNoVoy, fechaCorta: (iso: string) => strin
   }
   if (res.tardia) {
     return { texto: 'Fuera de plazo: esta vez no hay clase para recuperar. Tu clase fija sigue activa.', invitarAReservar: false };
+  }
+  if (res.recuperacionSoloEstaSemana) {
+    return {
+      texto: 'Puedes reservar otra clase de esta semana, hasta el domingo; si no, la pierdes. Tu clase fija sigue activa.',
+      invitarAReservar: true,
+    };
   }
   if (res.recuperacionAlCerrarSemana) {
     return {
