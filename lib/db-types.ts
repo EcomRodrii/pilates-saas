@@ -1146,7 +1146,7 @@ export interface RowStudios {
   cobro_proporcional_dias_minimos: number | null;
   // migr 20261022081316.
   cobro_dia_1_modo: string | null;
-  // migr 20261027120000.
+  // migr 20261026234549.
   recuperacion_solo_en_la_semana: boolean | null;
 }
 

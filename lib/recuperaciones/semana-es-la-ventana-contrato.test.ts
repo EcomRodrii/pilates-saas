@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// «La semana es la ventana» (migración 20261027120000): un estudio con `recuperacion_solo_en_la_semana` no concede NINGUNA
+// «La semana es la ventana» (migración 20261026234549): un estudio con `recuperacion_solo_en_la_semana` no concede NINGUNA
 // recuperación por cancelar, ni al cancelar una plaza fija a tiempo ni en el barrido de los lunes. Lo que da una persona a mano,
 // el CSV y la compensación por un fallo del estudio siguen. El efecto sobre el límite semanal lo cubre `calcular_excede_limite_semanal`
 // (una reserva cancelada no cuenta); aquí se fija que los dos caminos AUTOMÁTICOS respetan el ajuste y que nace apagado.
@@ -12,7 +12,7 @@ const raiz = join(import.meta.dirname, '..', '..');
 const leer = (f: string) => readFileSync(join(raiz, f), 'utf8');
 
 test('la migración añade la columna apagada de serie y la deja guardar desde Configuración', () => {
-  const sql = leer('supabase/migrations/20261027120000_recuperacion_solo_en_la_semana.sql').replace(/--.*$/gm, '');
+  const sql = leer('supabase/migrations/20261026234549_recuperacion_solo_en_la_semana.sql').replace(/--.*$/gm, '');
   assert.match(sql, /add column if not exists recuperacion_solo_en_la_semana boolean not null default false/);
   assert.match(sql, /grant update \(recuperacion_solo_en_la_semana\) on public\.studios to authenticated/);
 });

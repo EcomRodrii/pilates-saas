@@ -353,7 +353,7 @@ export interface Studio {
   bloquearReservaImpago: boolean;
   /** Otorgar recuperaciones solas al cerrar la semana. Solo planes con límite semanal. */
   recuperacionAutoSemanal: boolean;
-  /** La semana es la ventana: cancelar a tiempo solo libera el hueco de esa semana, sin conceder recuperación (migr 20261027120000). */
+  /** La semana es la ventana: cancelar a tiempo solo libera el hueco de esa semana, sin conceder recuperación (migr 20261026234549). */
   recuperacionSoloEnLaSemana?: boolean;
   // Migr 20260914104856: si la instructora puede crear sus propias clases (en el
   // panel y en la app del estudio). Ausente = true, el comportamiento de siempre
