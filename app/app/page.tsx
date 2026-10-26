@@ -368,10 +368,14 @@ export default function EntradaApp() {
               style={{ letterSpacing: '.4em', fontSize: 22, fontWeight: 800, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}
             />
             <Button type="submit" full loading={codigo.verificando}>Entrar</Button>
+            {/* Una contraseña de seis cifras escrita aquí se toma por un código (y falla): se avisa a la vista. */}
+            <p className="t-meta" style={{ margin: 0, textAlign: 'center', lineHeight: 1.45 }}>
+              Aquí va solo el código del correo. <b>Si tienes contraseña, no la escribas en esta casilla</b>: pulsa «Usar mi contraseña».
+            </p>
             <button type="button" onClick={() => void codigo.pedirOtro()} disabled={codigo.espera > 0 || codigo.reenviando} aria-busy={codigo.reenviando} style={{ ...enlace, color: codigo.espera > 0 ? 'var(--muted-foreground)' : 'var(--accent)' }}>
               {codigo.reenviando ? 'Enviando…' : codigo.espera > 0 ? `${codigo.reenviado ? 'Te lo hemos vuelto a mandar. ' : ''}Otro en ${codigo.espera} s` : 'No me ha llegado: volver a enviar'}
             </button>
-            <button type="button" onClick={() => { setGlobal(''); setFase('contrasena'); }} style={{ ...enlace, color: 'var(--muted-foreground)' }}>
+            <button type="button" onClick={() => { setGlobal(''); setFase('contrasena'); }} style={{ ...enlace, color: 'var(--accent)', fontWeight: 800 }}>
               Usar mi contraseña
             </button>
             {captcha}
