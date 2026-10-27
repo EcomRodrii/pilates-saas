@@ -247,6 +247,14 @@ export default function EntradaApp() {
   const continuar = async () => {
     if (!emailValido(email)) { setErrEmail('Escribe un email válido'); return; }
     setErrEmail(''); setGlobal(''); setCargando(true);
+    // La cuenta de demostración de la revisión de Apple no recibe código: directa a la contraseña.
+    try {
+      const r = await fetch('/api/app/cuenta-revision', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: email.trim() }),
+      });
+      const d = r.ok ? (await r.json().catch(() => null)) as { contrasena?: boolean } | null : null;
+      if (d?.contrasena === true) { setCargando(false); setFase('contrasena'); return; }
+    } catch { /* sin red o fallo: la entrada de siempre */ }
     const res = await enviarCodigo();
     setCargando(false);
     if ('error' in res) { setGlobal(res.error); return; }
