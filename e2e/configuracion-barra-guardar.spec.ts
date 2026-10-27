@@ -52,6 +52,7 @@ const FILA: Record<string, unknown> = {
   recuperacion_caducidad_tipo: 'DIAS',
   recuperacion_caducidad_dias: 45,
   recuperacion_auto_semanal: false,
+  recuperacion_solo_en_la_semana: false,
   recuperacion_max_vivas: 4,
   permite_lista_espera: true,
   lista_espera_plazo_aceptacion_minutos: 15,
@@ -67,7 +68,7 @@ const FILA: Record<string, unknown> = {
 
 // Las columnas de cada cajón (lib/configuracion/reglas-reserva.ts).
 const CANCELAR = ['cancelacion_ventana_horas', 'cancelacion_devolver_bono_tardia', 'cancelacion_tardia_devuelve_recuperacion'];
-const RECUPERACIONES = ['recuperacion_max_vivas', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal'];
+const RECUPERACIONES = ['recuperacion_max_vivas', 'recuperacion_caducidad_tipo', 'recuperacion_caducidad_dias', 'recuperacion_auto_semanal', 'recuperacion_solo_en_la_semana'];
 const RESERVAR = ['reserva_exigir_plan', 'reserva_ventana_minima_minutos', 'reserva_antelacion_maxima_dias', 'reserva_antelacion_hora', 'reserva_max_simultaneas', 'reserva_max_por_dia', 'reserva_pendiente_cuenta_para_tope', 'bloquear_reserva_impago', 'requiere_aprobacion'];
 const deFila = (columnas: string[]) => Object.fromEntries(columnas.map(c => [c, FILA[c]]));
 

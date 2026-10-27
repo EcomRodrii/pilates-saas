@@ -926,6 +926,7 @@ export function resumenRegla(
         excepciones,
         fraseCaducidadRecuperacion(r.recuperacionCaducidadTipo, r.recuperacionCaducidadDias),
         r.recuperacionAutoSemanal ? 'se dan solas los lunes' : null,
+        r.recuperacionSoloEnLaSemana ? 'cancelar no da recuperación: la semana es la ventana' : null,
       ]);
     case 'si-se-cancela-una-clase':
       return u([

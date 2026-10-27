@@ -27,6 +27,11 @@ export type ResultadoCancelar =
        * hueco que acaba de liberar.
        */
       recuperacionAlCerrarSemana: boolean;
+      /**
+       * Estudio con «la semana es la ventana»: no hay recuperación; puede reservar otra
+       * clase de esta misma semana (lunes a domingo) y, si no la usa, la pierde.
+       */
+      recuperacionSoloEstaSemana: boolean;
       /** `false` si estaba en lista de espera: salir de la cola no devuelve nada. */
       eraConfirmada: boolean;
     }
@@ -58,7 +63,7 @@ export async function cancelarReserva(
     }
 
     const cuerpo = (await res.json().catch(() => null)) as
-      | { ok?: true; tardia?: boolean; bonoDevuelto?: boolean; eraConfirmada?: boolean; recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; error?: string }
+      | { ok?: true; tardia?: boolean; bonoDevuelto?: boolean; eraConfirmada?: boolean; recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; recuperacionSoloEstaSemana?: boolean; error?: string }
       | null;
 
     if (!res.ok || !cuerpo?.ok) {
@@ -76,6 +81,7 @@ export async function cancelarReserva(
       recuperacionCreada: cuerpo.recuperacionCreada === true,
       recuperacionCaducaEl: cuerpo.recuperacionCaducaEl ?? null,
       recuperacionAlCerrarSemana: cuerpo.recuperacionAlCerrarSemana === true,
+      recuperacionSoloEstaSemana: cuerpo.recuperacionSoloEstaSemana === true,
     };
   } catch {
     // Se cayó la red a mitad. No sabemos si llegó a cancelarse, así que NO se

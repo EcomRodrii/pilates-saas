@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true, yaCancelada: true, tardia: false, bonoDevuelto: false, eraConfirmada: false,
       promovidaSocioId: null, ofertaSocioId: null, ofertaExpiraEn: null,
-      recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false,
+      recuperacionCreada: false, recuperacionCaducaEl: null, recuperacionAlCerrarSemana: false, recuperacionSoloEstaSemana: false,
     });
   }
 

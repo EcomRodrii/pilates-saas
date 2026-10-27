@@ -5086,6 +5086,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('controlAccesoQr' in changes) db.control_acceso_qr = changes.controlAccesoQr;
   if ('bloquearReservaImpago' in changes) db.bloquear_reserva_impago = changes.bloquearReservaImpago;
   if ('recuperacionAutoSemanal' in changes) db.recuperacion_auto_semanal = changes.recuperacionAutoSemanal;
+  if ('recuperacionSoloEnLaSemana' in changes) db.recuperacion_solo_en_la_semana = changes.recuperacionSoloEnLaSemana;
   if ('instructorasCreanClases' in changes) db.instructoras_crean_clases = changes.instructorasCreanClases;
   if ('visibleEnNetwork' in changes) db.visible_en_network = changes.visibleEnNetwork;
   if ('onboardingDescartadoEn' in changes) db.onboarding_descartado_en = changes.onboardingDescartadoEn;
@@ -5510,6 +5511,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     controlAccesoQr: r.control_acceso_qr ?? true,
     bloquearReservaImpago: r.bloquear_reserva_impago ?? false,
     recuperacionAutoSemanal: r.recuperacion_auto_semanal ?? false,
+    recuperacionSoloEnLaSemana: r.recuperacion_solo_en_la_semana ?? false,
     instructorasCreanClases: r.instructoras_crean_clases ?? true,
     stripeTerminalReaderId: r.stripe_terminal_reader_id ?? null,
     stripeTerminalLocationId: r.stripe_terminal_location_id ?? null,

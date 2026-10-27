@@ -509,6 +509,12 @@ export function FormRecuperaciones(props: PropsCajonRegla) {
           on={form.recuperacionAutoSemanal}
           onChange={v => cambiar('recuperacionAutoSemanal', v)}
         />
+        <InterruptorCampo
+          titulo="La semana es la ventana: sin recuperaciones al cancelar"
+          detalle="Quien cancela a tiempo solo puede reservar otra clase de esa misma semana, de lunes a domingo. Si no la usa, la pierde: no se le da ninguna recuperación ni se acumula nada."
+          on={form.recuperacionSoloEnLaSemana}
+          onChange={v => cambiar('recuperacionSoloEnLaSemana', v)}
+        />
         <Consecuencia texto={consecuenciaRegla('recuperaciones', r.enPantalla)} />
       </div>
       <Barra tarjeta="recuperaciones" r={r} />

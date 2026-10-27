@@ -50,7 +50,9 @@ export async function otorgarRecuperacionesSemanales(
   let estudiosMirados = 0;
 
   const { data: estudios } = await admin
-    .from('studios').select('id').eq('recuperacion_auto_semanal', true);
+    .from('studios').select('id').eq('recuperacion_auto_semanal', true)
+    // «La semana es la ventana»: ese estudio no concede nada por cancelar, ni siquiera al cerrar la semana.
+    .eq('recuperacion_solo_en_la_semana', false);
   if (!estudios?.length) return vacio;
 
   let otorgadas = 0;

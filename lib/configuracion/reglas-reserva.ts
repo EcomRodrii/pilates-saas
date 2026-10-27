@@ -56,6 +56,7 @@ export interface ReglasReserva {
   recuperacionCaducidadTipo: 'DIAS' | 'FIN_MES' | 'FIN_MES_SIGUIENTE';
   recuperacionCaducidadDias: number | null;
   recuperacionAutoSemanal: boolean;
+  recuperacionSoloEnLaSemana: boolean;
   permiteListaEspera: boolean;
   listaEsperaPlazoAceptacionMinutos: number;
   /** Una plaza ofrecida a la lista de espera, dentro de su plazo, ¿es de quien la tiene o de quien llega antes? De serie, de quien llega antes. */
@@ -82,7 +83,7 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
   'cancelar-y-recuperar': ['cancelacionVentanaHoras', 'cancelacionDevolverBonoTardia', 'cancelacionTardiaDevuelveRecuperacion'],
   // 30-sep: la caducidad y el reparto semanal se mudaron aquí desde «Cancelar y
   // recuperar», junto al tope, que antes era un 4 fijo.
-  recuperaciones: ['recuperacionMaxVivas', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal'],
+  recuperaciones: ['recuperacionMaxVivas', 'recuperacionCaducidadTipo', 'recuperacionCaducidadDias', 'recuperacionAutoSemanal', 'recuperacionSoloEnLaSemana'],
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos', 'listaEsperaReservaPlazaOfrecida'],
   asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
@@ -122,6 +123,7 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     recuperacionCaducidadTipo: s?.recuperacionCaducidadTipo ?? 'FIN_MES_SIGUIENTE',
     recuperacionCaducidadDias: s?.recuperacionCaducidadDias ?? null,
     recuperacionAutoSemanal: s?.recuperacionAutoSemanal ?? false,
+    recuperacionSoloEnLaSemana: s?.recuperacionSoloEnLaSemana ?? false,
     permiteListaEspera: s?.permiteListaEspera ?? true,
     listaEsperaPlazoAceptacionMinutos: s?.listaEsperaPlazoAceptacionMinutos ?? 0,
     listaEsperaReservaPlazaOfrecida: s?.listaEsperaReservaPlazaOfrecida ?? false,
@@ -428,6 +430,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       return frase('cancela-tarde') || frase('cancela-a-tiempo');
     case 'recuperaciones': {
       const n = r.recuperacionMaxVivas;
+      if (r.recuperacionSoloEnLaSemana) return 'Quien cancela a tiempo solo puede reservar otra clase de esa misma semana (lunes a domingo): si no la usa, la pierde, y no se le da recuperación. Las que des tú a mano siguen valiendo.';
       return `Con ${n} sin usar, no se le da otra hasta que use o le caduque una. Si bajas el número, quien ya tenga más las conserva.`;
     }
     case 'si-se-cancela-una-clase': {

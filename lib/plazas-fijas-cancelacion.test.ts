@@ -39,3 +39,7 @@ test('textoTrasQuitar: dice lo que decidió el servidor', () => {
   assert.equal(textoTrasQuitar({}, 'recuperacion'), 'Quitada · vuelve a tener su clase para recuperar');
   assert.equal(textoTrasQuitar({}, null), null);
 });
+
+test('«la semana es la ventana»: el panel dice que puede reservar otra clase de esta semana', () => {
+  assert.equal(textoTrasQuitar({ recuperacionSoloEstaSemana: true }, 'fija'), 'Quitada · puede reservar otra clase de esta semana, hasta el domingo');
+});

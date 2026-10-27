@@ -160,3 +160,12 @@ test('…y la de ella: sin cuota no se le enseña un interruptor que no va a enc
   assert.match(ni.pasos[0], /cuota/);
   assert.equal(ni.conBono, null);
 });
+
+test('«la semana es la ventana»: tras «no voy» puede reservar otra de esta semana y si no, la pierde', () => {
+  const fc = (iso: string) => iso;
+  const r = trasNoIr({ eraConfirmada: true, recuperacionSoloEstaSemana: true }, fc);
+  assert.match(r.texto, /otra clase de esta semana, hasta el domingo/);
+  assert.match(r.texto, /la pierdes/);
+  assert.match(r.texto, /clase fija sigue activa/);
+  assert.equal(r.invitarAReservar, true);
+});

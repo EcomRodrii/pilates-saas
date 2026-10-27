@@ -38,3 +38,13 @@ test('una clase fija cancelada a tiempo con cuota limitada: se guarda una recupe
     /^Cancelada solo esta semana · si no usas ese hueco esta semana/,
   );
 });
+
+test('«la semana es la ventana»: no hay recuperación, y se le dice que puede reservar otra clase hasta el domingo', () => {
+  const normalConVentana = mensajeTrasCancelar({ eraConfirmada: true, recuperacionSoloEstaSemana: true }, normal);
+  assert.equal(normalConVentana, 'Cancelada · puedes reservar otra clase de esta semana, hasta el domingo ✓');
+  assert.equal(
+    mensajeTrasCancelar({ eraConfirmada: true, recuperacionSoloEstaSemana: true }, fija),
+    'Cancelada solo esta semana · puedes reservar otra clase de esta semana, hasta el domingo ✓',
+  );
+  assert.doesNotMatch(normalConVentana, /recuperar ✓|tienes una clase/);
+});

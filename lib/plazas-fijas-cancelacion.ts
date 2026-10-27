@@ -46,12 +46,15 @@ export function avisoQuitarReserva(estado: EstadoReserva, marca: MarcaReserva): 
  * aviso de siempre (reserva normal sin recuperación).
  */
 export function textoTrasQuitar(
-  res: { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean },
+  res: { recuperacionCreada?: boolean; recuperacionCaducaEl?: string | null; recuperacionAlCerrarSemana?: boolean; recuperacionSoloEstaSemana?: boolean },
   marca: MarcaReserva,
 ): string | null {
   if (res.recuperacionCreada) {
     const hasta = res.recuperacionCaducaEl ? ` hasta el ${fechaCortaEstudio(`${res.recuperacionCaducaEl}T12:00:00Z`)}` : '';
     return `Quitada · tendrá una clase para recuperar${hasta}`;
+  }
+  if (res.recuperacionSoloEstaSemana) {
+    return 'Quitada · puede reservar otra clase de esta semana, hasta el domingo';
   }
   if (res.recuperacionAlCerrarSemana) {
     return 'Quitada · si no usa ese hueco esta semana, tendrá una clase para recuperar al acabarla';
