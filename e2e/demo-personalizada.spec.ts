@@ -85,6 +85,7 @@ async function elegirCentro(page: Page, nombre = 'Yoga') {
 async function rellenarDatos(page: Page) {
   // React tiene que haber hidratado antes de que lo escrito cuente.
   await expect(async () => {
+    await page.getByLabel('Tu nombre').fill('');
     await page.getByLabel('Tu nombre').fill('Marta Gil');
     await expect(page.getByLabel('Tu nombre')).toHaveValue('Marta Gil');
   }).toPass({ timeout: 20_000 });
@@ -94,6 +95,8 @@ async function rellenarDatos(page: Page) {
 }
 async function escribirATenti(page: Page, texto: string) {
   await expect(async () => {
+    // Vaciar antes: si el texto ya estaba en el DOM (antes de hidratar), rellenar lo mismo no dispara el evento.
+    await page.getByRole('textbox', { name: 'Escribe tu duda' }).fill('');
     await page.getByRole('textbox', { name: 'Escribe tu duda' }).fill(texto);
     await expect(page.getByRole('button', { name: 'Enviar' })).toBeEnabled({ timeout: 1_500 });
   }).toPass({ timeout: 20_000 });
