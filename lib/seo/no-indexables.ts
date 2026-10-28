@@ -22,6 +22,8 @@ export const PREFIJOS_NO_INDEXABLES = [
   // Aterrizaje para el enlace de la bio de TikTok (app/empieza): repite las
   // promesas de la home y competiría con ella en el buscador.
   '/empieza',
+  // La demo personalizada con Tenti (app/demo): una herramienta con estado, no contenido.
+  '/demo',
   // Puente del magic link para el widget embebido (Modo B) — se abre en una
   // pestaña emergente y se cierra sola, nunca contenido a visitar (Fase 2 del
   // Booking Engine, docs/auth-widget-diseno.md §2/§6).

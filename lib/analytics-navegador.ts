@@ -37,6 +37,14 @@ export const EVENTOS_NAVEGADOR = {
   landing_click_alta: ['ubicacion', 'pagina'],
   landing_click_whatsapp: ['ubicacion', 'pagina'],
   landing_precio_visto: [],
+  // ── Demo personalizada (/demo) ───────────────────────────────────────────
+  // Solo qué hizo y en qué escenario: nunca lo que escribió ni sus datos.
+  demo_abierta: [],
+  demo_datos_enviados: ['centro'],
+  demo_propuesta: ['tipo'],
+  demo_paso: ['escenario', 'n'],
+  demo_evaluada: ['respuesta'],
+  demo_ir_al_alta: [],
   landing_video_reproducido: [],
   herramienta_usada: ['herramienta'],
   recurso_descarga_pedida: ['recurso', 'novedades'],
