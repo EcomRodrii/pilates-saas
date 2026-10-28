@@ -17,14 +17,16 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 
 const STORAGE_KEY = 'sb-example-auth-token';
 
+// Relativas a hoy: con fechas fijas, estas cuentas «activas» acaban pasando de los 90 días y la pantalla las señala como dormidas (rompió el e2e el 28-oct-2026).
+const hace = (dias: number) => new Date(Date.now() - dias * 86_400_000).toISOString();
 const MARCO = {
   userId: 'u-marco', email: 'marco@tentare.app', nombre: 'Marco', cargo: 'Fundador y CEO',
-  activo: true, creadoEn: '2026-01-01T00:00:00Z', ultimoAcceso: '2026-07-28T10:00:00Z',
+  activo: true, creadoEn: '2026-01-01T00:00:00Z', ultimoAcceso: hace(1),
   permisos: ['admin.full'],
 };
 const MERI = {
   userId: 'u-meri', email: 'meri@tentare.app', nombre: 'Meri', cargo: 'Cofundadora',
-  activo: true, creadoEn: '2026-01-01T00:00:00Z', ultimoAcceso: '2026-07-27T10:00:00Z',
+  activo: true, creadoEn: '2026-01-01T00:00:00Z', ultimoAcceso: hace(2),
   permisos: ['studios.read', 'billing.read', 'marketing.send', 'crm.update', 'logs.read'],
 };
 const ANTIGUO = {
