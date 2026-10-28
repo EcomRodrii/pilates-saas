@@ -17,9 +17,11 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 
 const STORAGE_KEY = 'sb-example-auth-token';
 
+// Entró hace nada: con una fecha fija, a los 90 días la fila se marca como «Sin
+// entrar» y el test de abajo, que busca esa frase en la página, encuentra dos.
 const MARCO = {
   userId: 'u-marco', email: 'marco@tentare.app', nombre: 'Marco', cargo: 'Fundador y CEO',
-  activo: true, creadoEn: '2026-01-01T00:00:00Z', ultimoAcceso: '2026-07-28T10:00:00Z',
+  activo: true, creadoEn: '2026-01-01T00:00:00Z', ultimoAcceso: new Date(Date.now() - 2 * 86_400_000).toISOString(),
   permisos: ['admin.full'],
 };
 const MERI = {
