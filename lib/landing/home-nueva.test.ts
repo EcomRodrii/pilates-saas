@@ -83,8 +83,12 @@ test('sin emojis en la home, y ningún degradado entre colores (el azul-magenta,
   const EMOJI = /\p{Emoji_Presentation}/u;
   assert.match('Hola 👋', EMOJI); // CONTROL
   assert.doesNotMatch('Ver más → ★', EMOJI);
+  // ÚNICA excepción, pedida por el fundador (28-oct-2026): el botón «DEMO PERSONALIZADA» (`.wh-boton-demo`) lleva un degradado
+  // animado en los colores de Tentare. Se exime SOLO esa regla; cualquier otro degradado entre colores sigue prohibido.
+  const REGLA_BOTON_DEMO = /\.wh-boton-demo\s*\{[^}]*\}/g;
+  assert.equal((leer('home.css').match(REGLA_BOTON_DEMO) ?? []).filter((r) => /gradient/.test(r)).length, 1, 'la excepción es de UNA regla con degradado');
   for (const f of FICHEROS) {
-    const fuente = leer(f);
+    const fuente = leer(f).replace(REGLA_BOTON_DEMO, '');
     assert.doesNotMatch(fuente, EMOJI, `${f} lleva un emoji`);
     // La única transición permitida es la capa de legibilidad del héroe: UN solo color
     // (la tinta) que cambia de opacidad. Nada de degradados entre colores.
