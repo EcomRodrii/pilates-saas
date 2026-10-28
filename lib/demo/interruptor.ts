@@ -11,6 +11,11 @@
 // llega a producción con el siguiente despliegue de CÓDIGO (ver «Un merge de
 // solo documentación NO despliega» en .claude/tentare-os.md), y la home se
 // regenera cada hora, así que el botón puede tardar hasta una hora en salir.
+//
+// ⚠️ El botón «Redeploy» de Vercel sobre el MISMO commit no sirve para aplicar la
+// variable: el `ignoreCommand` de vercel.json cancela el build si el diff contra
+// lo ya desplegado está vacío («Canceled by Ignored Build Step»). Hace falta un
+// commit nuevo que toque código (el primero, #2849→este, se hizo así el 28-oct-2026).
 
 export interface EstadoDemo {
   /** ¿Se puede abrir /demo (con el parámetro, si hace falta)? */
