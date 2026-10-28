@@ -72,7 +72,17 @@ export function forzarCarga(): Promise<SDK | null> {
           // existe un puente nativo que esta app nunca declara — visto en
           // /legal (Sentry NEXTJS-X). No es un bug propio: ningún código de
           // este repo referencia `window.webkit`.
-          ignoreErrors: [/window\.webkit\.messageHandlers/],
+          ignoreErrors: [
+            /window\.webkit\.messageHandlers/,
+            // La transición entre pantallas del panel (`<ViewTransition>`) se
+            // cancela cuando el navegador cambia el tamaño de la ventana a mitad
+            // (en Android, la barra de direcciones que se esconde o aparece). El
+            // contenido sigue cambiando; solo se pierde la animación, y React lo
+            // reporta como error recuperable. Visto en /cobros (JAVASCRIPT-NEXTJS-3X,
+            // un solo usuario, Chrome Mobile). Texto exacto: cualquier otro error de
+            // transición sigue llegando.
+            /Transition was aborted because of invalid state\. Viewport size changed/,
+          ],
           // Google Translate: cuando alguien nos lee a través de
           // `*.translate.goog`, su runtime (`el_main`) inyecta su propio JS y
           // sus rechazos de promesa acaban aquí atribuidos a nuestra ruta.
