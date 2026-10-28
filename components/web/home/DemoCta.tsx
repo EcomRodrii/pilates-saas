@@ -18,7 +18,7 @@ export function DemoCta() {
           <h2 id="wh-demo-h" className="wh-h2">¿Quieres ver Tentare por dentro?</h2>
           <p className="wh-lead">Cuéntanos qué necesitas resolver y descubre cómo funcionaría en tu estudio.</p>
           <div style={{ marginTop: 28 }}>
-            <Link href="/demo" className="wh-boton wh-boton-primario" data-demo-cta-boton>Crear mi demo personalizada</Link>
+            <Link href="/demo" className="wh-boton wh-boton-demo" data-demo-cta-boton>DEMO PERSONALIZADA</Link>
           </div>
         </div>
       </div>

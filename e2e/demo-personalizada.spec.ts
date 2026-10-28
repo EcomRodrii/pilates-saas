@@ -132,11 +132,11 @@ test.describe('pantalla de la demo', () => {
     await page.goto('/');
     const titular = page.getByRole('heading', { name: '¿Quieres ver Tentare por dentro?' });
     if (await titular.count() === 0) {
-      await expect(page.getByRole('link', { name: 'Crear mi demo personalizada' })).toHaveCount(0);
+      await expect(page.getByRole('link', { name: 'DEMO PERSONALIZADA' })).toHaveCount(0);
       return;
     }
     await expect(titular).toBeVisible();
-    await page.getByRole('link', { name: 'Crear mi demo personalizada' }).click();
+    await page.getByRole('link', { name: 'DEMO PERSONALIZADA' }).click();
     await expect(page).toHaveURL(/\/demo$/);
     await expect(page.getByRole('heading', { name: '¿Qué tipo de centro tienes?' })).toBeVisible();
   });
