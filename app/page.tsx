@@ -10,6 +10,8 @@ import { Etapas } from '@/components/web/home/Etapas';
 import { PrecioHome } from '@/components/web/home/PrecioHome';
 import { PreguntasHome } from '@/components/web/home/PreguntasHome';
 import { CierreHome } from '@/components/web/home/CierreHome';
+import { DemoCta } from '@/components/web/home/DemoCta';
+import { estadoDemo } from '@/lib/demo/interruptor';
 import '@/components/web/home/home.css';
 import { FranjaLogos } from '@/components/landing/FranjaLogos';
 import { logosClientesLanding } from '@/lib/landing/logos-clientes-servidor';
@@ -86,6 +88,7 @@ export default async function HomePage() {
       <Heroe logos={<FranjaLogos logos={logos} />} />
       <SeOcupaDelResto />
       <PestanasProducto />
+      {estadoDemo(process.env.DEMO_PERSONALIZADA).boton && <DemoCta />}
       <Momentos />
       <AntesDespues captura={CAPTURAS_APP.reservar.n} />
       <Etapas />

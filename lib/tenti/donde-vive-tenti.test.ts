@@ -206,6 +206,10 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // (estadoDelVeredicto → sin Tenti si aprobar cobra).
   'components/decision/veredicto-del-dia.tsx': { usos: 1, motivo: 'el veredicto del día: analizando, recién hecho, el mensaje que te pregunta o lo que el piloto no pudo; nunca junto a un cobro' },
   'components/asistente/asistente-flotante.tsx': { usos: 1, motivo: 'el botón flotante del chat «Pregúntale a Tentare»: la puerta del asistente en todas las pantallas del panel (fundador, 8-oct-2026)' },
+  // La demo personalizada de la landing (/demo, 28-oct-2026): la propietaria que aún no es clienta habla con Tenti, que entiende
+  // su duda y le prepara un recorrido. UN solo Tenti, en la cabecera del chat (no uno por mensaje: cada uno monta un canvas),
+  // «pensando» solo mientras la petición al servidor va (PENSANDO_CUANDO) y sin Tenti en la transición de «preparando».
+  'components/demo/ChatTenti.tsx': { usos: 1, motivo: 'la conversación de la demo personalizada: Tenti entiende la duda y prepara el recorrido (pedido del fundador)' },
   'app/(dashboard)/bienvenido-apertura/page.tsx': { usos: 1, motivo: 'las tres preguntas de apertura, donde estaba el Orb (ningún enlace trae aquí desde #2270)' },
 };
 
@@ -234,6 +238,8 @@ const PENSANDO_CUANDO: { fichero: string; variable: string; sinSpinner: boolean 
   { fichero: 'components/socios/ficha-salud.tsx', variable: 'adaptacionIALoading', sinSpinner: true },
   { fichero: 'components/socios/modal-nota-voz.tsx', variable: 'procesando', sinSpinner: true },
   { fichero: 'app/(dashboard)/migracion/page.tsx', variable: "paso === 'analizando'", sinSpinner: true },
+  // La petición a Tenti en la demo (/demo): `escribiendo` es la llamada al servidor en vuelo, con fin.
+  { fichero: 'components/demo/ChatTenti.tsx', variable: 'escribiendo', sinSpinner: true },
 ];
 
 // ── El personaje (canvas): quién puede importarlo. Cada entrada, con su motivo.

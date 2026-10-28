@@ -293,6 +293,15 @@ export default defineConfig({
       // firma su propio token con este mismo valor para probar /portal-preview/[slug]
       // sin pasar por sesión de staff real (que no existe en este entorno dummy).
       HOME_PREVIEW_TOKEN_SECRET: 'e2e-test-home-preview-secret',
+      // La demo personalizada (/demo): encendida para todos en e2e (el botón de la
+      // home se prueba así) y con un secreto fijo para que e2e/demo-personalizada
+      // firme su propia sesión y pruebe las rutas reales sin pasar por /iniciar
+      // (que necesita una base de datos). Sin clave de Anthropic A PROPÓSITO,
+      // aunque la máquina que lance la suite la tenga: el turno de Tenti tiene que
+      // caer en su salida de emergencia y nunca llamar a un modelo de verdad.
+      DEMO_PERSONALIZADA: 'on',
+      SUSTITUCION_TOKEN_SECRET: 'e2e-test-demo-secret',
+      ANTHROPIC_API_KEY: '',
       // Deja pasar la marca del estudio si el que lanza la suite la fija (ver
       // `E2E_COLOR_PRIMARIO` en lib/studio-seo.ts). Sin ella, '#1A1A1A'.
       ...(process.env.E2E_COLOR_PRIMARIO ? { E2E_COLOR_PRIMARIO: process.env.E2E_COLOR_PRIMARIO } : {}),
