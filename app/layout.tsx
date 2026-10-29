@@ -65,7 +65,7 @@ export const metadata: Metadata = {
 // el panel pide y deja el estudio ficticio de ejemplo: no sale ni una petición hacia la base de datos real. Una pestaña normal no
 // tiene la marca y no carga nada. La carga es síncrona (document.write) a propósito: tiene que ejecutarse ANTES de que el
 // cliente de Supabase se construya y capture `fetch`.
-const CARGADOR_PANEL_DEMO = `try{var d=JSON.parse(sessionStorage.getItem('tentare:demo-panel')||'null');if(d&&Date.now()-d.t<72e5){document.write('<script src="/demo-panel.js"><\\/script>')}}catch(e){}`;
+const CARGADOR_PANEL_DEMO = `try{var d=JSON.parse(sessionStorage.getItem('tentare:demo-panel')||'null');if(d&&Date.now()-d.t<72e5&&d.guia&&d.guia.pasos.some(function(p){return p.pantalla&&p.pantalla.ruta.split('?')[0]===location.pathname})){document.write('<script src="/demo-panel.js"><\\/script>')}}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

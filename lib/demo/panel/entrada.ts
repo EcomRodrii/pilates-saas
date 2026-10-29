@@ -43,9 +43,13 @@ function ajustarReglas(r: NonNullable<PantallaPanel['reglas']>) {
 }
 
 const marca = leerMarca();
+// Solo en las pantallas del recorrido: si la marca sigue viva y la persona vuelve a /demo (con «atrás», o escribiendo la
+// dirección), este panel de mentira no debe interceptar nada de esa página.
+const ruta = (p: { pantalla?: PantallaPanel }) => p.pantalla?.ruta.split('?')[0];
+const enElRecorrido = !!marca?.guia?.pasos.some((p) => ruta(p) === window.location.pathname);
 const paso = marca?.guia?.pasos[marca.guia.paso];
-if (paso?.pantalla?.bonos) ajustarBonos(paso.pantalla.bonos);
-if (paso?.pantalla?.reglas) ajustarReglas(paso.pantalla.reglas);
+if (enElRecorrido && paso?.pantalla?.bonos) ajustarBonos(paso.pantalla.bonos);
+if (enElRecorrido && paso?.pantalla?.reglas) ajustarReglas(paso.pantalla.reglas);
 
 // Nada de esto sale del navegador: el panel pinta un estudio ficticio, y todo lo que
 // «guarda» se queda en la memoria de esta pestaña.
@@ -55,6 +59,8 @@ const pagina = crearPagina({
     user: { id: 'auth-e2e-duena', email: 'demo@example.com', aud: 'authenticated', role: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' },
   },
 });
-window.__demoPanel = { sinAtender: pagina.sinAtender };
-void montar(pagina as never);
-if (marca) montarGuia(marca);
+if (enElRecorrido) {
+  window.__demoPanel = { sinAtender: pagina.sinAtender };
+  void montar(pagina as never);
+  if (marca) montarGuia(marca);
+}

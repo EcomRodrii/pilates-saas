@@ -106,7 +106,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
   const ficha = (restantes: number, hoy: string, titular?: string, detalle?: string): PantallaPanel => ({
     ruta: '/clientas/soc-1',
     bonos: [{ nombre: plan.nombre, restantes, total: p.sesionesTotales, caducaEnDias: dias(hoy, caducaISO) }],
-    titular, detalle, foco: plan.nombre,
+    titular, detalle, foco: [plan.nombre],
   });
 
   const regla = {
@@ -134,7 +134,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
 
   const pasos: PasoDemo[] = [
     {
-      pantalla: { ruta: '/configuracion?tab=reservas', reglas: { ventanaCancelacionHoras: p.ventanaCancelacionHoras, devolverBonoEnTardia: p.devolverEnTardia }, foco: 'Plazo para cancelar sin perder la sesión', titular: 'Las reglas del estudio', detalle: 'El plazo para cancelar y si se devuelve la sesión si se avisa tarde.' },
+      pantalla: { ruta: '/configuracion?tab=reservas', reglas: { ventanaCancelacionHoras: p.ventanaCancelacionHoras, devolverBonoEnTardia: p.devolverEnTardia }, foco: ['Plazo para cancelar sin perder la sesión', 'Cancelar y recuperar'], pistas: ['Este es el plazo: pasado, cancelar ya cuesta la sesión.', 'Pulsa «Cancelar y recuperar»: ahí se decide el plazo y si se devuelve la sesión.'], titular: 'Las reglas del estudio', detalle: 'El plazo para cancelar y si se devuelve la sesión si se avisa tarde.' },
       id: 'configuracion', titulo: 'Las reglas del estudio',
       proposito: 'Antes de que ocurra nada, el estudio decide dos cosas: cuánta antelación pide y si devuelve la sesión cuando se avisa tarde.',
       bloques: [
