@@ -101,24 +101,29 @@ export function bloquearNavegacion(ruta: string) {
   });
 }
 
-/** Rodea con un aro lo que importa de esta pantalla (lo busca por su texto) y lo trae a la vista. */
-export function resaltar(foco: string) {
-  const buscado = foco.toLowerCase();
+let textoGuia: HTMLElement | null = null;
+
+/**
+ * Rodea con un aro lo que importa de esta pantalla y lo trae a la vista. `focos` va del más concreto al más general: el aro
+ * se pone en el primero que está a la vista y, cuando la persona abre un cajón y aparece uno más concreto, se mueve a él
+ * (y la barra cambia a la pista de ese). Así cada paso se hace de verdad: «pulsa aquí» → «mira esto».
+ */
+export function resaltar(focos: string[], pistas: string[] | undefined, textoBase: string) {
   let anillo: HTMLDivElement | null = null;
   let elemento: Element | null = null;
-  const localizar = (): Element | null => {
+  let activo = -1;
+  const localizar = (buscado: string): Element | null => {
     const it = document.createNodeIterator(document.body, NodeFilter.SHOW_TEXT);
     for (let n = it.nextNode(); n; n = it.nextNode()) {
-      const t = (n.textContent ?? '').toLowerCase();
-      if (!t.includes(buscado)) continue;
+      if (!(n.textContent ?? '').toLowerCase().includes(buscado)) continue;
       let e = n.parentElement;
       if (!e || e.closest('#tentare-demo-guia')) continue;
       const r0 = e.getBoundingClientRect();
       if (r0.width === 0 || r0.height === 0) continue;
-      // Sube a la fila o tarjeta que lo contiene, sin llegar a media pantalla.
+      // Sube a la fila o a la celda que lo contiene, sin abarcar media pantalla ni una fila de varias celdas.
       for (let i = 0; i < 4 && e.parentElement; i++) {
-        const r = e.parentElement.getBoundingClientRect();
-        if (r.height > 160 || r.width > window.innerWidth * 0.9) break;
+        const rp = e.parentElement.getBoundingClientRect(), re = e.getBoundingClientRect();
+        if (rp.height > 160 || rp.width > window.innerWidth * 0.9 || rp.width > re.width * 1.8) break;
         e = e.parentElement;
       }
       return e;
@@ -127,12 +132,22 @@ export function resaltar(foco: string) {
   };
   const colocar = () => {
     if (!sombraGuia) return;
-    if (!elemento || !elemento.isConnected) {
-      elemento = localizar();
-      if (elemento) elemento.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // Un enlace que la demo no deja abrir se ve apagado: así se sabe qué es parte del recorrido y qué no.
+    const ruta = location.href;
+    document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
+      const fuera = !a.getAttribute('href')!.startsWith('#') && !esDireccionDelPaso(a.href, ruta);
+      if (fuera !== a.hasAttribute('data-demo-fuera')) a.toggleAttribute('data-demo-fuera', fuera);
+    });
+    let hallado = -1;
+    let el: Element | null = null;
+    for (let i = 0; i < focos.length && !el; i++) { el = localizar(focos[i].toLowerCase()); if (el) hallado = i; }
+    if (!el) { elemento = null; anillo?.remove(); anillo = null; activo = -1; return; }
+    if (hallado !== activo || el !== elemento) {
+      activo = hallado; elemento = el;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      if (textoGuia) textoGuia.textContent = pistas?.[hallado] ?? textoBase;
     }
-    if (!elemento) return;
-    const r = elemento.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     if (!anillo) { anillo = document.createElement('div'); anillo.className = 'anillo'; anillo.setAttribute('aria-hidden', 'true'); sombraGuia.append(anillo); }
     Object.assign(anillo.style, { left: `${r.left - 6}px`, top: `${r.top - 6}px`, width: `${r.width + 12}px`, height: `${r.height + 12}px` });
   };
@@ -159,7 +174,7 @@ export function montarGuia(m: MarcaPanel) {
     const bs = document.createElement('button'); bs.className = 'salir'; bs.type = 'button'; bs.textContent = 'Salir de la demo'; bs.onclick = () => salir(false);
     fila.append(n, bs);
     const h = document.createElement('h2'); h.textContent = titulo;
-    const t = document.createElement('p'); t.textContent = texto;
+    const t = document.createElement('p'); t.textContent = texto; textoGuia = t;
     const puntos = document.createElement('div'); puntos.className = 'puntos'; puntos.setAttribute('aria-hidden', 'true');
     guia.pasos.forEach((_, i) => { const e = document.createElement('i'); if (i <= guia.paso) e.className = 'h'; puntos.append(e); });
     const acciones = document.createElement('div'); acciones.className = 'acciones';
@@ -181,9 +196,9 @@ export function montarGuia(m: MarcaPanel) {
     // Sitio para poder desplazar el panel POR ENCIMA de la barra: sin él, lo de abajo (la tarjeta del plan, la lista de clases)
     // queda tapado y no se puede ver. Va en un <style> propio colgado de <html>, fuera de lo que React gestiona.
     const hueco = document.createElement('style');
-    hueco.textContent = 'body{padding-bottom:210px !important}';
+    hueco.textContent = 'body{padding-bottom:210px !important} a[data-demo-fuera]{opacity:.38 !important;cursor:not-allowed !important}';
     document.documentElement.append(hueco, anfitrion);
-    if (paso.pantalla?.foco) resaltar(paso.pantalla.foco);
+    if (paso.pantalla?.foco?.length) resaltar(paso.pantalla.foco, paso.pantalla.pistas, texto);
   };
   const rutaPaso = guia.pasos[guia.paso].pantalla?.ruta;
   if (rutaPaso) bloquearNavegacion(rutaPaso);

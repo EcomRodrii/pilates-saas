@@ -71,8 +71,9 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
 
   // Las pantallas REALES del panel que enseña cada paso (lib/demo/panel): Configuración con SUS reglas y el calendario.
   const reglasPanel = { ventanaCancelacionHoras: p.ventanaCancelacionHoras, recuperacionAutoSemanal: p.repartoAutomatico, recuperacionSoloEnLaSemana: p.soloEnLaSemana };
-  const config = (titular: string, detalle: string) => ({ ruta: '/configuracion?tab=reservas', reglas: reglasPanel, foco: 'Dar recuperaciones solas al cerrar la semana', titular, detalle });
-  const calendario = (titular: string, detalle: string) => ({ ruta: '/calendario', titular, detalle });
+  const config = (titular: string, detalle: string) => ({ ruta: '/configuracion?tab=reservas', reglas: reglasPanel, foco: ['Dar recuperaciones solas al cerrar la semana', 'Recuperaciones'], pistas: ['Aquí se decide si las recuperaciones se dan solas al cerrar la semana.', 'Pulsa «Recuperaciones»: ahí se decide si se dan solas y cuánto duran.'], titular, detalle });
+  // La semana de la alumna se ve en SU ficha (sus próximas clases), no en el calendario de todo el estudio.
+  const calendario = (titular: string, detalle: string) => ({ ruta: '/clientas/soc-1', foco: ['Próximas clases'], titular, detalle });
 
   const regla = {
     hueco: {
