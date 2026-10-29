@@ -12,6 +12,7 @@ import { CLAVE_ORIGEN_ALTA, nombrePasoAlta } from '@/lib/landing/medicion';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
+import { MarcoTarjeta } from '@/components/marca/marco-tarjeta';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { PlanGratisAlta } from '@/components/planes/plan-gratis-alta';
@@ -807,16 +808,14 @@ export function AltaEstudio({ foundingGratis }: { foundingGratis: boolean }) {
 
 function Marco({ children, ancho = false }: { children: React.ReactNode; ancho?: boolean }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-background px-4 py-8 sm:justify-center sm:py-12">
-      <div className={`mx-auto w-full ${ancho ? 'max-w-2xl' : 'max-w-md'} transition-[max-width] duration-300 motion-reduce:transition-none`}>
+    <MarcoTarjeta ancho={ancho ? 'normal' : 'estrecho'}>
+      <div className="flex flex-1 flex-col px-5 py-7 sm:px-8 sm:py-9">
         <Link href="/" className="mb-6 flex justify-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring" aria-label="Volver a la portada de Tentare">
           <LogoTentare alto={30} tinta="auto" />
         </Link>
-        <div className="rounded-3xl border border-border bg-card p-5 shadow-[0_20px_50px_-30px_rgba(26,26,26,.45)] sm:p-7">
-          {children}
-        </div>
+        {children}
       </div>
-    </div>
+    </MarcoTarjeta>
   );
 }
 

@@ -40,6 +40,8 @@ export interface PantallaPanel {
   /** Lo que ocurre en este paso, para la barra de guía. */
   titular?: string;
   detalle?: string;
+  /** Un trozo del texto que se ve en esa pantalla (una etiqueta, el nombre de un bono): la guía lo rodea con un aro y lo trae a la vista. */
+  foco?: string;
 }
 
 export interface PasoDemo {

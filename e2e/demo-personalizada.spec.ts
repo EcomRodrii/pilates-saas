@@ -183,14 +183,13 @@ test.describe('pantalla de la demo', () => {
     await page.getByRole('button', { name: 'Siguiente paso' }).click();
 
     await page.getByRole('button', { name: 'Terminar la demo' }).click();
-    await expect(page.getByRole('heading', { name: '¿Hemos resuelto tu duda?' })).toBeVisible();
-    // Nada se da por resuelto solo: hasta que no responde, no se ha llamado a evaluar.
+    await expect(page.getByRole('heading', { name: '¡Felicidades!' })).toBeVisible();
+    // Nada se da por resuelto solo: hasta que no pone su carita, no se ha llamado a evaluar.
     expect(c.evaluar).toBe(0);
-    await page.getByRole('button', { name: /Sí, lo tengo claro/ }).click();
+    await page.getByRole('button', { name: 'Muchísimo' }).click();
     await expect.poll(() => c.evaluaciones).toEqual(['resuelta']);
 
-    await expect(page.getByRole('heading', { name: /crea tu estudio en Tentare/ })).toBeVisible();
-    await page.getByRole('button', { name: 'Crear mi estudio' }).click();
+    // Y la carita la lleva sola a crear su estudio.
     await expect(page).toHaveURL(/\/crear-estudio/, { timeout: 120_000 });
     // El alta recibe lo ya escrito por el mismo borrador que ella usa (sin contraseña).
     const borrador = await page.evaluate(() => JSON.parse(localStorage.getItem('tentare:alta-nueva-borrador') ?? 'null'));
@@ -236,7 +235,7 @@ test.describe('pantalla de la demo', () => {
 
     // Vuelve a /demo directo a la valoración, sin pedir nada otra vez.
     await expect(page).toHaveURL(/\/demo$/);
-    await expect(page.getByRole('heading', { name: '¿Hemos resuelto tu duda?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '¡Felicidades!' })).toBeVisible();
     expect(fugas, 'ni una petición a la base de datos real desde el panel').toEqual([]);
     // Y ya no queda la marca: el panel de esta pestaña vuelve a ser el de verdad.
     expect(await page.evaluate(() => sessionStorage.getItem('tentare:demo-panel'))).toBeNull();
@@ -246,12 +245,33 @@ test.describe('pantalla de la demo', () => {
     test.setTimeout(240_000);
     await mockear(page);
     await hastaRecorrido(page);
+    // Con la demo en modo prueba se entra por /demo?prueba=1: al salir hay que volver a ESA dirección (sin ella daba 404).
+    await page.evaluate(() => history.replaceState(null, '', '/demo?prueba=1'));
     await page.getByRole('button', { name: 'Verla en el panel real' }).click();
     const guia = page.locator('#tentare-demo-guia');
     await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
     await guia.getByRole('button', { name: 'Salir de la demo' }).click();
-    await expect(page).toHaveURL(/\/demo$/);
+    await expect(page).toHaveURL(/\/demo\?prueba=1$/);
     expect(await page.evaluate(() => sessionStorage.getItem('tentare:demo-panel'))).toBeNull();
+  });
+
+  test('el panel de la demo NO deja ir a otros módulos: un enlace a otra pantalla se queda donde está y avisa', async ({ page }) => {
+    test.setTimeout(240_000);
+    await mockear(page);
+    await hastaRecorrido(page);
+    await page.getByRole('button', { name: 'Verla en el panel real' }).click();
+    const guia = page.locator('#tentare-demo-guia');
+    await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
+    const antes = page.url();
+    // Un enlace del propio panel a otro módulo (el menú lateral): se hace clic como lo haría una persona.
+    const destino = await page.evaluate(() => {
+      const a = [...document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]')].find((x) => !x.getAttribute('href')!.startsWith('/configuracion') && !x.closest('#tentare-demo-guia'));
+      a?.click();
+      return a?.getAttribute('href') ?? null;
+    });
+    expect(destino, 'el panel tiene enlaces a otros módulos').not.toBeNull();
+    await expect(guia.getByText(/solo recorre lo que has preguntado/)).toBeVisible();
+    expect(page.url()).toBe(antes);
   });
 
   test('una pestaña normal NO carga el panel de demostración, ni con una marca caducada', async ({ page }) => {
@@ -369,13 +389,13 @@ test.describe('pantalla de la demo', () => {
     await expect(page.getByLabel('Nombre de tu estudio')).toHaveValue('Estudio Luna');
   });
 
-  test('la valoración: cada respuesta lleva a un flujo y «otra duda» no pide los datos otra vez', async ({ page }) => {
+  test('la valoración: «preguntarle otra cosa a Tenti» vuelve al chat y no pide los datos otra vez', async ({ page }) => {
     const c = await mockear(page);
     await hastaRecorridoTexto(page);
     for (let n = 0; n < 12 && await page.getByRole('button', { name: 'Siguiente paso' }).count(); n++) await page.getByRole('button', { name: 'Siguiente paso' }).click();
     await page.getByRole('button', { name: 'Terminar la demo' }).click();
 
-    await page.getByRole('button', { name: /Tengo otra duda/ }).click();
+    await page.getByRole('button', { name: 'Prefiero preguntarle otra cosa a Tenti' }).click();
     await expect(page.getByRole('heading', { name: 'Tu duda, con Tenti' })).toBeVisible();
     await expect(page.getByText('Dime cuál es tu otra duda.')).toBeVisible();
     await expect(page.getByLabel('Nombre de tu estudio')).toHaveCount(0);
@@ -387,25 +407,6 @@ test.describe('pantalla de la demo', () => {
     await page.getByRole('button', { name: /Empezar mi demo/ }).click();
     await expect(page.getByRole('heading', { name: 'Tu duda, con Tenti' })).toBeVisible();
     expect(c.evaluaciones).toEqual(['otra_duda']);
-  });
-
-  test('«otro ejemplo» y «no es lo que necesito»', async ({ page }) => {
-    const c = await mockear(page);
-    await hastaRecorridoTexto(page);
-    for (let n = 0; n < 12 && await page.getByRole('button', { name: 'Siguiente paso' }).count(); n++) await page.getByRole('button', { name: 'Siguiente paso' }).click();
-    await page.getByRole('button', { name: 'Terminar la demo' }).click();
-    await page.getByRole('button', { name: /Quiero ver otro ejemplo/ }).click();
-    await expect(page.getByRole('button', { name: /De qué bono se descuenta la sesión/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Caducidad de un bono y ausencia/ })).toHaveCount(0);
-    await page.getByRole('button', { name: /De qué bono se descuenta la sesión/ }).click();
-    await page.getByRole('button', { name: 'Ver mi demo ya' }).click();
-    await page.getByRole('button', { name: 'Prefiero el resumen en texto' }).click();
-    await expect(page.getByText('Paso 1 de')).toBeVisible();
-    for (let n = 0; n < 12 && await page.getByRole('button', { name: 'Siguiente paso' }).count(); n++) await page.getByRole('button', { name: 'Siguiente paso' }).click();
-    await page.getByRole('button', { name: 'Terminar la demo' }).click();
-    await page.getByRole('button', { name: /No es exactamente lo que necesito/ }).click();
-    await expect(page.getByText(/Cuéntame qué no ha encajado/)).toBeVisible();
-    expect(c.evaluaciones).toEqual(['otro_ejemplo', 'no_exacto']);
   });
 
   test('«Volver a ejecutar» vuelve al paso 1 y «Empezar otra demo» a la conversación', async ({ page }) => {

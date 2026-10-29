@@ -71,7 +71,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
 
   // Las pantallas REALES del panel que enseña cada paso (lib/demo/panel): Configuración con SUS reglas y el calendario.
   const reglasPanel = { ventanaCancelacionHoras: p.ventanaCancelacionHoras, recuperacionAutoSemanal: p.repartoAutomatico, recuperacionSoloEnLaSemana: p.soloEnLaSemana };
-  const config = (titular: string, detalle: string) => ({ ruta: '/configuracion?tab=reservas', reglas: reglasPanel, titular, detalle });
+  const config = (titular: string, detalle: string) => ({ ruta: '/configuracion?tab=reservas', reglas: reglasPanel, foco: 'Dar recuperaciones solas al cerrar la semana', titular, detalle });
   const calendario = (titular: string, detalle: string) => ({ ruta: '/calendario', titular, detalle });
 
   const regla = {

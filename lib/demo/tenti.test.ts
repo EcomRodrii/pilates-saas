@@ -124,3 +124,10 @@ test('la evaluación solo admite las cuatro respuestas y la nota no lleva texto 
   for (const r of ['', 'si', 'constructor', null, 3]) assert.ok(!esRespuestaEvaluacion(r));
   assert.equal(notaDeEvaluacion('yoga', 'caducidad_bono', 'resuelta'), '[demo] centro=yoga escenario=caducidad_bono respuesta=resuelta');
 });
+
+test('la nota de la evaluación lleva cuánto le ha ayudado (1 a 3) solo si lo dijo', async () => {
+  const { esUtilidad, notaDeEvaluacion: nota } = await import('./evaluacion.ts');
+  assert.equal(nota('yoga', 'caducidad_bono', 'resuelta', 3), '[demo] centro=yoga escenario=caducidad_bono respuesta=resuelta utilidad=3');
+  assert.equal(nota('yoga', null, 'otra_duda'), '[demo] centro=yoga escenario=ninguno respuesta=otra_duda');
+  assert.deepEqual([0, 1, 2, 3, 4, '3', null].map(esUtilidad), [false, true, true, true, false, false, false]);
+});

@@ -43,7 +43,7 @@ export const EVENTOS_NAVEGADOR = {
   demo_datos_enviados: ['centro'],
   demo_propuesta: ['tipo'],
   demo_paso: ['escenario', 'n'],
-  demo_evaluada: ['respuesta'],
+  demo_evaluada: ['respuesta', 'utilidad'],
   demo_ir_al_alta: [],
   landing_video_reproducido: [],
   herramienta_usada: ['herramienta'],

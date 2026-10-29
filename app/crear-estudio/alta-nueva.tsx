@@ -12,6 +12,7 @@ import { CLAVE_ORIGEN_ALTA } from '@/lib/landing/medicion';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
+import { MarcoTarjeta } from '@/components/marca/marco-tarjeta';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { authHeader } from '@/lib/api-client';
 import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
@@ -453,7 +454,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
   const bien = (c: CampoRegistro) => tocado[c] && errores[c] === '';
 
   return (
-    <Marco whatsapp={whatsapp}>
+    <Marco whatsapp={whatsapp} ancho="amplio">
       <main className="grid flex-1 gap-6 px-[18px] pb-7 pt-1 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-9 lg:pt-3">
         <div className="min-w-0 lg:pt-2">
           <LineaDePasos actual={1} />
@@ -679,9 +680,10 @@ const BOTON_BASE = 'inline-flex h-11 items-center justify-center gap-2 whitespac
 const BOTON_ALTA = `${BOTON_BASE} w-full bg-t-magenta text-white hover:bg-[var(--t-magenta-700)]`;
 const BOTON_PRINCIPAL = `${BOTON_BASE} bg-t-inverse text-t-on-inverse hover:brightness-110`;
 
-function Marco({ children, whatsapp }: { children: React.ReactNode; whatsapp?: string }) {
+function Marco({ children, whatsapp, ancho = 'normal' }: { children: React.ReactNode; whatsapp?: string; ancho?: 'normal' | 'amplio' }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-t-canvas text-t-primary">
+    <MarcoTarjeta ancho={ancho}>
+      <div className="flex flex-1 flex-col text-t-primary">
       <header className="flex items-center justify-between gap-3 px-[18px] py-2.5 sm:px-8 sm:py-[18px]">
         <Link href="/" aria-label="Volver a la portada de Tentare" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--t-border-focus)]">
           <LogoTentare alto={20} tinta="auto" />
@@ -701,7 +703,8 @@ function Marco({ children, whatsapp }: { children: React.ReactNode; whatsapp?: s
         </a>
       </header>
       {children}
-    </div>
+      </div>
+    </MarcoTarjeta>
   );
 }
 

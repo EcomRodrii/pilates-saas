@@ -15,25 +15,25 @@ export interface ContextoDemo {
   disciplina: string;
 }
 
-export const CENTROS: Record<TipoCentro, { etiqueta: string; detalle: string; contexto: ContextoDemo; primero: IdEscenario }> = {
+export const CENTROS: Record<TipoCentro, { etiqueta: string; detalle: string; emoji: string; contexto: ContextoDemo; primero: IdEscenario }> = {
   pilates: {
-    etiqueta: 'Pilates', detalle: 'Mat, Reformer, máquinas',
+    etiqueta: 'Pilates', detalle: 'Mat, Reformer, máquinas', emoji: '🤸',
     contexto: { clase: 'Pilates Mat', estudio: 'Estudio Aurora', disciplina: 'Pilates' }, primero: 'ausencia_recuperacion',
   },
   yoga: {
-    etiqueta: 'Yoga', detalle: 'Hatha, Vinyasa, meditación',
+    etiqueta: 'Yoga', detalle: 'Hatha, Vinyasa, meditación', emoji: '🧘',
     contexto: { clase: 'Hatha yoga', estudio: 'Estudio Prana', disciplina: 'yoga' }, primero: 'caducidad_bono',
   },
   barre: {
-    etiqueta: 'Barre', detalle: 'Barra, tonificación',
+    etiqueta: 'Barre', detalle: 'Barra, tonificación', emoji: '🩰',
     contexto: { clase: 'Barre', estudio: 'Estudio Plié', disciplina: 'barre' }, primero: 'ausencia_recuperacion',
   },
   varias: {
-    etiqueta: 'Varias disciplinas', detalle: 'Bonos que valen para unas clases y no para otras',
+    etiqueta: 'Varias disciplinas', detalle: 'Bonos que valen para unas clases y no para otras', emoji: '✨',
     contexto: { clase: 'Pilates Reformer', estudio: 'Estudio Cuerpo y Mente', disciplina: 'varias disciplinas' }, primero: 'orden_consumo_bonos',
   },
   otro: {
-    etiqueta: 'Otro centro', detalle: 'Danza, fitness, bienestar…',
+    etiqueta: 'Otro centro', detalle: 'Danza, fitness, bienestar…', emoji: '🌿',
     contexto: { clase: 'Clase', estudio: 'Estudio Demo', disciplina: 'bienestar' }, primero: 'caducidad_bono',
   },
 };
