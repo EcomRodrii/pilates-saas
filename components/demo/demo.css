@@ -178,15 +178,17 @@
   .dm-pulso { border-top-color: var(--w-olive); }
 }
 
-/* Tipo de centro: tarjetas con su emoji, dos por fila (la última, a lo ancho). */
-.dm-centros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.dm-centros .dm-opcion:last-child:nth-child(odd) { grid-column: 1 / -1; }
-.dm-centro-cara { align-items: center; text-align: center; justify-content: center; gap: 6px; padding: 22px 14px 18px; min-height: 148px; border-radius: 20px; }
-.dm-centro-emoji { display: grid; place-items: center; width: 56px; height: 56px; font-size: 2rem; line-height: 1; border-radius: 18px; background: var(--w-sand-claro); transition: transform .2s, background .15s; }
+/* Tipo de centro: tarjetas compactas con su emoji a la izquierda, dos por fila (la última, a lo ancho).
+   `of-type` y no `child`: el <legend> de la fieldset también cuenta como hijo. */
+.dm-centros { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dm-centros .dm-opcion:last-of-type:nth-of-type(odd) { grid-column: 1 / -1; }
+.dm-centro-cara { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; row-gap: 2px; align-items: center; text-align: left; padding: 14px 16px; min-height: 0; border-radius: 18px; }
+.dm-centro-emoji { grid-row: 1 / span 2; display: grid; place-items: center; width: 52px; height: 52px; font-size: 1.7rem; line-height: 1; border-radius: 16px; background: var(--w-sand-claro); transition: transform .2s, background .15s; }
 .dm-opcion:hover .dm-centro-emoji { transform: scale(1.06) rotate(-3deg); }
 .dm-opcion input:checked + .dm-centro-cara .dm-centro-emoji { background: var(--w-papel); box-shadow: 0 0 0 1.5px var(--w-olive); }
-.dm-centro-cara .dm-opcion-titulo { font-size: 1.1rem; }
-@media (max-width: 380px) { .dm-centros { grid-template-columns: 1fr; } }
+.dm-centro-cara .dm-opcion-titulo { font-size: 1.05rem; align-self: end; }
+.dm-centro-cara .dm-opcion-detalle { align-self: start; line-height: 1.35; }
+@media (max-width: 480px) { .dm-centros { grid-template-columns: 1fr; } }
 
 /* El final: felicidades, confeti y las tres caritas. */
 .dm-fin { display: grid; gap: 14px; justify-items: center; text-align: center; padding: 8px 0; }
