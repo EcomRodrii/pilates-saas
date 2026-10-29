@@ -69,6 +69,11 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
   const huecoLibre = Math.max(0, p.limiteSemanal - usadas);
   const algunaATiempo = tardiaPorClase.slice(0, p.clasesCanceladas).some((t) => !t);
 
+  // Las pantallas REALES del panel que enseña cada paso (lib/demo/panel): Configuración con SUS reglas y el calendario.
+  const reglasPanel = { ventanaCancelacionHoras: p.ventanaCancelacionHoras, recuperacionAutoSemanal: p.repartoAutomatico, recuperacionSoloEnLaSemana: p.soloEnLaSemana };
+  const config = (titular: string, detalle: string) => ({ ruta: '/configuracion?tab=reservas', reglas: reglasPanel, titular, detalle });
+  const calendario = (titular: string, detalle: string) => ({ ruta: '/calendario', titular, detalle });
+
   const regla = {
     hueco: {
       texto: 'Cancelar a tiempo libera el hueco de esa semana: las clases canceladas no cuentan para el límite semanal.',
@@ -100,6 +105,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
 
   const pasos: PasoDemo[] = [
     {
+      pantalla: config('Las reglas del estudio', 'Plazo para cancelar, reparto automático de recuperaciones y «la semana es la ventana».'),
       id: 'configuracion', titulo: 'Las reglas del estudio',
       proposito: 'Tres ajustes deciden si esa alumna recibe algo por avisar de su ausencia.',
       bloques: [{ tipo: 'tabla', filas: [
@@ -117,6 +123,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       ],
     },
     {
+      pantalla: calendario('Su semana', `Reserva ${p.clasesReservadas} ${p.clasesReservadas === 1 ? 'clase' : 'clases'}; su cuota permite ${p.limiteSemanal} a la semana.`),
       id: 'semana', titulo: 'Su semana',
       proposito: 'Reserva sus clases de la semana. Todavía no ha avisado de nada.',
       bloques: [{ tipo: 'semana', dias: DIAS.map((d) => ({
@@ -126,6 +133,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.hueco],
     },
     {
+      pantalla: calendario(algunaATiempo ? 'Cancelación a tiempo' : 'Cancelación tardía', algunaATiempo ? 'El hueco de la semana queda libre para otra clase.' : 'Es tardía: no se compensa con ninguna recuperación.'),
       id: 'aviso', titulo: 'Avisa de que no puede ir',
       proposito: 'Cancela desde su app. Que sea a tiempo o tarde decide todo lo demás.',
       bloques: [
@@ -146,6 +154,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.tardia, regla.hueco],
     },
     {
+      pantalla: calendario('El hueco de la semana', `Le quedan ${huecoLibre} ${huecoLibre === 1 ? 'hueco' : 'huecos'} sin usar de su límite de ${p.limiteSemanal}.`),
       id: 'hueco', titulo: 'El hueco de la semana',
       proposito: 'Qué le queda por usar antes de que termine la semana.',
       bloques: [{ tipo: 'tabla', filas: [
@@ -157,6 +166,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.hueco, regla.vuelve],
     },
     {
+      pantalla: config(recuperaciones > 0 ? `Gana ${recuperaciones} ${recuperaciones === 1 ? 'recuperación' : 'recuperaciones'}` : 'No gana ninguna recuperación', 'Cada lunes se cierra la semana: solo se compensa el hueco que se quedó sin usar habiendo cancelado a tiempo.'),
       id: 'cierre', titulo: `Lunes ${etiquetaFecha(lunesSiguiente).split(' ').slice(1).join(' ')}: se cierra la semana`,
       proposito: 'Es el único momento en que Tentare decide si le da una recuperación.',
       bloques: [

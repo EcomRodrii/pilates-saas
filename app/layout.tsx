@@ -60,9 +60,19 @@ export const metadata: Metadata = {
   other: { 'facebook-domain-verification': VERIFICACION_DOMINIO_META },
 };
 
+// El panel de DEMOSTRACIÓN (lib/demo/panel): si ESTA pestaña lo ha pedido desde /demo (una marca en sessionStorage, con
+// caducidad de 2 h), se carga `public/demo-panel.js` antes que cualquier otro script. Ese fichero atiende en memoria todo lo que
+// el panel pide y deja el estudio ficticio de ejemplo: no sale ni una petición hacia la base de datos real. Una pestaña normal no
+// tiene la marca y no carga nada. La carga es síncrona (document.write) a propósito: tiene que ejecutarse ANTES de que el
+// cliente de Supabase se construya y capture `fetch`.
+const CARGADOR_PANEL_DEMO = `try{var d=JSON.parse(sessionStorage.getItem('tentare:demo-panel')||'null');if(d&&Date.now()-d.t<72e5){document.write('<script src="/demo-panel.js"><\\/script>')}}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" className={`${variablesDeFuente} antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: CARGADOR_PANEL_DEMO }} />
+      </head>
       <body className="bg-background">
         <LogSetup />
         {/* Fuera de los providers a propósito: no depende de sesión ni de

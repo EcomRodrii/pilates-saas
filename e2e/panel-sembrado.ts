@@ -13,7 +13,7 @@ import type { TarifaInstructor } from '../lib/api-client.ts';
 // afirma algo acaba afirmándolo sobre otra pantalla.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const STUDIO_ID = 'studio-test';
+export const STUDIO_ID = 'studio-test';
 const STORAGE_KEY = 'sb-example-auth-token';
 const UID = 'auth-e2e-duena';
 
@@ -60,7 +60,7 @@ export const instanteDelLunesDeEstaSemana = (h: number, m = 0) => {
   return new Date(iso(dia(-((hoy + 6) % 7)), h, m));
 };
 
-const STUDIO_ROW = {
+export const STUDIO_ROW: Record<string, unknown> = {
   id: STUDIO_ID, nombre: 'Pilates Centro', slug: 'pilates-centro',
   owner_auth_user_id: UID, email: 'cloe@example.com', moneda: 'EUR',
   iva_por_defecto: 21, nif: 'B12345678', direccion: 'Calle Mayor 4', ciudad: 'Almería',
@@ -79,13 +79,13 @@ const SOCIOS = [
   { id: 'soc-4', studio_id: STUDIO_ID, nombre: 'Bea', apellidos: 'Ortega', email: 'bea@example.com', telefono: '600777888', activo: false, fecha_alta: '2025-11-05T09:00:00+00:00', lead_stage: 'BAJA', campos_extra: {}, tags: [] },
 ];
 
-const PLANES = [
+export const PLANES: Array<Record<string, unknown>> = [
   { id: 'pl-bono10', studio_id: STUDIO_ID, nombre: 'Bono 10 clases', precio: 130, tipo: 'BONO', sesiones: 10, validez_dias: 90, activo: true },
   { id: 'pl-mensual', studio_id: STUDIO_ID, nombre: 'Mensual ilimitado', precio: 89, tipo: 'MENSUAL', sesiones: null, validez_dias: null, activo: true },
   { id: 'pl-suelta', studio_id: STUDIO_ID, nombre: 'Clase suelta', precio: 15, tipo: 'PUNTUAL', sesiones: 1, validez_dias: 30, activo: true },
 ];
 
-const SUSCRIPCIONES = [
+export const SUSCRIPCIONES: Array<Record<string, unknown>> = [
   { id: 'sus-1', studio_id: STUDIO_ID, socio_id: 'soc-1', plan_id: 'pl-bono10', estado: 'ACTIVA', fecha_inicio: fecha(dia(-30)), fecha_fin: fecha(dia(60)), sesiones_restantes: 6, stripe_subscription_id: null },
   { id: 'sus-2', studio_id: STUDIO_ID, socio_id: 'soc-2', plan_id: 'pl-mensual', estado: 'ACTIVA', fecha_inicio: fecha(dia(-10)), fecha_fin: fecha(dia(20)), sesiones_restantes: null, stripe_subscription_id: 'sub_x' },
   { id: 'sus-3', studio_id: STUDIO_ID, socio_id: 'soc-3', plan_id: 'pl-suelta', estado: 'ACTIVA', fecha_inicio: fecha(dia(-2)), fecha_fin: fecha(dia(28)), sesiones_restantes: 1, stripe_subscription_id: null },

@@ -18,6 +18,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Paquete COMPILADO y minificado del panel de demostración (scripts/build-demo-panel.mjs), versionado a propósito:
+    // su fuente es lib/demo/panel/, que sí se lintea, y bundle.test.ts garantiza que es lo que sale de ella.
+    "public/demo-panel.js",
     // Feature-freeze (lib/frozen-features.ts, docs/FEATURE-FREEZE-2026-07.md):
     // los `*.frozen.tsx` están APARCADOS a propósito y no entran en ningún
     // build — `app/kiosk/` ni siquiera tiene stub, da 404 natural. Lintarlos
