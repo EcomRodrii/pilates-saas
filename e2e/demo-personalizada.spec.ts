@@ -288,6 +288,16 @@ test.describe('pantalla de la demo', () => {
     expect(cargas).toEqual([]);
   });
 
+  test('con la demo a medias, volver a /demo (atrás o escribiendo la dirección) NO carga el panel de mentira encima', async ({ page }) => {
+    const cargas: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('demo-panel.js')) cargas.push(r.url()); });
+    await page.addInitScript(() => sessionStorage.setItem('tentare:demo-panel', JSON.stringify({ t: Date.now(), guia: { titulo: 'x', paso: 0, pasos: [{ titulo: 'a', proposito: 'b', pantalla: { ruta: '/configuracion?tab=reservas' } }] } })));
+    await page.goto('/demo');
+    await expect(page.getByRole('heading', { name: '¿Qué tipo de centro tienes?' })).toBeVisible();
+    expect(cargas).toEqual([]);
+    expect(await page.locator('#tentare-demo-guia').count()).toBe(0);
+  });
+
   test('validación: cada campo con su mensaje, sin llamar al servidor, y el consentimiento comercial nace desmarcado', async ({ page }) => {
     const c = await mockear(page);
     await elegirCentro(page);

@@ -53,6 +53,16 @@ button:focus-visible { outline: 3px solid #D9C29E; outline-offset: 2px; }
 .puntos i.h { background: #D9C29E; }
 .anillo { position: fixed; z-index: 2147482000; pointer-events: none; border-radius: 14px; border: 3px solid #D9C29E; box-shadow: 0 0 0 4px rgba(217,194,158,.35), 0 0 0 9999px rgba(20,22,18,.22); transition: all .25s ease; }
 .aviso { position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%); z-index: 2147483001; max-width: min(520px, calc(100vw - 24px)); background: #F6F4EF; color: #22261F; border-radius: 14px; padding: 12px 16px; font: 14px/1.4 system-ui, -apple-system, sans-serif; box-shadow: 0 12px 32px rgba(0,0,0,.3); }
+@media (max-width: 640px) {
+  /* En el móvil la barra se sube por encima de la barra de pestañas del panel y ocupa menos. */
+  .barra { bottom: calc(68px + env(safe-area-inset-bottom, 0px)); width: calc(100vw - 16px); padding: 10px 14px 12px; border-radius: 16px; }
+  h2 { font-size: 15px; margin: 2px 0 2px; }
+  p { font-size: 13px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .acciones { margin-top: 8px; gap: 8px; }
+  button.b { min-height: 38px; padding: 0 14px; font-size: 13px; }
+  .puntos { margin-top: 8px; }
+  .aviso { bottom: 250px; }
+}
 @media (prefers-reduced-motion: no-preference) { .barra { animation: sube .25s ease-out both; } @keyframes sube { from { opacity: 0; transform: translate(-50%, 8px); } } }
 `;
 
@@ -196,11 +206,20 @@ export function montarGuia(m: MarcaPanel) {
     // Sitio para poder desplazar el panel POR ENCIMA de la barra: sin él, lo de abajo (la tarjeta del plan, la lista de clases)
     // queda tapado y no se puede ver. Va en un <style> propio colgado de <html>, fuera de lo que React gestiona.
     const hueco = document.createElement('style');
-    hueco.textContent = 'body{padding-bottom:210px !important} a[data-demo-fuera]{opacity:.38 !important;cursor:not-allowed !important}';
+    hueco.textContent = 'body{padding-bottom:210px !important} @media (max-width:640px){body{padding-bottom:300px !important}} a[data-demo-fuera]{opacity:.38 !important;cursor:not-allowed !important}';
     document.documentElement.append(hueco, anfitrion);
     if (paso.pantalla?.foco?.length) resaltar(paso.pantalla.foco, paso.pantalla.pistas, texto);
   };
   const rutaPaso = guia.pasos[guia.paso].pantalla?.ruta;
+  // Si se llegó a otra pantalla del recorrido que no es la del paso (el botón «atrás» del navegador), se vuelve a la del paso:
+  // si no, la barra diría una cosa y la pantalla otra, con todos los enlaces bloqueados. Una sola vez por segundo, por si el panel
+  // reescribe la dirección.
+  if (rutaPaso && !esDireccionDelPaso(window.location.href, rutaPaso)) {
+    try {
+      const ultima = Number(sessionStorage.getItem('tentare:demo-corr') ?? 0);
+      if (Date.now() - ultima > 1500) { sessionStorage.setItem('tentare:demo-corr', String(Date.now())); window.location.replace(rutaPaso); return; }
+    } catch { /* sin almacenamiento: se deja como está */ }
+  }
   if (rutaPaso) bloquearNavegacion(rutaPaso);
   if (document.readyState === 'complete') pintar(); else window.addEventListener('load', pintar, { once: true });
 }
