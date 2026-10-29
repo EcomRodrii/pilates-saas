@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Compila lib/demo/panel/entrada.ts a public/demo-panel.js: el panel REAL con un estudio de
-// ejemplo, atendido en memoria por el navegador (ver lib/demo/panel/page-shim.ts). Aparte de
-// `next build`, como el widget: es un único fichero sin React.
+// ejemplo, atendido en memoria por el navegador (ver lib/demo/panel/page-shim.ts).
+//
+// ⚠️ El resultado SE VERSIONA (20 KB), a diferencia de public/widget.js: el artefacto de build de CI
+// enumera a mano los ficheros de public/ que pasan a los shards de e2e, y uno generado y gitignorado que
+// no esté en esa lista muere en 404. No lleva NADA del entorno (ni la URL de Supabase): se sirve igual en
+// todos sitios. `lib/demo/panel/bundle.test.ts` falla si queda desactualizado: `node scripts/build-demo-panel.mjs`.
 import * as esbuild from 'esbuild';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -12,10 +16,7 @@ await esbuild.build({
   entryPoints: [path.join(raiz, 'lib/demo/panel/entrada.ts')],
   outfile: path.join(raiz, 'public/demo-panel.js'),
   alias: { '@': raiz },
-  define: {
-    'process.env.NODE_ENV': '"production"',
-    'process.env.NEXT_PUBLIC_SUPABASE_URL': JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co'),
-  },
+  define: { 'process.env.NODE_ENV': '"production"' },
   logLevel: 'info',
 });
 console.log('✔ public/demo-panel.js generado');

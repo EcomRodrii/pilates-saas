@@ -1,6 +1,6 @@
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { crearPagina, globARegex } from './page-shim.ts';
+import { crearPagina, esHostDeBaseDeDatos, globARegex } from './page-shim.ts';
 
 // El aislamiento del panel de demostración, POR COMPORTAMIENTO: lo que el panel real pide a la
 // base de datos real no puede salir nunca de la pestaña. Se prueba con un `window` mínimo.
@@ -18,11 +18,15 @@ beforeEach(() => {
     fetch: async (u: unknown) => { llamadasReales.push(String((u as Request).url ?? u)); return new Response('real', { status: 200 }); },
     WebSocket: class { url: string; constructor(url: string) { this.url = url; } },
   };
-  g.localStorage = { setItem: (k: string, v: string) => almacen.set(k, v), getItem: (k: string) => almacen.get(k) ?? null };
+  const local = { setItem: (k: string, v: string) => almacen.set(k, v), getItem: (k: string) => almacen.get(k) ?? null };
+  g.localStorage = local;
+  (g.window as Record<string, unknown>).localStorage = local;
+  g.Storage = function Storage() {};
+  (g.Storage as { prototype: object }).prototype = Object.getPrototypeOf(local) === Object.prototype ? local : Object.getPrototypeOf(local);
 });
 
 const ventana = () => (globalThis as unknown as { window: { fetch: typeof fetch; WebSocket: new (u: string) => { readyState?: number; url: string } } }).window;
-const nueva = () => crearPagina({ supabaseHost: HOST, claveSesion: 'sb-x-auth-token', sesion: { access_token: 't' } });
+const nueva = () => crearPagina({ sesion: { access_token: 't' } });
 
 test('lo que ninguna regla atiende y va a la base de datos real NO sale: lectura = [], escritura = {}', async () => {
   const pagina = nueva();
@@ -86,9 +90,16 @@ test('el tiempo real hacia la base de datos real es un falso que nunca conecta; 
   assert.equal(otro.url, 'wss://otro-sitio.example/socket');
 });
 
-test('la sesión de mentira se escribe antes de que arranque la app, con la clave que se le da', () => {
+test('la sesión de mentira se contesta para cualquier clave sb-…-auth-token que no exista, y solo para esas', () => {
   nueva();
-  assert.deepEqual(JSON.parse(almacen.get('sb-x-auth-token')!), { access_token: 't' });
+  const local = (globalThis as unknown as { window: { localStorage: { getItem(k: string): string | null } } }).window.localStorage;
+  assert.deepEqual(JSON.parse(local.getItem('sb-cualquierproyecto-auth-token')!), { access_token: 't' });
+  assert.equal(local.getItem('otra-clave'), null);
+});
+
+test('qué hosts son «la base de datos»: cualquier supabase, y nada más', () => {
+  for (const h of ['abc.supabase.co', 'proyecto-real.supabase.co', 'x.supabase.in', 'supabase.co']) assert.ok(esHostDeBaseDeDatos(h), h);
+  for (const h of ['tentare.app', 'supabase.co.evil.com', 'notsupabase.co', 'fonts.gstatic.com', 'localhost:3000']) assert.ok(!esHostDeBaseDeDatos(h), h);
 });
 
 test('globARegex: ** cruza barras, * no, y lo demás es literal', () => {

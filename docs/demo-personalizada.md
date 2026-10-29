@@ -29,7 +29,7 @@ calendario), con un estudio de ejemplo. Cómo:
 2. `app/layout.tsx` lleva un script de una línea que, **solo con esa marca**, carga `public/demo-panel.js` antes que
    cualquier otro (un `document.write` síncrono: tiene que ir antes de que Supabase capture `fetch`). Una pestaña
    normal no carga nada.
-3. `demo-panel.js` (`lib/demo/panel/`, compilado con `scripts/build-demo-panel.mjs`, encadenado en `build:widget`) hace
+3. `demo-panel.js` (`lib/demo/panel/`, compilado con `node scripts/build-demo-panel.mjs`) **va versionado** — el artefacto de CI enumera a mano los ficheros de `public/` que pasan a los shards de e2e y uno gitignorado moriría en 404 — y `bundle.test.ts` falla si queda desactualizado; no lleva nada de ningún entorno (reconoce cualquier host `*.supabase.*`). Hace
    tres cosas: atiende **en memoria** todo lo que el panel pide, con el mismo estudio de ejemplo que usan los e2e y el
    vídeo (`e2e/panel-sembrado.ts`, sin reescribirlo: `page-shim.ts` le da el único `page` que necesita);
    ajusta los datos de cada paso (el bono en 4, en 5, caducado; el plazo de cancelación del caso); y pinta encima la

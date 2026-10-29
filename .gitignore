@@ -32,8 +32,6 @@
 /public/widget.js
 /public/widget-checkout.js
 /public/widget-popup.js
-# El panel de demostración (scripts/build-demo-panel.mjs, encadenado en build:widget).
-/public/demo-panel.js
 # Las fuentes de la nativa (Fase E): copia de app/_fuentes que hace build:widget.
 /public/widget-fuentes/
 

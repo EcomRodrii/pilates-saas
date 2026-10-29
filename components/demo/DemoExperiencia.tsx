@@ -129,7 +129,7 @@ export function DemoExperiencia() {
       setEjecutando(true);
       const r = await ejecutarDemo(guardada.sesion, guardada.propuesta.escenario, guardada.propuesta.parametros);
       setEjecutando(false);
-      if (r.ok) { setPropuesta(guardada.propuesta); setDemo(r.datos.demo); setFase('recorrido'); return; }
+      if (r.ok) { setPropuesta(guardada.propuesta); setDemo(r.datos.demo); setVerTexto(false); setFase('recorrido'); return; }
       if (r.sesionCaducada) return empezarDeNuevo();
     }
     setFase('tenti');
@@ -197,7 +197,7 @@ export function DemoExperiencia() {
     } else if (t.tipo === 'demo') {
       setOpciones([]); setAlternativas([]);
       setPropuesta({ escenario: t.escenario, parametros: t.parametros as Record<string, unknown>, resumen: t.resumen, aclaracion: t.aclaracion });
-      setDemo(t.demo);
+      setDemo(t.demo); setVerTexto(false);
       setFase('preparando');
     } else {
       setMensajes((m) => [...m, nuevoMensaje('tenti', t.texto)]);
@@ -231,7 +231,7 @@ export function DemoExperiencia() {
     setEjecutando(false);
     if (!r.ok) { if (r.sesionCaducada) { setSesion(null); setFase('datos'); } else setErrorChat(r.mensaje); return; }
     setPropuesta({ escenario: id, parametros: {}, resumen: '', aclaracion: null });
-    setDemo(r.datos.demo);
+    setDemo(r.datos.demo); setVerTexto(false);
     setMensajes((m) => [...m, nuevoMensaje('usuario', `Enséñame: ${r.datos.demo.titulo}`, true)]);
     setFase('preparando');
   }

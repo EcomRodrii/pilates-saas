@@ -93,8 +93,6 @@ test('nada de lib/demo llega al navegador con una clave: las únicas lecturas de
   for (const f of ficheros('components/demo')) assert.ok(!/process\.env\.(?!NEXT_PUBLIC_)/.test(leer(f)), f);
   for (const f of ficheros('lib/demo').filter((x) => !x.endsWith('.test.ts'))) {
     const t = leer(f);
-    // `panel/entrada.ts` lee SOLO `NEXT_PUBLIC_SUPABASE_URL` (esbuild la fija al compilar): el host que hay que NO tocar.
-    if (/process\.env/.test(t)) assert.ok(['lib/demo/sesion.ts', 'lib/demo/api-servidor.ts', 'lib/demo/panel/entrada.ts'].includes(f), `${f} lee el entorno`);
-    if (f === 'lib/demo/panel/entrada.ts') assert.deepEqual([...t.matchAll(/process\.env\.(\w+)/g)].map((m) => m[1]), ['NEXT_PUBLIC_SUPABASE_URL']);
+    if (/process\.env/.test(t)) assert.ok(['lib/demo/sesion.ts', 'lib/demo/api-servidor.ts'].includes(f), `${f} lee el entorno`);
   }
 });

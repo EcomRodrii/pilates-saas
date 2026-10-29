@@ -54,7 +54,18 @@ export interface PaginaShim {
   sinAtender(): string[];
 }
 
-export function crearPagina(opciones: { supabaseHost: string; claveSesion: string; sesion: unknown }): PaginaShim {
+/**
+ * ¿Es una base de datos de Supabase? Por PATRÓN y no por la URL del proyecto: este paquete va versionado y se sirve igual en
+ * todos los entornos, así que no puede llevar fijada la de ninguno. Cualquier `*.supabase.co` cuenta como base de datos real.
+ */
+export function esHostDeBaseDeDatos(host: string): boolean {
+  return /(^|\.)supabase\.(co|in|net)$/i.test(host);
+}
+
+/** La clave donde supabase-js guarda la sesión: `sb-<proyecto>-auth-token`. */
+const CLAVE_SESION = /^sb-[a-z0-9-]+-auth-token$/i;
+
+export function crearPagina(opciones: { sesion: unknown }): PaginaShim {
   const reglas: Regla[] = [];
   const sinAtender: string[] = [];
   const fetchReal = window.fetch.bind(window);
@@ -65,7 +76,7 @@ export function crearPagina(opciones: { supabaseHost: string; claveSesion: strin
     const req = new Request(entrada as RequestInfo, init);
     const url = new URL(req.url, window.location.href);
     const completa = url.toString();
-    const delSupabase = url.host === opciones.supabaseHost;
+    const delSupabase = esHostDeBaseDeDatos(url.host);
     const propia = url.origin === window.location.origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/rest/'));
     if (!delSupabase && !propia) return fetchReal(entrada as RequestInfo, init);
 
@@ -115,13 +126,21 @@ export function crearPagina(opciones: { supabaseHost: string; claveSesion: strin
   }
   window.WebSocket = new Proxy(WebSocketReal, {
     construct(objetivo, args: [string | URL, (string | string[])?]) {
-      try { if (new URL(String(args[0])).host === opciones.supabaseHost) return new WebSocketFalso(args[0]) as unknown as WebSocket; } catch { /* url rara: pasa */ }
+      try { if (esHostDeBaseDeDatos(new URL(String(args[0])).host)) return new WebSocketFalso(args[0]) as unknown as WebSocket; } catch { /* url rara: pasa */ }
       return Reflect.construct(objetivo, args);
     },
   });
 
-  // La sesión de mentira, antes de que la app arranque.
-  try { localStorage.setItem(opciones.claveSesion, JSON.stringify(opciones.sesion)); } catch { /* sin almacenamiento: el panel pedirá entrar */ }
+  // La sesión de mentira, antes de que la app arranque. No se sabe qué proyecto de Supabase tiene este entorno (el paquete no lo
+  // lleva fijado), así que se contesta la sesión para cualquier clave `sb-…-auth-token` que la app pida y no tenga.
+  const sesionTexto = JSON.stringify(opciones.sesion);
+  try {
+    const getItemReal = Storage.prototype.getItem;
+    Storage.prototype.getItem = function (this: Storage, clave: string) {
+      const real = getItemReal.call(this, clave);
+      return real === null && this === window.localStorage && CLAVE_SESION.test(clave) ? sesionTexto : real;
+    };
+  } catch { /* sin almacenamiento: el panel pedirá entrar */ }
 
   return {
     async route(m, h) { reglas.push({ casa: crearCasa(m), manejador: h }); },
