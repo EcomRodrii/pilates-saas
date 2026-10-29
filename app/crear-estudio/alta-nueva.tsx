@@ -455,7 +455,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
 
   return (
     <Marco whatsapp={whatsapp} ancho="amplio">
-      <main className="grid flex-1 gap-6 px-[18px] pb-7 pt-1 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-9 lg:pt-3">
+      <main className="grid flex-1 gap-6 px-[18px] pb-7 pt-1 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-7 lg:pt-1">
         <div className="min-w-0 lg:pt-2">
           <LineaDePasos actual={1} />
           <p className="t-label mt-5 text-t-tertiary sm:mt-7">Paso 1 de 5 · unos 2 minutos</p>
@@ -684,7 +684,7 @@ function Marco({ children, whatsapp, ancho = 'normal' }: { children: React.React
   return (
     <MarcoTarjeta ancho={ancho}>
       <div className="flex flex-1 flex-col text-t-primary">
-      <header className="flex items-center justify-between gap-3 px-[18px] py-2.5 sm:px-8 sm:py-[18px]">
+      <header className="flex items-center justify-between gap-3 px-[18px] py-2.5 sm:px-8 sm:py-3">
         <Link href="/" aria-label="Volver a la portada de Tentare" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--t-border-focus)]">
           <LogoTentare alto={20} tinta="auto" />
         </Link>
