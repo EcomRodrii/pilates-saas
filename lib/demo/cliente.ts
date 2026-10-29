@@ -3,7 +3,7 @@
 // JavaScript del navegador.
 import type { DemoGenerada } from './modelo.ts';
 import type { MensajeHistorial, TurnoTenti } from './tenti.ts';
-import type { RespuestaEvaluacion } from './evaluacion.ts';
+import type { RespuestaEvaluacion, Utilidad } from './evaluacion.ts';
 import type { CampoDemo } from './lead.ts';
 
 export type ResultadoApi<T> =
@@ -43,5 +43,5 @@ export const turnoDeTenti = (sesion: string, historial: MensajeHistorial[]) =>
 export const ejecutarDemo = (sesion: string, escenario: string, parametros: unknown) =>
   llamar<{ demo: DemoGenerada; escenario: string }>('ejecutar', { sesion, escenario, parametros });
 
-export const evaluarDemo = (sesion: string, respuesta: RespuestaEvaluacion, escenario: string | null) =>
-  llamar<{ ok: true; siguiente: RespuestaEvaluacion }>('evaluar', { sesion, respuesta, escenario });
+export const evaluarDemo = (sesion: string, respuesta: RespuestaEvaluacion, escenario: string | null, utilidad?: Utilidad) =>
+  llamar<{ ok: true; siguiente: RespuestaEvaluacion }>('evaluar', { sesion, respuesta, escenario, utilidad });

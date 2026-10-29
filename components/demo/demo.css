@@ -177,3 +177,27 @@
   .dm-raiz *, .dm-raiz *::before, .dm-raiz *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .dm-pulso { border-top-color: var(--w-olive); }
 }
+
+/* Tipo de centro: tarjetas con su emoji, dos por fila (la última, a lo ancho). */
+.dm-centros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dm-centros .dm-opcion:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.dm-centro-cara { align-items: center; text-align: center; justify-content: center; gap: 6px; padding: 22px 14px 18px; min-height: 148px; border-radius: 20px; }
+.dm-centro-emoji { display: grid; place-items: center; width: 56px; height: 56px; font-size: 2rem; line-height: 1; border-radius: 18px; background: var(--w-sand-claro); transition: transform .2s, background .15s; }
+.dm-opcion:hover .dm-centro-emoji { transform: scale(1.06) rotate(-3deg); }
+.dm-opcion input:checked + .dm-centro-cara .dm-centro-emoji { background: var(--w-papel); box-shadow: 0 0 0 1.5px var(--w-olive); }
+.dm-centro-cara .dm-opcion-titulo { font-size: 1.1rem; }
+@media (max-width: 380px) { .dm-centros { grid-template-columns: 1fr; } }
+
+/* El final: felicidades, confeti y las tres caritas. */
+.dm-fin { display: grid; gap: 14px; justify-items: center; text-align: center; padding: 8px 0; }
+.dm-fin .dm-lead { max-width: 46ch; }
+.dm-fin-corona { font-size: 3.2rem; line-height: 1; animation: dm-salta .7s ease-out both; }
+@keyframes dm-salta { 0% { transform: scale(.3) rotate(-20deg); opacity: 0; } 60% { transform: scale(1.15) rotate(6deg); opacity: 1; } 100% { transform: none; } }
+.dm-fin-pregunta { margin: 10px 0 0; font-weight: 600; font-size: 1.05rem; }
+.dm-caras { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.dm-cara { display: grid; justify-items: center; gap: 6px; min-width: 104px; padding: 16px 18px 12px; border-radius: 20px; border: 1.5px solid var(--w-linea-fuerte); background: var(--w-papel); font: inherit; font-weight: 600; color: var(--w-texto); cursor: pointer; transition: transform .15s, border-color .15s, background .15s; }
+.dm-cara:hover { transform: translateY(-3px); border-color: var(--w-olive); background: var(--w-sand-claro); }
+.dm-cara-emoji { font-size: 2.6rem; line-height: 1; }
+.dm-enlace { background: none; border: 0; padding: 8px; font: inherit; font-size: var(--w-fs-pequeno); color: var(--w-texto-3); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.dm-fin-gracias { margin: 14px 0 0; font-weight: 600; font-size: 1.1rem; }
+.dm-confeti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 60; }

@@ -3,7 +3,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { esIdEscenario } from '@/lib/demo/catalogo';
 import { anadirNota } from '@/lib/demo/lead-escritura';
-import { RESPUESTAS_EVALUACION, esRespuestaEvaluacion, notaDeEvaluacion } from '@/lib/demo/evaluacion';
+import { RESPUESTAS_EVALUACION, esRespuestaEvaluacion, esUtilidad, notaDeEvaluacion } from '@/lib/demo/evaluacion';
 import { demoApagada, exigirSesion, json, leerCuerpo, resumenError } from '@/lib/demo/api-servidor';
 
 // «¿Hemos resuelto tu duda?». Cada respuesta tiene su salida; ninguna se da por
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
   }
   const escenario = esIdEscenario(body.escenario) ? body.escenario : null;
   const respuesta = body.respuesta;
+  const utilidad = esUtilidad(body.utilidad) ? body.utilidad : undefined;
 
   let anotado = false;
   if (sesion.nuevo) {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
       const { data: lead, error } = await db.from('plataforma_lead').select('notas').eq('id', sesion.leadId).maybeSingle();
       if (!error && lead) {
         const { error: errEscribir } = await db.from('plataforma_lead')
-          .update({ notas: anadirNota((lead.notas as string | null) ?? null, notaDeEvaluacion(sesion.tipoCentro, escenario, respuesta)), actualizado_en: new Date().toISOString() })
+          .update({ notas: anadirNota((lead.notas as string | null) ?? null, notaDeEvaluacion(sesion.tipoCentro, escenario, respuesta, utilidad)), actualizado_en: new Date().toISOString() })
           .eq('id', sesion.leadId);
         anotado = !errEscribir;
         if (errEscribir) console.error('[demo:evaluar] no se ha podido anotar', resumenError(errEscribir));

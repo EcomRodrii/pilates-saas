@@ -15,7 +15,7 @@ import { CENTROS, TIPOS_CENTRO, type TipoCentro } from '@/lib/demo/centros';
 import { validarDatosDemo, type CampoDemo } from '@/lib/demo/lead';
 import type { DemoGenerada } from '@/lib/demo/modelo';
 import type { AlternativaCatalogo, TurnoTenti } from '@/lib/demo/tenti';
-import type { RespuestaEvaluacion } from '@/lib/demo/evaluacion';
+import type { Utilidad } from '@/lib/demo/evaluacion';
 import { ejecutarDemo, evaluarDemo, iniciarDemo, turnoDeTenti } from '@/lib/demo/cliente';
 import {
   borrarSesion, guardarDatos, guardarSesion, leerDatos, leerSesionGuardada,
@@ -23,6 +23,7 @@ import {
 } from '@/lib/demo/persistencia';
 import { ChatTenti, type MensajeChat } from './ChatTenti';
 import { Recorrido } from './Recorrido';
+import { Confeti } from './Confeti';
 import { CLAVE_PANEL, CLAVE_VUELTA } from '@/lib/demo/panel/guia';
 import './demo.css';
 
@@ -34,9 +35,9 @@ import './demo.css';
 // calcula en el navegador (la demo llega construida y validada del servidor) y
 // lo que se recuerda no lleva datos personales (lib/demo/persistencia.ts).
 
-type Fase = 'retomar' | 'centro' | 'datos' | 'tenti' | 'preparando' | 'recorrido' | 'evaluacion' | 'alta';
+type Fase = 'retomar' | 'centro' | 'datos' | 'tenti' | 'preparando' | 'recorrido' | 'evaluacion';
 const PASOS = ['Tu centro', 'Tus datos', 'Tu duda', 'Tu demo', 'Valoración'] as const;
-const PASO_DE_FASE: Record<Fase, number> = { retomar: 0, centro: 0, datos: 1, tenti: 2, preparando: 3, recorrido: 3, evaluacion: 4, alta: 4 };
+const PASO_DE_FASE: Record<Fase, number> = { retomar: 0, centro: 0, datos: 1, tenti: 2, preparando: 3, recorrido: 3, evaluacion: 4 };
 
 interface Datos { nombre: string; estudio: string; email: string; telefono: string }
 const DATOS_VACIOS: Datos = { nombre: '', estudio: '', email: '', telefono: '' };
@@ -83,6 +84,7 @@ export function DemoExperiencia() {
   const [ejecutando, setEjecutando] = useState(false);
   const [guardada, setGuardada] = useState<SesionGuardada | null>(null);
   const [verTexto, setVerTexto] = useState(false);
+  const [utilidad, setUtilidad] = useState<Utilidad | null>(null);
   const siguienteId = useRef(1);
   const titulo = useRef<HTMLHeadingElement>(null);
   const montado = useRef(false);
@@ -258,27 +260,29 @@ export function DemoExperiencia() {
   function abrirPanel() {
     if (!demo) return;
     const pasos = demo.pasos.map((p) => ({ titulo: p.titulo, proposito: p.proposito, pantalla: p.pantalla }));
-    try { sessionStorage.setItem(CLAVE_PANEL, JSON.stringify({ t: Date.now(), guia: { titulo: demo.titulo, pasos, paso: 0 } })); } catch { /* sin almacenamiento */ }
+    try { sessionStorage.setItem(CLAVE_PANEL, JSON.stringify({ t: Date.now(), volver: window.location.pathname + window.location.search, guia: { titulo: demo.titulo, pasos, paso: 0 } })); } catch { /* sin almacenamiento */ }
     capturarEvento('demo_paso', { escenario: demo.escenario, n: 0 });
     window.location.assign(pasos[0]?.pantalla?.ruta ?? '/dashboard');
   }
 
   // ── Valoración ───────────────────────────────────────────────────────────
-  async function valorar(respuesta: RespuestaEvaluacion) {
-    capturarEvento('demo_evaluada', { respuesta });
-    if (sesion) void evaluarDemo(sesion, respuesta, propuesta?.escenario ?? null);
-    if (respuesta === 'resuelta') { setFase('alta'); return; }
+  function preguntarOtraCosa() {
+    capturarEvento('demo_evaluada', { respuesta: 'otra_duda' });
+    if (sesion) void evaluarDemo(sesion, 'otra_duda', propuesta?.escenario ?? null);
     // El historial que ve el modelo empieza ahora; lo escrito sigue a la vista.
     setDesde(mensajes.filter((m) => !m.local).length);
-    if (respuesta === 'otro_ejemplo') {
-      setMensajes((m) => [...m, nuevoMensaje('tenti', 'Claro. Elige otro ejemplo o cuéntame otro caso.', true)]);
-      setAlternativas(demo ? (Object.values(CATALOGO_RESUMEN).filter((a) => a.id !== propuesta?.escenario)) : []);
-    } else {
-      setMensajes((m) => [...m, nuevoMensaje('tenti', respuesta === 'otra_duda' ? 'Dime cuál es tu otra duda.' : 'Gracias por decírmelo. Cuéntame qué no ha encajado y lo vemos.', true)]);
-      setAlternativas([]);
-    }
-    setOpciones([]);
+    setMensajes((m) => [...m, nuevoMensaje('tenti', 'Dime cuál es tu otra duda.', true)]);
+    setAlternativas([]); setOpciones([]);
     setFase('tenti');
+  }
+
+  // Las tres caritas: anota cuánto le ha ayudado y, un momento después, la lleva a crear su estudio.
+  function valorarUtilidad(u: Utilidad) {
+    if (utilidad !== null) return;
+    setUtilidad(u);
+    capturarEvento('demo_evaluada', { respuesta: 'resuelta', utilidad: u });
+    if (sesion) void evaluarDemo(sesion, 'resuelta', propuesta?.escenario ?? null, u);
+    window.setTimeout(irAlAlta, 1400);
   }
 
   function irAlAlta() {
@@ -289,7 +293,7 @@ export function DemoExperiencia() {
   }
 
   // ── Atrás ────────────────────────────────────────────────────────────────
-  const atras: Partial<Record<Fase, Fase>> = { datos: 'centro', tenti: 'datos', recorrido: 'tenti', preparando: 'tenti', evaluacion: 'recorrido', alta: 'evaluacion' };
+  const atras: Partial<Record<Fase, Fase>> = { datos: 'centro', tenti: 'datos', recorrido: 'tenti', preparando: 'tenti', evaluacion: 'recorrido' };
   const puedeVolver = fase in atras;
   const paso = PASO_DE_FASE[fase];
 
@@ -329,12 +333,13 @@ export function DemoExperiencia() {
                 <h1 id={`${uid}-titulo`} ref={titulo} tabIndex={-1} className="dm-h1">¿Qué tipo de centro tienes?</h1>
                 <p className="dm-lead" style={{ marginTop: 8 }}>Así adaptamos los ejemplos y el vocabulario a tu día a día.</p>
               </div>
-              <fieldset className="dm-opciones">
+              <fieldset className="dm-opciones dm-centros">
                 <legend className="dm-solo-lectores">Tipo de centro</legend>
                 {TIPOS_CENTRO.map((t) => (
                   <label key={t} className="dm-opcion">
                     <input type="radio" name={`${uid}-centro`} value={t} checked={centro === t} onChange={() => setCentro(t)} onClick={() => setCentro(t)} />
-                    <span className="dm-opcion-cara">
+                    <span className="dm-opcion-cara dm-centro-cara">
+                      <span className="dm-centro-emoji" aria-hidden="true">{CENTROS[t].emoji}</span>
                       <span className="dm-opcion-titulo">{CENTROS[t].etiqueta}</span>
                       <span className="dm-opcion-detalle">{CENTROS[t].detalle}</span>
                     </span>
@@ -443,35 +448,31 @@ export function DemoExperiencia() {
           )}
 
           {fase === 'evaluacion' && (
-            <div className="dm-entra" style={{ display: 'grid', gap: 18 }}>
-              <h1 id={`${uid}-titulo`} ref={titulo} tabIndex={-1} className="dm-h1">¿Hemos resuelto tu duda?</h1>
-              <p className="dm-lead">Dinos cómo ha ido; no cuenta como resuelta hasta que tú lo digas.</p>
-              <div className="dm-opciones" role="group" aria-label="Valoración de la demo">
-                {([
-                  ['resuelta', 'Sí, lo tengo claro', 'Pasar a crear mi estudio'],
-                  ['otra_duda', 'Tengo otra duda', 'Preguntarle algo más a Tenti'],
-                  ['otro_ejemplo', 'Quiero ver otro ejemplo', 'Elegir otra demo'],
-                  ['no_exacto', 'No es exactamente lo que necesito', 'Contárselo a Tenti'],
-                ] as const).map(([clave, titulo2, detalle]) => (
-                  <button key={clave} type="button" className="dm-opcion-cara" style={{ textAlign: 'left', cursor: 'pointer', font: 'inherit' }} onClick={() => void valorar(clave)}>
-                    <span className="dm-opcion-titulo">{titulo2}</span>
-                    <span className="dm-opcion-detalle">{detalle}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {fase === 'alta' && (
-            <div className="dm-entra" style={{ display: 'grid', gap: 18 }}>
-              <h1 id={`${uid}-titulo`} ref={titulo} tabIndex={-1} className="dm-h1">Ahora que sabes cómo funciona, crea tu estudio en Tentare</h1>
-              <p className="dm-lead">
-                Te llevamos al alta de siempre{datos.estudio || datos.email ? ', con el nombre de tu estudio y tu correo ya escritos' : ''}. Tu estudio no se crea hasta que termines el alta y confirmes tu correo.
-              </p>
-              <div className="dm-acciones">
-                <button type="button" className="dm-boton dm-boton-primario" onClick={irAlAlta}>Crear mi estudio <ArrowRight size={18} aria-hidden="true" /></button>
-                <button type="button" className="dm-boton dm-boton-contorno" onClick={() => setFase('evaluacion')}>Volver</button>
-              </div>
+            <div className="dm-entra dm-fin">
+              <Confeti />
+              <div className="dm-fin-corona" aria-hidden="true">🎉</div>
+              <h1 id={`${uid}-titulo`} ref={titulo} tabIndex={-1} className="dm-h1">¡Felicidades!</h1>
+              <p className="dm-lead">Has recorrido tu demo personalizada. Así funcionaría Tentare en tu día a día.</p>
+              {utilidad === null ? (
+                <>
+                  <p className="dm-fin-pregunta" id={`${uid}-pregunta`}>¿Cuánto te ha ayudado esta demo a resolver tus preguntas?</p>
+                  <div className="dm-caras" role="group" aria-labelledby={`${uid}-pregunta`}>
+                    {([
+                      [1, '😕', 'Poco'],
+                      [2, '🙂', 'Bastante'],
+                      [3, '🤩', 'Muchísimo'],
+                    ] as const).map(([valor, cara, texto]) => (
+                      <button key={valor} type="button" className="dm-cara" onClick={() => valorarUtilidad(valor)}>
+                        <span className="dm-cara-emoji" aria-hidden="true">{cara}</span>
+                        <span>{texto}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" className="dm-enlace" onClick={preguntarOtraCosa}>Prefiero preguntarle otra cosa a Tenti</button>
+                </>
+              ) : (
+                <p className="dm-fin-gracias" role="status">¡Gracias! Te llevamos a crear tu estudio…</p>
+              )}
             </div>
           )}
         </div>
@@ -488,11 +489,3 @@ export function DemoExperiencia() {
     </div>
   );
 }
-
-// Los títulos de los escenarios para «otro ejemplo» sin traer el catálogo al navegador:
-// el servidor valida el id al ejecutarlo, esto solo es lo que se muestra.
-const CATALOGO_RESUMEN: Record<string, AlternativaCatalogo> = {
-  caducidad_bono: { id: 'caducidad_bono', titulo: 'Caducidad de un bono y ausencia de la alumna', descripcion: 'Qué pasa con las sesiones de un bono cuando la alumna avisa de que no va y el bono llega a su fecha de fin.' },
-  ausencia_recuperacion: { id: 'ausencia_recuperacion', titulo: 'Ausencia avisada y recuperación semanal', descripcion: 'Si una alumna con límite semanal gana una recuperación al avisar de que no va.' },
-  orden_consumo_bonos: { id: 'orden_consumo_bonos', titulo: 'De qué bono se descuenta la sesión', descripcion: 'Qué bono gasta Tentare cuando una alumna tiene varios y reserva una clase.' },
-};

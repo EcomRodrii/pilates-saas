@@ -1,0 +1,25 @@
+/*
+ * El marco de la demo (/demo) y del alta (/crear-estudio): una tarjeta blanca y redondeada sobre
+ * dos manchas de marca muy difuminadas. Los valores son los de `.dm-raiz`/`.dm-fondo`/`.dm-tarjeta`
+ * (components/demo/demo.css); van aquí con sus colores escritos porque el alta no carga los tokens
+ * de la web (--w-*) y los de la tarjeta de aquí (--t-*) cambian en oscuro.
+ */
+.mt-raiz { position: relative; min-height: 100dvh; display: grid; place-items: center; padding: clamp(0px, 3vw, 32px); background: #F6F4EF; }
+.mt-fondo { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
+.mt-fondo::before, .mt-fondo::after { content: ''; position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+.mt-fondo::before { width: 46vmax; height: 46vmax; left: -12vmax; top: -14vmax; background: #D9C29E; }
+.mt-fondo::after { width: 40vmax; height: 40vmax; right: -12vmax; bottom: -14vmax; background: #B9C09A; }
+.mt-tarjeta {
+  position: relative; width: 100%; max-width: 760px; min-height: min(640px, 100dvh);
+  display: flex; flex-direction: column; background: #FFFFFF; border-radius: 24px;
+  border: 1px solid rgba(34, 38, 31, .12); box-shadow: 0 24px 48px -22px rgba(34, 38, 31, .42), 0 2px 6px rgba(34, 38, 31, .06);
+}
+.mt-tarjeta[data-ancho='estrecho'] { max-width: 520px; }
+.mt-tarjeta[data-ancho='amplio'] { max-width: 1120px; }
+@media (max-width: 640px) {
+  .mt-raiz { padding: 0; place-items: stretch; }
+  .mt-tarjeta { max-width: none !important; border-radius: 0; min-height: 100dvh; border: 0; }
+}
+/* En oscuro la tarjeta sigue el lienzo de la pantalla: texto claro sobre blanco no se lee. */
+:is(.dark) .mt-tarjeta { background: var(--t-canvas, #1b1d19); }
+:is(.dark) .mt-raiz { background: #11130f; }

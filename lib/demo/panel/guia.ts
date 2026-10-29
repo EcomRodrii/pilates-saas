@@ -10,7 +10,7 @@ export const CLAVE_VUELTA = 'tentare:demo-vuelta';
 
 export interface PasoGuia { titulo: string; proposito: string; pantalla?: PantallaPanel }
 export interface Guia { titulo: string; pasos: PasoGuia[]; paso: number }
-export interface MarcaPanel { t: number; guia?: Guia }
+export interface MarcaPanel { t: number; guia?: Guia; /** La dirección de /demo desde la que se entró (con su `?prueba`): a ella se vuelve. */ volver?: string }
 
 export function leerMarca(): MarcaPanel | null {
   try {
@@ -23,13 +23,14 @@ function guardar(m: MarcaPanel) { try { sessionStorage.setItem(CLAVE_PANEL, JSON
 
 /** Sale del panel de demostración y vuelve a /demo; `valorar` = ya vio todo, toca la valoración. */
 export function salir(valorar: boolean) {
+  // A /demo con SU `?prueba=1` si lo traía: sin él, con la demo en modo prueba la página daba 404.
+  const volver = leerMarca()?.volver;
   try {
     sessionStorage.removeItem(CLAVE_PANEL);
     if (valorar) sessionStorage.setItem(CLAVE_VUELTA, '1');
   } catch { /* idem */ }
   // Navegación COMPLETA a propósito: hay que salir del panel de demostración, no moverse dentro de él.
-  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-  window.location.assign('/demo');
+  window.location.assign(volver && volver.startsWith('/demo') ? volver : '/demo');
 }
 
 const CSS = `
@@ -50,8 +51,93 @@ button:focus-visible { outline: 3px solid #D9C29E; outline-offset: 2px; }
 .puntos { display: flex; gap: 5px; margin-top: 10px; }
 .puntos i { height: 4px; flex: 1; border-radius: 99px; background: rgba(246,244,239,.2); }
 .puntos i.h { background: #D9C29E; }
+.anillo { position: fixed; z-index: 2147482000; pointer-events: none; border-radius: 14px; border: 3px solid #D9C29E; box-shadow: 0 0 0 4px rgba(217,194,158,.35), 0 0 0 9999px rgba(20,22,18,.22); transition: all .25s ease; }
+.aviso { position: fixed; left: 50%; bottom: 190px; transform: translateX(-50%); z-index: 2147483001; max-width: min(520px, calc(100vw - 24px)); background: #F6F4EF; color: #22261F; border-radius: 14px; padding: 12px 16px; font: 14px/1.4 system-ui, -apple-system, sans-serif; box-shadow: 0 12px 32px rgba(0,0,0,.3); }
 @media (prefers-reduced-motion: no-preference) { .barra { animation: sube .25s ease-out both; } @keyframes sube { from { opacity: 0; transform: translate(-50%, 8px); } } }
 `;
+
+/** ¿Es esta dirección la del paso (misma ruta y, si el paso fija una pestaña u otro parámetro, el mismo)? */
+export function esDireccionDelPaso(href: string, ruta: string, base: string = window.location.href): boolean {
+  try {
+    const u = new URL(href, base), r = new URL(ruta, base);
+    if (u.origin !== r.origin || u.pathname !== r.pathname) return false;
+    for (const [k, v] of r.searchParams) if (u.searchParams.get(k) !== v) return false;
+    return true;
+  } catch { return false; }
+}
+
+let sombraGuia: ShadowRoot | null = null;
+let temporizadorAviso: number | undefined;
+function avisar(texto: string) {
+  if (!sombraGuia) return;
+  sombraGuia.querySelector('.aviso')?.remove();
+  const a = document.createElement('div'); a.className = 'aviso'; a.setAttribute('role', 'status'); a.textContent = texto;
+  sombraGuia.append(a);
+  window.clearTimeout(temporizadorAviso);
+  temporizadorAviso = window.setTimeout(() => a.remove(), 4000);
+}
+const AVISO_BLOQUEO = 'Esta demo solo recorre lo que has preguntado. Usa «Siguiente paso» para seguir.';
+
+/** La demo no deja ir a otros módulos: ni con un enlace, ni con el botón de atrás, ni con una navegación del propio panel. */
+export function bloquearNavegacion(ruta: string) {
+  document.addEventListener('click', (e) => {
+    const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!a) return;
+    const href = a.getAttribute('href') ?? '';
+    if (href.startsWith('#') || esDireccionDelPaso(a.href, ruta)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    avisar(AVISO_BLOQUEO);
+  }, true);
+  // Las navegaciones que hace el propio panel (router.push): si van a otra pantalla, se quedan donde están.
+  for (const metodo of ['pushState', 'replaceState'] as const) {
+    const original = history[metodo].bind(history);
+    history[metodo] = (data: unknown, unused: string, url?: string | URL | null) => {
+      if (url != null && !esDireccionDelPaso(String(url), ruta)) { avisar(AVISO_BLOQUEO); return; }
+      original(data, unused, url);
+    };
+  }
+  window.addEventListener('popstate', () => {
+    if (!esDireccionDelPaso(window.location.href, ruta)) window.location.replace(ruta);
+  });
+}
+
+/** Rodea con un aro lo que importa de esta pantalla (lo busca por su texto) y lo trae a la vista. */
+export function resaltar(foco: string) {
+  const buscado = foco.toLowerCase();
+  let anillo: HTMLDivElement | null = null;
+  let elemento: Element | null = null;
+  const localizar = (): Element | null => {
+    const it = document.createNodeIterator(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = it.nextNode(); n; n = it.nextNode()) {
+      const t = (n.textContent ?? '').toLowerCase();
+      if (!t.includes(buscado)) continue;
+      let e = n.parentElement;
+      if (!e || e.closest('#tentare-demo-guia')) continue;
+      const r0 = e.getBoundingClientRect();
+      if (r0.width === 0 || r0.height === 0) continue;
+      // Sube a la fila o tarjeta que lo contiene, sin llegar a media pantalla.
+      for (let i = 0; i < 4 && e.parentElement; i++) {
+        const r = e.parentElement.getBoundingClientRect();
+        if (r.height > 160 || r.width > window.innerWidth * 0.9) break;
+        e = e.parentElement;
+      }
+      return e;
+    }
+    return null;
+  };
+  const colocar = () => {
+    if (!sombraGuia) return;
+    if (!elemento || !elemento.isConnected) {
+      elemento = localizar();
+      if (elemento) elemento.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    if (!elemento) return;
+    const r = elemento.getBoundingClientRect();
+    if (!anillo) { anillo = document.createElement('div'); anillo.className = 'anillo'; anillo.setAttribute('aria-hidden', 'true'); sombraGuia.append(anillo); }
+    Object.assign(anillo.style, { left: `${r.left - 6}px`, top: `${r.top - 6}px`, width: `${r.width + 12}px`, height: `${r.height + 12}px` });
+  };
+  window.setInterval(colocar, 350);
+}
 
 export function montarGuia(m: MarcaPanel) {
   const guia = m.guia;
@@ -91,11 +177,15 @@ export function montarGuia(m: MarcaPanel) {
     acciones.append(ant, sig);
     barra.append(fila, h, t, puntos, acciones);
     sombra.append(estilo, barra);
+    sombraGuia = sombra;
     // Sitio para poder desplazar el panel POR ENCIMA de la barra: sin él, lo de abajo (la tarjeta del plan, la lista de clases)
     // queda tapado y no se puede ver. Va en un <style> propio colgado de <html>, fuera de lo que React gestiona.
     const hueco = document.createElement('style');
     hueco.textContent = 'body{padding-bottom:210px !important}';
     document.documentElement.append(hueco, anfitrion);
+    if (paso.pantalla?.foco) resaltar(paso.pantalla.foco);
   };
+  const rutaPaso = guia.pasos[guia.paso].pantalla?.ruta;
+  if (rutaPaso) bloquearNavegacion(rutaPaso);
   if (document.readyState === 'complete') pintar(); else window.addEventListener('load', pintar, { once: true });
 }
