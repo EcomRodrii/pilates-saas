@@ -66,20 +66,33 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
     k: NOMBRES[i], v: `${b.restantes} ${b.restantes === 1 ? 'sesión' : 'sesiones'} · ${ALCANCE_TEXTO[b.alcance]} · ${b.caducaEnDias === null ? 'no caduca' : `caduca el ${etiquetaFecha(sumarDias(LUNES_DEMO, b.caducaEnDias))}`}`,
   });
 
+  // Los bonos de la clienta de ejemplo en la ficha REAL del panel, antes y después de reservar (lib/demo/panel).
+  const bonosPanel = (descontarDe: number | null) => p.bonos.map((b, i) => ({
+    nombre: `${NOMBRES[i]} · ${ALCANCE_TEXTO[b.alcance]}`,
+    restantes: i === descontarDe ? Math.max(0, b.restantes - 1) : b.restantes,
+    total: Math.max(b.restantes, 10),
+    caducaEnDias: b.caducaEnDias,
+  }));
+  const saldoTotal = p.bonos.reduce((n, b) => n + b.restantes, 0);
+  const indiceElegido = elegido ? Number(elegido.suscripcion.id.split('-')[1]) : null;
+
   const pasos: PasoDemo[] = [
     {
+      pantalla: { ruta: '/clientas/soc-1', bonos: bonosPanel(null), titular: 'Los bonos de la alumna', detalle: `Tiene ${p.bonos.length} bonos vivos a la vez${p.tieneCuotaMensualQueCubre ? ' y una cuota mensual' : ''}. La ficha suma lo que le queda en todos: ${saldoTotal} sesiones.` },
       id: 'bonos', titulo: 'Los bonos de la alumna',
       proposito: 'Una alumna puede tener varios bonos vivos a la vez. Este es su estado.',
       bloques: [{ tipo: 'tabla', filas: [...p.bonos.map(filaBono), ...(p.tieneCuotaMensualQueCubre ? [{ k: 'Cuota mensual', v: 'Activa y cubre esta clase' }] : [])] }],
       porQue: [regla.cobertura],
     },
     {
+      pantalla: { ruta: '/clientas/soc-1', bonos: bonosPanel(null), titular: 'Reserva una clase', detalle: `Al reservar, Tentare elige de qué bono sale la sesión. Ahora la ficha suma ${saldoTotal} sesiones.` },
       id: 'reserva', titulo: 'Reserva una clase',
       proposito: 'Al reservar, Tentare elige de qué bono sale la sesión.',
       bloques: [{ tipo: 'texto', texto: `Reserva ${ctx.clase} el ${etiquetaFecha(LUNES_DEMO)}.` }],
       porQue: [regla.mensual, regla.cobertura, regla.orden],
     },
     {
+      pantalla: { ruta: '/clientas/soc-1', bonos: bonosPanel(indiceElegido), titular: nombreElegido ? `Se descuenta de ${nombreElegido}` : p.tieneCuotaMensualQueCubre ? 'No se descuenta ninguna sesión' : 'Ningún bono sirve para esta clase', detalle: nombreElegido ? `Se descuenta de ${nombreElegido} y la ficha, que suma todos los bonos, baja de ${saldoTotal} a ${saldoTotal - 1}.` : p.tieneCuotaMensualQueCubre ? 'La cuota mensual cubre la clase.' : 'La alumna no podría reservar con bono.' },
       id: 'resultado', titulo: 'De cuál se descuenta',
       proposito: 'El resultado es siempre el mismo para los mismos datos.',
       bloques: [

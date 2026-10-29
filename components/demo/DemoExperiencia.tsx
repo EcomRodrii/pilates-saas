@@ -23,6 +23,7 @@ import {
 } from '@/lib/demo/persistencia';
 import { ChatTenti, type MensajeChat } from './ChatTenti';
 import { Recorrido } from './Recorrido';
+import { CLAVE_PANEL, CLAVE_VUELTA } from '@/lib/demo/panel/guia';
 import './demo.css';
 
 // La demo personalizada, de punta a punta: centro → datos → Tenti → recorrido →
@@ -44,6 +45,16 @@ const EJEMPLOS = [
   '¿Gana una recuperación si cancela a tiempo?',
   '¿De qué bono se descuenta la sesión si tiene varios?',
 ];
+
+// La marca de «vuelvo del panel» se lee UNA vez por carga de página: React en desarrollo ejecuta los efectos dos veces y la
+// primera la borra, así que la segunda (la que decide) no la vería.
+let vueltaDelPanel: boolean | null = null;
+function leerVueltaDelPanel(): boolean {
+  if (vueltaDelPanel === null) {
+    try { vueltaDelPanel = sessionStorage.getItem(CLAVE_VUELTA) === '1'; sessionStorage.removeItem(CLAVE_VUELTA); } catch { vueltaDelPanel = false; }
+  }
+  return vueltaDelPanel;
+}
 
 export function DemoExperiencia() {
   const router = useRouter();
@@ -71,6 +82,7 @@ export function DemoExperiencia() {
   const [demo, setDemo] = useState<DemoGenerada | null>(null);
   const [ejecutando, setEjecutando] = useState(false);
   const [guardada, setGuardada] = useState<SesionGuardada | null>(null);
+  const [verTexto, setVerTexto] = useState(false);
   const siguienteId = useRef(1);
   const titulo = useRef<HTMLHeadingElement>(null);
   const montado = useRef(false);
@@ -81,7 +93,13 @@ export function DemoExperiencia() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDatos(leerDatos() ?? DATOS_VACIOS);
     const g = leerSesionGuardada();
-    if (g) { setGuardada(g); setFase('retomar'); }
+    // Vuelve del panel real (lo terminó o salió): a la valoración, con su sesión, sin pedirle nada otra vez.
+    const vuelta = leerVueltaDelPanel();
+    if (g && vuelta) {
+      setCentro(g.tipoCentro); setSesion(g.sesion); setPropuesta(g.propuesta);
+      setMensajes(g.historial.map((m) => ({ id: siguienteId.current++, rol: m.rol, texto: m.texto })));
+      setFase('evaluacion');
+    } else if (g) { setGuardada(g); setFase('retomar'); }
   }, []);
 
   // Lo que se recuerda para volver (sin datos personales).
@@ -233,6 +251,17 @@ export function DemoExperiencia() {
     const t = window.setTimeout(() => setFase('recorrido'), 900);
     return () => window.clearTimeout(t);
   }, [fase]);
+
+  // ── El panel real ────────────────────────────────────────────────────────
+  // La demo se ve en el panel de VERDAD de Tentare (con un estudio de ejemplo), no en un dibujo: se deja la marca de esta
+  // pestaña con los pasos y se abre la primera pantalla. El panel carga `demo-panel.js` y pone la guía encima.
+  function abrirPanel() {
+    if (!demo) return;
+    const pasos = demo.pasos.map((p) => ({ titulo: p.titulo, proposito: p.proposito, pantalla: p.pantalla }));
+    try { sessionStorage.setItem(CLAVE_PANEL, JSON.stringify({ t: Date.now(), guia: { titulo: demo.titulo, pasos, paso: 0 } })); } catch { /* sin almacenamiento */ }
+    capturarEvento('demo_paso', { escenario: demo.escenario, n: 0 });
+    window.location.assign(pasos[0]?.pantalla?.ruta ?? '/dashboard');
+  }
 
   // ── Valoración ───────────────────────────────────────────────────────────
   async function valorar(respuesta: RespuestaEvaluacion) {
@@ -389,7 +418,20 @@ export function DemoExperiencia() {
             </div>
           )}
 
-          {fase === 'recorrido' && demo && (
+          {fase === 'recorrido' && demo && !verTexto && (
+            <div className="dm-entra" style={{ display: 'grid', gap: 18 }}>
+              <h1 id={`${uid}-titulo`} ref={titulo} tabIndex={-1} className="dm-h1">Tu demo está lista</h1>
+              {propuesta?.resumen && <p className="dm-lead">{propuesta.resumen}</p>}
+              {propuesta?.aclaracion && <div className="dm-aviso" role="note">{propuesta.aclaracion}</div>}
+              <p className="dm-lead">Te la enseño en el <strong>panel real de Tentare</strong>, con un estudio de ejemplo: las mismas pantallas que usarás tú. Nada de lo que veas toca datos reales.</p>
+              <div className="dm-acciones">
+                <button type="button" className="dm-boton dm-boton-primario" onClick={abrirPanel}>Verla en el panel real <ArrowRight size={18} aria-hidden="true" /></button>
+                <button type="button" className="dm-boton dm-boton-contorno" onClick={() => setVerTexto(true)}>Prefiero el resumen en texto</button>
+              </div>
+            </div>
+          )}
+
+          {fase === 'recorrido' && demo && verTexto && (
             <>
               <h1 id={`${uid}-titulo`} ref={titulo} tabIndex={-1} className="dm-solo-lectores">{demo.titulo}</h1>
               <Recorrido

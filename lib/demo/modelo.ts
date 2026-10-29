@@ -29,12 +29,27 @@ export interface Regla {
   fuente: string;
 }
 
+/** Qué pantalla REAL del panel enseña un paso y con qué datos de ejemplo (todo relativo a «hoy»: el panel usa el reloj de verdad). */
+export interface PantallaPanel {
+  /** Ruta del panel real (`/clientas/soc-1`, `/calendario`…). */
+  ruta: string;
+  /** Los bonos de la clienta de ejemplo en este paso. */
+  bonos?: { nombre: string; restantes: number; total: number; caducaEnDias: number | null }[];
+  /** Las reglas del estudio de ejemplo en este paso (lo que se ve en Configuración). */
+  reglas?: { ventanaCancelacionHoras?: number; devolverBonoEnTardia?: boolean; recuperacionAutoSemanal?: boolean; recuperacionSoloEnLaSemana?: boolean };
+  /** Lo que ocurre en este paso, para la barra de guía. */
+  titular?: string;
+  detalle?: string;
+}
+
 export interface PasoDemo {
   id: string;
   titulo: string;
   proposito: string;
   bloques: Bloque[];
   porQue: Regla[];
+  /** La pantalla real del panel que se enseña (la guía de la demo la abre). */
+  pantalla?: PantallaPanel;
   /** Dónde se configura esto en Tentare (para «Ver cómo se configura»). */
   configura?: { donde: string; ajuste: string; valor: string }[];
 }

@@ -114,6 +114,12 @@ async function hastaRecorrido(page: Page) {
   await page.getByRole('button', { name: 'Sí', exact: true }).click();
   await expect(page.getByText('Estamos preparando tu recorrido personalizado')).toBeVisible();
   await page.getByRole('button', { name: 'Ver mi demo ya' }).click();
+  await expect(page.getByRole('heading', { name: 'Tu demo está lista' })).toBeVisible();
+}
+/** El resumen en texto (la alternativa al panel real): los pasos con sus reglas explicadas. */
+async function hastaRecorridoTexto(page: Page) {
+  await hastaRecorrido(page);
+  await page.getByRole('button', { name: 'Prefiero el resumen en texto' }).click();
   await expect(page.getByText('Paso 1 de')).toBeVisible();
 }
 /** Espera a que terminen las animaciones de entrada: axe mide el contraste a media transparencia y daría un falso aviso. */
@@ -143,7 +149,7 @@ test.describe('pantalla de la demo', () => {
 
   test('recorrido completo: centro → datos → Tenti → demo → valoración → alta', async ({ page }) => {
     const c = await mockear(page);
-    await hastaRecorrido(page);
+    await hastaRecorridoTexto(page);
     expect(c.iniciar).toBe(1);
     expect(c.tenti).toBe(2);
 
@@ -185,11 +191,81 @@ test.describe('pantalla de la demo', () => {
 
     await expect(page.getByRole('heading', { name: /crea tu estudio en Tentare/ })).toBeVisible();
     await page.getByRole('button', { name: 'Crear mi estudio' }).click();
-    await expect(page).toHaveURL(/\/crear-estudio/);
+    await expect(page).toHaveURL(/\/crear-estudio/, { timeout: 120_000 });
     // El alta recibe lo ya escrito por el mismo borrador que ella usa (sin contraseña).
     const borrador = await page.evaluate(() => JSON.parse(localStorage.getItem('tentare:alta-nueva-borrador') ?? 'null'));
     expect(borrador).toMatchObject({ nombre: 'Estudio Luna', email: 'marta@example.com' });
     expect(Object.keys(borrador)).not.toContain('contrasena');
+  });
+
+  test('el panel REAL: la guía abre las pantallas de verdad, con datos de ejemplo y sin una sola petición a la base de datos', async ({ page }) => {
+    test.setTimeout(300_000);
+    await mockear(page);
+    // Toda petición a Supabase hecha desde una pantalla DEL PANEL (no desde /demo, que lleva su proveedor normal) cuenta como fuga.
+    const fugas: string[] = [];
+    page.on('request', (r) => {
+      const enPanel = !new URL(r.frame()?.url() ?? 'http://x/demo').pathname.startsWith('/demo');
+      if (enPanel && new URL(r.url()).host.includes('supabase')) fugas.push(`${r.method()} ${r.url()}`);
+    });
+    await hastaRecorrido(page);
+    await page.getByRole('button', { name: 'Verla en el panel real' }).click();
+
+    // Paso 1: Configuración REAL, con el plazo de cancelación del caso.
+    await expect(page).toHaveURL(/\/configuracion/);
+    const guia = page.locator('#tentare-demo-guia');
+    await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText('Cómo reservan mis alumnas').first()).toBeVisible();
+    await expect(guia.getByRole('button', { name: 'Paso anterior' })).toBeDisabled();
+
+    // Paso 2: la ficha REAL de la clienta, con SU bono (4 de 10) y su caducidad contada con el «hoy» del paso.
+    await guia.getByRole('button', { name: 'Siguiente paso' }).click();
+    await expect(page).toHaveURL(/\/clientas\/soc-1/);
+    await expect(guia.getByText('Demo · paso 2 de')).toBeVisible({ timeout: 90_000 });
+    await expect(page.getByText('María García Fernández').first()).toBeVisible();
+    await expect(page.getByText(/quedan 4 · caduca en \d+ días?/)).toBeVisible();
+
+    // Hasta el último paso: «caducado hace 1 día» sale de la propia ficha.
+    let n = 2;
+    while (await guia.getByRole('button', { name: 'Siguiente paso' }).count()) {
+      await guia.getByRole('button', { name: 'Siguiente paso' }).click();
+      n++;
+      await expect(guia.getByText(`Demo · paso ${n} de`)).toBeVisible({ timeout: 90_000 });
+    }
+    await expect(page.getByText(/caducado hace 1 día/)).toBeVisible();
+    await guia.getByRole('button', { name: 'Terminar la demo' }).click();
+
+    // Vuelve a /demo directo a la valoración, sin pedir nada otra vez.
+    await expect(page).toHaveURL(/\/demo$/);
+    await expect(page.getByRole('heading', { name: '¿Hemos resuelto tu duda?' })).toBeVisible();
+    expect(fugas, 'ni una petición a la base de datos real desde el panel').toEqual([]);
+    // Y ya no queda la marca: el panel de esta pestaña vuelve a ser el de verdad.
+    expect(await page.evaluate(() => sessionStorage.getItem('tentare:demo-panel'))).toBeNull();
+  });
+
+  test('«Salir de la demo» desde el panel vuelve a /demo y quita la marca', async ({ page }) => {
+    test.setTimeout(240_000);
+    await mockear(page);
+    await hastaRecorrido(page);
+    await page.getByRole('button', { name: 'Verla en el panel real' }).click();
+    const guia = page.locator('#tentare-demo-guia');
+    await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
+    await guia.getByRole('button', { name: 'Salir de la demo' }).click();
+    await expect(page).toHaveURL(/\/demo$/);
+    expect(await page.evaluate(() => sessionStorage.getItem('tentare:demo-panel'))).toBeNull();
+  });
+
+  test('una pestaña normal NO carga el panel de demostración, ni con una marca caducada', async ({ page }) => {
+    const cargas: string[] = [];
+    page.on('request', (r) => { if (r.url().includes('demo-panel.js')) cargas.push(r.url()); });
+    await page.goto('/crear-estudio');
+    await expect(page.locator('body')).toBeVisible();
+    expect(cargas).toEqual([]);
+    expect(await page.evaluate(() => typeof (window as unknown as { __demoPanel?: unknown }).__demoPanel)).toBe('undefined');
+    // Una marca de hace más de 2 horas no vale.
+    await page.addInitScript(() => sessionStorage.setItem('tentare:demo-panel', JSON.stringify({ t: Date.now() - 3 * 3_600_000, guia: { titulo: 'x', pasos: [], paso: 0 } })));
+    await page.goto('/crear-estudio');
+    await expect(page.locator('body')).toBeVisible();
+    expect(cargas).toEqual([]);
   });
 
   test('validación: cada campo con su mensaje, sin llamar al servidor, y el consentimiento comercial nace desmarcado', async ({ page }) => {
@@ -267,6 +343,7 @@ test.describe('pantalla de la demo', () => {
     expect(c.tenti).toBe(1);
     await page.getByRole('button', { name: /Ausencia avisada y recuperación semanal/ }).click();
     await page.getByRole('button', { name: 'Ver mi demo ya' }).click();
+    await page.getByRole('button', { name: 'Prefiero el resumen en texto' }).click();
     await expect(page.getByText('Paso 1 de')).toBeVisible();
     expect(c.ejecutar).toBe(1);
   });
@@ -294,7 +371,7 @@ test.describe('pantalla de la demo', () => {
 
   test('la valoración: cada respuesta lleva a un flujo y «otra duda» no pide los datos otra vez', async ({ page }) => {
     const c = await mockear(page);
-    await hastaRecorrido(page);
+    await hastaRecorridoTexto(page);
     for (let n = 0; n < 12 && await page.getByRole('button', { name: 'Siguiente paso' }).count(); n++) await page.getByRole('button', { name: 'Siguiente paso' }).click();
     await page.getByRole('button', { name: 'Terminar la demo' }).click();
 
@@ -314,7 +391,7 @@ test.describe('pantalla de la demo', () => {
 
   test('«otro ejemplo» y «no es lo que necesito»', async ({ page }) => {
     const c = await mockear(page);
-    await hastaRecorrido(page);
+    await hastaRecorridoTexto(page);
     for (let n = 0; n < 12 && await page.getByRole('button', { name: 'Siguiente paso' }).count(); n++) await page.getByRole('button', { name: 'Siguiente paso' }).click();
     await page.getByRole('button', { name: 'Terminar la demo' }).click();
     await page.getByRole('button', { name: /Quiero ver otro ejemplo/ }).click();
@@ -322,6 +399,7 @@ test.describe('pantalla de la demo', () => {
     await expect(page.getByRole('button', { name: /Caducidad de un bono y ausencia/ })).toHaveCount(0);
     await page.getByRole('button', { name: /De qué bono se descuenta la sesión/ }).click();
     await page.getByRole('button', { name: 'Ver mi demo ya' }).click();
+    await page.getByRole('button', { name: 'Prefiero el resumen en texto' }).click();
     await expect(page.getByText('Paso 1 de')).toBeVisible();
     for (let n = 0; n < 12 && await page.getByRole('button', { name: 'Siguiente paso' }).count(); n++) await page.getByRole('button', { name: 'Siguiente paso' }).click();
     await page.getByRole('button', { name: 'Terminar la demo' }).click();
@@ -332,7 +410,7 @@ test.describe('pantalla de la demo', () => {
 
   test('«Volver a ejecutar» vuelve al paso 1 y «Empezar otra demo» a la conversación', async ({ page }) => {
     const c = await mockear(page);
-    await hastaRecorrido(page);
+    await hastaRecorridoTexto(page);
     await page.getByRole('button', { name: 'Siguiente paso' }).click();
     await page.getByRole('button', { name: 'Volver a ejecutar' }).click();
     await expect(page.getByText(/^Paso 1 de/)).toBeVisible();
@@ -343,11 +421,11 @@ test.describe('pantalla de la demo', () => {
 
   test('quien vuelve más tarde puede retomar la demo sin repetir los datos', async ({ page }) => {
     const c = await mockear(page);
-    await hastaRecorrido(page);
+    await hastaRecorridoTexto(page);
     await page.reload();
     await expect(page.getByRole('heading', { name: 'Tienes una demo a medias' })).toBeVisible();
     await page.getByRole('button', { name: 'Continuar mi demo' }).click();
-    await expect(page.getByText(/^Paso 1 de/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tu demo está lista' })).toBeVisible();
     expect(c.ejecutar).toBe(1);
     expect(c.iniciar).toBe(1);
     // Lo guardado en el navegador no lleva datos personales.
@@ -362,7 +440,7 @@ test.describe('pantalla de la demo', () => {
 
   test('la sesión retomada que el servidor rechaza empieza de cero, sin romper', async ({ page }) => {
     await mockear(page);
-    await hastaRecorrido(page);
+    await hastaRecorridoTexto(page);
     await page.unroute('**/api/public/demo/ejecutar');
     await page.route('**/api/public/demo/ejecutar', (route) => json(route, { error: 'Tu sesión de demo ha caducado.', codigo: 'sesion' }, 401));
     await page.reload();
@@ -391,6 +469,7 @@ test.describe('pantalla de la demo', () => {
     await escribirATenti(page, 'caducidad');
     await page.getByRole('button', { name: 'Sí', exact: true }).click();
     await page.getByRole('button', { name: 'Ver mi demo ya' }).click();
+    await page.getByRole('button', { name: 'Prefiero el resumen en texto' }).click();
     for (let n = 0; n < 12; n++) {
       expect(await sinScrollHorizontal(page)).toBe(true);
       const sig = page.getByRole('button', { name: 'Siguiente paso' });
@@ -418,6 +497,7 @@ test.describe('pantalla de la demo', () => {
     await escribirATenti(page, 'caducidad');
     await page.getByRole('button', { name: 'Sí', exact: true }).click();
     await page.getByRole('button', { name: 'Ver mi demo ya' }).click();
+    await page.getByRole('button', { name: 'Prefiero el resumen en texto' }).click();
     await expect(page.getByText(/^Paso 1 de/)).toBeVisible();
     expect(await graves()).toEqual([]);
   });

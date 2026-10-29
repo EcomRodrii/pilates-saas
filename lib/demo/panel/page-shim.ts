@@ -92,7 +92,8 @@ export function crearPagina(opciones: { supabaseHost: string; claveSesion: strin
           continue: async () => resolver('siguiente'),
           abort: async () => resolver(new Response(null, { status: 599 })),
         };
-        Promise.resolve(reglas[i].manejador(ruta)).catch(() => resolver('siguiente'));
+        // Una regla que revienta (síncrona o no) no rompe el panel ni deja pasar nada a la red: se baja a la siguiente.
+        try { Promise.resolve(reglas[i].manejador(ruta)).catch(() => resolver('siguiente')); } catch { resolver('siguiente'); }
       });
       if (resultado !== 'siguiente') return resultado;
     }

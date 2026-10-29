@@ -22,6 +22,7 @@ import {
 import { debeDevolverBono, esCancelacionTardia } from '../../booking-logic.ts';
 import type { Bloque, Comprobacion, DemoGenerada, PasoDemo } from '../modelo.ts';
 import { CONTEXTO_POR_DEFECTO, type ContextoDemo } from '../centros.ts';
+import type { PantallaPanel } from '../modelo.ts';
 import {
   DIAS, ETIQUETA_DIA, HORA_CLASE, LUNES_DEMO, diaMadrid, etiquetaFecha, fechaDeDia, haceCuanto,
   indiceDia, inicioClaseISO, sumarDias,
@@ -100,6 +101,14 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
     return { dia: ETIQUETA_DIA[d], eventos };
   });
 
+  // La clienta de ejemplo del panel real (`soc-1`) con SU bono en cada paso, contado en días desde el «hoy» de ese paso.
+  const dias = (de: string, a: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000);
+  const ficha = (restantes: number, hoy: string, titular?: string, detalle?: string): PantallaPanel => ({
+    ruta: '/clientas/soc-1',
+    bonos: [{ nombre: plan.nombre, restantes, total: p.sesionesTotales, caducaEnDias: dias(hoy, caducaISO) }],
+    titular, detalle,
+  });
+
   const regla = {
     ventana: {
       texto: p.ventanaCancelacionHoras > 0
@@ -125,6 +134,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
 
   const pasos: PasoDemo[] = [
     {
+      pantalla: { ruta: '/configuracion?tab=reservas', reglas: { ventanaCancelacionHoras: p.ventanaCancelacionHoras, devolverBonoEnTardia: p.devolverEnTardia }, titular: 'Las reglas del estudio', detalle: 'El plazo para cancelar y si se devuelve la sesión si se avisa tarde.' },
       id: 'configuracion', titulo: 'Las reglas del estudio',
       proposito: 'Antes de que ocurra nada, el estudio decide dos cosas: cuánta antelación pide y si devuelve la sesión cuando se avisa tarde.',
       bloques: [
@@ -142,12 +152,14 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       ],
     },
     {
+      pantalla: ficha(p.restantesAntesDeReservar, fechaReserva, 'El bono de la alumna', `Le quedan ${p.restantesAntesDeReservar} sesiones y vale hasta el ${ETIQUETA_DIA[p.caducaDia]}.`),
       id: 'bono', titulo: 'La alumna y su bono',
       proposito: 'Este es el punto de partida: un bono con sesiones por gastar y una fecha de fin.',
       bloques: [bonoBloque(p.restantesAntesDeReservar, fechaReserva), { tipo: 'semana', dias: eventosSemana.map((d) => ({ ...d, eventos: [] })) }],
       porQue: [regla.vigencia],
     },
     {
+      pantalla: ficha(restantesTrasReservar, fechaReserva, 'Reserva la clase', `Se descuenta una sesión: ${p.restantesAntesDeReservar} → ${restantesTrasReservar}.`),
       id: 'reserva', titulo: 'Reserva la clase',
       proposito: 'Al reservar, Tentare descuenta una sesión del bono que corresponde.',
       bloques: [
@@ -157,6 +169,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [{ texto: 'La sesión se descuenta al reservar, no al asistir.', fuente: 'bonoConsumible + calcularConsumoBono' }],
     },
     {
+      pantalla: ficha(restantesTrasAviso, fechaAviso, tardia ? 'Aviso tardío' : 'Aviso a tiempo', devuelta ? `Se le devuelve la sesión: vuelve a ${restantesTrasAviso}.` : `No se le devuelve la sesión: se queda en ${restantesTrasAviso}.`),
       id: 'aviso', titulo: 'Avisa de que no puede ir',
       proposito: 'Aquí se decide si la sesión vuelve al bono. Depende solo de cuándo avisa.',
       bloques: [
@@ -173,6 +186,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.ventana, regla.devolucion],
     },
     {
+      pantalla: ficha(restantesTrasAviso, caducaISO, `El último día (${ETIQUETA_DIA[p.caducaDia]})`, 'Hoy el bono todavía vale. Mañana ya no.'),
       id: 'caducidad', titulo: `Llega el final del ${ETIQUETA_DIA[p.caducaDia]}`,
       proposito: 'Comprobamos qué vale el bono el último día y qué pasa cuando termina.',
       bloques: [
@@ -186,6 +200,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.vigencia],
     },
     {
+      pantalla: ficha(restantesTrasAviso, diaSiguiente, sesionesPerdidas === 0 ? 'No se pierde ninguna sesión' : `Caducan ${sesionesPerdidas} sesiones`, 'El bono ya está caducado: lo que sobra no se arrastra.'),
       id: 'resultado', titulo: 'El resultado',
       proposito: 'Qué se queda la alumna y qué se pierde, y por qué.',
       bloques: [
@@ -205,6 +220,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.vigencia, regla.devolucion],
     },
     {
+      pantalla: ficha(restantesTrasAviso, diaSiguiente, 'Otros casos', 'Con el bono ya caducado, no se devuelve ninguna sesión.'),
       id: 'excepciones', titulo: 'Qué cambiaría en otros casos',
       proposito: 'Las dos situaciones que más preguntan los estudios, calculadas con las mismas reglas.',
       bloques: [

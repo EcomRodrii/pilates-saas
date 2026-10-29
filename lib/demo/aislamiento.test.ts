@@ -24,6 +24,9 @@ const importaProhibido = (t: string) => [...t.matchAll(/(?:from|import\()\s*'([^
 
 const PURO = ficheros('lib/demo').filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts'))
   // Lo que SÍ habla con el mundo está aparte y es corto: sesión (firma), rutas y modelo.
+  // `lib/demo/panel/` es el andamiaje del navegador (atiende en memoria lo que pide el panel real): habla con `fetch` a propósito, y su
+  // aislamiento lo prueba `panel/page-shim.test.ts` por comportamiento, no por ausencia de palabras.
+  .filter((f) => !f.startsWith('lib/demo/panel/'))
   .filter((f) => !['lib/demo/api-servidor.ts', 'lib/demo/tenti-servidor.ts', 'lib/demo/cliente.ts', 'lib/demo/persistencia.ts', 'lib/demo/sesion.ts'].includes(f));
 
 test('el motor, el catálogo, Tenti (sin su cliente) y las reglas son puros: nada de base de datos, dinero, correo, red ni entorno', () => {
@@ -90,6 +93,8 @@ test('nada de lib/demo llega al navegador con una clave: las únicas lecturas de
   for (const f of ficheros('components/demo')) assert.ok(!/process\.env\.(?!NEXT_PUBLIC_)/.test(leer(f)), f);
   for (const f of ficheros('lib/demo').filter((x) => !x.endsWith('.test.ts'))) {
     const t = leer(f);
-    if (/process\.env/.test(t)) assert.ok(['lib/demo/sesion.ts', 'lib/demo/api-servidor.ts'].includes(f), `${f} lee el entorno`);
+    // `panel/entrada.ts` lee SOLO `NEXT_PUBLIC_SUPABASE_URL` (esbuild la fija al compilar): el host que hay que NO tocar.
+    if (/process\.env/.test(t)) assert.ok(['lib/demo/sesion.ts', 'lib/demo/api-servidor.ts', 'lib/demo/panel/entrada.ts'].includes(f), `${f} lee el entorno`);
+    if (f === 'lib/demo/panel/entrada.ts') assert.deepEqual([...t.matchAll(/process\.env\.(\w+)/g)].map((m) => m[1]), ['NEXT_PUBLIC_SUPABASE_URL']);
   }
 });

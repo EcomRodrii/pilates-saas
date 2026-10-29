@@ -19,6 +19,40 @@ Una variable nueva de Vercel solo llega a producción con el siguiente despliegu
 home se regenera cada hora (`revalidate = 3600`): el botón puede tardar hasta una hora en salir.
 Para encenderla: primero `prueba`, recorrerla en producción, después `on`.
 
+## Se ve el panel REAL (no una maqueta)
+
+Los pasos de la demo se enseñan en **el panel de verdad de Tentare** (Configuración, la ficha de la clienta, el
+calendario), con un estudio de ejemplo. Cómo:
+
+1. «Verla en el panel real» deja una marca en `sessionStorage` de ESA pestaña (con los pasos y caducidad de 2 h) y abre
+   la primera pantalla.
+2. `app/layout.tsx` lleva un script de una línea que, **solo con esa marca**, carga `public/demo-panel.js` antes que
+   cualquier otro (un `document.write` síncrono: tiene que ir antes de que Supabase capture `fetch`). Una pestaña
+   normal no carga nada.
+3. `demo-panel.js` (`lib/demo/panel/`, compilado con `scripts/build-demo-panel.mjs`, encadenado en `build:widget`) hace
+   tres cosas: atiende **en memoria** todo lo que el panel pide, con el mismo estudio de ejemplo que usan los e2e y el
+   vídeo (`e2e/panel-sembrado.ts`, sin reescribirlo: `page-shim.ts` le da el único `page` que necesita);
+   ajusta los datos de cada paso (el bono en 4, en 5, caducado; el plazo de cancelación del caso); y pinta encima la
+   barra de guía de Tenti (shadow DOM colgado de `<html>`).
+4. Los datos de cada paso salen del **motor** (`PasoDemo.pantalla`), contados en días desde «hoy»: el panel usa el
+   reloj de verdad, y «caducado hace 1 día» lo calcula el propio panel.
+5. Al terminar o salir, la marca se borra y se vuelve a `/demo` directo a la valoración.
+
+**No se mete en un `<iframe>`**: el panel prohíbe embeberse a propósito (anti-clickjacking, `proxy.ts`) y eso no se
+toca. Por eso el panel ocupa la pantalla y la guía va encima.
+
+### Aislamiento del panel de demostración (`lib/demo/panel/page-shim.test.ts`, por comportamiento)
+- Lo que ninguna regla atiende y va a la base de datos real NO sale: lectura = `[]`, escritura = `{}`.
+- Lo mismo con `/api/` y `/rest/` del propio servidor. El resto (páginas, fuentes) pasa a la red real.
+- El WebSocket de tiempo real hacia ese host es un falso que nunca conecta.
+- La sesión es un token de mentira (`t`): aunque saliera una petición, no autentica a nadie.
+- Una regla que revienta no rompe el panel ni deja pasar nada a la red.
+- `e2e/demo-personalizada.spec.ts` comprueba además que desde las pantallas del panel no sale ni una petición a Supabase.
+
+Límite honesto: las acciones que en producción ejecuta el SERVIDOR (reservar, cancelar, devolver la sesión) no se
+ejecutan: cada paso enseña el **estado** que resulta, calculado por el motor con las reglas reales, no la acción.
+Y el panel real suma los bonos de la clienta en su ficha («Quedan 9»): la guía lo dice así.
+
 ## Recorrido y piezas
 
 ```
@@ -98,7 +132,8 @@ nunca se guarda.
 - **El permiso comercial no llega a estar activo**: se registra la solicitud, pero no hay correo de
   doble confirmación para esta vía (sí lo hay para las descargas).
 - **Origen `DEMO` propio** en `plataforma_lead` (migración aditiva).
-- **Las pantallas son simuladas**, no las reales del panel (necesitan un estudio y sesión detrás).
+- **El estudio de ejemplo es el del andamiaje de tests** (Pilates Centro, «Cloe», cuatro clientas): si alguien quiere el nombre
+  o los datos de su centro (yoga, barre) en el panel, hay que parametrizar `e2e/panel-sembrado.ts`.
 - **Sin medir en WebKit**: la spec corre solo en Chromium; añadirla a `SPECS_WEBKIT` exige medir lo que
   cuesta (ver `playwright.config.ts`).
 - **El modelo real no está probado desde aquí** (sin clave): los tests de Tenti usan un modelo
