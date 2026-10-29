@@ -4,7 +4,9 @@ import { useEffect, useRef } from 'react';
 
 // Un chorro de confeti al terminar la demo. Un solo lienzo, sin dependencias, unos 3 s:
 // con `prefers-reduced-motion` no se pinta nada (la felicitación va escrita igualmente).
-const COLORES = ['#D9C29E', '#343825', '#B9C09A', '#E0457B', '#F2B8CF', '#FFFFFF'];
+// Los colores de marca salen de los tokens de la web (--w-*), no escritos a mano.
+const TOKENS = ['--w-sand', '--w-olive', '--w-sand-claro'];
+const FIJOS = ['#E0457B', '#F2B8CF', '#FFFFFF'];
 
 interface Pieza { x: number; y: number; vx: number; vy: number; g: number; w: number; h: number; r: number; vr: number; c: string }
 
@@ -16,6 +18,8 @@ export function Confeti() {
     if (!cv || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
+    const estilo = getComputedStyle(document.documentElement);
+    const COLORES = [...TOKENS.map((t) => estilo.getPropertyValue(t).trim()).filter(Boolean), ...FIJOS];
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const ancho = window.innerWidth, alto = window.innerHeight;
     cv.width = ancho * dpr; cv.height = alto * dpr;
