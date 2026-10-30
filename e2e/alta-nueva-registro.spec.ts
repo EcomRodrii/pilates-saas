@@ -391,3 +391,20 @@ test.describe('El iPhone de al lado: la app de la alumna de verdad', () => {
     expect(intentos.escritura).toBe(0);
   });
 });
+
+test.describe('El alta cabe entera en la ventana (sin bajar ni subir)', () => {
+  for (const [ancho, alto] of [[1440, 800], [1366, 768], [1280, 720]] as const) {
+    test(`escritorio ${ancho}×${alto}: la tarjeta entera se ve sin desplazar la página`, async ({ page }) => {
+      await page.setViewportSize({ width: ancho, height: alto });
+      await page.goto(ALTA);
+      await expect(page.getByRole('heading', { name: 'Crea tu estudio en Tentare' })).toBeVisible();
+      await expect(crear(page)).toBeVisible();
+      const medidas = await page.evaluate(() => ({
+        pagina: document.documentElement.scrollHeight - window.innerHeight,
+        base: document.querySelector('.mt-tarjeta')!.getBoundingClientRect().bottom - window.innerHeight,
+      }));
+      expect(medidas.pagina, 'la página no se desliza').toBeLessThanOrEqual(1);
+      expect(medidas.base, 'la tarjeta acaba dentro de la ventana').toBeLessThanOrEqual(1);
+    });
+  }
+});
