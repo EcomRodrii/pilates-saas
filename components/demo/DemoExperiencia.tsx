@@ -25,6 +25,7 @@ import { ChatTenti, type MensajeChat } from './ChatTenti';
 import { Recorrido } from './Recorrido';
 import { Confeti } from './Confeti';
 import { CLAVE_PANEL, CLAVE_VUELTA } from '@/lib/demo/panel/guia';
+import { agruparPasosParaPanel } from '@/lib/demo/panel/agrupar';
 import './demo.css';
 
 // La demo personalizada, de punta a punta: centro → datos → Tenti → recorrido →
@@ -259,7 +260,8 @@ export function DemoExperiencia() {
   // pestaña con los pasos y se abre la primera pantalla. El panel carga `demo-panel.js` y pone la guía encima.
   function abrirPanel() {
     if (!demo) return;
-    const pasos = demo.pasos.map((p) => ({ titulo: p.titulo, proposito: p.proposito, pantalla: p.pantalla }));
+    // Cada pantalla del panel sale UNA vez (la historia de varios pasos sobre la misma ficha se cuenta en la barra).
+    const pasos = agruparPasosParaPanel(demo.pasos);
     try { sessionStorage.setItem(CLAVE_PANEL, JSON.stringify({ t: Date.now(), volver: window.location.pathname + window.location.search, guia: { titulo: demo.titulo, pasos, paso: 0 } })); } catch { /* sin almacenamiento */ }
     capturarEvento('demo_paso', { escenario: demo.escenario, n: 0 });
     window.location.assign(pasos[0]?.pantalla?.ruta ?? '/dashboard');

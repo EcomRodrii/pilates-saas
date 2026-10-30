@@ -8,7 +8,7 @@ import type { PantallaPanel } from '../modelo.ts';
 export const CLAVE_PANEL = 'tentare:demo-panel';
 export const CLAVE_VUELTA = 'tentare:demo-vuelta';
 
-export interface PasoGuia { titulo: string; proposito: string; pantalla?: PantallaPanel }
+export interface PasoGuia { titulo: string; proposito: string; pantalla?: PantallaPanel; /** Lo que ha ido pasando en esta pantalla, en orden. */ historia?: string[] }
 export interface Guia { titulo: string; pasos: PasoGuia[]; paso: number }
 export interface MarcaPanel { t: number; guia?: Guia; /** La dirección de /demo desde la que se entró (con su `?prueba`): a ella se vuelve. */ volver?: string }
 
@@ -48,6 +48,7 @@ button.b { min-height: 40px; padding: 0 18px; border-radius: 999px; border: 1.5p
 button.b:disabled { opacity: .35; cursor: default; }
 button.p { background: #D9C29E; color: #22261F; border-color: #D9C29E; }
 button:focus-visible { outline: 3px solid #D9C29E; outline-offset: 2px; }
+.historia { display: block; margin-top: 6px; font-size: 12.5px; line-height: 1.35; color: #C9C6B8; }
 .puntos { display: flex; gap: 5px; margin-top: 10px; }
 .puntos i { height: 4px; flex: 1; border-radius: 99px; background: rgba(246,244,239,.2); }
 .puntos i.h { background: #D9C29E; }
@@ -61,6 +62,7 @@ button:focus-visible { outline: 3px solid #D9C29E; outline-offset: 2px; }
   .acciones { margin-top: 8px; gap: 8px; }
   button.b { min-height: 38px; padding: 0 14px; font-size: 13px; }
   .puntos { margin-top: 8px; }
+  .historia { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .aviso { bottom: 250px; }
 }
 @media (prefers-reduced-motion: no-preference) { .barra { animation: sube .25s ease-out both; } @keyframes sube { from { opacity: 0; transform: translate(-50%, 8px); } } }
@@ -185,6 +187,8 @@ export function montarGuia(m: MarcaPanel) {
     fila.append(n, bs);
     const h = document.createElement('h2'); h.textContent = titulo;
     const t = document.createElement('p'); t.textContent = texto; textoGuia = t;
+    const hist = document.createElement('small'); hist.className = 'historia';
+    if (paso.historia?.length) hist.textContent = `Lo que ha pasado: ${paso.historia.join(' → ')}`; else hist.hidden = true;
     const puntos = document.createElement('div'); puntos.className = 'puntos'; puntos.setAttribute('aria-hidden', 'true');
     guia.pasos.forEach((_, i) => { const e = document.createElement('i'); if (i <= guia.paso) e.className = 'h'; puntos.append(e); });
     const acciones = document.createElement('div'); acciones.className = 'acciones';
@@ -200,7 +204,7 @@ export function montarGuia(m: MarcaPanel) {
     const ant = document.createElement('button'); ant.className = 'b'; ant.type = 'button'; ant.textContent = 'Paso anterior'; ant.disabled = guia.paso === 0; ant.onclick = () => ir(-1);
     const sig = document.createElement('button'); sig.className = 'b p'; sig.type = 'button'; sig.textContent = ultimo ? 'Terminar la demo' : 'Siguiente paso'; sig.onclick = () => ir(1);
     acciones.append(ant, sig);
-    barra.append(fila, h, t, puntos, acciones);
+    barra.append(fila, h, t, hist, puntos, acciones);
     sombra.append(estilo, barra);
     sombraGuia = sombra;
     // Sitio para poder desplazar el panel POR ENCIMA de la barra: sin él, lo de abajo (la tarjeta del plan, la lista de clases)

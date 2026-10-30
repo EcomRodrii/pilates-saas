@@ -216,12 +216,11 @@ test.describe('pantalla de la demo', () => {
     await expect(page.getByText('Cómo reservan mis alumnas').first()).toBeVisible();
     await expect(guia.getByRole('button', { name: 'Paso anterior' })).toBeDisabled();
 
-    // Paso 2: la ficha REAL de la clienta, con SU bono (4 de 10) y su caducidad contada con el «hoy» del paso.
+    // Paso 2: la ficha REAL de la clienta, UNA vez (la historia de varios pasos sobre ella va en la barra), con SU bono.
     await guia.getByRole('button', { name: 'Siguiente paso' }).click();
     await expect(page).toHaveURL(/\/clientas\/soc-1/);
     await expect(guia.getByText('Demo · paso 2 de')).toBeVisible({ timeout: 90_000 });
     await expect(page.getByText('María García Fernández').first()).toBeVisible();
-    await expect(page.getByText(/quedan 4 · caduca en \d+ días?/)).toBeVisible();
 
     // Hasta el último paso: «caducado hace 1 día» sale de la propia ficha.
     let n = 2;
