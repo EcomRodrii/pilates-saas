@@ -15,7 +15,8 @@
 // ⚠️ El botón «Redeploy» de Vercel sobre el MISMO commit no sirve para aplicar la
 // variable: el `ignoreCommand` de vercel.json cancela el build si el diff contra
 // lo ya desplegado está vacío («Canceled by Ignored Build Step»). Hace falta un
-// commit nuevo que toque código (el primero, #2849→este, se hizo así el 28-oct-2026).
+// commit nuevo que toque código (el primero, #2849→este, se hizo así el 28-oct-2026;
+// el 30-oct-2026 se repitió con este comentario al pasar la variable a `on`).
 
 export interface EstadoDemo {
   /** ¿Se puede abrir /demo (con el parámetro, si hace falta)? */
