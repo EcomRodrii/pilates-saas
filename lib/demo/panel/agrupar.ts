@@ -11,7 +11,9 @@ const mismosAjustes = (a: PantallaPanel, b: PantallaPanel) => JSON.stringify(a.r
 
 export function agruparPasosParaPanel(pasos: PasoDemo[]): PasoGuiaAgrupado[] {
   const grupos: PasoGuiaAgrupado[] = [];
-  for (const paso of pasos) {
+  // Un paso sin pantalla del panel (un aparte) no tiene qué enseñar: se queda en el resumen en texto.
+  const conPantalla = pasos.filter((p) => p.pantalla);
+  for (const paso of conPantalla.length ? conPantalla : pasos) {
     const p = paso.pantalla;
     const titular = p?.titular ?? paso.titulo;
     const ultimo = grupos[grupos.length - 1];

@@ -220,7 +220,7 @@ export function generar(p: Parametros, ctx: ContextoDemo = CONTEXTO_POR_DEFECTO)
       porQue: [regla.vigencia, regla.devolucion],
     },
     {
-      pantalla: ficha(restantesTrasAviso, diaSiguiente, 'Otros casos', 'Con el bono ya caducado, no se devuelve ninguna sesión.'),
+      // Sin pantalla propia: es un aparte («qué cambiaría en otros casos») que cuenta el resumen en texto, no el panel.
       id: 'excepciones', titulo: 'Qué cambiaría en otros casos',
       proposito: 'Las dos situaciones que más preguntan los estudios, calculadas con las mismas reglas.',
       bloques: [

@@ -36,5 +36,5 @@ test('con otros ajustes sí es otra pantalla, y un paso sin pantalla se queda co
     paso('A', '/configuracion?tab=reservas', { reglas: { ventanaCancelacionHoras: 12 } }), paso('B', '/clientas/soc-1'),
     paso('C', '/configuracion?tab=reservas', { reglas: { ventanaCancelacionHoras: 48 } }), paso('Sin pantalla'),
   ]);
-  assert.equal(g.length, 4);
+  assert.equal(g.length, 3, 'el paso sin pantalla no es una pantalla más');
 });
