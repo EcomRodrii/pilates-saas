@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { correoCuentaActiva, correoPrimeraClase, correoRecibirReservas, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
+import { correoCuentaActiva, correoEmpuje, correoPrimeraClase, correoRecibirReservas, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
 import { TAREAS_ALTA_NUEVA } from '../../guia/primeros-pasos.ts';
 import { GRATIS_ALUMNAS, GRATIS_RESERVAS_MES } from '../../landing/founding-gratis.ts';
 import { TRIAL_DIAS } from '../../billing/trial.ts';
@@ -141,4 +141,42 @@ test('correo 3: sin nombre, sin coma; lo que escribió una persona se escapa', (
 
 test('los primeros pasos del correo 2 son las cinco tareas de la lista del panel', () => {
   assert.deepEqual([...PRIMEROS_PASOS_ALTA], TAREAS_ALTA_NUEVA.map(t => t.titulo));
+});
+
+// ── Los dos correos de «después de la primera clase» (31-oct-2026) ──────────
+
+const EMPUJE = {
+  estudioNombre: 'Estudio Alba Pilates', nombre: 'Lucía' as string | null,
+  urlBoton: 'https://www.example.com/dashboard?compartir=1',
+};
+
+test('empuje «compartir»: dice qué falta, tres sitios donde ponerlo y un solo botón al enlace', () => {
+  const c = correoEmpuje({ ...EMPUJE, variante: 'compartir' });
+  assert.equal(c.asunto, 'Tu clase está lista: falta que lo sepan tus alumnas');
+  assert.match(c.html, /Tu app ya puede recibir reservas, Lucía/);
+  assert.match(c.html, /En <b>Estudio Alba Pilates<\/b> ya hay una clase/);
+  assert.match(c.html, /grupo de WhatsApp/);
+  assert.match(c.html, /bio de tu Instagram/);
+  assert.match(c.html, /código QR/);
+  assert.match(c.html, /href="https:\/\/www\.example\.com\/dashboard\?compartir=1"/);
+  assert.equal((c.html.match(/Compartir mi enlace<\/a>/g) ?? []).length, 1);
+  assert.match(c.html, /Es el único recordatorio que te mandamos sobre esto\./);
+});
+
+test('empuje «alumnas»: reconoce que ya compartió y no promete nada que no controlamos', () => {
+  const c = correoEmpuje({ ...EMPUJE, variante: 'alumnas' });
+  assert.equal(c.asunto, 'Ya compartiste el enlace de Estudio Alba Pilates: las primeras reservas');
+  assert.match(c.html, /Las primeras reservas, Lucía/);
+  assert.match(c.html, /todavía no ha reservado nadie/);
+  assert.match(c.html, /sin correo no pueden entrar a la app/);
+  assert.match(c.html, /Ver mi enlace y mi QR<\/a>/);
+  // Sin cifras ni garantías de resultado.
+  assert.doesNotMatch(c.html, /garantiz|seguro que|el \d+ ?%/i);
+});
+
+test('empuje: sin nombre, sin coma; lo que escribió una persona se escapa', () => {
+  assert.match(correoEmpuje({ ...EMPUJE, variante: 'compartir', nombre: null }).html, /Tu app ya puede recibir reservas<\/div>/);
+  const { html } = correoEmpuje({ ...EMPUJE, variante: 'alumnas', estudioNombre: 'Pilates <b>Malo</b>', nombre: '<i>Ana</i>' });
+  assert.doesNotMatch(html, /<b>Malo<\/b>|<i>Ana<\/i>/);
+  assert.match(html, /&lt;i&gt;Ana&lt;\/i&gt;/);
 });

@@ -399,12 +399,15 @@ test.describe('El alta cabe entera en la ventana (sin bajar ni subir)', () => {
       await page.goto(ALTA);
       await expect(page.getByRole('heading', { name: 'Crea tu estudio en Tentare' })).toBeVisible();
       await expect(crear(page)).toBeVisible();
-      const medidas = await page.evaluate(() => ({
+      // El HTML del servidor ya trae el titular, SIN encoger: el ajuste (`zoom`) llega al hidratar, y en WebKit con la
+      // CI cargada eso tarda más que el `toBeVisible`. Se espera a que quede ajustado, no se mide en el primer instante
+      // (con un desbordamiento que no se corrige, sigue fallando: es lo que se quiere comprobar).
+      const medir = () => page.evaluate(() => ({
         pagina: document.documentElement.scrollHeight - window.innerHeight,
         base: document.querySelector('.mt-tarjeta')!.getBoundingClientRect().bottom - window.innerHeight,
       }));
-      expect(medidas.pagina, 'la página no se desliza').toBeLessThanOrEqual(1);
-      expect(medidas.base, 'la tarjeta acaba dentro de la ventana').toBeLessThanOrEqual(1);
+      await expect.poll(async () => (await medir()).pagina, { message: 'la página no se desliza', timeout: 15_000 }).toBeLessThanOrEqual(1);
+      expect((await medir()).base, 'la tarjeta acaba dentro de la ventana').toBeLessThanOrEqual(1);
     });
   }
 });

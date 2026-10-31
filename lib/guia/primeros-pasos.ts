@@ -169,6 +169,10 @@ export const TAREAS_ALTA_NUEVA: readonly TareaAlta[] = [
   { id: 'primera-reserva', titulo: 'Recibe tu primera reserva', para: 'Se marca sola cuando una alumna reserve desde tu app.' },
 ];
 
+/** «Recibe tu primera reserva» cuando el enlace ya está compartido y nadie ha reservado: qué ayuda, no «espera». */
+export const TEXTO_PRIMERA_RESERVA_TRAS_COMPARTIR =
+  'Suele hacer falta pedírselo: escribe a tus alumnas con el enlace, deja el QR en recepción y date de alta a las que ya tienes, con su correo.';
+
 export type IdOpcionalAlta = 'marca' | 'stripe' | 'fiscales' | 'equipo' | 'sedes';
 
 export interface OpcionalAlta {
@@ -255,7 +259,12 @@ export function primerosPasosAltaNueva(d: DatosAltaNueva): PrimerosPasosAltaNuev
     // se dice qué pasa y se lleva a donde se arregla.
     t.id === 'primera-clase' && !d.claseReservable && d.avisoClase
       ? { ...t, para: d.avisoClase.texto, accion: { label: 'Ver qué falta', href: d.avisoClase.href } }
-      : t
+      // Con el enlace ya compartido y ninguna reserva, «se marca sola» deja a quien mira sin
+      // saber qué hacer (31-oct-2026: dos estudios compartieron el enlace y nadie reservó). Se
+      // dice qué ayuda y se vuelve a abrir su enlace y su QR. Omitir aquí no cuenta como hecho.
+      : t.id === 'primera-reserva' && d.enlaceCompartido && !d.primeraReserva
+        ? { ...t, para: TEXTO_PRIMERA_RESERVA_TRAS_COMPARTIR, accion: { label: 'Ver mi enlace y mi QR', abre: 'compartir' } }
+        : t
   ));
   // Omitir solo vale en lo que tiene botón: lo que se marca solo no se salta.
   const omitida = (t: TareaAlta) => !hecho[t.id] && !!t.accion && omitidas.has(t.id);
