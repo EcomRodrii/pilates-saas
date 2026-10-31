@@ -6,6 +6,7 @@ import {
   cohortes, desdeDeLaConsulta, diaCorto, enVentanaDelEmbudo, filaDesdeBd, horasConComa, horasHastaPrimeraClase,
   leerPasoDelNavegador, mediana, normalizarLlegada, rangoDeMeses, resumirActivacion, volvio,
   type FilaEmbudo,
+  ALUMNAS_CARGADAS_MINIMO, pasosDeHoy,
 } from './embudo.ts';
 
 // El embudo del alta (PR-1 del alta nueva). Lo que se cuenta contra Postgres de
@@ -17,10 +18,12 @@ const MIGRACION = readFileSync(new URL('../../supabase/migrations/20261021020248
 /**
  * La lista de pasos la rehízo la primera clase (PR-4) para sumar
  * `correo_recibir_reservas`, y «Pon en marcha tu estudio» (PR-5) para sumar
- * `recorrido_visto` y `correo_primera_clase`: el CHECK que vale es el de ESA
- * migración.
+ * `recorrido_visto` y `correo_primera_clase`, y los dos recordatorios de después
+ * de la primera clase (31-oct) sumaron `correo_empuje_compartir` y
+ * `correo_empuje_alumnas`: el CHECK que vale es el de la ÚLTIMA migración que lo
+ * rehízo.
  */
-const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261021160000_alta_primeros_pasos.sql', import.meta.url), 'utf8');
+const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261031100000_alta_empuje_compartir_y_alumnas.sql', import.meta.url), 'utf8');
 
 /** Los literales de un `check (col in (...))` de la migración. */
 function literalesDelCheck(columna: string, migracion = MIGRACION): string[] {
@@ -352,9 +355,46 @@ test('las fechas se dicen en castellano', () => {
 });
 
 test('las marcas de «ya se enseñó» valen pase el día que pase; las medidas, no', () => {
-  assert.deepEqual([...PASOS_DURABLES].sort(), ['correo_primera_clase', 'plan_ensenado', 'recorrido_visto']);
+  assert.deepEqual([...PASOS_DURABLES].sort(), [
+    'correo_empuje_alumnas', 'correo_empuje_compartir', 'correo_primera_clase', 'plan_ensenado', 'recorrido_visto',
+  ]);
   for (const p of PASOS_DURABLES) assert.ok((PASOS_EMBUDO as readonly string[]).includes(p), p);
   for (const medida of ['panel_abierto', 'clase_reservable', 'enlace_compartido'] as const) {
     assert.ok(!PASOS_DURABLES.includes(medida), `${medida} es una medida de cómo arranca: con su ventana`);
   }
+});
+
+// ── «Cómo está hoy»: alumnas y Stripe (31-oct-2026) ─────────────────────────
+
+const extra = (o: Partial<{ conStripe: boolean; alumnasCargadas: number; alumnasConCuenta: number }> = {}) =>
+  ({ conStripe: false, alumnasCargadas: 0, alumnasConCuenta: 0, ...o });
+
+test('«cómo está hoy»: cuántos estudios tienen alumnas cargadas, alumnas en la app y Stripe', () => {
+  const filas = [
+    fila({ diaAlta: '2026-10-28', extra: extra({ alumnasCargadas: 61, alumnasConCuenta: 61 }) }),
+    fila({ diaAlta: '2026-10-28', extra: extra({ alumnasCargadas: ALUMNAS_CARGADAS_MINIMO, conStripe: true }) }),
+    fila({ diaAlta: '2026-10-28', extra: extra({ alumnasCargadas: ALUMNAS_CARGADAS_MINIMO - 1, alumnasConCuenta: 1 }) }),
+    fila({ diaAlta: '2026-10-28', extra: extra() }),
+  ];
+  const por = Object.fromEntries(pasosDeHoy(filas).map(p => [p.id, p]));
+  assert.deepEqual([por.alumnas_cargadas.n, por.alumnas_cargadas.de], [2, 4], 'cinco o más; una de prueba no cuenta');
+  assert.deepEqual([por.alumnas_en_app.n, por.alumnas_en_app.de], [2, 4]);
+  assert.deepEqual([por.stripe_conectado.n, por.stripe_conectado.de], [1, 4]);
+  for (const p of Object.values(por)) assert.equal(p.nota, 'hoy', 'estado de hoy, sin fecha de cuándo ocurrió');
+});
+
+test('sin poder leer alumnas ni Stripe es «—», nunca 0; y se cuenta solo sobre los que sí se leyeron', () => {
+  const sinLeer = pasosDeHoy([fila({ diaAlta: '2026-10-28' }), fila({ diaAlta: '2026-10-28' })]);
+  for (const p of sinLeer) assert.deepEqual([p.n, p.de], [null, null], p.id);
+  const mezcla = pasosDeHoy([fila({ diaAlta: '2026-10-28', extra: extra({ conStripe: true }) }), fila({ diaAlta: '2026-10-28' })]);
+  const stripe = mezcla.find(p => p.id === 'stripe_conectado')!;
+  assert.deepEqual([stripe.n, stripe.de], [1, 1]);
+});
+
+test('el embudo de /interno enseña los tres pasos antes de la primera reserva', () => {
+  const filas = [fila({ diaAlta: '2026-10-28', extra: extra({ alumnasCargadas: 10 }) })];
+  const ids = resumirActivacion(filas, '2026-10-30').embudo.estudios.map(p => p.id);
+  assert.deepEqual(ids.slice(ids.indexOf('enlace_compartido')), [
+    'enlace_compartido', 'alumnas_cargadas', 'alumnas_en_app', 'stripe_conectado', 'primera_reserva',
+  ]);
 });

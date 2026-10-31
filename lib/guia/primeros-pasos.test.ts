@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  OPCIONAL, TAREAS, TAREAS_ALTA_NUEVA, primerosPasos, primerosPasosAltaNueva, tituloOtrasSedes, type DatosAltaNueva,
+  OPCIONAL, TAREAS, TAREAS_ALTA_NUEVA, TEXTO_PRIMERA_RESERVA_TRAS_COMPARTIR, primerosPasos, primerosPasosAltaNueva, tituloOtrasSedes, type DatosAltaNueva,
 } from './primeros-pasos.ts';
 import { calcularOnboarding, type DatosOnboarding } from '../onboarding.ts';
 import { ENTRADA_PRIMERA_CLASE } from '../alta/bienvenida-nueva.ts';
@@ -170,4 +170,24 @@ test('alta nueva: los textos caben, y todo enlace es del panel', () => {
     if (t.accion && 'href' in t.accion) assert.ok(t.accion.href.startsWith('/'), t.accion.href);
     if (t.otro) assert.ok(t.otro.href.startsWith('/'), t.otro.href);
   }
+});
+
+test('con el enlace compartido y ninguna reserva, la tarea dice qué ayuda y reabre el enlace y el QR (31-oct)', () => {
+  const p = primerosPasosAltaNueva({ ...RECIEN, claseReservable: true, enlaceCompartido: true, alumnas: true, primeraReserva: false });
+  const t = p.tareas.find(x => x.id === 'primera-reserva')!;
+  assert.equal(t.para, TEXTO_PRIMERA_RESERVA_TRAS_COMPARTIR);
+  assert.deepEqual(t.accion, { label: 'Ver mi enlace y mi QR', abre: 'compartir' });
+  assert.equal(p.ahora?.id, 'primera-reserva');
+  // Omitirla no la da por hecha: solo la quita de «lo siguiente».
+  const q = primerosPasosAltaNueva({ ...RECIEN, claseReservable: true, enlaceCompartido: true, alumnas: true, omitidas: ['primera-reserva'] });
+  assert.equal(q.tareas.find(x => x.id === 'primera-reserva')!.estado, 'pendiente');
+  assert.equal(q.terminada, false);
+});
+
+test('sin compartir todavía, o con la reserva ya hecha, la tarea es la de siempre', () => {
+  const sinCompartir = primerosPasosAltaNueva({ ...RECIEN, claseReservable: true, enlaceCompartido: false });
+  assert.equal(sinCompartir.tareas.find(x => x.id === 'primera-reserva')!.accion, undefined);
+  const hecha = primerosPasosAltaNueva({ ...RECIEN, claseReservable: true, enlaceCompartido: true, alumnas: true, primeraReserva: true });
+  assert.equal(hecha.tareas.find(x => x.id === 'primera-reserva')!.accion, undefined);
+  assert.equal(hecha.terminada, true);
 });

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
 import { secretoValido } from '@/lib/salud/secreto';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { enviarCorreosPrimeraClase, enviarRecordatoriosAltas } from '@/lib/alta/recordatorio-servidor';
+import { enviarCorreosEmpuje, enviarCorreosPrimeraClase, enviarRecordatoriosAltas } from '@/lib/alta/recordatorio-servidor';
 import { errorInterno } from '@/lib/errores-servidor';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,10 @@ export const maxDuration = 60;
 // una clase que una alumna nueva pueda reservar (la guarda del job llama
 // también entonces: migración 20261021160000). Cada parte, con su propio
 // tropiezo: si una falla, la otra sale igual.
+//
+// Y, desde el 31-oct, los dos correos de «después de la primera clase» («falta
+// que lo sepan tus alumnas» y «ya compartiste tu enlace»), apagados de serie:
+// solo con ALTA_EMPUJE=on (lib/alta/correo-empuje.ts).
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_CRON_SECRET;
   if (!secret) {
@@ -28,7 +32,12 @@ export async function POST(req: NextRequest) {
   }
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Service role no configurada' }, { status: 503 });
-  const [altas, primeraClase] = await Promise.allSettled([enviarRecordatoriosAltas(admin), enviarCorreosPrimeraClase(admin)]);
+  const [altas, primeraClase, empuje] = await Promise.allSettled([
+    enviarRecordatoriosAltas(admin), enviarCorreosPrimeraClase(admin), enviarCorreosEmpuje(admin),
+  ]);
+  if (empuje.status === 'rejected') {
+    Sentry.captureException(empuje.reason, { tags: { cron: 'altas-sin-terminar', parte: 'empuje' } });
+  }
   if (primeraClase.status === 'rejected') {
     Sentry.captureException(primeraClase.reason, { tags: { cron: 'altas-sin-terminar', parte: 'primera-clase' } });
   }
@@ -40,5 +49,6 @@ export async function POST(req: NextRequest) {
     ejecutadoEn: new Date().toISOString(),
     ...altas.value,
     primeraClase: primeraClase.status === 'fulfilled' ? primeraClase.value : null,
+    empuje: empuje.status === 'fulfilled' ? empuje.value : null,
   });
 }

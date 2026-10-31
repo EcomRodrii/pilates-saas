@@ -3,7 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import * as Sentry from '@sentry/nextjs';
 import { enviarCorreoAlta, enviarRecordatorioAlta } from '@/lib/emails/embudo-alta-server';
 import { correoAltaSinTerminar } from '@/lib/emails/tentare/embudo-alta';
-import { correoPrimeraClase } from '@/lib/emails/tentare/alta';
+import { correoEmpuje, correoPrimeraClase } from '@/lib/emails/tentare/alta';
 import { puedeReservarEnServidor } from '@/lib/onboarding/puede-reservar-servidor';
 import type { RespuestaPuedeReservar } from '@/lib/onboarding/puede-reservar';
 import { LEGAL } from '@/lib/legal-info';
@@ -20,6 +20,9 @@ import {
   claveCorreoPrimeraClase, decidirCorreoPrimeraClase, HORAS_DESDE_CORREO_PRIMERA_CLASE, HORAS_HASTA_CORREO_PRIMERA_CLASE,
   varianteCorreoPrimeraClase,
 } from './correo-primera-clase.ts';
+import {
+  claveCorreoEmpuje, correosEmpujeActivos, decidirCorreoEmpuje, PASO_EMPUJE, type VarianteEmpuje,
+} from './correo-empuje.ts';
 import { apuntarPaso } from './embudo-servidor.ts';
 import { ENTRADA_PRIMERA_CLASE } from './bienvenida-nueva.ts';
 import { VALORES_DE_SERIE } from './primera-clase.ts';
@@ -256,6 +259,125 @@ export async function enviarCorreosPrimeraClase(
     } catch (e) {
       resumen.fallidos += 1;
       console.warn('[altas-sin-terminar:primera-clase]', e instanceof Error ? e.message : 'error desconocido');
+    }
+  }
+  return resumen;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los dos correos de «después de la primera clase» (31-oct-2026): «Tu clase está
+// lista: falta que lo sepan tus alumnas» y «Ya compartiste tu enlace: las
+// primeras reservas». Cuándo y a quién, en lib/alta/correo-empuje.ts.
+//
+// Van en este mismo cron horario, sin uno nuevo, y APAGADOS de serie: solo
+// salen con ALTA_EMPUJE=on. UNA vez por estudio y variante: la marca
+// `correo_empuje_*` del embudo, que solo se escribe con el envío hecho, más la
+// clave de idempotencia de Resend. Un envío que falla se reintenta en la pasada
+// siguiente mientras dure la ventana.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Pocos por pasada: cada uno lee la cuenta de su dueña (y, el de las alumnas, sus reservas). */
+const EMPUJE_POR_PASADA = 15;
+/** Hasta dónde se mira atrás en el embudo: la ventana más larga (10 días) con margen para el enlace compartido antes de la clase. */
+const EMPUJE_MIRA_DIAS = 30;
+
+export interface ResumenEmpuje {
+  activo: boolean;
+  revisados: number;
+  enviados: number;
+  descartados: number;
+  fallidos: number;
+}
+
+export async function enviarCorreosEmpuje(
+  admin: SupabaseClient,
+  ahoraMs = Date.now(),
+  activo = correosEmpujeActivos(process.env.ALTA_EMPUJE),
+): Promise<ResumenEmpuje> {
+  const resumen: ResumenEmpuje = { activo, revisados: 0, enviados: 0, descartados: 0, fallidos: 0 };
+  if (!activo) return resumen;
+
+  const desde = new Date(ahoraMs - EMPUJE_MIRA_DIAS * 86_400_000).toISOString();
+  const { data: filasEmbudo, error: errEmbudo } = await admin.from('embudo_alta')
+    .select('studio_id, paso, ocurrido_en')
+    .in('paso', ['clase_reservable', 'enlace_compartido', PASO_EMPUJE.compartir, PASO_EMPUJE.alumnas])
+    .gt('ocurrido_en', desde)
+    .limit(2000);
+  if (errEmbudo) throw new Error(`embudo_alta: ${errEmbudo.message}`);
+
+  // Primer instante de cada paso, por estudio.
+  const pasosDe = new Map<string, Map<string, string>>();
+  for (const e of (filasEmbudo ?? []) as { studio_id: string; paso: string; ocurrido_en: string }[]) {
+    const m = pasosDe.get(e.studio_id) ?? new Map<string, string>();
+    const previo = m.get(e.paso);
+    if (!previo || e.ocurrido_en < previo) m.set(e.paso, e.ocurrido_en);
+    pasosDe.set(e.studio_id, m);
+  }
+  const ids = [...pasosDe.keys()];
+  if (ids.length === 0) return resumen;
+
+  const { data: estudios, error: errEstudios } = await admin.from('studios')
+    .select('id, nombre, creado_en, owner_auth_user_id, cadena_id, es_demo, suspendido_en')
+    .in('id', ids);
+  if (errEstudios) throw new Error(`studios: ${errEstudios.message}`);
+  const filas = (estudios ?? []) as {
+    id: string; nombre: string | null; creado_en: string; owner_auth_user_id: string | null;
+    cadena_id: string | null; es_demo: boolean | null; suspendido_en: string | null;
+  }[];
+  const duenas = [...new Set(filas.map(f => f.owner_auth_user_id).filter((x): x is string => !!x))];
+  const { data: altas, error: errAltas } = duenas.length
+    ? await admin.from('altas_estudio').select('auth_user_id, version').in('auth_user_id', duenas)
+    : { data: [], error: null };
+  if (errAltas) throw new Error(`altas_estudio: ${errAltas.message}`);
+  const versionDe = new Map((altas ?? []).map(a => [a.auth_user_id as string, a.version as string]));
+
+  const base = (process.env.NEXT_PUBLIC_APP_URL || LEGAL.url).replace(/\/+$/, '');
+  for (const f of filas) {
+    const pasos = pasosDe.get(f.id) ?? new Map<string, string>();
+    const compartido = pasos.has('enlace_compartido');
+    // Los dos son excluyentes (uno pide enlace sin compartir, el otro compartido).
+    const variante: VarianteEmpuje = compartido ? 'alumnas' : 'compartir';
+    const hitoEn = pasos.get(compartido ? 'enlace_compartido' : 'clase_reservable') ?? null;
+    const comun = {
+      variante, version: f.owner_auth_user_id ? versionDe.get(f.owner_auth_user_id) : null,
+      cadenaId: f.cadena_id, esDemo: f.es_demo === true, suspendido: !!f.suspendido_en,
+      hitoEn, yaEnviado: pasos.has(PASO_EMPUJE[variante]), enlaceCompartido: compartido, ahoraMs,
+    };
+    // Lo barato primero: sin leer reservas ni la cuenta.
+    if (!decidirCorreoEmpuje(comun).enviar) { resumen.descartados += 1; continue; }
+    if (resumen.revisados >= EMPUJE_POR_PASADA) break;
+    resumen.revisados += 1;
+
+    try {
+      let hayReservas = false;
+      if (variante === 'alumnas') {
+        const { data: unaReserva, error: errReserva } = await admin.from('reservas').select('id').eq('studio_id', f.id).limit(1);
+        if (errReserva) throw new Error(errReserva.message);
+        hayReservas = (unaReserva ?? []).length > 0;
+        if (hayReservas) { resumen.descartados += 1; continue; }
+      }
+      const { data: cuenta, error: errCuenta } = await admin.auth.admin.getUserById(f.owner_auth_user_id!);
+      if (errCuenta) throw new Error(errCuenta.message);
+      const email = cuenta.user?.email ?? null;
+      if (!decidirCorreoEmpuje({ ...comun, hayReservas, email }).enviar) { resumen.descartados += 1; continue; }
+      const nombre = typeof cuenta.user?.user_metadata?.nombre === 'string' ? cuenta.user.user_metadata.nombre : null;
+
+      const correo = correoEmpuje({
+        variante, estudioNombre: f.nombre ?? '', nombre, urlBoton: `${base}/dashboard?compartir=1`,
+      });
+      const res = await enviarCorreoAlta({ to: email!, asunto: correo.asunto, html: correo.html, idempotencyKey: claveCorreoEmpuje(variante, f.id) });
+      if (res.ok) {
+        await apuntarPaso(admin, f.id, PASO_EMPUJE[variante], { creadoEn: f.creado_en });
+        resumen.enviados += 1;
+      } else if (res.skipped || res.permanente) {
+        resumen.descartados += 1;
+      } else {
+        resumen.fallidos += 1;
+        Sentry.captureMessage('[altas-sin-terminar] no salió el correo de empuje', { level: 'warning', tags: { area: 'alta', variante, error: res.error } });
+      }
+    } catch (e) {
+      resumen.fallidos += 1;
+      console.warn('[altas-sin-terminar:empuje]', e instanceof Error ? e.message : 'error desconocido');
     }
   }
   return resumen;

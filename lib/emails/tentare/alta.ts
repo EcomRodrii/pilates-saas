@@ -235,3 +235,78 @@ function pieDelRecordatorio(estudio: string): string {
 ¿Te atascas en algo? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.tintaSuave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'} y te ayuda <b>una persona del equipo</b>.<br>Es el único recordatorio que te mandamos sobre esto.<br>Tentare · Software para estudios de Pilates · Hecho en España
 </td></tr></table>`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los dos correos de «después de la primera clase» (31-oct-2026; cuándo y a
+// quién, en lib/alta/correo-empuje.ts):
+//   · `compartir`: la clase ya es reservable y no ha enseñado el enlace.
+//   · `alumnas`: ha compartido el enlace y todavía no ha reservado nadie.
+// Mismo marco y mismo pie de WhatsApp que el correo 3. Sin cifras ni promesas
+// de resultado: dicen qué pasa y qué hacer, y el botón lleva a «Compartir mi
+// enlace» (`/dashboard?compartir=1`), que ya existe en el panel.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function correoEmpuje(p: {
+  variante: 'compartir' | 'alumnas';
+  estudioNombre: string;
+  /** Su nombre (`user_metadata.nombre`), para el saludo. Sin él, sin nombre. */
+  nombre: string | null;
+  /** A dónde lleva el botón: `/dashboard?compartir=1`. */
+  urlBoton: string;
+}): { asunto: string; preheader: string; html: string } {
+  const t = TENTARE;
+  const estudio = p.estudioNombre.trim() || 'Tu estudio';
+  const nombre = p.nombre?.trim();
+  const parrafo = (html: string) =>
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;">${html}</div>`;
+  const lista = (items: string[]) =>
+    `<ul style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;padding-left:20px;">${items.map(i => `<li style="margin:0 0 6px;">${i}</li>`).join('')}</ul>`;
+
+  const contenido = p.variante === 'compartir'
+    ? {
+      asunto: 'Tu clase está lista: falta que lo sepan tus alumnas',
+      preheader: `${estudio} ya puede recibir reservas. Solo falta que tus alumnas tengan el enlace.`,
+      titular: `Tu app ya puede recibir reservas${nombre ? `, ${escaparHtml(nombre)}` : ''}`,
+      cuerpo: [
+        parrafo(`En <b>${escaparHtml(estudio)}</b> ya hay una clase que una alumna nueva puede reservar. Lo único que falta es que se enteren.`),
+        parrafo('El enlace de tu app es el que tienes que darles. Entran con su email, sin descargarse nada, y reservan desde el móvil. Lo que más sencillo resulta:'),
+        lista([
+          'pegarlo en el <b>grupo de WhatsApp</b> de tus alumnas;',
+          'ponerlo en la <b>bio de tu Instagram</b>;',
+          'imprimir su <b>código QR</b> y dejarlo en recepción.',
+        ]),
+      ].join(''),
+      boton: 'Compartir mi enlace',
+    }
+    : {
+      asunto: `Ya compartiste el enlace de ${estudio}: las primeras reservas`,
+      preheader: 'Casi siempre las primeras alumnas llegan cuando se lo pides tú, una a una.',
+      titular: `Las primeras reservas${nombre ? `, ${escaparHtml(nombre)}` : ''}`,
+      cuerpo: [
+        parrafo(`Compartiste el enlace de la app de <b>${escaparHtml(estudio)}</b>, pero todavía no ha reservado nadie.`),
+        parrafo('Es lo habitual la primera vez: con un enlace suelto en un grupo no basta, hay que pedírselo directamente. Tres cosas que ayudan:'),
+        lista([
+          'escribir <b>tú misma</b> a las alumnas que ya tienes, con el enlace, y pedirles que reserven su próxima clase;',
+          'dejar el <b>QR impreso</b> en recepción para quien venga a clase;',
+          'dar de alta a tus alumnas con su <b>correo</b>: sin correo no pueden entrar a la app.',
+        ]),
+      ].join(''),
+      boton: 'Ver mi enlace y mi QR',
+    };
+
+  const bloques = [
+    cabeceraTentare(),
+    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">${contenido.titular}</div>
+${contenido.cuerpo}
+</td></tr>`,
+    botonTentare({ href: p.urlBoton, texto: contenido.boton }),
+    '<tr><td style="padding:0 0 14px;font-size:0;line-height:0;">&nbsp;</td></tr>',
+  ].join('');
+
+  return {
+    asunto: contenido.asunto,
+    preheader: contenido.preheader,
+    html: marcoTentare(contenido.preheader, bloques, pieDelRecordatorio(estudio)),
+  };
+}

@@ -32,6 +32,8 @@ export const PASOS_EMBUDO = [
   'correo_recibir_reservas', // el correo «Ya puedes recibir reservas», una vez (PR-4, migración 20261021134000)
   'recorrido_visto', // el recorrido rápido de tres paradas, la primera vez en el panel (PR-5)
   'correo_primera_clase', // el correo «Tu primera clase en Tentare, en 5 minutos», una vez (PR-5)
+  'correo_empuje_compartir', // «Tu clase está lista: falta que lo sepan tus alumnas», una vez (migración 20261031100000)
+  'correo_empuje_alumnas', // «Ya compartiste tu enlace: las primeras reservas», una vez (migración 20261031100000)
 ] as const;
 export type PasoEmbudo = (typeof PASOS_EMBUDO)[number];
 
@@ -89,7 +91,9 @@ const SIN_DETALLE = ['config_completada', 'recorrido_visto', 'plan_ensenado'] as
  * (lib/alta/embudo-servidor.ts). Si no, a un estudio que tarde en
  * llegar a su primera reserva le saldría la tarjeta del plan en cada carga.
  */
-export const PASOS_DURABLES: readonly PasoEmbudo[] = ['recorrido_visto', 'plan_ensenado', 'correo_primera_clase'];
+export const PASOS_DURABLES: readonly PasoEmbudo[] = [
+  'recorrido_visto', 'plan_ensenado', 'correo_primera_clase', 'correo_empuje_compartir', 'correo_empuje_alumnas',
+];
 
 export function leerPasoDelNavegador(cuerpo: unknown): PasoDelNavegador | null {
   if (!cuerpo || typeof cuerpo !== 'object') return null;
@@ -150,7 +154,25 @@ export interface FilaEmbudo {
   diasPanel: number[];
   /** Primer día con datos de cada paso en TODA la tabla: antes, el paso no se medía. */
   medidoDesde: Partial<Record<PasoEmbudo, string>>;
+  /**
+   * Lo que NO trae la RPC y añade la ruta de /interno (31-oct): cómo está HOY el
+   * estudio en cobros y alumnas. Ausente = no se pudo leer («—», nunca 0).
+   */
+  extra?: ExtraEmbudo;
 }
+
+/** Estado de hoy: no hay fecha de cuándo ocurrió, así que se cuenta como «cómo está hoy». */
+export interface ExtraEmbudo {
+  /** Tiene Stripe conectado (`studios.stripe_account_id`). */
+  conStripe: boolean;
+  /** Fichas de alumnas cargadas (a mano, importadas o registradas ellas). */
+  alumnasCargadas: number;
+  /** Alguna ficha con cuenta en la app (se registró ella o la invitaron): la señal de que alguien de fuera entró. */
+  alumnasConCuenta: number;
+}
+
+/** Desde cuántas fichas se dice que el estudio «ha cargado a sus alumnas»: una de prueba no cuenta. */
+export const ALUMNAS_CARGADAS_MINIMO = 5;
 
 const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
 const texto = (x: unknown): string | null => (typeof x === 'string' && x.length > 0 ? x : null);
@@ -435,6 +457,26 @@ function pasoNuevo(id: PasoEmbudo, etiqueta: string, estudios: readonly FilaEmbu
   return { id, etiqueta, fuente: 'nuevo', n: medibles.filter(f => f.pasos[id]).length, de: medibles.length, desde };
 }
 
+/**
+ * Tres pasos de «cómo está hoy», que son los que dicen si un estudio llega a
+ * tener alumnas de verdad (31-oct-2026: de 23 estudios nuevos, solo dos las
+ * tenían, y el embudo no lo mostraba). Se cuentan SOLO sobre los estudios cuyo
+ * `extra` se pudo leer: sin él, «—», nunca 0.
+ */
+export function pasosDeHoy(estudios: readonly FilaEmbudo[]): PasoVista[] {
+  const medibles = estudios.filter((f): f is FilaEmbudo & { extra: ExtraEmbudo } => f.extra !== undefined);
+  const paso = (id: string, etiqueta: string, si: (e: ExtraEmbudo) => boolean): PasoVista => ({
+    id, etiqueta, fuente: 'existe', nota: 'hoy', desde: null,
+    n: medibles.length === 0 ? null : medibles.filter(f => si(f.extra)).length,
+    de: medibles.length === 0 ? null : medibles.length,
+  });
+  return [
+    paso('alumnas_cargadas', `${ALUMNAS_CARGADAS_MINIMO}+ alumnas cargadas`, e => e.alumnasCargadas >= ALUMNAS_CARGADAS_MINIMO),
+    paso('alumnas_en_app', 'Alguna alumna con cuenta en la app', e => e.alumnasConCuenta > 0),
+    paso('stripe_conectado', 'Stripe conectado', e => e.conStripe),
+  ];
+}
+
 /** Todo lo de la pantalla, de una vez. `hoy` es el día de Madrid (`hoyEnEstudio`). */
 export function resumirActivacion(filas: readonly FilaEmbudo[], hoy: string): ResumenActivacion {
   const desde = masDias(hoy, -VENTANA_DIAS);
@@ -481,6 +523,7 @@ export function resumirActivacion(filas: readonly FilaEmbudo[], hoy: string): Re
         existe('tarifa_activa', 'Tarifa activa', estudios.filter(f => f.tieneTarifaActiva).length, n, 'hoy'),
         pasoNuevo('clase_reservable', 'Clase reservable', estudios),
         pasoNuevo('enlace_compartido', 'Enlace compartido', estudios),
+        ...pasosDeHoy(estudios),
         existe('primera_reserva', 'Primera reserva', estudios.filter(f => f.primeraReservaEn).length, n),
       ],
       nEstudios: n,

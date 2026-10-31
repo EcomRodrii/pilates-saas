@@ -152,6 +152,18 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
           <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus alumnas.</p>
         </div>
 
+        {/* Lo que se vio en octubre: compartir el enlace no basta, hay que pedirlo (dos estudios lo
+            compartieron y no entró nadie). Cuatro cosas concretas, sin cifras ni promesas. */}
+        <div className="rounded-xl bg-muted/60 px-3 py-2.5" data-testid="compartir-ideas">
+          <p className="text-[12.5px] font-semibold text-foreground">Lo que más ayuda a tener las primeras reservas</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12.5px] leading-snug text-muted-foreground">
+            <li>Mándalo tú al grupo de WhatsApp de tus alumnas y pídeles que reserven su próxima clase.</li>
+            <li>Ponlo en la bio de tu Instagram.</li>
+            <li>Deja el QR impreso en recepción.</li>
+            <li>Si ya tienes alumnas, dalas de alta con su correo: sin correo no pueden entrar a la app.</li>
+          </ul>
+        </div>
+
         {/* La página de reservas existe, pero es OTRA cosa: la que se integra en su web. */}
         <p className="text-[12px] leading-snug text-muted-foreground text-pretty">
           ¿Quieres que reserven desde tu propia web? Eso se prepara en{' '}

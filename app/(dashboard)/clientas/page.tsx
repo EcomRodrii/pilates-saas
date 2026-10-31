@@ -68,6 +68,8 @@ import { BotonVivo, PantallaVacia } from '@/components/dashboard/vivo';
 import { BOTON_BORDE, BOTON_MENU, PestanasVivas } from '@/components/dashboard/vivo-seccion';
 import { GraficaAltas } from '@/components/dashboard/grafica-altas';
 import { CifrasClientas, type CifraClientas } from '@/components/clientas/cifras-clientas';
+import { AvisoSinCorreo } from '@/components/clientas/aviso-sin-correo';
+import { resumenSinCorreo } from '@/lib/clientas/sin-correo';
 
 // La ficha de la clienta solo se pinta al abrir una (panel al lado de la lista, pantallas
 // anchas): ~65 KB gz que no hacen falta para ver la lista. `ssr: false` porque el panel solo
@@ -101,7 +103,7 @@ const selectCls = inputCls + ' appearance-none';
 // son un estado: quién lleva 30 días sin venir, quién no ha dado el
 // consentimiento de marketing, con o sin plan.
 type FiltroEstado = 'TODAS' | EstadoClienta;
-type FiltroMas = '' | 'seguimiento_hoy' | 'sin_venir_30d' | 'sin_consentimiento_mkt' | 'con_plan' | 'sin_plan' | 'nunca_compro' | 'varios_planes';
+type FiltroMas = '' | 'seguimiento_hoy' | 'sin_venir_30d' | 'sin_consentimiento_mkt' | 'con_plan' | 'sin_plan' | 'sin_correo' | 'nunca_compro' | 'varios_planes';
 const FILTROS_MAS: { id: Exclude<FiltroMas, ''>; label: string }[] = [
   // Los «Recuérdamelo» de hoy o atrasados (de quien mira o de nadie): el enlace
   // de «Por decidir» del Resumen llega aquí.
@@ -109,6 +111,8 @@ const FILTROS_MAS: { id: Exclude<FiltroMas, ''>; label: string }[] = [
   { id: 'sin_venir_30d', label: 'Sin venir en 30 días' },
   { id: 'con_plan', label: 'Con plan o bono' },
   { id: 'sin_plan', label: 'Sin plan ni bono' },
+  // Las que no pueden entrar a la app (lib/clientas/sin-correo.ts): el mismo corte que cuenta el aviso de arriba.
+  { id: 'sin_correo', label: 'Sin correo (no pueden entrar a la app)' },
   { id: 'sin_consentimiento_mkt', label: 'Sin consentimiento de marketing' },
 ];
 // P2.8: solo con el interruptor `CLIENTAS_FILTROS` encendido para el estudio.
@@ -469,6 +473,8 @@ export default function Socios() {
   const ahoraMs = estados.ahora?.getTime() ?? 0;
   const hoyISO = estados.ahora ? hoyEnEstudio(estados.ahora) : null;
   const { avisoDe, atendido } = useAvisosClientas(hoyISO);
+  // Quién no puede entrar a la app por no tener correo (el aviso de arriba y el filtro «Sin correo» cuentan lo mismo).
+  const sinCorreo = useMemo(() => resumenSinCorreo(socios, (id) => estados.porSocio.get(id)?.estado), [socios, estados.porSocio]);
   // Los «Recuérdamelo» de hoy o atrasados, por clienta (para el filtro y la marca de su fila).
   const seguimientosHoy = useSeguimientosParaHoy(gestionaClientas, hoyISO, user?.id ?? null);
   // El motivo de las bajas abiertas («De baja · desde 12 sep · se muda»).
@@ -585,6 +591,7 @@ export default function Socios() {
       if (filtroMasEfectivo === 'sin_venir_30d') matchMas = isInactiva30d(s.id, s);
       if (filtroMasEfectivo === 'con_plan') matchMas = estado?.derecho === true;
       if (filtroMasEfectivo === 'sin_plan') matchMas = estado?.derecho !== true;
+      if (filtroMasEfectivo === 'sin_correo') matchMas = sinCorreo.ids.has(s.id);
       // P2.8 (solo encendido: con él apagado están vacíos). Con los datos a medias
       // (`estados.listo` falso: una tabla no cargó entera) no filtran a nadie: sin
       // las suscripciones, TODAS habrían salido en «nunca ha comprado».
@@ -629,7 +636,7 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMasEfectivo, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy, fFrecuencia, fConstancia, fSaldo, usoPorSocio, saldoBonosPorSocio, suscripcionesPorSocio, esPlanDePrueba, estados.listo]);
+  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMasEfectivo, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy, fFrecuencia, fConstancia, fSaldo, usoPorSocio, saldoBonosPorSocio, suscripcionesPorSocio, esPlanDePrueba, estados.listo, sinCorreo]);
 
   // Auditoría PR #1276 (QA): el estado vacío y "Limpiar filtros" solo miraban
   // busqueda/smartFilter — con filtroEtapa/filtroEtiqueta/segmentoAplicado
@@ -1425,6 +1432,11 @@ export default function Socios() {
           activa={vista === 'clientas' ? cifraActiva : null}
           onCifra={alPulsarCifra}
         />
+      )}
+
+      {/* Las que no tienen correo no pueden entrar a la app: se dice, con salida (ver quiénes / el enlace). */}
+      {vista === 'clientas' && gestionaClientas && studio?.id && dataLoaded && estados.listo && sinCorreo.avisar && !sinNingunaNueva && (
+        <AvisoSinCorreo studioId={studio.id} n={sinCorreo.ids.size} onVer={() => { setFiltroEstado('TODAS'); setFiltroMas('sin_correo'); }} />
       )}
 
       {/* Dos vistas: las clientas y quienes todavía están entrando (preguntaron,
