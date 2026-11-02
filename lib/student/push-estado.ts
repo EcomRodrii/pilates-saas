@@ -53,7 +53,12 @@ export interface TextoPush {
   encendido: boolean;
 }
 
-export function textoPush(e: EstadoPush): TextoPush {
+/**
+ * `nativa`: dentro de la app de iPhone. El permiso se retira en Ajustes del
+ * teléfono, no en «los ajustes del navegador»: mandarla ahí era mandarla a
+ * ningún sitio.
+ */
+export function textoPush(e: EstadoPush, nativa = false): TextoPush {
   switch (e) {
     case 'granted-on':
       return { titulo: 'Avisos activados en este dispositivo', cuerpo: 'Te avisaremos aunque tengas la app cerrada.', accion: 'desactivar', encendido: true };
@@ -61,7 +66,9 @@ export function textoPush(e: EstadoPush): TextoPush {
     case 'default':
       return { titulo: 'Avisos en este dispositivo', cuerpo: 'Recibe plazas liberadas y recordatorios aunque la app esté cerrada.', accion: 'activar', encendido: false };
     case 'denied':
-      return { titulo: 'Avisos bloqueados', cuerpo: 'Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador para este sitio.', accion: null, encendido: false };
+      return { titulo: 'Avisos bloqueados', cuerpo: nativa
+        ? 'Has bloqueado las notificaciones de la app. Actívalas en Ajustes del iPhone → Notificaciones, en esta app.'
+        : 'Has bloqueado las notificaciones. Actívalas desde los ajustes del navegador para este sitio.', accion: null, encendido: false };
     case 'ios-sin-instalar':
       return { titulo: 'Instala la app para recibir avisos', cuerpo: 'En iPhone los avisos al móvil solo llegan con la app instalada: Compartir → Añadir a pantalla de inicio, y ábrela desde ahí.', accion: null, encendido: false };
     case 'sin-clave':

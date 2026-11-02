@@ -16,6 +16,7 @@ import { TEXTO_SIN_VALORACIONES, textoValoraciones } from '@/lib/student/valorac
 import { useOnline } from '@/lib/student/useOnline';
 import { useToast } from '@/components/student/ui/Toast';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
+import { esAppNativa } from '@/lib/nativo/puente';
 import { estadoPush, textoPush } from '@/lib/student/push-estado';
 import { Button } from '@/components/student/ui/Button';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
@@ -62,7 +63,7 @@ export default function PerfilInstructoraPage() {
   const cargarPush = useCallback(async () => estadoPush(await contextoPushStudent(estudio.slug, estudio.id)), [estudio.slug, estudio.id]);
   const { data: push, refrescar: refrescarPush } = useAsync(cargarPush, () => false);
   const [ocupadoPush, setOcupadoPush] = useState(false);
-  const dispositivo = push ? textoPush(push) : null;
+  const dispositivo = push ? textoPush(push, esAppNativa()) : null;
 
   const alternarPush = async () => {
     if (!dispositivo?.accion || ocupadoPush) return;

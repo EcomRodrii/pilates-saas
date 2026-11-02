@@ -23,6 +23,7 @@ import {
   FILTROS_AVISOS, accionDeAviso, agruparAvisosPorDia, filtrarAvisos, plazoDeOferta, type FiltroAvisos,
 } from '@/lib/student/avisos-vista';
 import type { Notificacion, Reserva } from '@/lib/student/tipos';
+import { InterruptorAvisos } from '@/components/student/domain/InterruptorAvisos';
 import { NotificationItem } from '@/components/student/domain/NotificationItem';
 import { Button } from '@/components/student/ui/Button';
 import { ConfirmationDialog } from '@/components/student/ui/ConfirmationDialog';
@@ -217,6 +218,7 @@ export default function NotificacionesPage() {
           </button>
         ) : undefined}
       />
+      <InterruptorAvisos estudioId={estudio.id} slug={estudio.slug} />
       {estado === 'ready' && (
         <div role="group" aria-label="Filtrar avisos" className="px" style={{ display: 'flex', gap: 8, marginTop: 12, overflowX: 'auto' }}>
           {FILTROS_AVISOS.map((f) => (

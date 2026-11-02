@@ -194,6 +194,42 @@ test.describe('Student PWA · avisos push en este dispositivo', () => {
     await expect(tarjeta(page).getByText(/ajustes del navegador/i)).toBeVisible();
   });
 
+  test.describe('el interruptor de Avisos', () => {
+    const AVISOS = `${base}/notificaciones`;
+    const fila = (page: Page) => page.getByTestId('avisos-interruptor');
+    const apagadosAposta = (page: Page) => page.evaluate((k) => localStorage.getItem(k), `tentare:avisos-apagados:${SLUG}`);
+
+    test('se puede apagar desde Avisos, borra en el servidor y recuerda que lo apagó ella', async ({ page }) => {
+      await fingirNavegador(page, 'granted', { suscrita: true });
+      const peticiones = await montarPreferencias(page);
+      await page.goto(AVISOS);
+
+      await expect(fila(page)).toHaveAttribute('data-estado', 'granted-on', { timeout: 30_000 });
+      await fila(page).getByRole('switch').click();
+
+      const borrados = () => peticiones.filter((p) => p.method === 'DELETE');
+      await expect.poll(() => borrados().length).toBe(1); // contador: no es verdad «por no haber intentado nada»
+      expect(borrados()[0].body.endpoint).toBe('https://push.e2e.test/inicial');
+      await expect(fila(page)).toHaveAttribute('data-estado', 'granted-off');
+      // Sin esto, Inicio le volvía a ofrecer «Activa los avisos» al instante.
+      expect(await apagadosAposta(page)).toBe('1');
+    });
+
+    test('se puede volver a encender desde Avisos y se olvida que lo había apagado', async ({ page }) => {
+      await fingirNavegador(page, 'granted');
+      const peticiones = await montarPreferencias(page);
+      await page.addInitScript((k) => localStorage.setItem(k, '1'), `tentare:avisos-apagados:${SLUG}`);
+      await page.goto(AVISOS);
+
+      await expect(fila(page)).toHaveAttribute('data-estado', 'granted-off', { timeout: 30_000 });
+      await fila(page).getByRole('switch').click();
+
+      await expect.poll(() => peticiones.filter((p) => p.method === 'POST').length).toBeGreaterThan(0);
+      await expect(fila(page)).toHaveAttribute('data-estado', 'granted-on');
+      expect(await apagadosAposta(page)).toBeNull();
+    });
+  });
+
   test.describe('iPhone en Safari, sin añadir a inicio', () => {
     test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' });
 
