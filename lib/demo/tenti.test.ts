@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  MAX_PREGUNTAS, herramientas, interpretarSalida, mensajesParaElModelo, preguntasHechas, promptDeSistema,
+  MAX_PREGUNTAS, herramientas, interpretarSalida, mensajesParaElModelo, porQueEsInvalida, preguntasHechas, promptDeSistema,
   sanearHistorial, siguienteTurno, type ModeloDemo,
 } from './tenti.ts';
 
@@ -130,4 +130,15 @@ test('la nota de la evaluación lleva cuánto le ha ayudado (1 a 3) solo si lo d
   assert.equal(nota('yoga', 'caducidad_bono', 'resuelta', 3), '[demo] centro=yoga escenario=caducidad_bono respuesta=resuelta utilidad=3');
   assert.equal(nota('yoga', null, 'otra_duda'), '[demo] centro=yoga escenario=ninguno respuesta=otra_duda');
   assert.deepEqual([0, 1, 2, 3, 4, '3', null].map(esUtilidad), [false, true, true, true, false, false, false]);
+});
+
+test('el aviso de «respuesta inválida» dice DÓNDE falló, sin repetir lo que dijo el modelo', () => {
+  const ctxPregunta = ctx;
+  assert.equal(porQueEsInvalida(null, ctxPregunta), 'sin-herramienta');
+  assert.equal(porQueEsInvalida({ name: 'ejecutar_sql', input: { sql: 'select secreto' } }, ctxPregunta), 'herramienta-desconocida');
+  const larga = porQueEsInvalida({ name: 'preguntar', input: { pregunta: 'x'.repeat(500) } }, ctxPregunta);
+  assert.match(larga, /^preguntar · pregunta:too_big/);
+  assert.doesNotMatch(larga, /xxxx/);
+  assert.match(porQueEsInvalida({ name: 'proponer_demo', input: { escenario: 'caducidad_bono', parametros: {}, resumen: 'hola', ejecutar: 'rm -rf' } }, ctxPregunta), /proponer_demo · .*unrecognized_keys/);
+  assert.equal(porQueEsInvalida({ name: 'preguntar', input: { pregunta: '¿Domingo?' } }, { ...ctxPregunta, puedePreguntar: false }), 'preguntar · ya-no-puede-preguntar');
 });

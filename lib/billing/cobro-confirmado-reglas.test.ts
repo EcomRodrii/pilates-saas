@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   conciliadoPorDe, efectosEnOrden, efectosEnReentrega, esRenovacion, estadosAdmitidosPorOrigen,
-  facturaIdCheckout, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
+  ID_FACTURA_VALIDO, facturaIdCheckout, facturaIdManual, facturaIdMetodoGuardado, facturaIdParaReintento, filtroCargoEnCas, origenNotifica,
   reentregaAplicaAlRecibo, refIdCreditoRenovacion, resolverSinFilas, ESPERA_A_UN_COBRO_OFF_SESSION, type OrigenCobro,
 } from './cobro-confirmado-reglas.ts';
 import { ESTADOS_COBRABLES } from './deuda-recibo.ts';
@@ -263,7 +263,7 @@ test('cada canal sella con su propio id', () => {
 test('el reintento de un cobro a mano sella con el id del panel, aunque el recibo diga SEPA', () => {
   assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'EFECTIVO', conciliado_por: 'manual' }), 'fac-manual-rec-1');
   assert.equal(facturaIdParaReintento({ id: 'rec-1', metodo_cobro: 'SEPA', conciliado_por: 'manual' }), 'fac-manual-rec-1');
-  // El sellado valida el id con /^[A-Za-z0-9_-]{1,64}$/: el prefijo no puede
+  // El sellado valida el id con ID_FACTURA_VALIDO: el prefijo no puede
   // dejar fuera un recibo que ya cabía con `fac-checkout-`.
   assert.ok(facturaIdManual('x').length <= facturaIdCheckout('x').length);
 });
@@ -313,4 +313,26 @@ test('⚠️ un recibo que devolvió el banco y se cobra con SumUp: su PaymentIn
   assert.deepEqual(resolverSinFilas(cerrado, x, 'sumup'), { tipo: 'ya_estaba' });
   // Un cargo de Stripe NUEVO sobre ese recibo sí es otro cobro.
   assert.deepEqual(resolverSinFilas(cerrado, 'pi_nuevo'), { tipo: 'otro_cobro', anterior: 'pi_viejo' });
+});
+
+test('el id de factura de un recibo largo cabe en lo que acepta el sellado (el caso de los 52 avisos de Sentry)', () => {
+  // Una renovación de una cuota sacada del flujo web: 59 caracteres, y con el prefijo del canal pasaba de 64.
+  const largo = 'rec-renov-sus-camb-sus-web-3UL9GfCaGKCD4c1G0YvRxYVv-2026-10';
+  assert.equal(largo.length, 59);
+  assert.ok(ID_FACTURA_VALIDO.test(largo));
+  for (const metodo of ['TARJETA', 'SEPA', 'BIZUM', 'EFECTIVO']) {
+    for (const conciliado of ['manual', 'webhook', null]) {
+      const id = facturaIdParaReintento({ id: largo, metodo_cobro: metodo, conciliado_por: conciliado });
+      assert.ok(id.length > 64, `${id} ya no pasaba el límite de 64`);
+      assert.ok(ID_FACTURA_VALIDO.test(id), `${id} tiene que ser un id sellable`);
+    }
+  }
+  for (const id of [facturaIdCheckout(largo), facturaIdMetodoGuardado(largo, 'SEPA'), facturaIdMetodoGuardado(largo, 'TARJETA'), facturaIdManual(largo)]) {
+    assert.ok(ID_FACTURA_VALIDO.test(id), id);
+  }
+});
+
+test('la validación del id sigue cerrando lo que inyecta condiciones, vacío o enorme', () => {
+  for (const mal of ['', 'a,b', 'a)or(b', 'a.b', 'a b', "a'b", 'a/b', 'x'.repeat(129)]) assert.equal(ID_FACTURA_VALIDO.test(mal), false, JSON.stringify(mal.slice(0, 20)));
+  assert.ok(ID_FACTURA_VALIDO.test('x'.repeat(128)));
 });

@@ -301,6 +301,16 @@ export function refIdCreditoRenovacion(reciboId: string): string {
 // id: dos caminos que sellan el MISMO recibo a la vez con ids distintos no
 // chocan por PK. Cada canal usa siempre el suyo.
 
+/**
+ * Lo que el sellado acepta como id de recibo o de factura (`sellarFacturaDeRecibo`): solo letras, cifras, `_` y `-`,
+ * la defensa contra inyectar condiciones en un filtro. El LARGO es 128 y no 64 (2-nov-2026): el id de un recibo de
+ * renovación de una cuota sacada del flujo web mide 59 caracteres (`rec-renov-<id de la cuota>-<mes>`) y con el prefijo
+ * del canal (`fac-checkout-`, `fac-off-`…) pasaba de 64, así que NINGUNA de sus facturas se podía sellar y el reintento
+ * horario volvía a fallar con «Identificadores inválidos» (52 avisos en dos días). No hay límite en la base de datos:
+ * `facturas.id` y `recibo_id` son `text`.
+ */
+export const ID_FACTURA_VALIDO = /^[A-Za-z0-9_-]{1,128}$/;
+
 export const facturaIdCheckout = (reciboId: string) => `fac-checkout-${reciboId}`;
 
 /** Tarjeta guardada o SEPA: el mismo id lo usan el cobro síncrono y su webhook. */

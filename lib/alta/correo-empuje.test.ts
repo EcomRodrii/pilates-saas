@@ -94,9 +94,9 @@ test('las marcas son pasos del embudo y duraderos (valen pase cuando pase)', () 
   }
 });
 
-// ── La guarda del job (migración 20261031100000) ────────────────────────────
+// ── La guarda del job (migración 20261102120710) ────────────────────────────
 
-const MIGRACION = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261031100000_alta_empuje_compartir_y_alumnas.sql'), 'utf8');
+const MIGRACION = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261102120710_alta_empuje_compartir_y_alumnas.sql'), 'utf8');
 const normal = (s: string) => s.replace(/\s+/g, ' ').trim();
 
 test('la guarda llama por las dos ventanas, con las MISMAS horas que la regla', () => {

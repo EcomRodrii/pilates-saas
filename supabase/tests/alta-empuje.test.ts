@@ -1,5 +1,5 @@
 // Los dos correos de «después de la primera clase» (migración
-// 20261031100000_alta_empuje_compartir_y_alumnas.sql), contra Postgres de verdad
+// 20261102120710_alta_empuje_compartir_y_alumnas.sql), contra Postgres de verdad
 // (job `calidad-rls`):
 //
 //  · el embudo admite las dos marcas nuevas y sigue rechazando lo que no está en

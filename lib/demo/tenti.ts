@@ -220,6 +220,26 @@ export function interpretarSalida(
   return null;
 }
 
+/**
+ * Por qué una salida del modelo no cumple el contrato, para el aviso de Sentry: la herramienta y DÓNDE falló (el campo y el
+ * tipo de fallo de zod, o «el catálogo»), nunca lo que dijo el modelo ni lo que escribió la persona. Hasta el 2-nov-2026 el
+ * aviso solo decía la herramienta, y con cuatro avisos no había manera de saber si era un texto largo, una clave de más o
+ * un parámetro fuera de rango.
+ */
+export function porQueEsInvalida(b: BloqueHerramienta | null, contexto: { tipo: TipoCentro; puedePreguntar: boolean }): string {
+  if (!b) return 'sin-herramienta';
+  const campos = (r: { success: boolean; error?: { issues: { path: PropertyKey[]; code: string }[] } }) =>
+    r.success ? null : (r.error?.issues ?? []).slice(0, 4).map((i) => `${i.path.map(String).join('.') || 'raíz'}:${i.code}`).join(',');
+  let motivo: string | null = null;
+  if (b.name === 'preguntar') motivo = contexto.puedePreguntar ? campos(preguntar.safeParse(b.input)) : 'ya-no-puede-preguntar';
+  else if (b.name === 'proponer_demo') {
+    const r = proponerDemo.safeParse(b.input);
+    motivo = campos(r) ?? (r.success && !construirDemo(r.data.escenario, r.data.parametros, CENTROS[contexto.tipo].contexto).ok ? 'parámetros-o-escenario' : null);
+  } else if (b.name === 'no_soportado') motivo = campos(noSoportado.safeParse(b.input));
+  else return `herramienta-desconocida`;
+  return `${b.name}${motivo ? ` · ${motivo}` : ''}`;
+}
+
 /** El turno de Tenti. Nunca lanza: si el modelo falla, devuelve `degradado` con salida. */
 export async function siguienteTurno(
   entrada: { historial: MensajeHistorial[]; tipoCentro: TipoCentro },
@@ -252,7 +272,7 @@ export async function siguienteTurno(
     tokensSalida += r.tokensSalida ?? 0;
     const turno = interpretarSalida(r.herramienta, { tipo: entrada.tipoCentro, puedePreguntar });
     if (turno) return { ...turno, tokens: { entrada: tokensEntrada, salida: tokensSalida } };
-    avisar?.('respuesta-invalida', r.herramienta?.name ?? 'sin-herramienta');
+    avisar?.('respuesta-invalida', porQueEsInvalida(r.herramienta, { tipo: entrada.tipoCentro, puedePreguntar }));
   }
   return {
     tipo: 'degradado', motivo: 'respuesta-invalida',

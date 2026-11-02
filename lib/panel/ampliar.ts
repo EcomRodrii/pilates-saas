@@ -63,7 +63,7 @@ function fijar(siguiente: boolean) {
  */
 export function cambiarAmpliado(siguiente: boolean, { animar = true }: { animar?: boolean } = {}): void {
   if (typeof document === 'undefined' || siguiente === ampliado) return;
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void> } };
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { finished: Promise<void>; ready?: Promise<void>; updateCallbackDone?: Promise<void> } };
   if (!animar || !doc.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     fijar(siguiente);
     window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
@@ -75,5 +75,12 @@ export function cambiarAmpliado(siguiente: boolean, { animar = true }: { animar?
     flushSync(() => fijar(siguiente));
     window.dispatchEvent(new Event(EVENTO_MEDIR_ALTO));
   });
-  transicion.finished.finally(() => raiz.removeAttribute('data-vt-ampliar'));
+  // La transición se aborta sola si cambia el tamaño de la ventana a mitad («InvalidStateError: Transition was aborted
+  // because of invalid state. Viewport size changed»: Sentry, /cobros, sin gestionar). Las TRES promesas rechazan en ese caso y
+  // sin un `catch` cada una es un error sin gestionar. No pasa nada que arreglar: el estado ya se fijó dentro del callback
+  // y solo se pierde la animación.
+  const sinAnimacion = () => { /* abortada: el estado ya está puesto */ };
+  transicion.ready?.catch(sinAnimacion);
+  transicion.updateCallbackDone?.catch(sinAnimacion);
+  transicion.finished.catch(sinAnimacion).finally(() => raiz.removeAttribute('data-vt-ampliar'));
 }
