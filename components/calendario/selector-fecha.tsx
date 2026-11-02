@@ -134,7 +134,7 @@ export function SelectorFecha({ etiqueta, abrirEn, desde, hasta, hoy, diasConCla
         aria-expanded={!!pos}
         aria-haspopup="dialog"
         title="Elegir otro día"
-        className={cn('zona-tactil inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-[15px] font-semibold text-foreground transition-colors hover:bg-muted md:min-h-9', className)}
+        className={cn('zona-tactil inline-flex min-h-11 items-center gap-1 rounded-lg px-1.5 text-[15px] font-semibold md:gap-1.5 md:px-2 text-foreground transition-colors hover:bg-muted md:min-h-9', className)}
         data-testid="selector-fecha"
       >
         {etiqueta}

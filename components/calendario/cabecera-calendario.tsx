@@ -214,7 +214,11 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2 md:gap-2.5">
+      {/* En el móvil (375 px) el mes y las tres vistas tienen que caber en UNA fila con cualquier nombre de mes: medido, con
+          «Noviembre» (79 px de texto) y «Septiembre» (84) la fila pasaba de los 309 px que hay y la vista saltaba debajo, una
+          fila de cabecera de más (el e2e «tres filas» falló el 2-nov). Por eso el hueco entre ellos y el relleno de los botones
+          son más cortos por debajo de `md`; en el resto, igual que siempre. */}
+      <div className="flex flex-wrap items-center gap-2 max-md:gap-x-1.5 md:gap-2.5">
         {p.navegacion && (
           <>
             {/* Con el dedo (el iPad, que es `md`), 44 como en el móvil: van pegados
@@ -245,7 +249,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
               aria-pressed={p.vista === v.id}
               title={v.titulo}
               className={cn(
-                'zona-tactil min-h-11 min-w-11 rounded-lg px-2.5 text-[13px] font-medium transition-colors md:min-h-8 md:min-w-0 md:px-3.5',
+                'zona-tactil min-h-11 min-w-11 rounded-lg px-2 text-[13px] font-medium transition-colors md:min-h-8 md:min-w-0 md:px-3.5',
                 p.vista === v.id ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground',
               )}
             >
