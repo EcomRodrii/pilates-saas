@@ -7,6 +7,7 @@ import { calcularHuellaAlta, type RegistroAltaVerifactu } from '../verifactu.ts'
 import { fechaExpedicionDesdeISO, fechaHoraHusoMadrid, urlQrVerifactu } from '../verifactu-qr.ts';
 import { nifEmisorValido } from '../nif.ts';
 import { MENSAJE_SIN_FACTURAS } from '../factura-automatica.ts';
+import { ID_FACTURA_VALIDO } from './cobro-confirmado-reglas.ts';
 
 // Núcleo del sellado Veri*Factu, extraído de app/api/facturas/sellar para que lo
 // puedan invocar TANTO la ruta (staff autenticado) COMO el webhook de Stripe
@@ -127,7 +128,7 @@ export async function sellarFacturaDeRecibo(
   // .eq() separados, además acotados al estudio (la búsqueda por .or tampoco
   // filtraba por studio_id: podía encontrar la factura de otro tenant y darla
   // por ya sellada).
-  const ID_VALIDO = /^[A-Za-z0-9_-]{1,64}$/;
+  const ID_VALIDO = ID_FACTURA_VALIDO;
   if (!ID_VALIDO.test(facturaId) || !ID_VALIDO.test(reciboId)) {
     return { ok: false, error: 'Identificadores inválidos' };
   }
@@ -493,7 +494,7 @@ export async function sellarRectificativaDeFactura(
 ): Promise<ResultadoSellado> {
   const { studioId, facturaOriginalId, facturaRectificativaId, tipoFactura, tipoRectificativa, baseImponible, cuotaIVA, total, importeRectificacion } = params;
 
-  const ID_VALIDO = /^[A-Za-z0-9_-]{1,64}$/;
+  const ID_VALIDO = ID_FACTURA_VALIDO;
   if (!ID_VALIDO.test(facturaOriginalId) || !ID_VALIDO.test(facturaRectificativaId)) {
     return { ok: false, error: 'Identificadores inválidos' };
   }

@@ -138,3 +138,11 @@ test('axe solo en los e2e', () => {
     .filter(({ s }) => /@axe-core\//.test(s)).map(({ f }) => relative(raiz, f));
   assert.deepEqual(fuera, [], `axe fuera de e2e/ (entraría en el bundle):\n${fuera.join('\n')}`);
 });
+
+test('«opcional» (saltar sin avisar a Sentry) solo vale para los controles que dependen de los datos de la pantalla', () => {
+  const opcionales = Object.entries(PASOS_TUTORIAL)
+    .flatMap(([ruta, t]) => t.pasos.filter(p => p.opcional).map(p => `${ruta}:${p.selector}`))
+    .sort();
+  // Clientas con la lista vacía enseña un aviso en vez de los filtros. Añadir otro aquí es decir que su ausencia no es un fallo.
+  assert.deepEqual(opcionales, ['/clientas:clientas-estados', '/clientas:clientas-interesadas']);
+});

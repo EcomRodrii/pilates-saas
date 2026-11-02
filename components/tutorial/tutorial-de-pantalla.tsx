@@ -93,7 +93,7 @@ export function TutorialDePantalla({ ruta, escritorio, origen, onTerminar, onCer
   // era el último, no se ha visto entero: cuenta como saltado, no completado.
   useEffect(() => {
     if (!paso || perdidoDe !== paso.selector) return;
-    capturarMensaje(`Tutorial: no se encontró «${paso.selector}»`, 'warning', { tags: { area: 'tutorial', pantalla: ruta } });
+    if (!paso.opcional) capturarMensaje(`Tutorial: no se encontró «${paso.selector}»`, 'warning', { tags: { area: 'tutorial', pantalla: ruta } });
     if (ultimo) onTerminar('saltado', idx + 1);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- Reacciona al DOM: el control del paso no está en la página.
     else setI(idx + 1);

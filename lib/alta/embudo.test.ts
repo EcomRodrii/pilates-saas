@@ -23,7 +23,7 @@ const MIGRACION = readFileSync(new URL('../../supabase/migrations/20261021020248
  * `correo_empuje_alumnas`: el CHECK que vale es el de la ÚLTIMA migración que lo
  * rehízo.
  */
-const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261031100000_alta_empuje_compartir_y_alumnas.sql', import.meta.url), 'utf8');
+const MIGRACION_PASOS = readFileSync(new URL('../../supabase/migrations/20261102120710_alta_empuje_compartir_y_alumnas.sql', import.meta.url), 'utf8');
 
 /** Los literales de un `check (col in (...))` de la migración. */
 function literalesDelCheck(columna: string, migracion = MIGRACION): string[] {

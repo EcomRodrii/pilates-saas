@@ -24,6 +24,13 @@ export interface PasoTutorial {
   soloEscritorio?: true;
   /** El control solo lo ve quien puede mover dinero (crear tarifas): para el resto, el paso se salta. */
   requiere?: 'moverDinero';
+  /**
+   * El control puede no estar en la página según los DATOS (una lista sin ninguna fila enseña un aviso en vez de sus
+   * filtros): el paso se salta sin avisar a Sentry. Sin esto, cada estudio nuevo que abría la guía de Clientas con la
+   * lista vacía —justo quien más la necesita— dejaba un «no se encontró» (8 personas en tres semanas). Un control que
+   * debería estar siempre NO lleva esto: su ausencia sí es un fallo y tiene que verse.
+   */
+  opcional?: true;
 }
 
 /**
@@ -74,8 +81,8 @@ export const PASOS_TUTORIAL: { readonly [R in RutaConTutorial]: TutorialPasos } 
   '/clientas': {
     pasos: [
       // Las definiciones son las de `lib/clientas/estado.ts` (DEFINICION_ESTADO).
-      { selector: 'clientas-estados', titulo: 'Cada clienta, su estado', texto: '«Activa» es quien puede reservar ahora o ha venido hace poco. Pulsa un estado para ver solo esas.' },
-      { selector: 'clientas-interesadas', titulo: 'Interesadas y pruebas, aparte', texto: 'Quien solo preguntó o tiene su clase de prueba está en «Interesadas y pruebas», para que le hagas seguimiento.' },
+      { selector: 'clientas-estados', titulo: 'Cada clienta, su estado', texto: '«Activa» es quien puede reservar ahora o ha venido hace poco. Pulsa un estado para ver solo esas.', opcional: true },
+      { selector: 'clientas-interesadas', titulo: 'Interesadas y pruebas, aparte', texto: 'Quien solo preguntó o tiene su clase de prueba está en «Interesadas y pruebas», para que le hagas seguimiento.', opcional: true },
       { selector: 'clientas-importar', titulo: '¿Vienes de otro programa?', texto: 'Con «Importar» subes tu lista entera de una vez, sin teclear a nadie.', soloEscritorio: true },
       // Obligatorios: nombre, apellidos y aceptar las condiciones; el email no (clientas/page.tsx).
       { selector: 'clientas-nueva', titulo: 'Da de alta a una clienta', texto: 'Nombre, apellidos y que acepte las condiciones; el email es opcional, pero sin él no entra en su app.' },
