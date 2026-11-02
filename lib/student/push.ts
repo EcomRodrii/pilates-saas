@@ -89,8 +89,33 @@ export async function soltarPushStudent(slug: string): Promise<void> {
   try { localStorage.removeItem(claveRenovado(slug)); } catch { /* da igual */ }
 }
 
+// ── «Los apagué yo» ─────────────────────────────────────────────────────────
+//
+// Apagar los avisos deja el permiso del dispositivo concedido, y «permiso sin
+// suscripción» es justo el estado en que Inicio ofrece «Activa los avisos». Sin
+// recordar que fue ELLA quien los apagó, la tarjeta volvía a salir al instante
+// y la alumna acababa harta del propio interruptor. Local al dispositivo: es
+// una decisión de este aparato, y activarlos de nuevo la borra.
+const claveApagados = (slug: string) => `tentare:avisos-apagados:${slug}`;
+
+export function avisosApagadosAposta(slug: string): boolean {
+  try { return localStorage.getItem(claveApagados(slug)) === '1'; } catch { return false; }
+}
+function marcarApagados(slug: string, apagados: boolean) {
+  try {
+    if (apagados) localStorage.setItem(claveApagados(slug), '1');
+    else localStorage.removeItem(claveApagados(slug));
+  } catch { /* sin almacenamiento: solo se pierde el recuerdo */ }
+}
+
 /** Pide permiso, se suscribe con el SW acotado y guarda la suscripción en el servidor. */
 export async function activarPushStudent(studioId: string, slug: string): Promise<ResultadoPush> {
+  const r = await activarSinMarca(studioId, slug);
+  if (r.ok) marcarApagados(slug, false);
+  return r;
+}
+
+async function activarSinMarca(studioId: string, slug: string): Promise<ResultadoPush> {
   if (esAppNativa()) return activarPushNativo(studioId);
   if (!pushSoportado()) return { ok: false, motivo: 'unsupported' };
   const clave = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -129,6 +154,13 @@ export async function activarPushStudent(studioId: string, slug: string): Promis
 
 /** Borra la suscripción del servidor y del navegador. `false` si el servidor no la ha borrado. */
 export async function desactivarPushStudent(slug: string): Promise<boolean> {
+  const ok = await desactivarSinMarca(slug);
+  // Aunque el servidor haya fallado, ella ha dicho que no: no se le vuelve a ofrecer.
+  marcarApagados(slug, true);
+  return ok;
+}
+
+async function desactivarSinMarca(slug: string): Promise<boolean> {
   if (esAppNativa()) return desactivarPushNativo();
   if (!pushSoportado()) return true;
   try {

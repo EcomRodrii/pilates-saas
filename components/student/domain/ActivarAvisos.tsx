@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { portalAuthHeader } from '@/lib/student/api-publica';
-import { activarPushStudent, contextoPushStudent } from '@/lib/student/push';
+import { activarPushStudent, avisosApagadosAposta, contextoPushStudent } from '@/lib/student/push';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { debeInvitar } from '@/lib/student/push-invitacion';
 
@@ -36,7 +36,9 @@ export function ActivarAvisos({ estudioId, slug }: { estudioId: string; slug: st
     let oculta: number | null = null;
     try { oculta = Number(localStorage.getItem(claveOculta(slug)) ?? 'NaN'); } catch { /* sin almacenamiento */ }
     setEstado(e);
-    setVisible(debeInvitar(e, oculta, Date.now(), haySesion));
+    // Los apagó ella a propósito (permiso concedido, sin suscripción): no se insiste.
+    const losApagoElla = e === 'granted-off' && avisosApagadosAposta(slug);
+    setVisible(!losApagoElla && debeInvitar(e, oculta, Date.now(), haySesion));
   }, [slug, estudioId]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect

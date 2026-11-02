@@ -76,3 +76,14 @@ test('todo estado tiene título y cuerpo no vacíos', () => {
     assert.ok(t.cuerpo.length > 0, e);
   }
 });
+
+test('bloqueado dentro de la app de iPhone manda a Ajustes del teléfono, no al navegador', () => {
+  const web = textoPush('denied');
+  const app = textoPush('denied', true);
+  assert.match(web.cuerpo, /ajustes del navegador/);
+  assert.match(app.cuerpo, /Ajustes del iPhone/);
+  assert.doesNotMatch(app.cuerpo, /navegador/);
+  assert.equal(app.accion, null);
+  // El resto de estados no cambia dentro de la app.
+  assert.deepEqual(textoPush('granted-on', true), textoPush('granted-on'));
+});

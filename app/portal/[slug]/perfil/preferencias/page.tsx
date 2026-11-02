@@ -10,6 +10,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getConsentimientoMarketing, getPreferencias, guardarConsentimientoMarketing, guardarPreferencia } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
+import { esAppNativa } from '@/lib/nativo/puente';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { OposicionPerfilado } from '@/components/student/domain/OposicionPerfilado';
 import { PushPorTipo, estadoInicialPush } from '@/components/student/domain/PushPorTipo';
@@ -83,7 +84,7 @@ export default function PreferenciasPage() {
   // suponer el resultado.
   const alternarPush = async () => {
     if (push === null || ocupadoPush) return;
-    const accion = textoPush(push).accion;
+    const accion = textoPush(push, esAppNativa()).accion;
     if (!accion) return;
     setOcupadoPush(true);
     try {
@@ -100,7 +101,7 @@ export default function PreferenciasPage() {
     }
   };
 
-  const dispositivo = push === null ? null : textoPush(push);
+  const dispositivo = push === null ? null : textoPush(push, esAppNativa());
 
   return (
     <StudentShell>
