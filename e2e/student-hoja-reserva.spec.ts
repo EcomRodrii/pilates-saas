@@ -71,6 +71,38 @@ test.describe('Student PWA · la hoja de reserva, sacada de la ficha', () => {
     await expect(page.getByRole('button', { name: 'Ver mis reservas' })).toBeVisible();
   });
 
+  test('tras reservar se ofrece avisar antes de la clase (si hay permiso por decidir), y activarlo manda la suscripción', async ({ page }) => {
+    // Permiso por decidir y un navegador que concede: la frontera se finge (el Chromium de Playwright no tiene push real).
+    await page.addInitScript(() => {
+      let sub: unknown = null;
+      const reg = {
+        active: {}, scope: `${location.origin}/portal/tentare/`,
+        pushManager: {
+          getSubscription: async () => sub,
+          subscribe: async () => { const s: { endpoint: string; toJSON: () => unknown; unsubscribe: () => Promise<boolean> } = { endpoint: 'https://push.e2e.test/reserva', toJSON: () => ({ endpoint: s.endpoint, keys: { p256dh: 'p', auth: 'a' } }), unsubscribe: async () => true }; sub = s; return s; },
+        },
+      };
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { getRegistration: async () => reg, register: async () => reg, ready: Promise.resolve(reg) } });
+      if (!('PushManager' in window)) (window as unknown as Record<string, unknown>).PushManager = function PushManager() { /* finge */ };
+      const N = { permission: 'default', requestPermission: async () => { N.permission = 'granted'; return 'granted'; } };
+      Object.defineProperty(window, 'Notification', { configurable: true, value: N });
+    });
+    const suscripciones: unknown[] = [];
+    await page.route((u) => u.pathname === '/api/notifications/subscribe', (r) => {
+      if (r.request().method() === 'POST') suscripciones.push(r.request().postDataJSON());
+      return r.fulfill(json({ ok: true, endpoint: 'https://push.e2e.test/reserva' }));
+    });
+    const m = await montar(page, { conBono: true });
+    await m.responder({ ok: true, estado: 'CONFIRMADA', reservaId: 'res-1' });
+    await abrirYConfirmar(page);
+    await expect(page.getByText('Reserva confirmada')).toBeVisible({ timeout: 30_000 });
+    const oferta = page.getByTestId('oferta-avisos-reserva');
+    await expect(oferta).toBeVisible({ timeout: 15_000 });
+    await oferta.getByRole('button', { name: 'Avisarme' }).click();
+    await expect(oferta).toHaveAttribute('data-fase', 'hecho');
+    expect(suscripciones.length, 'la suscripción no llegó a enviarse').toBeGreaterThan(0);
+  });
+
   test('«aforo-lleno»: la clase no tiene lista de espera, y la hoja no la ofrece', async ({ page }) => {
     const m = await montar(page, { conBono: true });
     await m.responder({ error: 'Esta clase está completa', codigo: 'aforo-lleno' }, 400);

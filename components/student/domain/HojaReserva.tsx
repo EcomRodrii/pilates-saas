@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { usePortalHref } from '@/components/student/contexto';
+import { useEstudio, usePortalHref } from '@/components/student/contexto';
 import type { Bono, BookingState, Clase, Disponibilidad, Instructora } from '@/lib/student/tipos';
 import type { HojaReservaControl, ModoHoja } from '@/lib/student/use-hoja-reserva';
 import { esCuota, notaSinBono, type ComoVieneSinBono } from '@/lib/student/como-se-paga';
@@ -11,6 +11,7 @@ import { Sheet } from '@/components/student/ui/Sheet';
 import { Button } from '@/components/student/ui/Button';
 import { BookingSummary } from '@/components/student/domain/BookingSummary';
 import { BookingStatus } from '@/components/student/domain/BookingStatus';
+import { OfertaAvisosTrasReserva } from '@/components/student/domain/OfertaAvisosTrasReserva';
 import { ElegirHueco, type SpotMin } from '@/components/student/domain/ElegirHueco';
 
 /**
@@ -55,6 +56,7 @@ export function HojaReserva({
 }) {
   const router = useRouter();
   const href = usePortalHref();
+  const { estudio } = useEstudio();
   // El sitio elegido. `null` = que lo asigne el estudio.
   const [hueco, setHueco] = useState<string | null>(null);
   const { bk, desenlace, modoEnviado } = hoja;
@@ -173,6 +175,8 @@ export function HojaReserva({
           mensaje={desenlace?.mensaje}
           acciones={desenlace?.acciones}
           contexto={contexto}
+          // Solo con la reserva hecha (no en lista de espera: ahí aún no hay clase de la que avisar).
+          oferta={bk === 'confirmed' ? <OfertaAvisosTrasReserva estudioId={estudio.id} slug={estudio.slug} /> : undefined}
           onRetry={hoja.volverARevisar}
           // Solo si la clase admite lista de espera: tras «aforo-lleno» no la tiene (`desenlaceDeLaHoja`).
           onWaitlist={desenlace?.ofreceEspera ? hoja.volverARevisar : undefined}
