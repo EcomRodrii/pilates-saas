@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { REGLAS } from './catalog.ts';
 import { CANALES, type ResultadoCanal } from './channels.ts';
-import { crearInApp, canalesExtraDe, preferenciaDe, prefDelEvento, PREF_DEFECTO, preferenciaSinCuenta, type Preferencia } from './inapp.ts';
+import { crearInApp, canalesExtraDe, sinPushApagadoPorElEstudio, preferenciaDe, prefDelEvento, PREF_DEFECTO, preferenciaSinCuenta, type Preferencia } from './inapp.ts';
 import { resolverContactoConocido, emailDeLaPropietaria } from './recipients.ts';
 import * as Sentry from '@sentry/nextjs';
 import type {
@@ -226,7 +226,8 @@ export async function entregarExternos(
   const categorias = unicos(pendientes.map(n => REGLAS[n.event_type as string]?.category));
 
   type Fila = Record<string, unknown>;
-  const [socFilas, insFilas, stFilas, prefFilas] = await Promise.all([
+  const studioIdsDeSocias = unicos(pendientes.filter(n => n.recipient_socio_id).map(n => n.studio_id as string));
+  const [socFilas, insFilas, stFilas, prefFilas, apagadosFilas] = await Promise.all([
     enLotes<Fila>(socioIds, lote => admin.from('socios').select('id, email, telefono').in('id', lote)),
     enLotes<Fila>(instructorIds, lote => admin.from('instructores').select('id, email').in('id', lote)),
     enLotes<Fila>(studioIds, lote => admin.from('studios').select('id, email, telefono').in('id', lote)),
@@ -235,7 +236,10 @@ export async function entregarExternos(
     enLotes<Fila>(userIds, lote => admin.from('notification_preference')
       .select('user_id, category, inapp, push, email, whatsapp, sms, push_eventos')
       .in('user_id', lote).in('category', categorias)),
+    // Los avisos que cada estudio apagó para sus alumnas: se aplican también aquí porque este camino recalcula los canales.
+    enLotes<Fila>(studioIdsDeSocias, lote => admin.from('studios').select('id, avisos_push_apagados').in('id', lote)),
   ]);
+  const apagadosPorEstudio = new Map(apagadosFilas.map(r => [r.id as string, (r.avisos_push_apagados as string[] | null) ?? []]));
 
   const porId = (filas: Fila[]) => new Map(filas.map(r => [r.id as string, r]));
   const socios = porId(socFilas), instructores = porId(insFilas), studios = porId(stFilas);
@@ -290,7 +294,7 @@ export async function entregarExternos(
           whatsapp: fila.whatsapp as boolean, sms: fila.sms as boolean, pushEventos: fila.push_eventos,
         }
       : (dest.userId ? PREF_DEFECTO : preferenciaSinCuenta(regla)), noti.event_type as string);
-    const canales = canalesExtraDe(regla, pref, critica);
+    const canales = sinPushApagadoPorElEstudio(canalesExtraDe(regla, pref, critica), apagadosPorEstudio.get(noti.studio_id as string), noti.event_type as string, dest.role, critica);
     const n = await entregarCanales(admin, mapRow(noti), dest, canales, fallos);
     if (n > 0) entregadas++;
     deliveries += n;
