@@ -34,6 +34,7 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
   const [activando, setActivando] = useState(false);
   const [errorGuardado, setErrorGuardado] = useState<string | null>(null);
   const [avisoPush, setAvisoPush] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
+  const [verComo, setVerComo] = useState(false);
 
   // El estado se lee tras montar (Notification y el service worker solo existen
   // en cliente) y mira TRES cosas, no una: permiso, suscripción del navegador y
@@ -123,6 +124,14 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
               {activando ? 'Activando…' : estado === 'granted-off' ? 'Reactivar' : 'Activar'}
             </button>
           )}
+          {t && !t.accion && (
+            // Sin nada que pulsar aquí (bloqueado, iPhone sin instalar, sin soporte) el bloque parecía no tener botón: se
+            // deja uno que explica cómo arreglarlo en ESTE dispositivo.
+            <button onClick={() => setVerComo((v) => !v)} aria-expanded={verComo} data-testid="avisos-como"
+              className="shrink-0 px-3.5 py-2 rounded-xl border border-border text-foreground text-[13px] font-bold">
+              {verComo ? 'Ocultar' : 'Cómo activarlos'}
+            </button>
+          )}
           {t?.accion === 'desactivar' && (
             <button onClick={quitarPush} disabled={activando}
               className="shrink-0 px-3.5 py-2 rounded-xl border border-border text-foreground text-[13px] font-bold disabled:opacity-50">
@@ -132,6 +141,16 @@ export function NotificationPreferences({ role, studioId, getHeaders }: {
         </div>
       );
     })()}
+    {verComo && estado && (
+      <p role="note" data-testid="avisos-como-texto" className="text-[12.5px] text-muted-foreground rounded-xl bg-muted/40 px-3.5 py-2.5">
+        {{
+          denied: 'Pulsa el candado junto a la dirección de la web → Notificaciones → Permitir, y recarga la página. En iPhone: Ajustes → Notificaciones → tu app.',
+          'ios-sin-instalar': 'En Safari: Compartir → Añadir a pantalla de inicio. Abre Tentare desde ese icono y vuelve aquí: aparecerá el botón Activar.',
+          unsupported: 'Este navegador no admite avisos al móvil. Prueba con Chrome, Edge o Safari actualizados (en iPhone, con la app instalada en inicio).',
+          'sin-clave': 'Los avisos aún no están listos en el servidor. Inténtalo de nuevo en unos minutos.',
+        }[estado as 'denied' | 'ios-sin-instalar' | 'unsupported' | 'sin-clave'] ?? ''}
+      </p>
+    )}
     {avisoPush && (
       <p role={avisoPush.tipo === 'error' ? 'alert' : 'status'}
         className={`text-[12.5px] font-semibold ${avisoPush.tipo === 'error' ? 'text-destructive' : 'text-success'}`}>
