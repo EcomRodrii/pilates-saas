@@ -423,7 +423,7 @@ function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: Mo
     setGuardando(evento);
     const r = await dbGuardarPushApagados(studioId, siguiente);
     setGuardando(null);
-    if (!r.ok) { showToast(r.error); return; }
+    if (!r.ok) { showToast(r.error, { variant: 'error' }); return; }
     setApagados(siguiente);
     showToast(encendido ? 'Aviso encendido: les llegará al móvil.' : 'Aviso apagado: ya no les llegará al móvil (sigue en su app).');
   }
