@@ -105,6 +105,8 @@ test('margen agotado: dice que la app de las alumnas sigue funcionando', async (
 test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no', async ({ page }) => {
   const { montar: montarPanel, ir } = await import('./panel-sembrado');
   let fase: Fase = 'DENTRO';
+  // La felicitación del margen ya vista: abierta, el diálogo deja el resto del panel fuera del árbol de accesibilidad.
+  await page.addInitScript(() => localStorage.setItem('tentare:felicidades-crecimiento:2026-11-20', '1'));
   await montarPanel(page);
   await page.route('**/api/billing/status**', route => json(route, {
     plan: 'BASE', subscriptionStatus: 'gratis', activo: true, configurado: true, esPropietaria: true, bloqueado: false,
@@ -119,4 +121,36 @@ test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no
   const pildora = page.getByRole('link', { name: /Te quedan 12 días para pasarte a Founding Studio de pago/ }).first();
   await expect(pildora).toBeVisible({ timeout: 30_000 });
   await expect(pildora).toHaveAttribute('href', '/suscripcion');
+});
+
+test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un clic, una sola vez', async ({ page }) => {
+  const { montar: montarPanel, ir } = await import('./panel-sembrado');
+  await montarPanel(page);
+  let contrataciones = 0;
+  await page.route('**/api/billing/status**', route => json(route, {
+    plan: 'BASE', subscriptionStatus: 'gratis', activo: true, configurado: true, esPropietaria: true, bloqueado: false,
+    trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
+    gratis: { ...GRATIS.MARGEN, limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30 },
+  }));
+  await page.route('**/api/billing/checkout**', route => { contrataciones += 1; return json(route, { error: 'sin Stripe en el e2e' }, 500); });
+  await ir(page, 'dashboard');
+
+  const felicidades = page.getByTestId('felicidades-crecimiento');
+  await expect(felicidades).toBeVisible({ timeout: 30_000 });
+  await expect(felicidades).toContainText('¡Felicidades!');
+  await expect(felicidades).toContainText('150 alumnas activas y 250 reservas al mes');
+  await expect(felicidades).toContainText('29 €');
+  await expect(felicidades).toContainText('hasta el 20 de noviembre');
+
+  // Contratar es UN clic y va al pago; si el pago falla lo dice, no se queda mudo.
+  await felicidades.getByTestId('felicidades-contratar').click();
+  await expect.poll(() => contrataciones, { message: 'el clic no llegó a pedir el pago' }).toBeGreaterThan(0);
+  await expect(felicidades.getByRole('alert')).toBeVisible();
+
+  // «Ahora no» la cierra y no vuelve a salir al recargar.
+  await felicidades.getByRole('button', { name: 'Ahora no' }).click();
+  await expect(felicidades).toHaveCount(0);
+  await page.reload();
+  await page.waitForTimeout(2_000);
+  await expect(page.getByTestId('felicidades-crecimiento')).toHaveCount(0);
 });

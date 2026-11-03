@@ -10,7 +10,8 @@ const FIJOS = ['#E0457B', '#F2B8CF', '#FFFFFF'];
 
 interface Pieza { x: number; y: number; vx: number; vy: number; g: number; w: number; h: number; r: number; vr: number; c: string }
 
-export function Confeti() {
+/** `zIndex`: para pintarlo fuera de la demo (donde la hoja `demo.css` no está) y por encima de un diálogo. */
+export function Confeti({ zIndex }: { zIndex?: number } = {}) {
   const lienzo = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -56,5 +57,12 @@ export function Confeti() {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  return <canvas ref={lienzo} className="dm-confeti" aria-hidden="true" />;
+  return (
+    <canvas
+      ref={lienzo}
+      className="dm-confeti"
+      aria-hidden="true"
+      style={zIndex === undefined ? undefined : { position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex }}
+    />
+  );
 }
