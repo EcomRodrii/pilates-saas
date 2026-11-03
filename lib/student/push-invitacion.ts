@@ -23,3 +23,22 @@ export function debeInvitar(
   if (ocultadaEnMs > ahoraMs) return true;
   return ahoraMs - ocultadaEnMs >= OCULTAR_INVITACION_DIAS * MS_DIA;
 }
+
+// ── Tras confirmar una reserva ──────────────────────────────────────────────
+//
+// El momento en que más sentido tiene: acaba de reservar y «avísame antes de mi
+// clase» es exactamente lo que quiere. Más contenido que la tarjeta de Inicio,
+// así que más corto: solo donde hay un botón que funciona (permiso por decidir,
+// o concedido sin suscripción), nunca el aviso de «instala la app» a media
+// reserva, y como mucho dos veces en total —luego deja de salir—: quien no lo
+// quiso dos veces no lo quiere.
+
+export const OFERTAS_TRAS_RESERVA_MAX = 2;
+
+export function debeOfrecerTrasReserva(
+  estado: EstadoPush | null, vecesOfrecida: number, losApagoElla: boolean,
+): boolean {
+  if (estado !== 'default' && estado !== 'granted-off') return false;
+  if (estado === 'granted-off' && losApagoElla) return false;
+  return !(Number.isFinite(vecesOfrecida) && vecesOfrecida >= OFERTAS_TRAS_RESERVA_MAX);
+}
