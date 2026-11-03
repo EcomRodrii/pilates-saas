@@ -8,12 +8,13 @@ import { Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components
 import {
   ANTELACIONES_CORTO_MINUTOS, ANTELACIONES_LARGO_HORAS, textoAntelacion, textoFaltan,
 } from '@/lib/notificaciones/antelacion-recordatorio';
-import { EVENTOS } from '@/lib/notifications/catalog';
+import { EVENTOS, REGLAS } from '@/lib/notifications/catalog';
+import { Interruptor } from '@/components/ui/interruptor';
 import {
   CUERPO_MAX, ETIQUETA_VARIABLE, TIPOS_CON_TEXTO_EDITABLE, TITULO_MAX, previsualizar, textoDeFabrica,
   textoEnLista, validarTexto, variablesPermitidas, type TextoAviso,
 } from '@/lib/notifications/textos-estudio';
-import { dbGuardarTextoAviso, dbListTextosAviso, dbRestaurarTextoAviso, enviarPruebaPush } from '@/lib/notifications/textos-estudio-db';
+import { dbGuardarPushApagados, dbGuardarTextoAviso, dbListPushApagados, dbListTextosAviso, dbRestaurarTextoAviso, enviarPruebaPush } from '@/lib/notifications/textos-estudio-db';
 import type { MostrarToast } from '@/components/ui/toast';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { cn } from '@/lib/utils';
@@ -42,15 +43,20 @@ function useTextosPropios() {
   const studioId = studio?.id;
   const [propios, setPropios] = useState<Record<string, TextoAviso> | null>(null);
   const [fallo, setFallo] = useState(false);
+  // Los avisos que el estudio apagó. `null` = no se han podido leer: entonces no se pintan interruptores en vez de adivinar.
+  const [apagados, setApagados] = useState<string[] | null>(null);
   useEffect(() => {
     if (!studioId) return;
     let vivo = true;
     dbListTextosAviso(studioId)
       .then(t => { if (vivo) setPropios(t); })
       .catch(() => { if (vivo) setFallo(true); });
+    dbListPushApagados(studioId)
+      .then(a => { if (vivo) setApagados(a); })
+      .catch(() => { /* sin la lista no hay interruptores, pero los textos siguen funcionando */ });
     return () => { vivo = false; };
   }, [studioId]);
-  return { propios, setPropios, fallo };
+  return { propios, setPropios, fallo, apagados, setApagados };
 }
 
 type TextosPropios = ReturnType<typeof useTextosPropios>;
@@ -406,8 +412,21 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
 function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: MostrarToast; textos: TextosPropios; sinRecordatorios?: boolean }) {
   const { studio } = useStudio();
   const studioId = studio?.id;
-  const { propios, setPropios, fallo } = textos;
+  const { propios, setPropios, fallo, apagados, setApagados } = textos;
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState<string | null>(null);
+
+  // Encender o apagar un aviso al móvil. Se pinta lo que el servidor haya guardado, no lo que se pulsó.
+  async function cambiarEncendido(evento: string, encendido: boolean) {
+    if (!studioId || !apagados || guardando) return;
+    const siguiente = encendido ? apagados.filter(e => e !== evento) : [...new Set([...apagados, evento])];
+    setGuardando(evento);
+    const r = await dbGuardarPushApagados(studioId, siguiente);
+    setGuardando(null);
+    if (!r.ok) { showToast(r.error); return; }
+    setApagados(siguiente);
+    showToast(encendido ? 'Aviso encendido: les llegará al móvil.' : 'Aviso apagado: ya no les llegará al móvil (sigue en su app).');
+  }
   const datosDe = useDatosDe();
   const panelNuevo = usePanelNuevo();
 
@@ -447,7 +466,10 @@ function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: Mo
                     }}
                   />
                 ) : (
-                  <Fila evento={t.evento} nombre={t.titulo} enLista={textoEnLista(t.evento, propios[t.evento])} datos={datosDe(t.evento)} onEditar={() => setAbierto(t.evento)} />
+                  <Fila evento={t.evento} nombre={t.titulo} enLista={textoEnLista(t.evento, propios[t.evento])} datos={datosDe(t.evento)} onEditar={() => setAbierto(t.evento)}
+                    // Un aviso crítico no se apaga (lo impone también el motor); sin la lista leída, tampoco se adivina.
+                    encendido={apagados && REGLAS[t.evento]?.priority !== 'CRITICA' ? !apagados.includes(t.evento) : null}
+                    ocupado={guardando === t.evento} onEncender={(v) => void cambiarEncendido(t.evento, v)} />
                 )}
               </li>
             ))}
@@ -458,8 +480,10 @@ function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: Mo
   );
 }
 
-function Fila({ evento, nombre, enLista, datos, onEditar }: {
+function Fila({ evento, nombre, enLista, datos, onEditar, encendido, ocupado, onEncender }: {
   evento: string; nombre: string; enLista: ReturnType<typeof textoEnLista>; datos: Record<string, string>; onEditar: () => void;
+  /** `null` = este aviso no se puede apagar (o no se sabe su estado): no se pinta interruptor. */
+  encendido: boolean | null; ocupado: boolean; onEncender: (v: boolean) => void;
 }) {
   // La muestra es la del texto que SALE, no la del guardado si ya no vale.
   const muestra = previsualizar(enLista.texto, datos, evento);
@@ -478,6 +502,12 @@ function Fila({ evento, nombre, enLista, datos, onEditar }: {
           </p>
         )}
       </div>
+      {encendido !== null && (
+        <div className="flex shrink-0 items-center gap-2" data-testid={`aviso-encendido-${evento}`}>
+          <span className="text-[12px] font-medium text-muted-foreground">{encendido ? 'Activado' : 'Desactivado'}</span>
+          <Interruptor on={encendido} onChange={onEncender} ariaLabel={`${encendido ? 'Desactivar' : 'Activar'} «${nombre}»`} ocupado={ocupado} disabled={ocupado} />
+        </div>
+      )}
       <button type="button" className={btnSecondary} onClick={onEditar} aria-label={`Editar «${nombre}»`}>Editar</button>
     </div>
   );

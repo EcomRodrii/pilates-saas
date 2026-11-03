@@ -78,6 +78,26 @@ export function canalesExtraDe(regla: ReglaEvento, pref: Preferencia, critica: b
   });
 }
 
+/**
+ * El estudio apagó este aviso al móvil de sus alumnas (`studios.avisos_push_apagados`): se quita el PUSH, y solo a
+ * ellas. El resto de canales no cambia —sigue en su campana— y un aviso CRÍTICO no se apaga nunca, diga lo que diga
+ * la lista.
+ */
+export function sinPushApagadoPorElEstudio(
+  canales: NotificationChannel[], apagados: readonly string[] | null | undefined, evento: string,
+  rol: Recipient['role'], critica: boolean,
+): NotificationChannel[] {
+  if (critica || rol !== 'SOCIA' || !apagados?.includes(evento)) return canales;
+  return canales.filter(c => c !== 'PUSH');
+}
+
+/** La lista de avisos al móvil que el estudio tiene apagados. Si no se puede leer, vacía: mejor un aviso de más que ninguno. */
+export async function avisosPushApagados(admin: SupabaseClient, studioId: string): Promise<string[]> {
+  const { data, error } = await admin.from('studios').select('avisos_push_apagados').eq('id', studioId).maybeSingle();
+  if (error || !data) return [];
+  return (data.avisos_push_apagados as string[] | null) ?? [];
+}
+
 export async function preferenciaDe(
   admin: SupabaseClient, userId: string, category: NotificationCategory,
 ): Promise<Preferencia> {
@@ -194,6 +214,7 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
   const delEstudio = destinatarios.some(d => d.role === 'SOCIA')
     ? textoEfectivo(event.type, await textoDelEstudio(admin, event.studioId, event.type))
     : null;
+  const apagados = destinatarios.some(d => d.role === 'SOCIA') ? await avisosPushApagados(admin, event.studioId) : [];
   const creadas: NotificacionCreada[] = [];
   let omitidas = 0;
 
@@ -206,7 +227,7 @@ export async function crearInApp(admin: SupabaseClient, event: NotificationEvent
       dest.userId ? await preferenciaDe(admin, dest.userId, regla.category) : preferenciaSinCuenta(regla), event.type,
     );
     const quiereInapp = critica || pref.inapp;
-    const canalesExtra = canalesExtraDe(regla, pref, critica);
+    const canalesExtra = sinPushApagadoPorElEstudio(canalesExtraDe(regla, pref, critica), apagados, event.type, dest.role, critica);
     if (!quiereInapp && canalesExtra.length === 0) { omitidas++; continue; }
 
     const dedupKey = claveDedup(event.dedupKey, dest, dobles);

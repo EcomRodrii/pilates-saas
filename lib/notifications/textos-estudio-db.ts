@@ -57,3 +57,17 @@ export async function dbRestaurarTextoAviso(studioId: string, evento: string): P
   if (error) return { ok: false, error: 'No se ha podido volver al texto original. Inténtalo de nuevo.' };
   return { ok: true };
 }
+
+// Los avisos al móvil que el estudio apagó para sus alumnas (`studios.avisos_push_apagados`). La RLS de `studios` deja
+// escribir solo a la propietaria; el motor es quien impone que un aviso crítico no se apague.
+export async function dbListPushApagados(studioId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('studios').select('avisos_push_apagados').eq('id', studioId).maybeSingle();
+  if (error) throw error;
+  return (data?.avisos_push_apagados as string[] | null) ?? [];
+}
+
+export async function dbGuardarPushApagados(studioId: string, apagados: string[]): Promise<ResultadoTexto> {
+  const { data, error } = await supabase.from('studios').update({ avisos_push_apagados: apagados }).eq('id', studioId).select('id');
+  if (error || !data?.length) return { ok: false, error: 'No se ha podido guardar el cambio. Inténtalo de nuevo.' };
+  return { ok: true };
+}
