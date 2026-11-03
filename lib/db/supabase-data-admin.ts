@@ -1,4 +1,5 @@
 import 'server-only';
+import { trocear } from '@/lib/trocear';
 import { renovacionPorPagar, type FilaReciboRenovacion } from '@/lib/billing/renovacion-sin-tarjeta';
 import { cobrosDeRecibosAlumna, leTocaPagarlaAElla, type FilaReciboAlumna } from '@/lib/billing/cobro-recibo-alumna';
 import { contextoCobroAlumna, type EstudioCobroAlumna } from '@/lib/billing/cobro-recibo-alumna-servidor';
@@ -611,6 +612,23 @@ async function aforoApartadasDe(admin: SupabaseClient, studioId: string, sesionI
     .filter(f => typeof f.sesion_id === 'string' && f.plazas > 0);
 }
 
+// Las reservas de una lista de sesiones, de 150 en 150 ids. Un `.in()` con TODAS las clases futuras de un estudio con
+// ~1.200 (Alya) pasaba de los ~16 KB de URL y la pasarela contestaba «Bad Request»: el catálogo público de ese estudio
+// no se servía entero (Sentry JAVASCRIPT-NEXTJS-42/1G, 156 veces desde agosto). Mismo orden total por trozo y misma
+// semántica de error: si un trozo falla, se devuelve el error junto a lo ya leído y quien llama decide (aquí, no servir
+// un aforo truncado como si fuera completo).
+type FilaReservaAforo = { id: string; sesion_id: string; estado: string; spot_id: string | null };
+async function reservasDeSesiones(admin: SupabaseClient, studioId: string, sesionIds: string[]) {
+  const resultados = await Promise.all(trocear(sesionIds, 150).map((trozo) =>
+    fetchAllRows<FilaReservaAforo>(studioId, 'reservas', (from, to) =>
+      admin.from('reservas').select('id, sesion_id, estado, spot_id')
+        .eq('studio_id', studioId).in('sesion_id', trozo).order('id').range(from, to))));
+  return {
+    data: resultados.flatMap(r => r.data),
+    error: resultados.find(r => r.error)?.error ?? null,
+  };
+}
+
 export async function fetchAforoPublico(slug: string): Promise<
   { sesionIds: string[]; aforoReservas: { id: string; sesion_id: string; estado: string; spot_id: string | null }[]; aforoApartadas: AforoApartado[] } | null
 > {
@@ -645,9 +663,7 @@ export async function fetchAforoPublico(slug: string): Promise<
   // vacío y TODAS las clases del portal se pintan libres. Mejor un fallo
   // visible que vender plazas que no existen.
   const [{ data: aforoReservas, error: errAforo }, aforoApartadas] = await Promise.all([
-    fetchAllRows(studioId, 'reservas', (from, to) =>
-      admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIds).order('id').range(from, to)),
+    reservasDeSesiones(admin, studioId, sesionIds),
     aforoApartadasDe(admin as never, studioId, sesionIds),
   ]);
   exigirLectura(errAforo, 'leyendo el aforo de las clases');
@@ -1122,9 +1138,7 @@ export async function fetchPublicStudioData(
   const sesionIdsVigentes = (sesionesData ?? []).map(s => s.id as string);
   const { data: reservasAforo, error: errReservas } = sesionIdsVigentes.length === 0
     ? { data: [] as { id: string; sesion_id: string; estado: string; spot_id: string | null }[], error: null }
-    : await fetchAllRows(studioId, 'reservas', (from, to) =>
-      admin.from('reservas').select('id, sesion_id, estado, spot_id')
-        .eq('studio_id', studioId).in('sesion_id', sesionIdsVigentes).order('id').range(from, to));
+    : await reservasDeSesiones(admin, studioId, sesionIdsVigentes);
   // Mismo criterio que el catálogo: un horario o un aforo truncados por un
   // fallo no se sirven como si fueran completos.
   if (errReservas) throw new Error(`catálogo público: reservas: ${errReservas.message}`);
