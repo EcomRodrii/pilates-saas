@@ -39,9 +39,9 @@ export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: stri
       return { titulo: 'Tu estudio está creciendo', texto: `Te acercas a ${textoLimites(g.motivos)}. Sigue siendo gratis; cuando lo pases tendrás ${g.margenDias} días para elegir.`, tono: 'aviso' };
     case 'MARGEN':
       return {
-        titulo: `Te quedan ${g.diasRestantes} ${g.diasRestantes === 1 ? 'día' : 'días'} en Founding Studio gratis`,
+        titulo: `¡Felicidades, tu estudio ha crecido! Te quedan ${g.diasRestantes} ${g.diasRestantes === 1 ? 'día' : 'días'} en Founding Studio gratis`,
         texto: `Has pasado de ${textoLimites(g.motivos)}. Tienes hasta el ${fechaLarga(g.cierraEl!)} para pasarte a ${DESTINO}: todo igual, sin límites. Si antes vuelves a estar por debajo, no tienes que hacer nada.`,
-        tono: 'problema',
+        tono: 'aviso',
       };
     case 'CERRADO':
       return {

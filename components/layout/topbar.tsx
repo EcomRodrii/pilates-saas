@@ -8,6 +8,7 @@ import { ProfileMenu } from '@/components/layout/profile-menu';
 import { IconButton } from '@/components/ui/icon-button';
 import { NotificationBell } from '@/components/notifications/notification-bell';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
+import { FelicidadesCrecimiento } from '@/components/billing/felicidades-crecimiento';
 import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
@@ -118,6 +119,7 @@ export function Topbar() {
         {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
         <PrimerosPasosFlotante />
         <PildoraPrueba className="mr-1" />
+        <FelicidadesCrecimiento />
         <IconButton
           label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
           icon={oculto ? EyeOff : Eye}
