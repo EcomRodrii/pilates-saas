@@ -3,13 +3,23 @@
 // probarla con `node --test` sin levantar nada, mismo criterio que
 // lib/onboarding.ts / lib/billing/trial.ts.
 //
-// "Buen uso" no es "ha pasado el trial": exige señales de actividad real
-// (Stripe conectado, clases creadas, socias, planes, reservas confirmadas) y
-// ausencia de frustración reciente (tickets de soporte). Los umbrales son
-// constantes exportadas a propósito — configurable sin reestructurar nada.
+// "Buen uso" no es "ha pasado el trial" ni «tiene Stripe conectado»: exige
+// tiempo de uso y señales de actividad real (clases creadas, socias, planes,
+// reservas confirmadas) y ausencia de frustración reciente (tickets de
+// soporte). Los umbrales son constantes exportadas a propósito — configurable
+// sin reestructurar nada.
+//
+// 4-nov-2026: antes se exigía `trial_ends_at` ya pasado (en los últimos 30
+// días) y Stripe conectado. Con Founding Studio gratis casi nadie conecta
+// Stripe y el trial local no marca nada, así que solo 5 de 40 estudios
+// llegaron a ser elegibles. Una propietaria que lleva semanas usando el
+// producto con reservas reales es justo a quien preguntar, tenga Stripe o no.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const REVIEW_BOOST_UMBRAL_RESERVAS = 3;
+export const REVIEW_BOOST_UMBRAL_RESERVAS = 5;
+
+/** Días de uso mínimos desde el alta: antes de eso aún no ha visto de qué va. */
+export const REVIEW_BOOST_DIAS_DE_USO_MIN = 14;
 export const REVIEW_BOOST_MAX_TICKETS_RECIENTES = 0;
 
 /** Días tras un cierre-sin-responder antes de poder volver a enseñar el modal. */
@@ -19,10 +29,9 @@ export const REVIEW_BOOST_DIAS_REAPARICION = 14;
 export const REVIEW_BOOST_MAX_VECES_MOSTRADO = 2;
 
 export interface SenalesReviewBoost {
-  /** `studios.trial_ends_at`. Sin trial local, nunca es elegible. */
-  trialEndsAt: string | null;
+  /** Días desde el alta del estudio (`studios.creado_en`). `null` = no se sabe: nunca es elegible. */
+  diasDeUso: number | null;
   numReservasConfirmadas: number;
-  stripeConectado: boolean;
   numSesiones: number;
   numSocios: number;
   numPlanesTarifa: number;
@@ -40,8 +49,7 @@ export interface SenalesReviewBoost {
  */
 export function isEligibleForReviewBoost(s: SenalesReviewBoost): boolean {
   if (s.yaMostrado || s.yaDioFeedback || s.yaRecompensado) return false;
-  if (!s.trialEndsAt) return false;
-  if (!s.stripeConectado) return false;
+  if (s.diasDeUso === null || s.diasDeUso < REVIEW_BOOST_DIAS_DE_USO_MIN) return false;
   if (s.numSesiones === 0 || s.numSocios === 0 || s.numPlanesTarifa === 0) return false;
   if (s.numReservasConfirmadas < REVIEW_BOOST_UMBRAL_RESERVAS) return false;
   if (s.ticketsSoporteRecientes > REVIEW_BOOST_MAX_TICKETS_RECIENTES) return false;

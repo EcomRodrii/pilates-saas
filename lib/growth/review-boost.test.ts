@@ -5,9 +5,8 @@ import {
 } from './review-boost.ts';
 
 const BASE: SenalesReviewBoost = {
-  trialEndsAt: '2026-08-01T00:00:00.000Z',
+  diasDeUso: 20,
   numReservasConfirmadas: 5,
-  stripeConectado: true,
   numSesiones: 3,
   numSocios: 4,
   numPlanesTarifa: 1,
@@ -21,12 +20,14 @@ test('elegible cuando todas las señales están OK', () => {
   assert.equal(isEligibleForReviewBoost(BASE), true);
 });
 
-test('no elegible sin trial local', () => {
-  assert.equal(isEligibleForReviewBoost({ ...BASE, trialEndsAt: null }), false);
+test('no elegible con pocos días de uso o sin saberlos', () => {
+  assert.equal(isEligibleForReviewBoost({ ...BASE, diasDeUso: 13 }), false);
+  assert.equal(isEligibleForReviewBoost({ ...BASE, diasDeUso: 14 }), true);
+  assert.equal(isEligibleForReviewBoost({ ...BASE, diasDeUso: null }), false);
 });
 
-test('no elegible sin Stripe conectado', () => {
-  assert.equal(isEligibleForReviewBoost({ ...BASE, stripeConectado: false }), false);
+test('Stripe conectado ya no hace falta: con uso real basta (Founding Studio gratis casi no lo conecta)', () => {
+  assert.equal(isEligibleForReviewBoost(BASE), true);
 });
 
 test('no elegible sin clases, socias o planes', () => {
@@ -36,7 +37,7 @@ test('no elegible sin clases, socias o planes', () => {
 });
 
 test('no elegible por debajo del umbral de reservas', () => {
-  assert.equal(isEligibleForReviewBoost({ ...BASE, numReservasConfirmadas: 2 }), false);
+  assert.equal(isEligibleForReviewBoost({ ...BASE, numReservasConfirmadas: 4 }), false);
 });
 
 test('no elegible con tickets de soporte recientes', () => {

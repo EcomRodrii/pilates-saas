@@ -8,15 +8,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { inngest } from './client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { isEligibleForReviewBoost, type SenalesReviewBoost } from '@/lib/growth/review-boost';
+import { isEligibleForReviewBoost, REVIEW_BOOST_DIAS_DE_USO_MIN, type SenalesReviewBoost } from '@/lib/growth/review-boost';
 import { enviarAhora } from '@/lib/analytics';
 import { barrerEstudiosSinClases } from './embudo-alta';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-const VENTANA_DIAS = 30;
+/** Hasta qué edad del estudio se sigue evaluando. */
+const VENTANA_DIAS = 120;
 const MS_DIA = 86_400_000;
 
-async function evaluarUno(admin: SupabaseClient, studio: { id: string; trial_ends_at: string; stripe_account_id: string | null }) {
+async function evaluarUno(admin: SupabaseClient, studio: { id: string; creado_en: string }) {
   const desde14dias = new Date(Date.now() - 14 * MS_DIA).toISOString();
 
   const [sesiones, socios, planes, reservas, tickets, feedback, recompensa] = await Promise.all([
@@ -30,8 +31,7 @@ async function evaluarUno(admin: SupabaseClient, studio: { id: string; trial_end
   ]);
 
   const senales: SenalesReviewBoost = {
-    trialEndsAt: studio.trial_ends_at,
-    stripeConectado: !!studio.stripe_account_id,
+    diasDeUso: Math.floor((Date.now() - new Date(studio.creado_en).getTime()) / MS_DIA),
     numSesiones: sesiones.count ?? 0,
     numSocios: socios.count ?? 0,
     numPlanesTarifa: planes.count ?? 0,
@@ -55,13 +55,16 @@ export const reviewBoostDispatcher = inngest.createFunction(
       const admin = getSupabaseAdmin();
       if (!admin) return { skipped: 'sin service-role' };
 
-      const desdeVentana = new Date(Date.now() - VENTANA_DIAS * MS_DIA).toISOString();
+      // Estudios de entre 14 y 120 días de vida que aún no han sido elegibles ni se les ha enseñado. La cota de arriba
+      // evita re-evaluar cada día a los que ya no van a serlo (los que no hayan tenido uso real en cuatro meses).
+      // `gratis_cerrado` fuera: sin acceso al panel, el modal no se vería.
+      const ahora = Date.now();
       const { data: studios } = await admin
         .from('studios')
-        .select('id, trial_ends_at, stripe_account_id')
-        .not('trial_ends_at', 'is', null)
-        .lte('trial_ends_at', new Date().toISOString())
-        .gte('trial_ends_at', desdeVentana)
+        .select('id, creado_en')
+        .lte('creado_en', new Date(ahora - REVIEW_BOOST_DIAS_DE_USO_MIN * MS_DIA).toISOString())
+        .gte('creado_en', new Date(ahora - VENTANA_DIAS * MS_DIA).toISOString())
+        .not('subscription_status', 'eq', 'gratis_cerrado')
         .is('review_boost_elegible_en', null)
         .is('review_boost_mostrado_en', null)
         .limit(500);
