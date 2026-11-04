@@ -34,7 +34,7 @@ test('la antelación del recordatorio se guarda al elegirla', async ({ page }) =
   const { studios } = await panel(page);
   await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
 
-  const primero = page.getByLabel('Primer recordatorio');
+  const primero = page.getByRole('combobox', { name: 'Primer recordatorio: cuándo se envía' });
   await expect(primero).toHaveValue('24', { timeout: 30_000 });
   await primero.selectOption('48');
 

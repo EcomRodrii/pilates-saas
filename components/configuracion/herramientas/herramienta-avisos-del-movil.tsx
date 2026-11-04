@@ -418,7 +418,7 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
           <div className="flex items-center gap-3">
             <Interruptor on={largoActivo} onChange={v => void guardar({ recordatorioLargoActivo: v })} ariaLabel="Enviar el primero" ocupado={guardando} disabled={guardando} />
             <select
-              className={inputCls} value={largo} disabled={guardando || !largoActivo}
+              className={inputCls} value={largo} disabled={guardando || !largoActivo} aria-label="Primer recordatorio: cuándo se envía"
               onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) })}
             >
               {ANTELACIONES_LARGO_HORAS.map(h => <option key={h} value={h}>{h} horas antes</option>)}
@@ -429,7 +429,7 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
           <div className="flex items-center gap-3">
             <Interruptor on={cortoActivo} onChange={v => void guardar({ recordatorioCortoActivo: v })} ariaLabel="Enviar el segundo" ocupado={guardando} disabled={guardando} />
             <select
-              className={inputCls} value={corto} disabled={guardando || !cortoActivo}
+              className={inputCls} value={corto} disabled={guardando || !cortoActivo} aria-label="Segundo recordatorio: cuándo se envía"
               onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) })}
             >
               {ANTELACIONES_CORTO_MINUTOS.map(m => <option key={m} value={m}>{minutos(m)} antes</option>)}
