@@ -183,6 +183,9 @@ export interface Studio {
   recordatorioLargoHoras?: number;
   /** Recordatorio corto (solo push): 30, 60 o 120 min antes. */
   recordatorioCortoMinutos?: number;
+  /** Cada recordatorio se puede apagar por separado. Ausente = encendido (lo de siempre). */
+  recordatorioLargoActivo?: boolean;
+  recordatorioCortoActivo?: boolean;
   /** Cómo llama el estudio a su moneda de fidelización. `null` = la del producto. */
   creditosNombre?: string | null;
   /** Meses que duran los créditos desde la última ganancia. `null` = no caducan. */

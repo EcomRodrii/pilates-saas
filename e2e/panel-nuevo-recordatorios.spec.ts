@@ -29,17 +29,17 @@ test('cada recordatorio en su tarjeta, con cuándo, por dónde, su texto y cómo
   await page.route('**/rest/v1/notification_template**', (r) => r.request().method() === 'GET' ? json(r, []) : r.fallback());
   await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
   await expect(page.getByRole('tab', { name: 'Recordatorios de clase', selected: true })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Los cambios se guardan solos.', { exact: false })).toBeVisible();
-  await expect(page.getByText('Recordatorio 1', { exact: false }).first()).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio 1' })).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio 2' })).toBeVisible();
+  await expect(page.getByText('Recordatorio previo', { exact: true })).toBeVisible();
+  await expect(page.getByText('Último aviso', { exact: true })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio previo' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Cuándo se envía el último aviso' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Texto del aviso' })).toHaveCount(2);
   await expect(page.getByText('Así lo recibirá').first()).toBeVisible();
 
   // «Otros avisos»: la lista de siempre, sin los recordatorios (ya tienen su pestaña).
   await page.getByRole('tab', { name: 'Otros avisos' }).click();
   await expect(page.getByText('Lo que dicen los avisos')).toBeVisible();
-  await expect(page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio 1' })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio previo' })).toHaveCount(0);
 });
 
 test('el texto se guarda al salir del campo, y si el servidor no lo guarda se dice y no se pierde', async ({ page }) => {
@@ -68,11 +68,52 @@ test('si el servidor no guarda la antelación, vuelve a la que había', async ({
     return r.fallback();
   });
   await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
-  const selector = page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio 1' });
+  const selector = page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio previo' });
   await expect(selector).toBeVisible({ timeout: 30_000 });
   const antes = await selector.inputValue();
   const otra = (await selector.locator('option').evaluateAll(os => os.map(o => (o as HTMLOptionElement).value))).find(v => v !== antes)!;
   await selector.selectOption(otra);
   await expect.poll(() => intentos).toBeGreaterThan(0);
   await expect(selector).toHaveValue(antes);
+});
+
+test('cada recordatorio se apaga por separado: se guarda solo ese, la tarjeta lo dice y no deja editar su texto', async ({ page }) => {
+  await preparar(page);
+  await page.route('**/rest/v1/notification_template**', (r) => r.request().method() === 'GET' ? json(r, []) : r.fallback());
+  const cambios: Record<string, unknown>[] = [];
+  await page.route('**/rest/v1/studios**', async (r) => {
+    if (r.request().method() !== 'PATCH') return r.fallback();
+    cambios.push(r.request().postDataJSON() as Record<string, unknown>);
+    return json(r, [{ id: 'studio-test' }]);
+  });
+  await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
+  const previo = page.getByTestId('recordatorio-reserva.recordatorio_24h');
+  const ultimo = page.getByTestId('recordatorio-reserva.recordatorio_1h');
+  await expect(previo).toHaveAttribute('data-activo', 'true', { timeout: 30_000 });
+
+  await previo.getByRole('switch', { name: /Apagar recordatorio previo/ }).click();
+  await expect.poll(() => cambios.length, { message: 'el interruptor no llegó a guardar nada' }).toBe(1);
+  expect(cambios[0]).toEqual({ recordatorio_largo_activo: false });
+  await expect(previo).toHaveAttribute('data-activo', 'false');
+  await expect(previo).toContainText('Desactivado');
+  await expect(previo).toContainText('no se envía este aviso por ningún canal');
+  await expect(previo.getByRole('textbox', { name: 'Texto del aviso' })).toHaveCount(0);
+  // El otro no se toca: sigue encendido, con su texto.
+  await expect(ultimo).toHaveAttribute('data-activo', 'true');
+  await expect(ultimo.getByRole('textbox', { name: 'Texto del aviso' })).toBeVisible();
+});
+
+test('si el servidor no guarda el interruptor, vuelve a como estaba y lo dice', async ({ page }) => {
+  await preparar(page);
+  let intentos = 0;
+  await page.route('**/rest/v1/studios**', async (r) => {
+    if (r.request().method() === 'PATCH') { intentos++; return json(r, { message: 'caído' }, 500); }
+    return r.fallback();
+  });
+  await ir(page, 'configuracion?tab=comunicacion&abrir=avisos-del-movil');
+  const ultimo = page.getByTestId('recordatorio-reserva.recordatorio_1h');
+  await expect(ultimo).toHaveAttribute('data-activo', 'true', { timeout: 30_000 });
+  await ultimo.getByRole('switch', { name: /Apagar último aviso/ }).click();
+  await expect.poll(() => intentos).toBeGreaterThan(0);
+  await expect(ultimo).toHaveAttribute('data-activo', 'true');
 });

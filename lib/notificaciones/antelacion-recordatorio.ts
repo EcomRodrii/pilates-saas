@@ -3,18 +3,28 @@
 // Los valores están cerrados también por CHECK en `studios` (migr 20260921145514).
 
 /** Antelación que eligió el estudio. Valores cerrados por CHECK: 12/24/48 h y 30/60/120 min. */
-export interface AntelacionRecordatorio { largoHoras: number; cortoMinutos: number }
-export const ANTELACION_POR_DEFECTO: AntelacionRecordatorio = { largoHoras: 24, cortoMinutos: 60 };
+export interface AntelacionRecordatorio {
+  largoHoras: number; cortoMinutos: number;
+  /** El recordatorio largo (push + correo + WhatsApp) está encendido. Apagado, no sale NADA de él ni la franja tardía. */
+  largoActivo: boolean;
+  /** El recordatorio corto (push) está encendido. */
+  cortoActivo: boolean;
+}
+export const ANTELACION_POR_DEFECTO: AntelacionRecordatorio = { largoHoras: 24, cortoMinutos: 60, largoActivo: true, cortoActivo: true };
 export const ANTELACIONES_LARGO_HORAS = [12, 24, 48] as const;
 export const ANTELACIONES_CORTO_MINUTOS = [30, 60, 120] as const;
 
 /** Lo que lee la fila de `studios`; un valor fuera de lista (no debería pasar el CHECK) cae al de siempre. */
-export function antelacionDeFila(f: { recordatorio_largo_horas?: number | null; recordatorio_corto_minutos?: number | null }): AntelacionRecordatorio {
+export function antelacionDeFila(f: {
+  recordatorio_largo_horas?: number | null; recordatorio_corto_minutos?: number | null;
+  recordatorio_largo_activo?: boolean | null; recordatorio_corto_activo?: boolean | null;
+}): AntelacionRecordatorio {
   const largo = (ANTELACIONES_LARGO_HORAS as readonly number[]).includes(f.recordatorio_largo_horas ?? -1)
     ? f.recordatorio_largo_horas as number : ANTELACION_POR_DEFECTO.largoHoras;
   const corto = (ANTELACIONES_CORTO_MINUTOS as readonly number[]).includes(f.recordatorio_corto_minutos ?? -1)
     ? f.recordatorio_corto_minutos as number : ANTELACION_POR_DEFECTO.cortoMinutos;
-  return { largoHoras: largo, cortoMinutos: corto };
+  // Solo un `false` EXPLÍCITO apaga: sin la columna (migración sin aplicar) o con `null`, sigue encendido como siempre.
+  return { largoHoras: largo, cortoMinutos: corto, largoActivo: f.recordatorio_largo_activo !== false, cortoActivo: f.recordatorio_corto_activo !== false };
 }
 
 /** «24 horas», «1 hora», «30 minutos»: la variable `{antelacion}` del texto del push. */

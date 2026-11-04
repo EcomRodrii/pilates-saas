@@ -408,6 +408,14 @@ test('avisos en el móvil: la antelación que sale de verdad y cuántos textos s
   assert.equal(resumenHerramienta('avisos-del-movil', { avisosMovil: null }), null);
 });
 
+test('avisos en el móvil: un recordatorio apagado no aparece en el resumen', () => {
+  const r = (largoActivo: boolean, cortoActivo: boolean) =>
+    resumenHerramienta('avisos-del-movil', { avisosMovil: { largoHoras: 24, cortoMinutos: 60, largoActivo, cortoActivo, textosPropios: 0 } });
+  assert.equal(r(false, true), 'Recordatorio 1 h · textos de Tentare');
+  assert.equal(r(true, false), 'Recordatorio 24 h · textos de Tentare');
+  assert.equal(r(false, false), 'Recordatorios apagados · textos de Tentare');
+});
+
 test('ninguna fila de herramienta pasa de una línea del móvil ni dice «clienta»', () => {
   const muchos = {
     numTiposClase: 120,

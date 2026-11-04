@@ -72,6 +72,8 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
             avisosMovil: studio ? {
               largoHoras: studio.recordatorioLargoHoras ?? 24,
               cortoMinutos: studio.recordatorioCortoMinutos ?? 60,
+              largoActivo: studio.recordatorioLargoActivo !== false,
+              cortoActivo: studio.recordatorioCortoActivo !== false,
               textosPropios,
             } : null,
           })}

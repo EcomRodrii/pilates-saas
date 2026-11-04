@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BellRing, CalendarClock, Check } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { TarjetaAjuste } from '@/components/configuracion/shell/tarjeta-ajuste';
 import { Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
@@ -28,7 +28,7 @@ import { cn } from '@/lib/utils';
 // «Justo antes de la clase» se leía «En 24 horas empezamos».
 function useDatosDe() {
   const { studio } = useStudio();
-  const a = { largoHoras: studio?.recordatorioLargoHoras ?? 24, cortoMinutos: studio?.recordatorioCortoMinutos ?? 60 };
+  const a = { largoHoras: studio?.recordatorioLargoHoras ?? 24, cortoMinutos: studio?.recordatorioCortoMinutos ?? 60, largoActivo: true, cortoActivo: true };
   return (evento: string): Record<string, string> =>
     evento === EVENTOS.RECORDATORIO_24H ? { antelacion: textoAntelacion('24h', a), faltan: textoFaltan('24h', a) }
       : evento === EVENTOS.RECORDATORIO_1H ? { antelacion: textoAntelacion('1h', a), faltan: textoFaltan('1h', a) }
@@ -128,50 +128,62 @@ function NotificacionMovil({ title, body }: { title: string; body: string }) {
 }
 
 /**
- * Panel nuevo: los dos recordatorios de clase, calcados a «Recordatorios» de
- * Bonsai (b-60). Una tarjeta ancha por recordatorio: cuándo se envía, por dónde,
- * qué se le dice (el texto se edita AQUÍ y se guarda al salir del campo, como
- * en Bonsai), los caracteres libres y «Así lo recibirá» en vivo.
- * La antelación se guarda al elegirla; si el servidor dice que no, vuelve atrás.
+ * Panel nuevo: los dos recordatorios de clase, cada uno en SU tarjeta y con SU interruptor. Encender o apagar uno no
+ * toca al otro (p. ej. solo el de 1 hora): apagado, el barrido no manda NADA de él por ningún canal
+ * (lib/notificaciones/recordatorio-clase.ts). Todo se guarda al tocar; si el servidor dice que no, vuelve atrás y lo
+ * dice. El texto se edita AQUÍ y se guarda al salir del campo.
  */
+type Canal = { nombre: string; nota?: string };
+const CANALES_LARGO: Canal[] = [{ nombre: 'En su móvil' }, { nombre: 'Correo' }, { nombre: 'WhatsApp', nota: 'si lo tienes conectado' }];
+const CANALES_CORTO: Canal[] = [{ nombre: 'En su móvil' }];
+
 function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos: TextosPropios }) {
   const { studio, updateStudio } = useStudio();
   const [largo, setLargo] = useState(studio?.recordatorioLargoHoras ?? 24);
   const [corto, setCorto] = useState(studio?.recordatorioCortoMinutos ?? 60);
+  const [largoActivo, setLargoActivo] = useState(studio?.recordatorioLargoActivo !== false);
+  const [cortoActivo, setCortoActivo] = useState(studio?.recordatorioCortoActivo !== false);
   const [guardando, setGuardando] = useState(false);
   const datosDe = useDatosDe();
 
-  async function guardar(cambio: { recordatorioLargoHoras?: number; recordatorioCortoMinutos?: number }) {
-    const antes = { largo, corto };
+  async function guardar(cambio: { recordatorioLargoHoras?: number; recordatorioCortoMinutos?: number; recordatorioLargoActivo?: boolean; recordatorioCortoActivo?: boolean }, aviso: string) {
+    const antes = { largo, corto, largoActivo, cortoActivo };
     if (cambio.recordatorioLargoHoras != null) setLargo(cambio.recordatorioLargoHoras);
     if (cambio.recordatorioCortoMinutos != null) setCorto(cambio.recordatorioCortoMinutos);
+    if (cambio.recordatorioLargoActivo != null) setLargoActivo(cambio.recordatorioLargoActivo);
+    if (cambio.recordatorioCortoActivo != null) setCortoActivo(cambio.recordatorioCortoActivo);
     setGuardando(true);
     const res = await updateStudio(cambio);
     setGuardando(false);
     if (!res.ok) {
-      setLargo(antes.largo);
-      setCorto(antes.corto);
+      setLargo(antes.largo); setCorto(antes.corto); setLargoActivo(antes.largoActivo); setCortoActivo(antes.cortoActivo);
       showToast(res.error, { variant: 'error' });
       return;
     }
-    showToast('Recordatorio guardado');
+    showToast(aviso);
   }
 
-  const recordatorios: { evento: string; titulo: string; cuando: string; sub: string; canales: { nombre: string; nota?: string }[]; control: ReactNode }[] = [
+  const recordatorios = [
     {
-      evento: EVENTOS.RECORDATORIO_24H, titulo: 'Recordatorio 1', cuando: `${horasEnDias(largo)} antes`, sub: 'Aviso principal antes de la clase',
-      canales: [{ nombre: 'En su móvil' }, { nombre: 'Correo' }, { nombre: 'WhatsApp', nota: 'si lo tienes conectado' }],
+      evento: EVENTOS.RECORDATORIO_24H, Icono: CalendarClock, titulo: 'Recordatorio previo', cuando: `${horasEnDias(largo)} antes de la clase`,
+      sub: 'El aviso principal: les da tiempo a organizarse o a cancelar.',
+      activo: largoActivo,
+      alCambiar: (v: boolean) => void guardar({ recordatorioLargoActivo: v }, v ? 'Recordatorio previo encendido' : 'Recordatorio previo apagado: ya no se envía'),
+      canales: CANALES_LARGO,
       control: (
-        <select className={SELECT_CORTO} value={largo} disabled={guardando} onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) })} aria-label="Cuándo se envía el recordatorio 1">
+        <select className={SELECT_CORTO} value={largo} disabled={guardando} onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) }, 'Recordatorio guardado')} aria-label="Cuándo se envía el recordatorio previo">
           {ANTELACIONES_LARGO_HORAS.map(h => <option key={h} value={h}>{h} horas</option>)}
         </select>
       ),
     },
     {
-      evento: EVENTOS.RECORDATORIO_1H, titulo: 'Recordatorio 2', cuando: `${minutos(corto)} antes`, sub: 'Justo antes de la clase, para que no se le pase',
-      canales: [{ nombre: 'En su móvil' }],
+      evento: EVENTOS.RECORDATORIO_1H, Icono: BellRing, titulo: 'Último aviso', cuando: `${minutos(corto)} antes de la clase`,
+      sub: 'Justo antes de empezar, para que no se les pase.',
+      activo: cortoActivo,
+      alCambiar: (v: boolean) => void guardar({ recordatorioCortoActivo: v }, v ? 'Último aviso encendido' : 'Último aviso apagado: ya no se envía'),
+      canales: CANALES_CORTO,
       control: (
-        <select className={SELECT_CORTO} value={corto} disabled={guardando} onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) })} aria-label="Cuándo se envía el recordatorio 2">
+        <select className={SELECT_CORTO} value={corto} disabled={guardando} onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) }, 'Recordatorio guardado')} aria-label="Cuándo se envía el último aviso">
           {ANTELACIONES_CORTO_MINUTOS.map(m => <option key={m} value={m}>{minutos(m)}</option>)}
         </select>
       ),
@@ -180,41 +192,55 @@ function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos:
 
   return (
     <section aria-label="Recordatorios de clase" className="flex flex-col gap-3">
-      <p className="text-[13.5px] text-muted-foreground">Avisa a tus alumnas antes de su clase. Tienes dos recordatorios con antelaciones distintas.</p>
-      <p className="flex items-center gap-2 rounded-[10px] px-3 py-2 text-[13px] font-medium" style={{ color: 'color-mix(in srgb, var(--success) 85%, var(--foreground))', backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))' }}>
-        <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: 'var(--success)' }} />
-        Los cambios se guardan solos. El texto se guarda al salir del campo.
+      <p className="text-[13.5px] text-muted-foreground">
+        Elige qué recordatorios reciben tus alumnas antes de su clase. Cada uno se enciende o se apaga por separado.
       </p>
       {recordatorios.map(r => (
-        <div key={r.evento} className="rounded-[14px] bg-card px-5 py-4 shadow-t-card">
-          <div className="border-b border-border pb-3">
-            <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold text-foreground">
-              {r.titulo}
-              <span className="rounded-md px-1.5 py-0.5 text-[12px] font-medium" style={{ color: 'var(--t-blue-500)', backgroundColor: 'color-mix(in srgb, var(--t-blue-500) 12%, var(--card))' }}>{r.cuando}</span>
+        <div key={r.evento} data-testid={`recordatorio-${r.evento}`} data-activo={r.activo}
+          className={cn('rounded-[14px] bg-card px-5 py-4 shadow-t-card transition-opacity', !r.activo && 'opacity-90')}>
+          <div className="flex items-start gap-3">
+            <span aria-hidden className={cn('mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-[12px]', r.activo ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground')}>
+              <r.Icono size={20} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[16px] font-semibold text-foreground">{r.titulo}</p>
+              <p className="text-[13.5px] font-medium text-foreground">{r.cuando}</p>
+              <p className="text-[13px] text-muted-foreground">{r.sub}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Interruptor on={r.activo} onChange={r.alCambiar} ariaLabel={`${r.activo ? 'Apagar' : 'Encender'} ${r.titulo.toLowerCase()}`} ocupado={guardando} disabled={guardando} />
+              <span className={cn('text-[12px] font-semibold', r.activo ? 'text-success' : 'text-muted-foreground')}>{r.activo ? 'Activado' : 'Desactivado'}</span>
+            </div>
+          </div>
+
+          {r.activo ? (
+            <>
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-border pt-4 text-[13.5px] text-muted-foreground">
+                <span className="font-semibold text-foreground">Se envía</span> {r.control} antes de la clase
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[13.5px] font-semibold text-foreground">Por</span>
+                {r.canales.map(c => (
+                  <span key={c.nombre} className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium text-foreground" style={{ borderColor: 'color-mix(in srgb, var(--t-blue-500) 40%, var(--border))', backgroundColor: 'color-mix(in srgb, var(--t-blue-500) 8%, var(--card))' }}>
+                    <span aria-hidden className="flex size-3.5 items-center justify-center rounded-[3px] text-white" style={{ backgroundColor: 'var(--t-blue-500)' }}><Check size={10} strokeWidth={3.5} /></span>
+                    {c.nombre}
+                    {c.nota && <span className="text-[11.5px] font-normal text-muted-foreground">{c.nota}</span>}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[12px] text-muted-foreground">Cada alumna puede apagar cualquiera de estos canales desde su app.</p>
+
+              {textos.fallo
+                ? <p className="mt-4 text-[13px] text-destructive">No hemos podido cargar el texto. Recarga la página.</p>
+                : !textos.propios
+                  ? <p className="mt-4 text-[13px] text-muted-foreground">Cargando el texto…</p>
+                  : <TextoEnLinea evento={r.evento} textos={textos} datos={datosDe(r.evento)} />}
+            </>
+          ) : (
+            <p className="mt-4 rounded-[10px] bg-muted/60 px-3 py-2 text-[13px] text-muted-foreground">
+              Apagado: no se envía este aviso por ningún canal. Enciéndelo cuando quieras; tus ajustes se conservan.
             </p>
-            <p className="text-[13px] text-muted-foreground">{r.sub}</p>
-          </div>
-
-          <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Cuándo se envía?</p>
-          <div className="mt-1.5 flex items-center gap-2 text-[13.5px] text-muted-foreground">{r.control} antes de la clase</div>
-
-          <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Por dónde se envía?</p>
-          <div className="mt-1.5 flex flex-wrap gap-2">
-            {r.canales.map(c => (
-              <span key={c.nombre} className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[13px] font-medium text-foreground" style={{ borderColor: 'color-mix(in srgb, var(--t-blue-500) 40%, var(--border))', backgroundColor: 'color-mix(in srgb, var(--t-blue-500) 8%, var(--card))' }}>
-                <span aria-hidden className="flex size-3.5 items-center justify-center rounded-[3px] text-white" style={{ backgroundColor: 'var(--t-blue-500)' }}><Check size={10} strokeWidth={3.5} /></span>
-                {c.nombre}
-                {c.nota && <span className="text-[11.5px] font-normal text-muted-foreground">{c.nota}</span>}
-              </span>
-            ))}
-          </div>
-          <p className="mt-1.5 text-[12px] text-muted-foreground">Cada alumna puede apagar cualquiera de estos canales desde su app.</p>
-
-          {textos.fallo
-            ? <p className="mt-4 text-[13px] text-destructive">No hemos podido cargar el texto. Recarga la página.</p>
-            : !textos.propios
-              ? <p className="mt-4 text-[13px] text-muted-foreground">Cargando el texto…</p>
-              : <TextoEnLinea evento={r.evento} textos={textos} datos={datosDe(r.evento)} />}
+          )}
         </div>
       ))}
     </section>
@@ -357,19 +383,22 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
   const { studio, updateStudio } = useStudio();
   const [largo, setLargo] = useState(studio?.recordatorioLargoHoras ?? 24);
   const [corto, setCorto] = useState(studio?.recordatorioCortoMinutos ?? 60);
+  const [largoActivo, setLargoActivo] = useState(studio?.recordatorioLargoActivo !== false);
+  const [cortoActivo, setCortoActivo] = useState(studio?.recordatorioCortoActivo !== false);
   const [guardando, setGuardando] = useState(false);
 
-  async function guardar(cambio: { recordatorioLargoHoras?: number; recordatorioCortoMinutos?: number }) {
-    const antes = { largo, corto };
+  async function guardar(cambio: { recordatorioLargoHoras?: number; recordatorioCortoMinutos?: number; recordatorioLargoActivo?: boolean; recordatorioCortoActivo?: boolean }) {
+    const antes = { largo, corto, largoActivo, cortoActivo };
     if (cambio.recordatorioLargoHoras != null) setLargo(cambio.recordatorioLargoHoras);
     if (cambio.recordatorioCortoMinutos != null) setCorto(cambio.recordatorioCortoMinutos);
+    if (cambio.recordatorioLargoActivo != null) setLargoActivo(cambio.recordatorioLargoActivo);
+    if (cambio.recordatorioCortoActivo != null) setCortoActivo(cambio.recordatorioCortoActivo);
     setGuardando(true);
     const res = await updateStudio(cambio);
     setGuardando(false);
     if (!res.ok) {
       // Dejarlo elegido sin haberse guardado sería prometer un recordatorio que no sale a esa hora.
-      setLargo(antes.largo);
-      setCorto(antes.corto);
+      setLargo(antes.largo); setCorto(antes.corto); setLargoActivo(antes.largoActivo); setCortoActivo(antes.cortoActivo);
       showToast(res.error, { variant: 'error' });
       return;
     }
@@ -381,25 +410,31 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
       <div>
         <h3 className="text-sm font-semibold">Cuándo llega el recordatorio de clase</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Se guarda al elegir. Vale para las clases que aún no han recibido ese recordatorio.
+          Se guarda al elegir. Cada recordatorio se enciende o se apaga por separado; apagado, no se envía por ningún canal.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Primer recordatorio" description="En su móvil, por correo y por WhatsApp si lo tienes conectado.">
-          <select
-            className={inputCls} value={largo} disabled={guardando}
-            onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) })}
-          >
-            {ANTELACIONES_LARGO_HORAS.map(h => <option key={h} value={h}>{h} horas antes</option>)}
-          </select>
+          <div className="flex items-center gap-3">
+            <Interruptor on={largoActivo} onChange={v => void guardar({ recordatorioLargoActivo: v })} ariaLabel="Enviar el primero" ocupado={guardando} disabled={guardando} />
+            <select
+              className={inputCls} value={largo} disabled={guardando || !largoActivo}
+              onChange={e => void guardar({ recordatorioLargoHoras: Number(e.target.value) })}
+            >
+              {ANTELACIONES_LARGO_HORAS.map(h => <option key={h} value={h}>{h} horas antes</option>)}
+            </select>
+          </div>
         </Field>
         <Field label="Segundo recordatorio" description="Solo en su móvil, justo antes de la clase.">
-          <select
-            className={inputCls} value={corto} disabled={guardando}
-            onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) })}
-          >
-            {ANTELACIONES_CORTO_MINUTOS.map(m => <option key={m} value={m}>{minutos(m)} antes</option>)}
-          </select>
+          <div className="flex items-center gap-3">
+            <Interruptor on={cortoActivo} onChange={v => void guardar({ recordatorioCortoActivo: v })} ariaLabel="Enviar el segundo" ocupado={guardando} disabled={guardando} />
+            <select
+              className={inputCls} value={corto} disabled={guardando || !cortoActivo}
+              onChange={e => void guardar({ recordatorioCortoMinutos: Number(e.target.value) })}
+            >
+              {ANTELACIONES_CORTO_MINUTOS.map(m => <option key={m} value={m}>{minutos(m)} antes</option>)}
+            </select>
+          </div>
         </Field>
       </div>
       <p className="text-xs text-muted-foreground">
