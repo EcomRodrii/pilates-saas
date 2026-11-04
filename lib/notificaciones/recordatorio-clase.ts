@@ -59,6 +59,9 @@ const EXENCION_RECORDATORIO: TipoExcepcion = 'SIN_RECORDATORIO';
 // Resend corta a 10 peticiones/segundo (ver `lib/emails/resend-reintentos.ts`).
 const CONCURRENCIA_ENVIOS = 4;
 
+/** Se baja a `false` si la base de datos aún no tiene las columnas de encender/apagar: ver el barrido. */
+let columnasActivoDisponibles = true;
+
 // ── Franjas ──────────────────────────────────────────────────────────────────
 
 /**
@@ -447,15 +450,27 @@ export async function barrerRecordatoriosClase(
 
   // ⚠️ Todas las lecturas van PAGINADAS: una consulta global lee las filas de
   // TODOS los estudios, y PostgREST corta en 1.000 sin avisar (#684).
-  const { data: studios, error: errStudios } = await leer<{
+  type FilaEstudio = {
     id: string; slug: string | null; nombre: string | null;
     recordatorio_largo_horas: number | null; recordatorio_corto_minutos: number | null;
     recordatorio_largo_activo?: boolean | null; recordatorio_corto_activo?: boolean | null;
-  }>(
-    'studios', (from, to) => admin.from('studios')
-      .select('id, slug, nombre, recordatorio_largo_horas, recordatorio_corto_minutos, recordatorio_largo_activo, recordatorio_corto_activo')
-      .is('suspendido_en', null).range(from, to),
+  };
+  const COLUMNAS_BASE = 'id, slug, nombre, recordatorio_largo_horas, recordatorio_corto_minutos';
+  // ⚠️ Las columnas de «encender/apagar cada recordatorio» (migr 20261104100000) pueden NO existir todavía (migración sin
+  // aplicar o aplicada después del despliegue): pedirlas igualmente hacía fallar la lectura ENTERA y no salía ningún
+  // recordatorio de ningún estudio (Sentry JAVASCRIPT-NEXTJS-43, 4-nov-2026). Si falla por esa columna, se vuelve a
+  // leer sin ellas — todos encendidos, que es lo de siempre — y se recuerda para no reintentarlo cada pasada.
+  const pedir = (columnas: string) => leer<FilaEstudio>(
+    'studios', (from, to) => (admin.from('studios').select(columnas).is('suspendido_en', null).range(from, to) as unknown as PromiseLike<{ data: FilaEstudio[] | null; error: { message: string } | null }>),
   );
+  let leidos = columnasActivoDisponibles
+    ? await pedir(`${COLUMNAS_BASE}, recordatorio_largo_activo, recordatorio_corto_activo`)
+    : await pedir(COLUMNAS_BASE);
+  if (columnasActivoDisponibles && leidos.error && /recordatorio_(largo|corto)_activo|42703/.test(leidos.error.message)) {
+    columnasActivoDisponibles = false;
+    leidos = await pedir(COLUMNAS_BASE);
+  }
+  const { data: studios, error: errStudios } = leidos;
   exigirLectura(errStudios, 'leyendo estudios');
   if (!studios.length) return resumen;
   const studioPorId = new Map(studios.map((s) => [s.id, s]));
