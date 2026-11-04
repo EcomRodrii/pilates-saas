@@ -728,3 +728,26 @@ test('antelacionDeFila: solo un false explícito apaga; sin la columna sigue enc
   assert.equal(a.largoActivo, false);
   assert.equal(a.cortoActivo, true);
 });
+
+test('sin las columnas de encender/apagar (migración sin aplicar) el barrido NO se cae: lee sin ellas y envía como siempre', async () => {
+  const m = montar();
+  try {
+    let lecturasEstudios = 0;
+    const leerOriginal = m.puertos.leerTodas;
+    const puertos = {
+      ...m.puertos,
+      leerTodas: (async (studioId: string, tabla: string, pagina: Parameters<typeof leerOriginal>[2]) => {
+        if (tabla === 'studios') {
+          lecturasEstudios += 1;
+          // La primera lectura (con las columnas nuevas) falla como en producción; la segunda (sin ellas) pasa.
+          if (lecturasEstudios === 1) return { data: [], error: { message: 'column studios.recordatorio_largo_activo does not exist' } };
+        }
+        return leerOriginal(studioId, tabla, pagina);
+      }) as typeof leerOriginal,
+    };
+    const r = await barrerRecordatoriosClase(m.admin, puertos, AHORA);
+    assert.equal(lecturasEstudios, 2, 'se volvió a leer sin las columnas nuevas');
+    assert.equal(r.emails.enviados, 1, 'y el recordatorio salió: con todos encendidos, que es lo de siempre');
+    assert.ok(m.eventos.length >= 1, 'también el aviso al móvil');
+  } finally { m.desmontar(); }
+});
