@@ -246,7 +246,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
               <DialogTitle>Nos alegra mucho saberlo ❤️</DialogTitle>
               <DialogDescription>
                 🎁 Como agradecimiento por compartir tu experiencia, te ofrecemos un 20% de descuento en tu primer
-                mes. Se aplicará solo al elegir tu plan, sin ningún código que teclear.
+                mes de pago, el día que des el paso a un plan. Se aplicará solo, sin ningún código que teclear.
               </DialogDescription>
             </DialogHeader>
             <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2.5 text-[12.5px] text-emerald-700 dark:text-emerald-400">
