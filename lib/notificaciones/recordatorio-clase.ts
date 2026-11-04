@@ -101,10 +101,13 @@ export function franjaRecordatorio(
   const inicioMs = new Date(inicio).getTime();
   if (!Number.isFinite(inicioMs)) return null;
   for (const franja of ['24h', '1h'] as FranjaPush[]) {
+    // Un recordatorio apagado no existe: su franja no devuelve nada, por ningún canal.
+    if (franja === '24h' ? a.largoActivo === false : a.cortoActivo === false) continue;
     const { desdeMs, hastaMs } = limitesFranja(franja, ahoraMs, a);
     if (inicioMs >= desdeMs && inicioMs <= hastaMs) return franja;
   }
-  if (inicioMs > limitesFranja('1h', ahoraMs, a).hastaMs && inicioMs < limitesFranja('24h', ahoraMs, a).desdeMs) return 'tardia';
+  // La tardía solo recupera el correo y el WhatsApp del recordatorio LARGO: apagado ese, no hay nada que recuperar.
+  if (a.largoActivo !== false && inicioMs > limitesFranja('1h', ahoraMs, a).hastaMs && inicioMs < limitesFranja('24h', ahoraMs, a).desdeMs) return 'tardia';
   return null;
 }
 
@@ -447,9 +450,10 @@ export async function barrerRecordatoriosClase(
   const { data: studios, error: errStudios } = await leer<{
     id: string; slug: string | null; nombre: string | null;
     recordatorio_largo_horas: number | null; recordatorio_corto_minutos: number | null;
+    recordatorio_largo_activo?: boolean | null; recordatorio_corto_activo?: boolean | null;
   }>(
     'studios', (from, to) => admin.from('studios')
-      .select('id, slug, nombre, recordatorio_largo_horas, recordatorio_corto_minutos')
+      .select('id, slug, nombre, recordatorio_largo_horas, recordatorio_corto_minutos, recordatorio_largo_activo, recordatorio_corto_activo')
       .is('suspendido_en', null).range(from, to),
   );
   exigirLectura(errStudios, 'leyendo estudios');

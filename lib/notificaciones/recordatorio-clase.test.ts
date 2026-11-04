@@ -74,8 +74,8 @@ test('`{faltan}` concuerda el verbo: «falta 1 hora», «faltan 30 minutos»', (
 });
 
 test('una antelación fuera de lista (no debería pasar el CHECK) cae a la de siempre', () => {
-  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 36, recordatorio_corto_minutos: null }), { largoHoras: 24, cortoMinutos: 60 });
-  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 48, recordatorio_corto_minutos: 30 }), { largoHoras: 48, cortoMinutos: 30 });
+  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 36, recordatorio_corto_minutos: null }), { largoHoras: 24, cortoMinutos: 60, largoActivo: true, cortoActivo: true });
+  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 48, recordatorio_corto_minutos: 30 }), { largoHoras: 48, cortoMinutos: 30, largoActivo: true, cortoActivo: true });
 });
 
 test('la ventana que se consulta es la misma que decide la franja', () => {
@@ -696,4 +696,35 @@ test('clase esta tarde: el correo y el WhatsApp dan su día de verdad, sin «ma�
     assert.match(texto, /el martes, 15 de septiembre a las 20:00/);
     assert.doesNotMatch(texto, /mañana/i);
   } finally { m.desmontar(); }
+});
+
+// ── Cada recordatorio se enciende y se apaga por separado ────────────────────
+
+const ENCENDIDOS = { largoHoras: 24, cortoMinutos: 60, largoActivo: true, cortoActivo: true };
+
+test('apagado el recordatorio previo: ninguna clase en su franja, ni tardía; el último aviso sigue', () => {
+  const a = { ...ENCENDIDOS, largoActivo: false };
+  assert.equal(franjaRecordatorio(new Date(AHORA + 24 * H), AHORA, a), null, 'a 24 h no sale nada');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 10 * H), AHORA, a), null, 'la tardía recupera el correo del previo: sin previo, nada');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 1 * H), AHORA, a), '1h', 'el de 1 hora sigue funcionando');
+});
+
+test('apagado el último aviso: no sale a 1 hora y el previo sigue, con su tardía', () => {
+  const a = { ...ENCENDIDOS, cortoActivo: false };
+  assert.equal(franjaRecordatorio(new Date(AHORA + 1 * H), AHORA, a), null, 'a 1 hora no sale nada');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 2 * H), AHORA, a), 'tardia', 'más allá del corto, la tardía del previo sigue (solo correo/WhatsApp)');
+  assert.equal(franjaRecordatorio(new Date(AHORA + 24 * H), AHORA, a), '24h');
+});
+
+test('apagados los dos: ninguna franja devuelve nada', () => {
+  const a = { ...ENCENDIDOS, largoActivo: false, cortoActivo: false };
+  for (const horas of [0.75, 1, 1.25, 5, 23.5, 24, 24.5]) assert.equal(franjaRecordatorio(new Date(AHORA + horas * H), AHORA, a), null, `${horas} h`);
+});
+
+test('antelacionDeFila: solo un false explícito apaga; sin la columna sigue encendido como siempre', () => {
+  assert.deepEqual(antelacionDeFila({ recordatorio_largo_horas: 24, recordatorio_corto_minutos: 60 }), ENCENDIDOS);
+  assert.deepEqual(antelacionDeFila({ recordatorio_largo_activo: null, recordatorio_corto_activo: null }), ENCENDIDOS);
+  const a = antelacionDeFila({ recordatorio_largo_activo: false, recordatorio_corto_activo: true });
+  assert.equal(a.largoActivo, false);
+  assert.equal(a.cortoActivo, true);
 });

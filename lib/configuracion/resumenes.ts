@@ -447,7 +447,7 @@ export interface DatosHerramientas {
     push: 'granted' | 'denied' | 'default' | 'unsupported' | null;
   } | null;
   /** «Avisos en el móvil»: antelación del recordatorio y cuántos textos reescribió (`null` = sin leer). */
-  avisosMovil?: { largoHoras: number; cortoMinutos: number; textosPropios: number | null } | null;
+  avisosMovil?: { largoHoras: number; cortoMinutos: number; largoActivo?: boolean; cortoActivo?: boolean; textosPropios: number | null } | null;
 }
 
 /** La línea de la fila de una herramienta, o `null` si no se sabe cómo está. */
@@ -507,10 +507,12 @@ export function resumenHerramienta(id: HerramientaId, d: DatosHerramientas): str
 
     case 'avisos-del-movil': {
       if (!d.avisosMovil) return null;
-      const { largoHoras, cortoMinutos, textosPropios } = d.avisosMovil;
+      const { largoHoras, cortoMinutos, textosPropios, largoActivo = true, cortoActivo = true } = d.avisosMovil;
       const corto = cortoMinutos < 60 ? `${cortoMinutos} min` : `${cortoMinutos / 60} h`;
+      // Solo los encendidos: «Recordatorio 1 h» si apagó el largo; «Sin recordatorios» si apagó los dos.
+      const encendidos = [largoActivo ? `${largoHoras} h` : null, cortoActivo ? corto : null].filter((x): x is string => x !== null);
       return unir([
-        `Recordatorio ${largoHoras} h y ${corto}`,
+        encendidos.length === 0 ? 'Recordatorios apagados' : `Recordatorio ${encendidos.join(' y ')}`,
         textosPropios == null ? null
           : textosPropios === 0 ? 'textos de Tentare'
           : contar(textosPropios, 'texto tuyo', 'textos tuyos'),

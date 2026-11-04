@@ -1150,6 +1150,10 @@ export interface RowStudios {
   recuperacion_solo_en_la_semana: boolean | null;
   // migr 20261103100000.
   avisos_push_apagados: string[] | null;
+  // migr 20261104100000.
+  recordatorio_largo_activo: boolean | null;
+  // migr 20261104100000.
+  recordatorio_corto_activo: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -5945,6 +5949,8 @@ export type StudiosInsert = {
   cobro_dia_1_modo?: string | null | null;
   recuperacion_solo_en_la_semana?: boolean | null | null;
   avisos_push_apagados?: string[] | null | null;
+  recordatorio_largo_activo?: boolean | null | null;
+  recordatorio_corto_activo?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6111,6 +6117,8 @@ export type StudiosUpdate = {
   cobro_dia_1_modo?: string | null | null;
   recuperacion_solo_en_la_semana?: boolean | null | null;
   avisos_push_apagados?: string[] | null | null;
+  recordatorio_largo_activo?: boolean | null | null;
+  recordatorio_corto_activo?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
