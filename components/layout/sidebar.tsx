@@ -24,6 +24,7 @@ import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
+import { TarjetaPasosMenu } from '@/components/guia/tarjeta-pasos-menu';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
 import { EVENTO_MODO_MENU, guardarModoMenu, leerModoMenu, modoDelEvento } from '@/lib/nav-modo';
@@ -734,6 +735,10 @@ export function Sidebar() {
             )}
           </div>
         )}
+
+        {/* «Pon en marcha tu estudio»: lo siguiente que falta, con su regalo. Solo en la
+            columna: tumbada no hay sitio y ahí queda la píldora de la barra. */}
+        {!horizontal && <TarjetaPasosMenu colapsado={collapsed} />}
 
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
