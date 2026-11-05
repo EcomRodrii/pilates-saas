@@ -1,4 +1,5 @@
 import { LEGAL } from '@/lib/legal-info';
+import { ID_AUTOR } from '@/lib/blog/autor';
 import { NAV_LINKS } from './landing/data';
 
 // Mismos perfiles reales que enlaza el pie de la web pública
@@ -35,8 +36,8 @@ const PERFILES_EN_DIRECTORIOS = [
 // cuadrado y sin texto, como pide Google para el logo de una organización.
 export const ID_ORGANIZACION = `${LEGAL.url}/#organizacion`;
 export const ID_WEB = `${LEGAL.url}/#web`;
-/** El fundador (definido en /sobre-tentare); la organización lo enlaza por @id. */
-export const ID_FUNDADOR = `${LEGAL.url}/sobre-tentare#fundador`;
+/** El fundador (definido en la página de autor, /blog/marcos-roca); la organización lo enlaza por @id. */
+export const ID_FUNDADOR = ID_AUTOR;
 export function OrganizationStructuredData() {
   const organizationLd = {
     '@context': 'https://schema.org',

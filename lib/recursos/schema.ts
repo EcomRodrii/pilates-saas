@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { LEGAL } from '../legal-info.ts';
+import { AUTOR_BLOG, ID_AUTOR, URL_AUTOR } from '../blog/autor.ts';
 import { ANCHO_MAX_PORTADA, GUIAS, fechaModificada, guia, rutaPortada, altoPortada, anchosPortada, urlGuia, type Guia } from './guias.ts';
 import { ARTICULOS_META } from './articulos/meta.ts';
 import { fechaArticulo, urlArticulo } from './articulos/util.ts';
@@ -21,8 +22,12 @@ export const ID_BLOG = `${LEGAL.url}/recursos#blog`;
 
 const IDIOMA = 'es-ES';
 
-/** El autor, tal como firma la cabecera de cada guía (ArticleShell). Su página es /sobre-tentare (antes apuntaba al aviso legal). */
-export const AUTOR = { '@type': 'Person', '@id': `${LEGAL.url}/sobre-tentare#fundador`, name: 'Marcos Roca', jobTitle: 'Fundador de Tentare', url: `${LEGAL.url}/sobre-tentare` } as const;
+/**
+ * El autor de las guías: la MISMA persona que firma el blog personal (lib/blog/autor.ts), por @id. Su página es
+ * /blog/marcos-roca, donde se define el Person completo; aquí solo se refiere a él. Antes era «Marcos Roca» y apuntaba a
+ * /sobre-tentare: dos nombres y dos URL para la misma persona repartían la señal de autoría.
+ */
+export const AUTOR = { '@type': 'Person', '@id': ID_AUTOR, name: AUTOR_BLOG.nombre, jobTitle: AUTOR_BLOG.cargo, url: URL_AUTOR } as const;
 
 /** El editor: la misma Organization que pinta cada página (por @id). */
 export const PUBLISHER = {

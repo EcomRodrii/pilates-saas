@@ -7,7 +7,7 @@ import { PieWeb } from '@/components/web/PieWeb';
 import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
 import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { ID_ORGANIZACION, ID_FUNDADOR, OrganizationStructuredData } from '@/components/OrganizationStructuredData';
+import { ID_ORGANIZACION, OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { LEGAL } from '@/lib/legal-info';
 import { G2_URL } from '@/lib/seo/g2';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
@@ -76,15 +76,6 @@ export default function SobreTentarePage() {
         about: { '@id': ID_ORGANIZACION },
         dateModified: pagina.actualizado,
       },
-      {
-        '@type': 'Person',
-        '@id': ID_FUNDADOR,
-        name: 'Marcos Roca',
-        jobTitle: 'Fundador de Tentare',
-        url: urlDe(PATH),
-        worksFor: { '@id': ID_ORGANIZACION },
-        knowsAbout: ['Software de gestión para estudios de Pilates y yoga', 'Gestión de estudios de Pilates', 'Precios y bonos de clases de Pilates en España'],
-      },
     ],
   };
 
@@ -108,7 +99,7 @@ export default function SobreTentarePage() {
         <section id="quien" className="st-bloque">
           <h2>Quién está detrás</h2>
           <p>
-            Tentare la fundó y la mantiene <strong>{LEGAL.titular}</strong>, desde {LEGAL.domicilio}. Es también quien firma las guías de{' '}
+            Tentare la fundó y la mantiene <strong><Link href="/blog/marcos-roca">{LEGAL.titular}</Link></strong>, desde {LEGAL.domicilio}. Es también quien firma las guías de{' '}
             <Link href="/recursos">recursos</Link>. Los datos del titular, tal como exige la ley, están en el <Link href="/legal">aviso legal</Link>.
           </p>
           <p className="st-enlaces">

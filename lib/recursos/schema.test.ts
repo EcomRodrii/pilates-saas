@@ -54,7 +54,7 @@ test('fechas ISO, idioma, sección y pertenencia al Blog', () => {
 test('autor Person y editor Organization con logo ImageObject absoluto', () => {
   const post = ld(GUIAS[0].slug);
   assert.equal(post.author['@type'], 'Person');
-  assert.equal(post.author.name, 'Marcos Roca');
+  assert.equal(post.author.name, 'Marcos Roca Rodríguez');
   assert.equal(post.publisher['@type'], 'Organization');
   assert.equal(post.publisher.logo['@type'], 'ImageObject');
   assert.ok(absoluta(post.publisher.logo.url));
@@ -90,7 +90,7 @@ test('Open Graph de artículo y sitemap de imágenes', () => {
     const og = openGraphGuia(g.slug);
     assert.equal(og.publishedTime, g.publicado);
     assert.match(og.modifiedTime, ISO);
-    assert.deepEqual(og.authors, ['Marcos Roca']);
+    assert.deepEqual(og.authors, ['Marcos Roca Rodríguez']);
     assert.equal(og.section, g.seccion);
     const imgs = imagenesSitemap(`/recursos/${g.slug}`);
     assert.equal(imgs.length, 1);

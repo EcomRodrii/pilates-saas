@@ -291,6 +291,19 @@ así que todo lo que se versiona lo lee cualquiera:
 
 ## Decisiones de producto/arquitectura ya cerradas (no reabrir sin pedirlo expresamente)
 
+- **Blog personal del fundador (5-nov-2026, `/blog`, `/blog/marcos-roca`, `/blog/marcos-roca/<slug>`; datos en `lib/blog/`).** Es
+  una sección editorial DENTRO de Tentare, separada de las guías corporativas de `/recursos`. Reglas:
+  - **Solo hechos que constan** (`lib/blog/autor.ts`): el aviso legal da titular y ciudad; la edad y la ciudad las dio el
+    fundador. Nunca experiencia, premios, financiación, facturación ni resultados; `blog.test.ts` falla si aparecen. Un
+    artículo en primera persona sobre cómo o por qué nació Tentare solo lo escribe quien lo vivió: están como **borradores**
+    con sus preguntas (sin ruta, sin sitemap, sin RSS).
+  - **Una sola entidad Person** (`ID_AUTOR`, `/blog/marcos-roca#persona`): la define la página de autor y la referencian por
+    `@id` la Organization (`founder`), las guías de `/recursos` (`AUTOR`) y cada artículo. `/sobre-tentare` ya no define una
+    segunda. ⚠️ `LINKEDIN_PERSONAL` es `null` hasta que el fundador dé su URL real: con `null` no hay enlace ni `sameAs` (la
+    página de la empresa NO es su perfil). La foto de `public/blog/` es provisional (un selfie de espejo).
+  - **Publicar** = poner `estado: 'publicado'` + `node --experimental-strip-types scripts/generar-meta-blog.mjs` + desplegar
+    (no hay «programado»: son ficheros que viajan con un despliegue). `/blog` lleva `noindex` solo si no hay nada publicado.
+  - La edad (`AUTOR_BLOG.edad`/`edadAl`) cambia: revisarla cada año.
 - **La landing NUNCA habla de «baja cubierta» ni de sustituciones** (orden del fundador, 25-oct-2026, «anotado para siempre»). Ni en el héroe, ni en las tarjetas, momentos, pestañas, FAQ o JSON-LD de la home, ni como ejemplo en una captura. La función existe en el producto y en `/funcionalidades/sustituciones`, pero no se usa como argumento de venta en la home; `lib/landing/ronda-3.test.ts` lo vigila en «Un día cualquiera». No reintroducir sin pedirlo expresamente.
 - No trocear los "god files" (`lib/supabase-data.ts`, `studio-context.tsx`...) — propuesto y
   rechazado dos veces.

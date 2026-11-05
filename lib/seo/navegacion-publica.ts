@@ -189,6 +189,7 @@ export const PIE_PUBLICO: GrupoMenu[] = [
     titulo: 'Empresa',
     enlaces: [
       { href: '/sobre-tentare', label: 'Sobre Tentare' },
+      { href: '/blog', label: 'Blog del fundador' },
       { href: '/seguridad', label: 'Seguridad y datos' },
       { href: '/soporte', label: 'Soporte' },
     ],

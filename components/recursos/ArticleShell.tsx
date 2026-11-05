@@ -70,9 +70,9 @@ export function ArticleShell({
             E-E-A-T explícita, auditoría GEO 2026-08-20. Mismo nombre que ya
             consta en /legal (Marcos Roca Rodríguez), en su forma pública. */}
         <p className="art-byline">
-          {/* El nombre lleva a quién hay detrás y a cómo se escriben y se
-              comprueban las guías (7-oct-2026): la autoría con su método. */}
-          Por <Link href="/sobre-tentare#quien" className="art-autor"><strong>Marcos Roca</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? <time dateTime={actualizado}>{mesCorto(actualizado)}</time> : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
+          {/* El nombre lleva a la página del autor (nov-2026), que a su vez enlaza a cómo se
+              escriben y se comprueban las guías (/sobre-tentare#como-escribimos). */}
+          Por <Link href="/blog/marcos-roca" className="art-autor" rel="author"><strong>Marcos Roca Rodríguez</strong></Link>, fundador de Tentare · {readTime} · Actualizado {actualizado ? <time dateTime={actualizado}>{mesCorto(actualizado)}</time> : 'jul 2026'} · <Link href="/sobre-tentare#como-escribimos" className="art-autor">Cómo escribimos</Link>
         </p>
       </header>
 

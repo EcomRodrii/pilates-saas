@@ -8,6 +8,8 @@ import {
 import { LEGAL } from '../legal-info.ts';
 import { MENU_PUBLICO, PIE_PUBLICO } from './navegacion-publica.ts';
 import { ARTICULOS, urlArticulo } from '../recursos/articulos/index.ts';
+import { ARTICULOS_BLOG } from '../blog/articulos/index.ts';
+import { urlArticuloBlog } from '../blog/util.ts';
 
 // ─── Recorrido del árbol de rutas ────────────────────────────────────────────
 
@@ -55,7 +57,9 @@ test('toda página del registro existe de verdad en app/', () => {
   // Los artículos escritos como datos no tienen carpeta propia: los sirve la
   // ruta dinámica app/recursos/[slug], que solo genera los de ARTICULOS.
   assert.ok(statSync(join(RAIZ_APP, 'recursos', '[slug]', 'page.tsx')).isFile(), 'falta app/recursos/[slug]/page.tsx');
-  const existentes = new Set([...rutasEstaticas(), ...ARTICULOS.map((a) => urlArticulo(a.slug))]);
+  // Y los del blog personal, los de app/blog/marcos-roca/[slug].
+  assert.ok(statSync(join(RAIZ_APP, 'blog', 'marcos-roca', '[slug]', 'page.tsx')).isFile(), 'falta app/blog/marcos-roca/[slug]/page.tsx');
+  const existentes = new Set([...rutasEstaticas(), ...ARTICULOS.map((a) => urlArticulo(a.slug)), ...ARTICULOS_BLOG.map((a) => urlArticuloBlog(a.slug))]);
   const fantasmas = PAGINAS.filter((p) => !existentes.has(p.path)).map((p) => p.path);
   assert.deepEqual(fantasmas, [], `Registradas en el sitemap pero sin page.tsx: ${fantasmas.join(', ')}`);
 });
