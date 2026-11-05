@@ -22,6 +22,9 @@ import { GUIAS, fechaModificada } from '../recursos/guias.ts';
 // meta.ts y no index.ts: este registro llega al cliente (la landing lo usa) y
 // index.ts arrastra el texto entero de los artículos.
 import { ARTICULOS_META } from '../recursos/articulos/meta.ts';
+import { ARTICULOS_BLOG_META } from '../blog/meta.ts';
+import { FECHA_PERFIL } from '../blog/autor.ts';
+import { fechaArticuloBlog } from '../blog/util.ts';
 
 /**
  * Origen canónico del sitio. **No se escribe aquí**: se deriva de `LEGAL.url`,
@@ -36,7 +39,7 @@ import { ARTICULOS_META } from '../recursos/articulos/meta.ts';
 export const BASE_URL: string = LEGAL.url;
 
 /** Los cuatro grupos de la arquitectura, más el bloque legal. */
-export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'ayuda' | 'legal';
+export type GrupoSeo = 'home' | 'software' | 'funcionalidades' | 'soluciones' | 'recursos' | 'blog' | 'ayuda' | 'legal';
 
 export interface PaginaSeo {
   /** Ruta absoluta sin dominio y SIN barra final ('/' es la única excepción). */
@@ -693,6 +696,46 @@ export const PAGINAS: PaginaSeo[] = [
     prioridad: 0.7,
     changeFrequency: 'monthly',
     relacionadas: a.relacionadas,
+  })),
+  // El blog personal del fundador (lib/blog): su propio grupo, aparte de los artículos corporativos de /recursos.
+  // El listado y los artículos salen de lib/blog/meta.ts (solo lo PUBLICADO: un borrador no entra en el sitemap).
+  {
+    path: '/blog',
+    titulo: 'Blog del fundador de Tentare: emprendimiento y tecnología | Tentare',
+    descripcion:
+      'El blog personal de Marcos Roca Rodríguez, fundador de Tentare: emprendimiento, tecnología, startups y cómo se construye un software para estudios de Pilates y yoga.',
+    grupo: 'blog',
+    etiqueta: 'Blog del fundador',
+    resumen: 'Emprendimiento, tecnología y la construcción de Tentare, contados por su fundador.',
+    prioridad: 0.6,
+    changeFrequency: 'monthly',
+    ...(ARTICULOS_BLOG_META.length ? { actualizado: ARTICULOS_BLOG_META.map(fechaArticuloBlog).sort().at(-1)! } : {}),
+    relacionadas: ['/blog/marcos-roca', '/sobre-tentare', '/recursos'],
+  },
+  {
+    path: '/blog/marcos-roca',
+    titulo: 'Marcos Roca Rodríguez | Fundador de Tentare',
+    descripcion:
+      'Marcos Roca Rodríguez es el fundador de Tentare, un software de gestión para estudios de Pilates y yoga en España. Tiene 23 años y trabaja desde Barcelona.',
+    grupo: 'blog',
+    etiqueta: 'Marcos Roca Rodríguez',
+    resumen: 'Quién es el fundador de Tentare y de qué escribe.',
+    prioridad: 0.7,
+    changeFrequency: 'monthly',
+    actualizado: FECHA_PERFIL,
+    relacionadas: ['/blog', '/sobre-tentare', '/precios'],
+  },
+  ...ARTICULOS_BLOG_META.map((a): PaginaSeo => ({
+    path: `/blog/marcos-roca/${a.slug}`,
+    titulo: `${a.tituloSeo} | Tentare`,
+    descripcion: a.descripcion,
+    grupo: 'blog',
+    etiqueta: a.titulo,
+    resumen: a.resumen,
+    actualizado: fechaArticuloBlog(a),
+    prioridad: 0.6,
+    changeFrequency: 'monthly',
+    relacionadas: ['/blog/marcos-roca', ...a.enlaces],
   })),
   // Las guías salen de su registro (lib/recursos/guias.ts), que también da las
   // fechas de su JSON-LD: antes esta lista las repetía a mano.
