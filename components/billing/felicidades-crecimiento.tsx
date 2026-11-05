@@ -24,7 +24,7 @@ import { PLAN_INFO } from '@/lib/billing/entitlements';
 import { textoLimites } from '@/lib/billing/plan-gratis';
 import { claveFelicidadesVista, fraseDeFelicidades, tocaFelicitar } from '@/lib/billing/felicidades';
 import { vistaPreviaSolicitada } from '@/lib/growth/vista-previa';
-import { TZ_ESTUDIO } from '@/lib/utils';
+import { TZ_ESTUDIO, hoyEnEstudio, masDias } from '@/lib/utils';
 import { Confeti } from '@/components/demo/Confeti';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
@@ -50,7 +50,7 @@ export function FelicidadesCrecimiento() {
     let vivo = true;
     void estadoBilling().then(e => {
       if (vivo && e?.esPropietaria && vistaPreviaSolicitada(window.location.search) === 'felicidades') {
-        const cierra = new Date(Date.now() + 20 * 86_400_000).toISOString().slice(0, 10);
+        const cierra = masDias(hoyEnEstudio(), 20);
         setEstado({
           ...e,
           gratis: {
