@@ -79,7 +79,8 @@ export function omitirTarea(studioId: string, id: string): void {
   for (const f of oyentes) f();
 }
 
-function useOmitidas(studioId: string | null): string[] {
+/** Las tareas omitidas en este navegador (también las usa la tarjeta del menú). */
+export function useOmitidas(studioId: string | null): string[] {
   const suscribir = useCallback((f: () => void) => { oyentes.add(f); return () => { oyentes.delete(f); }; }, []);
   const crudo = useSyncExternalStore(suscribir, () => (studioId ? leerOmitidas(studioId) : '[]'), () => '[]');
   return useMemo(() => parseOmitidas(crudo), [crudo]);
