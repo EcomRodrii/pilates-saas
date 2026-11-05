@@ -1,6 +1,6 @@
 import { AUTOR_BLOG } from '@/lib/blog/autor';
 
-// La foto del autor, en AVIF y WebP (public/blog/). Provisional: cambiarla es cambiar esos ficheros y las medidas de
+// La foto del autor, en AVIF y WebP (public/blog/). Cambiarla es cambiar esos ficheros y las medidas de
 // `AUTOR_BLOG.foto`, no el diseño. `prioridad` para la que es lo primero que se ve (LCP de la página de autor).
 export function Retrato({ ancho = 480, prioridad = false, sizes }: { ancho?: 480 | 800; prioridad?: boolean; sizes: string }) {
   const f = AUTOR_BLOG.foto;

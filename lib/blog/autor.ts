@@ -46,7 +46,7 @@ export const AUTOR_BLOG = {
     'Emprendimiento',
     'Startups',
   ],
-  /** Foto provisional: ver public/blog/. Cambiarla es cambiar estos ficheros, no el diseño. */
+  /** La foto que eligió el fundador (public/blog/). Cambiarla es cambiar estos ficheros y estas medidas, no el diseño. */
   foto: {
     base: '/blog/marcos-roca-retrato',
     anchos: [480, 800] as const,

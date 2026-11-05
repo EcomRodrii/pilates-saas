@@ -300,7 +300,7 @@ así que todo lo que se versiona lo lee cualquiera:
   - **Una sola entidad Person** (`ID_AUTOR`, `/blog/marcos-roca#persona`): la define la página de autor y la referencian por
     `@id` la Organization (`founder`), las guías de `/recursos` (`AUTOR`) y cada artículo. `/sobre-tentare` ya no define una
     segunda. ⚠️ `LINKEDIN_PERSONAL` es `null` hasta que el fundador dé su URL real: con `null` no hay enlace ni `sameAs` (la
-    página de la empresa NO es su perfil). La foto de `public/blog/` es provisional (un selfie de espejo).
+    página de la empresa NO es su perfil). La foto de `public/blog/` la eligió el fundador (decisión suya).
   - **Publicar** = poner `estado: 'publicado'` + `node --experimental-strip-types scripts/generar-meta-blog.mjs` + desplegar
     (no hay «programado»: son ficheros que viajan con un despliegue). `/blog` lleva `noindex` solo si no hay nada publicado.
   - La edad (`AUTOR_BLOG.edad`/`edadAl`) cambia: revisarla cada año.
