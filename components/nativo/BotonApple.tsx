@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { supabasePortal } from '@/lib/db/supabase-portal';
 import { loginConApple } from '@/lib/nativo/puente';
+import { nombreDeApple } from '@/lib/nativo/nombre-apple';
 import { useAppNativa } from '@/lib/nativo/use-app-nativa';
+import { capturarExcepcion } from '@/lib/sentry-cliente';
 
 /**
  * «Iniciar sesión con Apple», solo dentro de la app de iOS (en la web no se pinta).
@@ -34,6 +36,14 @@ export function BotonApple({ onEntrado, onError, disabled }: {
       }
       const { error } = await supabasePortal.auth.signInWithIdToken({ provider: 'apple', token: r.idToken, nonce: r.nonce });
       if (error) { onError('No se ha podido iniciar sesión con Apple. Inténtalo de nuevo.'); return; }
+      // Apple solo da el nombre la PRIMERA vez: se guarda en la cuenta ya, antes
+      // de seguir, para que ninguna pantalla de alta vuelva a pedírselo (revisión
+      // de Apple, 4.0). Si la escritura falla, el login sigue; queda el aviso.
+      const nombre = nombreDeApple(r.nombre);
+      if (nombre) {
+        const { error: errorNombre } = await supabasePortal.auth.updateUser({ data: { nombre } });
+        if (errorNombre) capturarExcepcion(errorNombre, { tags: { area: 'apple-nombre' } });
+      }
       onEntrado();
     } finally {
       setAbriendo(false);

@@ -13,6 +13,8 @@ import { EnlaceRegalo } from '@/components/regalo/enlace-regalo';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
 import { useStudio, type ResultadoReserva } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
+import { supabasePortal } from '@/lib/db/supabase-portal';
+import { nombreGuardado } from '@/lib/nativo/nombre-apple';
 import { useAforoEnVivo } from '@/lib/realtime/aforo-en-vivo';
 import { portalAuthHeader } from '@/lib/api-client';
 import { comprobarCodigo } from '@/lib/student/comprar';
@@ -1931,6 +1933,12 @@ export default function ReservarPage() {
       }
     } else {
       // Autenticada por magic link pero aún sin ficha (walk-in): pedir nombre.
+      // Si la cuenta ya lo tiene (Apple lo guarda al entrar, ver BotonApple), va
+      // escrito: no se le vuelve a pedir (revisión de Apple, 4.0).
+      void supabasePortal.auth.getUser().then(({ data }) => {
+        const guardado = nombreGuardado(data.user?.user_metadata?.nombre);
+        if (guardado) setLoginForm(f => (f.nombre ? f : { ...f, nombre: guardado }));
+      });
       setLoginStep('registro');
     }
   }
