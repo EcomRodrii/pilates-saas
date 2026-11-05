@@ -32,16 +32,24 @@ Estado a 1-oct-2026. Documentación de USC: https://docs.urbansportsclub.io
 - **Con credenciales:** se comprueba con `GET /locations` que el proveedor existe y que la ubicación es suya y está `Active`. Si USC no responde, 503 y no se guarda nada.
 - **Sin credenciales (hoy):** se guardan pero **sin verificar**. «Verificado» lo escribe solo el servidor (`verificadoPar`, ligado al par exacto) y el cron `usc-horario` no llama a USC con IDs sin verificar. Al haber credenciales, la propietaria vuelve a pulsar «Guardar conexión» y queda verificado. Un estudio con eventos ya publicados antes de esto (ninguno) no se retiraría.
 - Un proveedor por estudio: una cadena con un solo proveedor de USC y varias sedes de Tentare no está contemplada (decisión conservadora; reabrir con USC si aparece el caso).
-- ⚠️ **Pendiente de aplicar en producción: `20261015110000_usc_proveedor_unico.sql`** (dos índices únicos parciales, solo aditiva; se para sola si ya hubiera duplicados). Sin ella, la carrera de dos guardados simultáneos solo la cubre la comprobación previa. Aplicar antes de encender USC.
+- **Aplicada en producción el 5-nov-2026: `20261105153241_usc_proveedor_unico.sql`** (antes `20261015110000`; dos índices únicos parciales, solo aditiva). Es el candado real frente a dos guardados simultáneos con el mismo ID.
 - Cuando se mergee la confirmación de avisos de integrador (#2722), su ruta debe sellar `verificadoPar` (ya comprueba `GET /locations`); si no, esos estudios no publicarán hasta volver a guardar.
 
-## Qué falta (necesita sus credenciales)
+## Estado a 5-nov-2026: sandbox concedido
 
-1. **Contrato y sandbox.** Correo enviado a su dirección de integraciones el 28-sep, sin respuesta a 1-oct.
-2. **Variables en Vercel:** `USC_CLIENT_ID`, `USC_CLIENT_SECRET` (firma del Instant Booking) y `USC_WEBHOOK_SECRET` (distinto del anterior, lo elegimos nosotros al registrar el webhook). Sin ellas, los dos endpoints rechazan todo.
-   Opcional `USC_API_URL` para apuntar al sandbox; por defecto, producción.
-3. **Programar el cron** (no antes: cada tic sin credenciales es una invocación de Vercel tirada). Migración nueva, mismo patrón que `20260820193434_pg_cron_zoom_sync.sql`, job `usc-horario`, `*/15 * * * *`, URL `/api/cron/usc-horario`.
-4. **Que el estudio pegue sus IDs** en Conexiones → Urban Sports Club (el formulario aparece solo cuando están las credenciales) y ceda plazas en los tipos que quiera publicar.
-5. **Registrar las URLs** en su Integration Review Document: `https://www.tentare.app/api/plataformas/usc/reservar` y `…/webhook`.
+USC dio el sandbox el 5-nov (proveedor y ubicación de pruebas, credenciales de sandbox y de producción, cuenta demo de socia, acceso al Partner Portal). Las credenciales viven solo en Vercel y en el gestor de contraseñas del fundador: nunca en el repo ni en el chat.
+
+- **Hecho:** `/auth` y `GET /locations` responden contra el sandbox; variables `USC_CLIENT_ID`, `USC_CLIENT_SECRET` y `USC_WEBHOOK_SECRET` en Vercel (solo producción, las dos últimas «sensitive»); webhook registrado en el sandbox (`POST /webhook-endpoints`, tipos `[1, 4]`, URL con `www`); índices únicos aplicados.
+- ⚠️ **Las variables hoy son las de SANDBOX.** USC usa el mismo host para sandbox y producción (`connect.urbansportsclub.io`): lo que cambia es el client id. Para el beta se cambian `USC_CLIENT_ID` y `USC_CLIENT_SECRET` por las de producción, y se vuelve a registrar el webhook con la de producción.
+- ⚠️ **Un solo endpoint de Instant Booking por `clientId`, y nosotros verificamos UN secreto.** Lo firma USC con el secreto de su entorno: mientras las variables sean las de sandbox, un Instant Booking de producción se rechazaría (E006). Por eso solo se registra el endpoint en el sandbox hasta el beta.
+- ⚠️ **Registrar siempre la URL con `www`**: `tentare.app` redirige con 308 a `www.tentare.app` y no hay que fiarse de que USC siga una redirección en un POST.
+
+## Qué falta
+
+1. ~~**Programar el cron**~~ **Hecho el 5-nov-2026** (`20261105161200_pg_cron_usc_horario.sql`, job `usc-horario`, `*/15 * * * *`, URL `/api/cron/usc-horario`). Sin estudios conectados cada tic no hace nada, pero gasta una invocación.
+2. **Integration Review Document** (Google Doc de USC): contestarlo y avisar a USC cuando esté listo. Hace falta que lo compartan con una cuenta de Google nuestra.
+3. **Que USC registre el endpoint de Instant Booking** (`https://www.tentare.app/api/plataformas/usc/reservar`) en su sistema, para el sandbox.
+4. **Un estudio de pruebas conectado** al proveedor y la ubicación del sandbox (Conexiones → Urban Sports Club; el formulario aparece al haber credenciales) y plazas cedidas a USC en algún tipo de clase.
+5. **Probar en su sandbox** el ciclo entero antes del primer estudio real: crear, mover de hora (recrear), cancelar, reservar, cancelar tarde, check-in.
 6. **Conciliación diaria** con `GET /bookings`.
-7. **Probar en su sandbox** el ciclo entero antes del primer estudio real: crear, mover de hora (recrear), cancelar, reservar, cancelar tarde, check-in.
+7. ~~**Borrado de datos de la socia**~~ **Hecho el 5-nov-2026** (anexo 1 del contrato, §6(4) y §11(2)): un trigger de `reservas` (`20261105154832_usc_borrar_datos_al_cerrar_reserva.sql`) deja `nombre_externo` como «Persona eliminada» y borra `id_cliente_externo` cuando una reserva de USC pasa a cancelada o no asistida, por cualquier camino (webhook, recepción, cancelación de la clase). La asistida conserva sus datos; el id de la reserva en USC se queda. ⚠️ Su nombre tiene que sonar DESPUÉS de `trg_congelar_origen_reserva` (los BEFORE disparan por orden alfabético): lo fija `lib/plataformas/usc/borrado-al-cerrar-contrato.test.ts`. Pendiente solo: avisar de brechas «inmediatamente» (§9) y actualizar `/privacidad` con USC como destinatario.

@@ -124,7 +124,7 @@ test('el cron de horario no llama a USC con IDs sin verificar', () => {
 });
 
 test('migración: dos índices únicos parciales, solo aditiva, con guarda de duplicados', () => {
-  const sql = leer('supabase/migrations/20261015110000_usc_proveedor_unico.sql');
+  const sql = leer('supabase/migrations/20261105153241_usc_proveedor_unico.sql');
   assert.match(sql, /create unique index if not exists integraciones_usc_provider_id_key[\s\S]*lower\(btrim\(config->>'providerId'\)\)[\s\S]*where tipo = 'URBAN_SPORTS_CLUB'/);
   assert.match(sql, /create unique index if not exists integraciones_usc_location_id_key/);
   assert.match(sql, /raise exception 'integraciones: hay un providerId de USC repetido/);
