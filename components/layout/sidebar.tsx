@@ -736,7 +736,7 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* «Pon en marcha tu estudio»: lo siguiente que falta, con su regalo. Solo en la
+        {/* «Configuración inicial»: lo siguiente que falta, en una tarjeta compacta de altura fija. Solo en la
             columna: tumbada no hay sitio y ahí queda la píldora de la barra. */}
         {!horizontal && <TarjetaPasosMenu colapsado={collapsed} />}
 

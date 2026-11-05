@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «Pon en marcha tu estudio»: la tarjeta con el regalo, al pie del menú lateral.
+// «Pon en marcha tu estudio»: la tarjeta compacta «Configuración inicial» al pie del menú lateral.
 //
 // Enseña SOLO lo siguiente que falta («Paso 2 de 5») con un botón que lo hace, y
 // «Omitir» para pasar a la siguiente. No es una lista nueva ni cuenta nada por su
@@ -9,15 +9,15 @@
 // (`usePonEnMarcha` para el alta nueva, `primerosPasos` para el resto), así que
 // las tres dicen siempre lo mismo y se marcan solas con los datos del estudio.
 //
-//   · Menú normal o grande: la tarjeta entera. Si la pantalla es baja
-//     (< 1000 px) se recoge en una fila, para no empujar «Configuración» bajo el
+//   · Menú normal o grande: la tarjeta compacta (altura fija). Si la pantalla es baja
+//     (< 900 px) se recoge en una fila, para no empujar «Configuración» bajo el
 //     pliegue del menú (OPEN DECISION 18 de nav-config).
-//   · Menú pequeño: solo el regalo, con el paso en su título.
+//   · Menú pequeño: solo un anillo de progreso, con el paso en su título.
 //   · No sale con la visita guiada en marcha, ni con la lista oculta o terminada.
 //
 // ⚠️ Vive dentro de la píldora oscura del menú, que es SIEMPRE oscura (también en
 // modo claro): nada de tokens que se inviertan en oscuro. Los colores van en
-// blanco con alfa, como el resto del menú. El regalo es una ilustración.
+// blanco con alfa, como el resto del menú. Sin imágenes ni degradados.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState } from 'react';
