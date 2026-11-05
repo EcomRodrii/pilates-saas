@@ -46,7 +46,7 @@ USC dio el sandbox el 5-nov (proveedor y ubicación de pruebas, credenciales de 
 
 ## Qué falta
 
-1. **Programar el cron** (job `usc-horario`, `*/15 * * * *`, URL `/api/cron/usc-horario`; migración nueva, mismo patrón que `20260820193434_pg_cron_zoom_sync.sql`). Sin estudios conectados cada tic no hace nada, pero gasta una invocación.
+1. ~~**Programar el cron**~~ **Hecho el 5-nov-2026** (`20261105161200_pg_cron_usc_horario.sql`, job `usc-horario`, `*/15 * * * *`, URL `/api/cron/usc-horario`). Sin estudios conectados cada tic no hace nada, pero gasta una invocación.
 2. **Integration Review Document** (Google Doc de USC): contestarlo y avisar a USC cuando esté listo. Hace falta que lo compartan con una cuenta de Google nuestra.
 3. **Que USC registre el endpoint de Instant Booking** (`https://www.tentare.app/api/plataformas/usc/reservar`) en su sistema, para el sandbox.
 4. **Un estudio de pruebas conectado** al proveedor y la ubicación del sandbox (Conexiones → Urban Sports Club; el formulario aparece al haber credenciales) y plazas cedidas a USC en algún tipo de clase.
