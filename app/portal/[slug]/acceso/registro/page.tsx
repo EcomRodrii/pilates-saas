@@ -16,6 +16,8 @@ import { textoConsentimientoMarketing, textoLegalCompleto } from '@/lib/legal-te
 import { useSesionStudent } from '@/lib/student/sesion';
 import { Icono } from '@/components/student/ui/Icono';
 import { PuertaDeEntrada } from '@/components/student/acceso/PuertaDeEntrada';
+import { supabasePortal } from '@/lib/db/supabase-portal';
+import { nombreGuardado } from '@/lib/nativo/nombre-apple';
 
 /**
  * Darse de alta en el estudio (P08, 5-oct-2026). Dos cosas que de verdad son
@@ -108,6 +110,18 @@ function TusDatos({ viaCodigo, autenticado, online, entrarConGoogle, alTerminar 
   const [global, setGlobal] = useState('');
   const [cargando, setCargando] = useState(false);
   const [verLegal, setVerLegal] = useState(false);
+
+  // Si la cuenta ya tiene nombre (Apple lo guarda al entrar, ver BotonApple), no
+  // se vuelve a pedir: la revisión de Apple lo rechaza. Solo rellena un campo vacío.
+  useEffect(() => {
+    if (!autenticado) return;
+    let vigente = true;
+    void supabasePortal.auth.getUser().then(({ data }) => {
+      const guardado = nombreGuardado(data.user?.user_metadata?.nombre);
+      if (vigente && guardado) setF((prev) => (prev.nombre ? prev : { ...prev, nombre: guardado }));
+    });
+    return () => { vigente = false; };
+  }, [autenticado]);
 
   // Los dos documentos DEL ESTUDIO, que es lo que se firma. Salen del payload
   // público (`studioPublico` ya los compone con los de por defecto si el estudio
