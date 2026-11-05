@@ -89,7 +89,7 @@ async function enviarFeedback(rating: number, comentario?: string): Promise<Resu
   }
 }
 
-export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: string | null }) {
+export function ReviewBoostModal({ studio, rol, vistaPrevia = false }: { studio: Studio | null; rol: string | null; vistaPrevia?: boolean }) {
   // useCore() y no useStudio(): montado en TODAS las páginas del dashboard
   // (DashboardShell) y solo necesita `updateStudio`, ya aislado en
   // CoreContext (mismo motivo que la visita guiada, components/tour/visita-guiada.tsx).
@@ -126,6 +126,11 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   const elegible = reviewBoostToca(studio, rol);
 
   useEffect(() => {
+    // Vista previa: se abre y NO se apunta nada (ni «visto», ni analítica, ni feedback): ver `lib/growth/vista-previa.ts`.
+    if (vistaPrevia) {
+      if (!decididoRef.current) { decididoRef.current = true; setOpen(true); }
+      return;
+    }
     if (decididoRef.current || !elegible || !studio) return;
     decididoRef.current = true;
     setOpen(true);
@@ -134,7 +139,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
     const visto = { cambios, guardado: false };
     vistoRef.current = visto;
     void Promise.resolve(updateStudio(cambios)).then(r => { visto.guardado = escrituraOk(r); });
-  }, [elegible, studio, updateStudio]);
+  }, [elegible, studio, updateStudio, vistaPrevia]);
 
   if (!open) return null;
 
@@ -149,6 +154,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
 
   async function elegirEstrellas(n: number) {
     setRating(n);
+    if (vistaPrevia) { setPantalla(n >= 4 ? 'positivo' : 'negativo'); return; }
     if (n >= 4) {
       setEnviando(true);
       setError(false);
@@ -163,6 +169,7 @@ export function ReviewBoostModal({ studio, rol }: { studio: Studio | null; rol: 
   }
 
   async function enviarComentarioNegativo() {
+    if (vistaPrevia) { cerrar(false); return; }
     setEnviando(true);
     setError(false);
     const r = await enviarFeedback(rating, comentario);
