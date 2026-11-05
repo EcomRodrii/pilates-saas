@@ -34,6 +34,7 @@ import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { useAltaNueva } from '@/lib/estudio/panel-nuevo-cliente';
 import { esRutaDelAlta } from '@/lib/alta/bienvenida-nueva';
 import { reviewBoostToca } from '@/lib/growth/review-boost';
+import { vistaPreviaSolicitada } from '@/lib/growth/vista-previa';
 
 // Aparte del armazón, que se descarga en TODAS las pantallas del panel: la
 // bienvenida solo sale hasta que el estudio la sella (y trae a Tenti, con su
@@ -81,9 +82,17 @@ function ReviewBoostSiToca(props: ComponentProps<typeof ReviewBoostModal>) {
   // Una vez pedido se queda montado: al enseñarlo apunta `reviewBoostMostradoEn` en el estudio,
   // `reviewBoostToca` pasa a ser falso y desmontarlo cerraría el modal en la cara de la propietaria.
   const [pedido, setPedido] = useState(false);
+  // Vista previa (`?vista-previa=review-boost`, solo propietaria): se enseña tal cual saldría sin escribir nada.
+  const [vistaPrevia, setVistaPrevia] = useState(false);
+  useEffect(() => {
+    if (props.rol === 'PROPIETARIO' && vistaPreviaSolicitada(window.location.search) === 'review-boost') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setVistaPrevia(true);
+    }
+  }, [props.rol]);
   const toca = reviewBoostToca(props.studio, props.rol);
-  if (toca && !pedido) setPedido(true);
-  return pedido ? <ReviewBoostModal {...props} /> : null;
+  if ((toca || vistaPrevia) && !pedido) setPedido(true);
+  return pedido ? <ReviewBoostModal {...props} vistaPrevia={vistaPrevia} /> : null;
 }
 
 // Antes vivía todo esto directo en app/(dashboard)/layout.tsx, pero ese

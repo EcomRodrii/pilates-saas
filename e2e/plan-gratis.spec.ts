@@ -154,3 +154,28 @@ test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un 
   await page.waitForTimeout(2_000);
   await expect(page.getByTestId('felicidades-crecimiento')).toHaveCount(0);
 });
+
+test('vista previa del «¡Felicidades!»: se ve con cifras de ejemplo en un estudio que no ha llegado al límite, y no guarda ni cobra nada', async ({ page }) => {
+  const { montar: montarPanel, ir } = await import('./panel-sembrado');
+  await montarPanel(page);
+  let pagos = 0;
+  await page.route('**/api/billing/status**', route => json(route, {
+    plan: 'CADENA', subscriptionStatus: 'active', activo: true, configurado: true, esPropietaria: true, bloqueado: false,
+    trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null }, gratis: null,
+  }));
+  await page.route('**/api/billing/checkout**', route => { pagos += 1; return json(route, { error: 'no debería pedirse' }, 500); });
+  await ir(page, 'dashboard?vista-previa=felicidades');
+
+  const felicidades = page.getByTestId('felicidades-crecimiento');
+  await expect(felicidades).toBeVisible({ timeout: 30_000 });
+  await expect(felicidades).toContainText('¡Felicidades!');
+  await expect(felicidades).toContainText('Vista previa con cifras de ejemplo');
+
+  // «Seguir creciendo» en la vista previa NO abre ningún pago: cierra.
+  await felicidades.getByTestId('felicidades-contratar').click();
+  await expect(felicidades).toHaveCount(0);
+  expect(pagos, 'la vista previa pidió un pago').toBe(0);
+  // Y no marca la felicitación como vista: la de verdad saldrá cuando toque.
+  const marcas = await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('tentare:felicidades-crecimiento:')));
+  expect(marcas).toEqual([]);
+});

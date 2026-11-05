@@ -23,7 +23,8 @@ import { estadoBilling, iniciarSuscripcion, type EstadoBilling } from '@/lib/api
 import { PLAN_INFO } from '@/lib/billing/entitlements';
 import { textoLimites } from '@/lib/billing/plan-gratis';
 import { claveFelicidadesVista, fraseDeFelicidades, tocaFelicitar } from '@/lib/billing/felicidades';
-import { TZ_ESTUDIO } from '@/lib/utils';
+import { vistaPreviaSolicitada } from '@/lib/growth/vista-previa';
+import { TZ_ESTUDIO, hoyEnEstudio, masDias } from '@/lib/utils';
 import { Confeti } from '@/components/demo/Confeti';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
@@ -42,10 +43,25 @@ export function FelicidadesCrecimiento() {
   const [abierto, setAbierto] = useState(false);
   const [contratando, setContratando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Vista previa (`?vista-previa=felicidades`): se enseña con cifras de ejemplo y no escribe, guarda ni cobra nada.
+  const [vistaPrevia, setVistaPrevia] = useState(false);
 
   useEffect(() => {
     let vivo = true;
     void estadoBilling().then(e => {
+      if (vivo && e?.esPropietaria && vistaPreviaSolicitada(window.location.search) === 'felicidades') {
+        const cierra = masDias(hoyEnEstudio(), 20);
+        setEstado({
+          ...e,
+          gratis: {
+            fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 251 }, motivos: ['alumnas', 'reservas'],
+            diasRestantes: 20, cierraEl: cierra, limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30,
+          },
+        });
+        setVistaPrevia(true);
+        setAbierto(true);
+        return;
+      }
       if (!vivo || !e?.gratis) return;
       const g = e.gratis;
       if (!tocaFelicitar({ fase: g.fase, esPropietaria: e.esPropietaria, cierraEl: g.cierraEl, yaVista: g.cierraEl ? yaVista(g.cierraEl) : true })) return;
@@ -60,11 +76,13 @@ export function FelicidadesCrecimiento() {
   const cierraEl = g.cierraEl;
 
   function cerrar() {
-    marcarVista(cierraEl);
+    if (!vistaPrevia) marcarVista(cierraEl);
     setAbierto(false);
   }
 
   async function contratar() {
+    // En la vista previa «contratar» no abre ningún pago: solo cierra.
+    if (vistaPrevia) { setAbierto(false); return; }
     setError(null);
     setContratando(true);
     const r = await iniciarSuscripcion('BASE');
@@ -117,6 +135,7 @@ export function FelicidadesCrecimiento() {
           <button type="button" onClick={cerrar} className="h-10 rounded-full text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
             Ahora no
           </button>
+          {vistaPrevia && <p className="text-center text-[11.5px] text-muted-foreground">Vista previa con cifras de ejemplo: no se guarda ni se cobra nada.</p>}
         </div>
       </DialogContent>
     </Dialog>
