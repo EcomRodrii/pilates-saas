@@ -347,6 +347,7 @@ export function CompositorPost({
           ref={ficheroRef}
           type="file"
           accept="image/png,image/jpeg,image/webp"
+          aria-label="Añadir una imagen a la publicación"
           className="sr-only"
           onChange={e => {
             const f = e.target.files?.[0];

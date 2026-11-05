@@ -224,16 +224,16 @@ export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
           <>
             <div className="space-y-3.5">
               <div>
-                <p className={labelCls}>Nombre</p>
-                <input className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
+                <label htmlFor="perfil-nombre" className={labelCls}>Nombre</label>
+                <input id="perfil-nombre" className={inputCls} value={form.nombre} onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
               </div>
               <div>
-                <p className={labelCls}>Email</p>
-                <input type="email" className={inputCls} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                <label htmlFor="perfil-email" className={labelCls}>Email</label>
+                <input id="perfil-email" type="email" className={inputCls} value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
               </div>
               <div>
-                <p className={labelCls}>Teléfono</p>
-                <input type="tel" className={inputCls} value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
+                <label htmlFor="perfil-telefono" className={labelCls}>Teléfono</label>
+                <input id="perfil-telefono" type="tel" className={inputCls} value={form.telefono} onChange={e => setForm(f => ({ ...f, telefono: e.target.value }))} />
               </div>
             </div>
             <button onClick={guardar} className="mt-4 px-4 py-2 rounded-lg bg-brand text-brand-foreground text-[12px] font-medium hover:brightness-95 transition-colors flex items-center gap-1.5">
@@ -245,12 +245,12 @@ export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
           <>
             <div className="space-y-3.5">
               <div>
-                <p className={labelCls}>Nombre</p>
-                <input className={inputCls} value={propietariaForm.nombre} onChange={e => setPropietariaForm(f => ({ ...f, nombre: e.target.value }))} />
+                <label htmlFor="perfil-propietaria-nombre" className={labelCls}>Nombre</label>
+                <input id="perfil-propietaria-nombre" className={inputCls} value={propietariaForm.nombre} onChange={e => setPropietariaForm(f => ({ ...f, nombre: e.target.value }))} />
               </div>
               <div>
-                <p className={labelCls}>Apellidos</p>
-                <input className={inputCls} value={propietariaForm.apellidos} onChange={e => setPropietariaForm(f => ({ ...f, apellidos: e.target.value }))} />
+                <label htmlFor="perfil-propietaria-apellidos" className={labelCls}>Apellidos</label>
+                <input id="perfil-propietaria-apellidos" className={inputCls} value={propietariaForm.apellidos} onChange={e => setPropietariaForm(f => ({ ...f, apellidos: e.target.value }))} />
               </div>
             </div>
             <button
@@ -269,7 +269,7 @@ export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
               </p>
               <div className="flex gap-2">
                 <input
-                  type="email" placeholder="Nuevo email" className={inputCls}
+                  type="email" placeholder="Nuevo email" aria-label="Nuevo email" className={inputCls}
                   value={nuevoEmail} onChange={e => setNuevoEmail(e.target.value)}
                 />
                 <button
@@ -289,22 +289,22 @@ export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
               <h4 className="text-[13px] font-semibold text-foreground mb-3">Cambiar contraseña</h4>
               <div className="space-y-3.5">
                 <div>
-                  <p className={labelCls}>Contraseña actual</p>
-                  <input
+                  <label htmlFor="perfil-password-actual" className={labelCls}>Contraseña actual</label>
+                  <input id="perfil-password-actual"
                     type="password" className={inputCls}
                     value={passwordForm.actual} onChange={e => setPasswordForm(f => ({ ...f, actual: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <p className={labelCls}>Nueva contraseña</p>
-                  <input
+                  <label htmlFor="perfil-password-nueva" className={labelCls}>Nueva contraseña</label>
+                  <input id="perfil-password-nueva"
                     type="password" className={inputCls}
                     value={passwordForm.nueva} onChange={e => setPasswordForm(f => ({ ...f, nueva: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <p className={labelCls}>Confirmar nueva contraseña</p>
-                  <input
+                  <label htmlFor="perfil-password-confirmar" className={labelCls}>Confirmar nueva contraseña</label>
+                  <input id="perfil-password-confirmar"
                     type="password" className={inputCls}
                     value={passwordForm.confirmar} onChange={e => setPasswordForm(f => ({ ...f, confirmar: e.target.value }))}
                   />

@@ -101,13 +101,16 @@ export default function Libreta() {
           className="no-print"
         />
       ) : (
-      <div className="libreta-doc border border-border rounded-xl p-8 bg-card">
+      <div className="libreta-doc border border-border rounded-xl p-4 sm:p-8 bg-card">
         <div className="mb-6">
           <h2 className="text-2xl font-extrabold text-foreground">Tu estudio en Tentare</h2>
           <p className="text-sm text-muted-foreground mt-1">{studio?.nombre ?? 'Mi estudio'} · {mes} · {filas.length} clientas activas</p>
         </div>
 
-        <table className="w-full text-[13px] border-collapse">
+        {/* En móvil la tabla de cinco columnas es más ancha que la pantalla: se desplaza dentro de su hoja
+            en vez de ensanchar toda la página (medido: +65 px a 390). En papel no recorta nada. */}
+        <div className="overflow-x-auto print:overflow-visible">
+        <table className="w-full min-w-[34rem] text-[13px] border-collapse">
           <thead>
             <tr className="border-b-2 border-border text-left">
               <th className="py-2 pr-3 font-bold">Clienta</th>
@@ -138,6 +141,7 @@ export default function Libreta() {
             ))}
           </tbody>
         </table>
+        </div>
 
         {filas.length === 0 && <EmptyState compacto icono={Notebook} titulo="No hay clientas activas todavía." />}
 
