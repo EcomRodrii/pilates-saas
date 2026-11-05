@@ -1,8 +1,8 @@
 -- Un ID de proveedor (y un ID de ubicación) de Urban Sports Club pertenece a UN
 -- solo estudio de Tentare.
 --
--- ⚠️ PENDIENTE DE APLICAR EN PRODUCCIÓN: escrita y NO aplicada (USC aún no nos
--- ha dado credenciales y nada está encendido). Aplicar antes de activar USC.
+-- APLICADA EN PRODUCCIÓN el 5-nov-2026 (versión 20261105153241; antes se llamaba
+-- 20261015110000, renombrada a la versión aplicada). No había filas de USC.
 -- Solo aditiva: dos índices nuevos, nada existente cambia. Si ya hubiera dos
 -- estudios con el mismo ID, la migración se para con un mensaje y no toca
 -- nada: hay que resolverlo a mano antes (la comprobación solo cuenta, no
