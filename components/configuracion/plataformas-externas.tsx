@@ -399,7 +399,7 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
           ? `En pausa: ${porQueSinVentaExterna(ventaCortada)}. Mientras tanto no se publica nada en Urban Sports Club ni entran sus reservas, y lo que estaba publicado se retira.`
           : conectada
           ? 'Conectada. Las clases cuyo tipo tiene plazas cedidas a Urban Sports Club se publican solas en su app (dos semanas vista), y sus reservas entran solas en la clase.'
-          : 'Pega los dos IDs que te da Urban Sports Club al activar la conexión con Tentare. Se publicarán solas las clases cuyo tipo tenga plazas cedidas a Urban Sports Club.'}
+          : 'Para activarlo: 1) pídele a Urban Sports Club que active Tentare como tu software de reservas (lo hace su equipo de soporte, no es automático); 2) te enviarán dos IDs, el de proveedor y el de ubicación; 3) pégalos aquí. Después, en cada tipo de clase, elige cuántas plazas cedes a Urban Sports Club: solo esas clases se publican en su app.'}
       </p>
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block text-xs font-medium text-foreground">
