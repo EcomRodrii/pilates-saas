@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from('socios')
-    .select('id, studio_id, studios ( nombre, slug )')
+    .select('id, studio_id, studios!socios_studio_id_fkey ( nombre, slug )')
     .eq('auth_user_id', usuario.userId);
   if (error) return errorInterno('network:alumna:puente:GET', error, 'No se ha podido comprobar si ya eres socia de algún estudio.');
 

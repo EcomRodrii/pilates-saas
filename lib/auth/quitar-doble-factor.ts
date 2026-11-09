@@ -47,7 +47,10 @@ async function leerCuenta(admin: SupabaseClient, studioId: string, socioId: stri
   // Fila en la tabla, activa o no: «ya no» puede volver a ser «sí».
   const [factoresRes, fichas, esDelEquipo, ...otras] = await Promise.all([
     admin.auth.admin.mfa.listFactors({ userId: authUserId }),
-    admin.from('socios').select('studio_id, studios!inner(cadena_id)').eq('auth_user_id', authUserId),
+    // `studios!socios_studio_id_fkey`: con solo `studios` PostgREST contesta PGRST201 («más de una relación»: además de la
+    // clave directa hay caminos por tablas intermedias) y la ficha no podía comprobar la verificación en dos pasos
+    // (Sentry JAVASCRIPT-NEXTJS-46). Se nombra la clave que se quiere.
+    admin.from('socios').select('studio_id, studios!socios_studio_id_fkey!inner(cadena_id)').eq('auth_user_id', authUserId),
     esCuentaDeEquipo(admin, authUserId),
     cuantos('red_perfiles'),
     cuantos('red_perfiles_alumna'),
