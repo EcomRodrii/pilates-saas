@@ -1574,3 +1574,13 @@ canvas[data-tenti].tenti-entra {
 
 /* Panel nuevo: Widgets esconde «Primeros pasos» mientras enseña la vista previa (constructor-widgets.tsx). */
 body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !important; }
+
+/* Columna de secciones de Configuración: una sombra arriba/abajo solo cuando hay más por ver en esa dirección.
+   Los velos (`local`) tapan la sombra (`scroll`) cuando el contenido está en el borde; sin desbordar no se ve nada. */
+.rail-con-sombra {
+  background:
+    linear-gradient(var(--background) 30%, transparent) center top / 100% 28px no-repeat local,
+    linear-gradient(transparent, var(--background) 70%) center bottom / 100% 28px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--foreground) 16%, transparent), transparent) center top / 100% 10px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--foreground) 16%, transparent), transparent) center bottom / 100% 10px no-repeat scroll;
+}
