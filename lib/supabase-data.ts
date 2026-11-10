@@ -14,6 +14,7 @@ import { interpretarErrorEliminar } from '@/lib/recibos-eliminar';
 import type { Snapshot, SuscripcionActual } from '@/lib/billing/preview-reversion';
 import type { Plan } from '@/lib/billing/entitlements';
 import type { SegmentoCliente, DefinicionSegmento } from '@/lib/segmentos/tipos';
+import { esColorEtiqueta, type ColorEtiqueta, type Etiqueta } from '@/lib/etiquetas/etiquetas';
 // (Aquí había dos imports de `send-server` y `whatsapp` cuyos cuatro bindings
 // no se usaban en las 4200 líneas del fichero. Turbopack ya los sacudía bien
 // —comprobado: `@react-email/render` no aparece en ninguno de los 170 chunks
@@ -2124,6 +2125,45 @@ export async function dbUpdateCampoPersonalizado(id: string, changes: Partial<Ca
 export async function dbDeleteCampoPersonalizado(id: string): Promise<ResultadoEscritura> {
   const { error } = await supabase.from('campos_personalizados').delete().eq('id', id);
   return error ? falloEscritura('[dbDeleteCampoPersonalizado]', error) : ESCRITURA_OK;
+}
+
+// ── Etiquetas de alumnas (catálogo por estudio) ─────────────────────────────
+// Nombre + color por estudio (migr 20261110120000). Quién tiene cada una sigue en `socios.tags`; renombrar y eliminar
+// van por RPC porque tocan a todas las alumnas del estudio de golpe. Ver lib/etiquetas/etiquetas.ts.
+export async function dbFetchEtiquetas(): Promise<Etiqueta[]> {
+  const { data, error } = await supabase.from('etiquetas').select('id, nombre, color').order('nombre', { ascending: true });
+  if (error) { reportDbError('[dbFetchEtiquetas]', error); return []; }
+  return (data ?? []).flatMap(r => (esColorEtiqueta(r.color) ? [{ id: String(r.id), nombre: String(r.nombre), color: r.color }] : []));
+}
+
+const ETIQUETA_REPETIDA: ResultadoEscritura = { ok: false, error: 'Ya hay una etiqueta con ese nombre.' };
+
+export async function dbCrearEtiqueta(nombre: string, color: ColorEtiqueta): Promise<{ ok: true; etiqueta: Etiqueta } | { ok: false; error: string }> {
+  const { data, error } = await supabase.from('etiquetas').insert({ studio_id: STUDIO_ID, nombre, color }).select('id, nombre, color').single();
+  if (error) {
+    if (error.code === '23505') return ETIQUETA_REPETIDA as { ok: false; error: string };
+    return falloEscritura('[dbCrearEtiqueta]', error) as { ok: false; error: string };
+  }
+  return { ok: true, etiqueta: { id: String(data.id), nombre: String(data.nombre), color: esColorEtiqueta(data.color) ? data.color : color } };
+}
+
+export async function dbCambiarColorEtiqueta(id: string, color: ColorEtiqueta): Promise<ResultadoEscritura> {
+  const { error } = await supabase.from('etiquetas').update({ color }).eq('id', id);
+  return error ? falloEscritura('[dbCambiarColorEtiqueta]', error) : ESCRITURA_OK;
+}
+
+/** Renombra (o funde con otra que ya existe) en el catálogo y en TODAS las alumnas. Devuelve a cuántas ha tocado. */
+export async function dbRenombrarEtiqueta(viejo: string, nuevo: string): Promise<{ ok: true; alumnas: number } | { ok: false; error: string }> {
+  const { data, error } = await supabase.rpc('etiqueta_renombrar', { p_viejo: viejo, p_nuevo: nuevo });
+  if (error) return falloEscritura('[dbRenombrarEtiqueta]', error) as { ok: false; error: string };
+  return { ok: true, alumnas: typeof data === 'number' ? data : 0 };
+}
+
+/** Quita la etiqueta del catálogo y de TODAS las alumnas. Devuelve a cuántas se la ha quitado. */
+export async function dbEliminarEtiqueta(nombre: string): Promise<{ ok: true; alumnas: number } | { ok: false; error: string }> {
+  const { data, error } = await supabase.rpc('etiqueta_eliminar', { p_nombre: nombre });
+  if (error) return falloEscritura('[dbEliminarEtiqueta]', error) as { ok: false; error: string };
+  return { ok: true, alumnas: typeof data === 'number' ? data : 0 };
 }
 
 // ── Segmentos de clientes guardables (auditoría vs Momence) ────────────────

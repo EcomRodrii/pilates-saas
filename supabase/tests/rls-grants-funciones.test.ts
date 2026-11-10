@@ -51,6 +51,10 @@ const CASOS: Caso[] = [
   // Qué conexiones están encendidas, solo el tipo (migr 20261007144207): la llama
   // el panel con la sesión del equipo, porque `integraciones` solo la lee la propietaria.
   { firma: 'integraciones_activas()', anon: false, authenticated: true, serviceRole: true },
+  // Etiquetas de alumnas (migr 20261110120000): renombrar y eliminar tocan a todas las alumnas del estudio; las llama el
+  // panel con la sesión del equipo (guardia `puede_gestionar_clientas()` dentro). `anon`, nunca.
+  { firma: 'etiqueta_renombrar(text, text)', anon: false, authenticated: true, serviceRole: true },
+  { firma: 'etiqueta_eliminar(text)', anon: false, authenticated: true, serviceRole: true },
   // Plazas apartadas para ClassPass (migr 20261007164222): la regla y lo que la lee, solo el servidor
   // (las funciones del motor la llaman como su dueño). «Liberar 1» la llama la ruta del mostrador, que
   // comprueba el rol y deja el rastro: el navegador nunca.

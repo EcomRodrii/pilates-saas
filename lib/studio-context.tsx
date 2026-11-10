@@ -11,11 +11,13 @@ import { debeReleerAlVolver } from '@/lib/panel-refresco';
 import { puedeProgramarBaja } from '@/lib/billing/baja-al-vencer';
 import type { RespuestaBaja, MotivoBaja } from '@/lib/socios/baja';
 import type { RowInstructores } from '@/lib/db-types';
+import type { ColorEtiqueta, Etiqueta } from '@/lib/etiquetas/etiquetas';
 import {
   fetchAllStudioData, fetchCriticalStudioData, fetchDeferredStudioData, fetchGamificacionStudio,
   fetchAgendaCitasStudio, fetchFichaClientaStudio, fetchDashboardChartsStudio, fetchDatosTrasVentaPOS, fetchTarifasYSuscripciones, mapInstructor,
   dbInsertSocio, dbUpdateSocio, dbDeleteSocio,
   dbFetchCamposPersonalizados, dbInsertCampoPersonalizado, dbUpdateCampoPersonalizado, dbDeleteCampoPersonalizado,
+  dbFetchEtiquetas, dbCrearEtiqueta, dbCambiarColorEtiqueta, dbRenombrarEtiqueta, dbEliminarEtiqueta,
   dbFetchSegmentosClientes, dbInsertSegmentoCliente, dbUpdateSegmentoCliente, dbDeleteSegmentoCliente,
   dbFetchPlantillasEmail, dbUpsertPlantillaEmail,
   dbFetchDependencySnapshots,
@@ -766,6 +768,17 @@ interface StudioContextValue {
   updateCampoPersonalizado: (id: string, changes: Partial<Omit<CampoPersonalizado, 'id' | 'studioId'>>) => Promise<ResultadoEscritura>;
   deleteCampoPersonalizado: (id: string) => Promise<ResultadoEscritura>;
 
+  // Etiquetas de alumnas: el catálogo del estudio (nombre + color). Quién tiene cada una sigue en `socios[].tags`.
+  etiquetas: Etiqueta[];
+  /** `false` hasta que llega el catálogo: se pide aparte, después de `dataLoaded`. */
+  etiquetasCargadas: boolean;
+  crearEtiqueta: (nombre: string, color: ColorEtiqueta) => Promise<ResultadoEscritura>;
+  cambiarColorEtiqueta: (id: string, color: ColorEtiqueta) => Promise<ResultadoEscritura>;
+  /** Renombra, o funde con otra que ya existe, en el catálogo y en TODAS las alumnas. Devuelve a cuántas ha tocado. */
+  renombrarEtiqueta: (viejo: string, nuevo: string) => Promise<{ ok: true; alumnas: number } | { ok: false; error: string }>;
+  /** Quita la etiqueta del catálogo y de TODAS las alumnas. Devuelve a cuántas se la ha quitado. */
+  eliminarEtiqueta: (nombre: string) => Promise<{ ok: true; alumnas: number } | { ok: false; error: string }>;
+
   // Segmentos de clientes guardables (auditoría vs Momence)
   segmentosClientes: SegmentoCliente[];
   addSegmentoCliente: (nombre: string, condiciones: DefinicionSegmento) => Promise<ResultadoEscritura>;
@@ -1002,6 +1015,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const [valoracionEstudio, setValoracionEstudio] = useState<{ media: number; total: number } | null>(null);
   const [camposPersonalizados, setCamposPersonalizados] = useState<CampoPersonalizado[]>([]);
   const [camposPersonalizadosCargados, setCamposPersonalizadosCargados] = useState(false);
+  const [etiquetas, setEtiquetas] = useState<Etiqueta[]>([]);
+  const [etiquetasCargadas, setEtiquetasCargadas] = useState(false);
   const [segmentosClientes, setSegmentosClientes] = useState<SegmentoCliente[]>([]);
   const [plantillasEmail, setPlantillasEmail] = useState<PlantillaEmail[]>([]);
   const [plantillasEmailCargadas, setPlantillasEmailCargadas] = useState(false);
@@ -1598,7 +1613,9 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
         dbFetchPlantillasCuestionarioSalud(),
         dbFetchRespuestasCuestionarioSalud(),
         likesPromesa,
-      ]).then(([campos, segmentos, plantillas, snapshots, plantillasSalud, respuestasSalud, likes]) => {
+        dbFetchEtiquetas(),
+      ]).then(([campos, segmentos, plantillas, snapshots, plantillasSalud, respuestasSalud, likes, etiquetasLeidas]) => {
+        if (etiquetasLeidas.status === 'fulfilled') { setEtiquetas(etiquetasLeidas.value); setEtiquetasCargadas(true); }
         if (campos.status === 'fulfilled') { setCamposPersonalizados(campos.value); setCamposPersonalizadosCargados(true); }
         if (segmentos.status === 'fulfilled') setSegmentosClientes(segmentos.value);
         if (plantillas.status === 'fulfilled') { setPlantillasEmail(plantillas.value); setPlantillasEmailCargadas(true); }
@@ -2339,6 +2356,51 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     const res = await dbDeleteCampoPersonalizado(id);
     if (!res.ok) return res;
     setCamposPersonalizados(prev => prev.filter(c => c.id !== id));
+    return res;
+  }
+
+  // ── Etiquetas de alumnas ────────────────────────────────────────────────────
+
+  async function crearEtiqueta(nombre: string, color: ColorEtiqueta): Promise<ResultadoEscritura> {
+    const res = await dbCrearEtiqueta(nombre, color);
+    if (!res.ok) return res;
+    setEtiquetas(prev => [...prev.filter(e => e.id !== res.etiqueta.id), res.etiqueta]);
+    return { ok: true };
+  }
+  async function cambiarColorEtiqueta(id: string, color: ColorEtiqueta): Promise<ResultadoEscritura> {
+    const res = await dbCambiarColorEtiqueta(id, color);
+    if (!res.ok) return res;
+    setEtiquetas(prev => prev.map(e => e.id === id ? { ...e, color } : e));
+    return res;
+  }
+  // Renombrar y eliminar tocan a todas las alumnas del estudio en la base de datos: aquí se refleja lo mismo en memoria,
+  // con la MISMA regla (sin distinguir mayúsculas, sin repetir), para no enseñar la etiqueta vieja hasta recargar.
+  async function renombrarEtiqueta(viejo: string, nuevo: string): Promise<{ ok: true; alumnas: number } | { ok: false; error: string }> {
+    const res = await dbRenombrarEtiqueta(viejo, nuevo);
+    if (!res.ok) return res;
+    const kv = viejo.trim().toLocaleLowerCase('es');
+    const kn = nuevo.trim().toLocaleLowerCase('es');
+    const canon = etiquetas.find(e => e.nombre.toLocaleLowerCase('es') === kn && e.nombre.toLocaleLowerCase('es') !== kv)?.nombre ?? nuevo.trim();
+    setEtiquetas(prev => {
+      const existeNuevo = prev.some(e => e.nombre.toLocaleLowerCase('es') === kn && e.nombre.toLocaleLowerCase('es') !== kv);
+      return existeNuevo
+        ? prev.filter(e => e.nombre.toLocaleLowerCase('es') !== kv)
+        : prev.map(e => e.nombre.toLocaleLowerCase('es') === kv ? { ...e, nombre: canon } : e);
+    });
+    setSocios(prev => prev.map(s => {
+      if (!(s.tags ?? []).some(t => t.toLocaleLowerCase('es') === kv)) return s;
+      const vistas = new Set<string>();
+      const tags = (s.tags ?? []).map(t => (t.toLocaleLowerCase('es') === kv || t.toLocaleLowerCase('es') === kn ? canon : t)).filter(t => (vistas.has(t) ? false : (vistas.add(t), true)));
+      return { ...s, tags };
+    }));
+    return res;
+  }
+  async function eliminarEtiqueta(nombre: string): Promise<{ ok: true; alumnas: number } | { ok: false; error: string }> {
+    const res = await dbEliminarEtiqueta(nombre);
+    if (!res.ok) return res;
+    const k = nombre.trim().toLocaleLowerCase('es');
+    setEtiquetas(prev => prev.filter(e => e.nombre.toLocaleLowerCase('es') !== k));
+    setSocios(prev => prev.map(s => (s.tags ?? []).some(t => t.toLocaleLowerCase('es') === k) ? { ...s, tags: (s.tags ?? []).filter(t => t.toLocaleLowerCase('es') !== k) } : s));
     return res;
   }
 
@@ -6044,6 +6106,12 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     deleteTipoClase,
     camposPersonalizados,
     camposPersonalizadosCargados,
+    etiquetas,
+    etiquetasCargadas,
+    crearEtiqueta,
+    cambiarColorEtiqueta,
+    renombrarEtiqueta,
+    eliminarEtiqueta,
     addCampoPersonalizado,
     updateCampoPersonalizado,
     deleteCampoPersonalizado,
@@ -6269,7 +6337,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   }), [
     planesTarifa, salas, tiposClase, contenidoPortal, bannersPortal, novedadesEstudio, portalHome, homeBloques, bloquesClases, bloquesBonos, bloquesReservar, tabBarStyleEfectivo, barraClasicaEfectiva, barraFlotanteEfectiva, variantesEfectivas, navPortal, themeIdPublicado, redesSociales, favoritos, retosApuntados, retoConteos, aforoApartadas, valoracionEstudio, instructores, spots,
     bloqueosMaquina, plazasFijas, recuperaciones, socioExcepciones, mandatosSepa, estadoMandatosSepa,
-    camposPersonalizados, camposPersonalizadosCargados, segmentosClientes, plantillasEmail, dependencySnapshots,
+    camposPersonalizados, camposPersonalizadosCargados, etiquetas, etiquetasCargadas, segmentosClientes, plantillasEmail, dependencySnapshots,
     socios, suscripciones, sesiones, reservas, recibos, facturas, notasInternas,
     condicionesSalud, respuestasSesion, emailsRebotados,
     plantillasCuestionarioSalud, cuestionarioSaludCargado, respuestasCuestionarioSalud,

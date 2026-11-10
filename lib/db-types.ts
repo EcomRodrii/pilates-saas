@@ -4436,6 +4436,14 @@ export interface RowEmbudoAlta {
   ocurrido_en: string;
 }
 
+export interface RowEtiquetas {
+  id: string;
+  studio_id: string;
+  nombre: string;
+  color: string;
+  creada_en: string;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12265,6 +12273,22 @@ export type EmbudoAltaUpdate = {
   ocurrido_en?: string | null;
 }
 
+export type EtiquetasInsert = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  color?: string | null;
+  creada_en?: string | null;
+}
+
+export type EtiquetasUpdate = {
+  id?: string | null;
+  studio_id?: string | null;
+  nombre?: string | null;
+  color?: string | null;
+  creada_en?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13642,6 +13666,11 @@ export type Database = {
         Row: RowEmbudoAlta;
         Insert: EmbudoAltaInsert;
         Update: EmbudoAltaUpdate;
+      };
+      etiquetas: {
+        Row: RowEtiquetas;
+        Insert: EtiquetasInsert;
+        Update: EtiquetasUpdate;
       };
     };
   };

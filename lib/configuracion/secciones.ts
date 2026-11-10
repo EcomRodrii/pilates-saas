@@ -174,7 +174,7 @@ export const SECCIONES = [
   {
     id: 'altas',
     titulo: 'Alta de alumnas',
-    resumen: 'Contrato, compra desde tu enlace, ficha y salud',
+    resumen: 'Contrato, compra, ficha, etiquetas y salud',
     frase: 'Lo que acepta y rellena una alumna nueva, y qué datos guardas de cada una.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
@@ -184,6 +184,7 @@ export const SECCIONES = [
       { id: 'preguntas-en-su-app', titulo: 'Preguntar los datos extra en su app', frase: 'Tu alumna contesta tus «Datos extra» en su app antes de reservar o comprar. Las obligatorias no se saltan.', guardado: 'al-pulsar', palabras: ['preguntas', 'obligatorias', 'registro', 'alta', 'formulario'] },
       { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus alumnas te cuentan qué buscan antes de sus primeras clases.', guardado: 'al-pulsar', palabras: ['objetivos'] },
       { id: 'cuestionario-de-salud', titulo: 'Cuestionario de salud', frase: 'Preguntas de salud que rellenáis tú o tus instructoras en la ficha de cada alumna; ella no lo rellena.', guardado: 'catalogo', palabras: ['lesiones'] },
+      { id: 'etiquetas', titulo: 'Etiquetas', frase: 'Agrupa a tus alumnas a tu manera, como «Mamás»: las pones en su ficha y filtras por ellas.', guardado: 'catalogo', palabras: ['etiqueta', 'vip', 'grupo', 'grupos', 'agrupar', 'segmento', 'color', 'colores'] },
     ],
   },
   {
