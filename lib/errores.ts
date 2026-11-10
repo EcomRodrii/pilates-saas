@@ -124,7 +124,7 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
   if (/TIPO_ARCHIVADO/.test(msg)) {
     return 'Ese tipo de clase está archivado: ya no se programan clases nuevas suyas. Elige otro, o recupéralo en Configuración → Mis clases y citas.';
   }
-  // Política de congelación del estudio (migr 20261110140000): la base de datos rechaza congelar si la propietaria lo apagó.
+  // Política de congelación del estudio (migr 20261110121938): la base de datos rechaza congelar si la propietaria lo apagó.
   if (/CONGELACION_NO_PERMITIDA/.test(msg)) {
     return 'Tu estudio tiene apagada la congelación de cuotas y bonos. Puedes encenderla en Configuración → Cobros y facturas → Congelar una cuota o un bono.';
   }

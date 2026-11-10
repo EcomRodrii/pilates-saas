@@ -289,11 +289,11 @@ export interface Studio {
   // false (default) = cada cargo espera aprobación manual antes de tocar la
   // tarjeta guardada. true = se cobra solo, como el cron de dunning.
   penalizacionCobroAutomatico: boolean;
-  // «Se cobra a partir de la falta N» (migr 20261110130000). 1 = desde la primera, como siempre. La ventana es cuántos días
+  // «Se cobra a partir de la falta N» (migr 20261110121922). 1 = desde la primera, como siempre. La ventana es cuántos días
   // hacia atrás cuentan las faltas de una alumna (30, 60, 90, 180 o 365).
   penalizacionUmbralFaltas: number;
   penalizacionUmbralVentanaDias: number;
-  // Política de congelación (migr 20261110140000): si se pueden congelar cuotas y bonos, y lo máximo que una congelación
+  // Política de congelación (migr 20261110121938): si se pueden congelar cuotas y bonos, y lo máximo que una congelación
   // alarga su fecha de fin (null = sin tope, como siempre).
   congelacionPermitida: boolean;
   congelacionMaxDias: number | null;

@@ -403,7 +403,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
 }
 
 // ── Congelar una cuota o un bono ────────────────────────────────────────────
-// Política del estudio (migr 20261110140000). La cumple la base de datos en `congelar_suscripcion` y
+// Política del estudio (migr 20261110121938). La cumple la base de datos en `congelar_suscripcion` y
 // `descongelar_suscripcion`, no esta pantalla: aquí solo se elige y se explica. Sin dinero que cobrar ni devolver: toca
 // hasta cuándo vale lo que la alumna ya pagó, así que «Guardar» no pregunta; las congelaciones ya en marcha se reanudan
 // con la regla que haya EN ESE MOMENTO.

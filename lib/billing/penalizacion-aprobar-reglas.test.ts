@@ -1915,7 +1915,7 @@ test('⚠️ el botón de la remesa filtra las penalizaciones ANTES de generar e
   assert.match(cuerpo, /penalizacionDelRecibo\(reciboId\) === fila\.id/, 'solo si la penalización apunta a ESE recibo');
 });
 
-// ── «Se cobra a partir de la falta N» (migr 20261110130000) ─────────────────
+// ── «Se cobra a partir de la falta N» (migr 20261110121922) ─────────────────
 
 test('franquicia: con el umbral de serie (1) nunca se omite, ni con muchas faltas previas', () => {
   for (const faltasPrevias of [0, 1, 5, 50]) assert.equal(omitirPorFranquicia({ umbral: 1, faltasPrevias }), false);

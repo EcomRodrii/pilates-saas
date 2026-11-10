@@ -733,7 +733,7 @@ export function omitirPorPlazaFijaSinCuota(p: { politica: string | null | undefi
 }
 
 /**
- * «Se cobra a partir de la falta N» (`studios.penalizacion_umbral_faltas`, migr 20261110130000). `faltasPrevias` son las
+ * «Se cobra a partir de la falta N» (`studios.penalizacion_umbral_faltas`, migr 20261110121922). `faltasPrevias` son las
  * faltas ANTERIORES de la alumna dentro de la ventana (sin las revertidas): esta es la número `faltasPrevias + 1`. Con
  * umbral 1 (de serie) nunca se omite: el comportamiento de siempre. SOLO puede dejar de cobrar, jamás cobrar más.
  * Un umbral que no es un entero válido no omite nada (ante la duda, lo de siempre).

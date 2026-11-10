@@ -225,7 +225,7 @@ test.describe('Reservas: guardar', () => {
     expect(patches[0]).toEqual({
       penalizacion_importe_eur: 8, penalizacion_aplica_cancelacion_tardia: true,
       penalizacion_aplica_no_show: true, penalizacion_cobro_automatico: false,
-      // De serie: se cobra desde la primera falta (migr 20261110130000).
+      // De serie: se cobra desde la primera falta (migr 20261110121922).
       penalizacion_umbral_faltas: 1, penalizacion_umbral_ventana_dias: 90,
     });
   });

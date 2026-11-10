@@ -1,4 +1,4 @@
-// Política de congelación del estudio (migración 20261110140000):
+// Política de congelación del estudio (migración 20261110121938):
 //  · con `congelacion_permitida = false` no se congela una suscripción nueva (CONGELACION_NO_PERMITIDA), pero la ya
 //    congelada se reanuda con normalidad;
 //  · con `congelacion_max_dias`, una congelación alarga la fecha de fin como MÁXIMO esos días (y `dias_aplicados` lo dice);
@@ -111,6 +111,37 @@ test('el máximo se mueve de 1 a 365 días', async () => {
     }
     const ok = await admin.from('studios').update({ congelacion_max_dias: 365 }).eq('id', studio.studioId);
     assert.ok(!ok.error, ok.error?.message);
+  } finally {
+    await limpiarFixtures(admin, [studio]);
+  }
+});
+
+test('la propietaria puede guardar la política desde Configuración: authenticated escribe esas columnas de studios', async () => {
+  // `studios` solo se escribe por lista blanca de columnas: sin el grant, guardar la política da 42501 aunque la RLS deje.
+  const r = await sql<{ permitida: boolean; maximo: boolean }[]>`
+    select has_column_privilege('authenticated', 'public.studios', 'congelacion_permitida', 'UPDATE') as permitida,
+           has_column_privilege('authenticated', 'public.studios', 'congelacion_max_dias', 'UPDATE') as maximo`;
+  assert.deepEqual(r[0], { permitida: true, maximo: true });
+  const studio = await crearStudioConPropietaria(admin);
+  try {
+    const guarda = await studio.comoPropietaria.from('studios').update({ congelacion_permitida: false, congelacion_max_dias: 20 }).eq('id', studio.studioId).select('id');
+    assert.ok(!guarda.error, guarda.error?.message);
+    assert.equal(guarda.data?.length, 1, 'la RLS tiene que dejarla escribir su propio estudio');
+  } finally {
+    await limpiarFixtures(admin, [studio]);
+  }
+});
+
+test('reintentar congelar lo que ya está congelado es idempotente aunque la política se apague entre medias', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  try {
+    const sus = await crearSuscripcion(admin, studio.studioId, await crearSocia(admin, studio.studioId));
+    const id = idCong();
+    const primera = await studio.comoPropietaria.rpc('congelar_suscripcion', { p_id: id, p_suscripcion_id: sus, p_studio_id: studio.studioId, p_motivo: 'x' });
+    assert.ok(!primera.error, primera.error?.message);
+    await admin.from('studios').update({ congelacion_permitida: false }).eq('id', studio.studioId);
+    const reintento = await studio.comoPropietaria.rpc('congelar_suscripcion', { p_id: idCong(), p_suscripcion_id: sus, p_studio_id: studio.studioId, p_motivo: 'x' });
+    assert.ok(!reintento.error, `un doble clic no debería dar error: ${reintento.error?.message}`);
   } finally {
     await limpiarFixtures(admin, [studio]);
   }

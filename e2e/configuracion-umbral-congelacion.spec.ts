@@ -3,9 +3,9 @@ import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dos reglas del estudio que se eligen en Configuración y cumple la base de datos:
-//   · «Se cobra a partir de la falta N» (Cómo reservan → Si cancela tarde o no viene; migr 20261110130000): perdonar las
+//   · «Se cobra a partir de la falta N» (Cómo reservan → Si cancela tarde o no viene; migr 20261110121922): perdonar las
 //     primeras faltas. Solo puede cobrar MENOS: el contrato de la alumna no cambia.
-//   · «Congelar una cuota o un bono» (Cobros y facturas; migr 20261110140000): si se puede congelar y cuántos días como
+//   · «Congelar una cuota o un bono» (Cobros y facturas; migr 20261110121938): si se puede congelar y cuántos días como
 //     máximo alarga el plan.
 //
 // ⚠️ Cada «el servidor dice no» comprueba que se INTENTÓ escribir: sin contador, «no mintió» puede ser verdad por no haber

@@ -757,7 +757,7 @@ export function FormPenalizacion({ excepciones, ...props }: PropsCajonRegla) {
               on={form.penalizacionCobroAutomatico}
               onChange={v => cambiar('penalizacionCobroAutomatico', v)}
             />
-            {/* «Se cobra a partir de la falta N» (migr 20261110130000): perdonar las primeras queda dentro de lo que la alumna
+            {/* «Se cobra a partir de la falta N» (migr 20261110121922): perdonar las primeras queda dentro de lo que la alumna
                 aceptó en su contrato, así que no cambia el texto legal. De serie 1 = desde la primera, como siempre. */}
             <Campo label="Cobrar desde" ayuda="Las faltas anteriores quedan anotadas pero no se cobran: es tu forma de decir «la primera vez te la perdonamos».">
               {id => (

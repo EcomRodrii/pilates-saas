@@ -94,7 +94,7 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     }
   }
 
-  // «Se cobra a partir de la falta N» (`penalizacion_umbral_faltas`, migr 20261110130000). La falta ya está anotada; aquí solo
+  // «Se cobra a partir de la falta N» (`penalizacion_umbral_faltas`, migr 20261110121922). La falta ya está anotada; aquí solo
   // se decide si se COBRA, y solo puede decidir cobrar MENOS que antes (con el umbral de serie, 1, no hace nada). Va antes de
   // Stripe y del consentimiento para no avisar de un «cargo bloqueado» que nunca se iba a cobrar. Cuenta las faltas
   // ANTERIORES de la alumna en la ventana (por instante y, a igualdad, por id), sin las revertidas. Sin poder contarlas no
@@ -102,11 +102,13 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
   const umbral = Number(studio.penalizacion_umbral_faltas ?? 1);
   if (umbral > 1) {
     const ventana = Number(studio.penalizacion_umbral_ventana_dias ?? 90);
-    const detectada = new Date(pen.detectada_en).toISOString();
+    // El instante TAL CUAL llega de la base de datos (con microsegundos): truncarlo a milisegundos hacía que dos faltas insertadas
+    // en la misma transacción no se contaran entre sí, y las dos quedaban perdonadas.
+    const detectada = pen.detectada_en;
     const { count: previas, error: errFaltas } = await admin.from('penalizaciones')
       .select('id', { count: 'exact', head: true })
       .eq('studio_id', pen.studio_id).eq('socio_id', pen.socio_id).neq('estado', 'OMITIDA_REVERTIDA')
-      .gte('detectada_en', desdeVentanaDeFaltas(detectada, ventana))
+      .gte('detectada_en', desdeVentanaDeFaltas(new Date(detectada).toISOString(), ventana))
       .or(`detectada_en.lt.${detectada},and(detectada_en.eq.${detectada},id.lt.${pen.id})`);
     if (errFaltas) return;
     if (omitirPorFranquicia({ umbral, faltasPrevias: previas ?? 0 })) {

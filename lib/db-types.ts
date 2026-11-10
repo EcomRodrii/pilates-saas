@@ -1154,13 +1154,13 @@ export interface RowStudios {
   recordatorio_largo_activo: boolean | null;
   // migr 20261104100000.
   recordatorio_corto_activo: boolean | null;
-  // migr 20261110130000.
+  // migr 20261110121922.
   penalizacion_umbral_faltas: number | null;
-  // migr 20261110130000.
+  // migr 20261110121922.
   penalizacion_umbral_ventana_dias: number | null;
-  // migr 20261110140000.
+  // migr 20261110121938.
   congelacion_permitida: boolean | null;
-  // migr 20261110140000.
+  // migr 20261110121938.
   congelacion_max_dias: number | null;
 }
 

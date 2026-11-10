@@ -22,6 +22,10 @@ alter table public.studios drop constraint if exists studios_congelacion_max_dia
 alter table public.studios add constraint studios_congelacion_max_dias_check
   check (congelacion_max_dias is null or congelacion_max_dias between 1 and 365);
 
+-- ⚠️ `authenticated` solo escribe `studios` por lista blanca de columnas (migr 20260910171150): sin esto, Configuración
+-- recibiría un 42501 al guardar la política. Mismo patrón que 20261104100000.
+grant update (congelacion_permitida, congelacion_max_dias) on public.studios to authenticated;
+
 comment on column public.studios.congelacion_permitida is
   'false = no se pueden congelar suscripciones nuevas (las ya congeladas se reanudan con normalidad).';
 comment on column public.studios.congelacion_max_dias is
@@ -47,7 +51,16 @@ begin
     raise exception 'SUSCRIPCION_NO_PERTENECE_AL_STUDIO';
   end if;
 
-  -- ↓ nuevo: la política del estudio. Los procesos del servidor no se frenan.
+  -- ↓ nuevo: un reintento sobre una suscripción que YA tiene una congelación abierta (doble clic) sigue siendo idempotente,
+  -- aunque la política se haya apagado entre medias: no hay nada nuevo que congelar.
+  if exists (
+    select 1 from public.congelaciones c
+    where c.suscripcion_id = p_suscripcion_id and c.studio_id = p_studio_id and c.hasta is null
+  ) then
+    return;
+  end if;
+
+  -- La política del estudio. Los procesos del servidor no se frenan.
   if not public.es_llamada_servicio() and exists (
     select 1 from public.studios st where st.id = p_studio_id and st.congelacion_permitida is false
   ) then
