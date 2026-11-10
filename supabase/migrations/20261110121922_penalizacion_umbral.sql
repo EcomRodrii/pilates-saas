@@ -88,3 +88,10 @@ begin
   return new;
 end;
 $function$;
+
+-- Los permisos de la función no cambian al redefinirla (siguen como los dejó 20260730225321: solo la dispara Postgres al
+-- hacer el UPDATE en reservas). Se dicen por escrito igualmente: lo exige lib/rgpd-grants-anon-guardias-contrato.test.ts
+-- para toda función SECURITY DEFINER, y así un cambio de firma futuro no la deja abierta sin que nadie lo vea.
+-- (Verificado en producción tras aplicar: anon=false, authenticated=false, service_role=true.)
+revoke all on function public.trigger_detectar_penalizacion_no_show() from public, anon, authenticated;
+grant execute on function public.trigger_detectar_penalizacion_no_show() to service_role;
