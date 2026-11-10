@@ -1,6 +1,6 @@
 'use client';
 
-import { FileSignature, HeartPulse, ListChecks, ListPlus, ShoppingBag, Sparkles } from 'lucide-react';
+import { FileSignature, HeartPulse, ListChecks, ListPlus, ShoppingBag, Sparkles, Tag } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { hayPenalizacionConfigurada } from '@/lib/configuracion/penalizacion-activa';
 import {
@@ -11,6 +11,8 @@ import { FormContratoYPrivacidad } from '@/components/configuracion/tab-estudio-
 import { FormCompraPublica } from '@/components/configuracion/tarjeta-compra-publica';
 import { TabCamposPersonalizados } from '@/components/configuracion/tab-campos-personalizados';
 import { TabCuestionarioSalud } from '@/components/configuracion/tab-cuestionario-salud';
+import { TabEtiquetas } from '@/components/configuracion/tab-etiquetas';
+import { listaDeEtiquetas, resumenDeEtiquetas } from '@/lib/etiquetas/etiquetas';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 
@@ -26,13 +28,14 @@ import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configurac
 // entero (el constructor de widgets, la rejilla de tipos de clase). Cada
 // pregunta se guarda con su propio botón, y cerrar con una a medias pregunta.
 
-type CajonId = Extract<TarjetaId, 'contrato-y-privacidad' | 'compra-desde-tu-enlace' | 'datos-extra-de-la-ficha' | 'cuestionario-de-salud'>;
-const CAJONES = ['contrato-y-privacidad', 'compra-desde-tu-enlace', 'datos-extra-de-la-ficha', 'cuestionario-de-salud'] as const satisfies readonly CajonId[];
+type CajonId = Extract<TarjetaId, 'contrato-y-privacidad' | 'compra-desde-tu-enlace' | 'datos-extra-de-la-ficha' | 'cuestionario-de-salud' | 'etiquetas'>;
+const CAJONES = ['contrato-y-privacidad', 'compra-desde-tu-enlace', 'datos-extra-de-la-ficha', 'cuestionario-de-salud', 'etiquetas'] as const satisfies readonly CajonId[];
 
 export function SeccionAltas({ showToast }: { showToast: (m: string) => void }) {
   const {
     studio, dataLoaded, tiposClase, updateStudio, textosLegalesPropios,
     camposPersonalizados, camposPersonalizadosCargados, plantillasCuestionarioSalud, cuestionarioSaludCargado,
+    etiquetas, etiquetasCargadas, socios,
   } = useStudio();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
@@ -94,6 +97,15 @@ export function SeccionAltas({ showToast }: { showToast: (m: string) => void }) 
         />
       </GrupoFilas>
 
+      <GrupoFilas titulo="Cómo las organizas">
+        <FilaAjuste
+          id="etiquetas"
+          icono={Tag}
+          valor={resumenDeEtiquetas(etiquetasCargadas && dataLoaded ? listaDeEtiquetas(etiquetas, socios) : null)}
+          onAbrir={abrir}
+        />
+      </GrupoFilas>
+
       <CajonAjuste id="contrato-y-privacidad" abierto={cajon === 'contrato-y-privacidad'} onCerrar={cerrar}>
         <FormContratoYPrivacidad {...props} />
       </CajonAjuste>
@@ -105,6 +117,9 @@ export function SeccionAltas({ showToast }: { showToast: (m: string) => void }) 
       </CajonAjuste>
       <CajonAjuste id="cuestionario-de-salud" abierto={cajon === 'cuestionario-de-salud'} onCerrar={cerrar}>
         <TabCuestionarioSalud showToast={showToast} />
+      </CajonAjuste>
+      <CajonAjuste id="etiquetas" abierto={cajon === 'etiquetas'} onCerrar={cerrar}>
+        <TabEtiquetas showToast={showToast} />
       </CajonAjuste>
     </>
   );

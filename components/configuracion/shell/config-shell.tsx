@@ -482,7 +482,10 @@ export function ConfigShell() {
         {/* Una herramienta va a todo el ancho: sin la columna de secciones. */}
         <div className={cn(!herramienta && 'md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6')}>
           {!herramienta && (
-            <div className="hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-8rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
+            // La columna son ~20 filas: en un portátil (≤ 900 px de alto) no cabe y «Plan de Tentare» y «Mi cuenta» quedaban
+            // fuera de la vista sin nada que dijera que había más. `.rail-con-sombra` pinta una sombra arriba y abajo SOLO
+            // cuando hay más contenido en esa dirección (scroll shadows con `background-attachment: local`, sin JavaScript).
+            <div className="rail-con-sombra hidden md:sticky md:top-14 md:block md:max-h-[calc(100dvh-7rem)] md:self-start md:overflow-y-auto lg:top-[calc(var(--panel-sticky-top,0px)+4rem)]">
               <ListaSecciones secciones={visibles} rol={rol} activa={mostrada} onElegir={id => irAPreguntando(id)} />
             </div>
           )}

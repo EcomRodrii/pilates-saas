@@ -98,18 +98,10 @@ import { ReanimarAlCambiar } from '@/components/ui/reanimar-al-cambiar';
 import { FichaValoracion, FichaValoracionSalud } from '@/components/socios/valoracion-inicial-ficha';
 import { repartirHistorial } from '@/lib/valoracion-inicial';
 import { textoPlazaFijaSinCuota } from '@/lib/plazas-fijas-sin-cuota';
+import { Colores } from '@/components/etiquetas/etiquetas-ui';
+import { MAX_NOMBRE_ETIQUETA, colorDe, estiloDeEtiqueta, motivoNombreNoValido, normalizarNombre, opcionesParaPoner, type ColorEtiqueta } from '@/lib/etiquetas/etiquetas';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const TAGS_OPTIONS = [
-  { label: 'VIP', bg: '#FFF2F7', text: 'var(--brand)' },
-  { label: 'Prueba', bg: 'color-mix(in srgb, var(--warning) 12%, var(--card))', text: 'var(--warning)' },
-  { label: 'Lesión', bg: 'color-mix(in srgb, var(--destructive) 12%, var(--card))', text: 'var(--destructive)' },
-  { label: 'Embarazo', bg: 'color-mix(in srgb, var(--success) 12%, var(--card))', text: 'var(--success)' },
-  { label: 'Baja temp.', bg: 'var(--muted)', text: 'var(--muted-foreground)' },
-  { label: 'Online', bg: '#E0F2FE', text: '#3F5A7A' },
-  { label: 'Profesora', bg: '#FEF9C3', text: '#713F12' },
-];
 
 const BADGE_RECIBO: Record<string, string> = {
   COBRADO: 'bg-success/10 text-success',
@@ -245,7 +237,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     tiposClase, salas, instructores, notasInternas, valoracionesSocias,
     cargarFichaClienta,
     updateSocio, deleteSocio, volverADarDeAlta, assignPlan, marcarCobrado, cobrarTodosPendientes,
-    addTagSocio, removeTagSocio, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
+    addTagSocio, removeTagSocio, etiquetas, crearEtiqueta, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
     programarBajaSuscripcion,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
@@ -321,6 +313,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   // clic en el mismo tick (se lee antes de re-renderizar); el ref sí.
   const borrandoRef = useRef(false);
   const [showAddTag, setShowAddTag] = useState(false);
+  const [etiquetaNueva, setEtiquetaNueva] = useState('');
+  const [colorEtiquetaNueva, setColorEtiquetaNueva] = useState<ColorEtiqueta>('azul');
+  const [errorEtiquetaNueva, setErrorEtiquetaNueva] = useState<string | null>(null);
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [reservaFilter, setReservaFilter] = useState<'todas' | 'confirmadas' | 'asistidas' | 'canceladas'>('todas');
   const [reservasPage, setReservasPage] = useState(20);
@@ -640,7 +635,25 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   });
 
   // ── Helpers ────────────────────────────────────────────────────────────────
-  const tagsDisponibles = TAGS_OPTIONS.filter(t => !tags.includes(t.label));
+  // Las del estudio (catálogo y lo que ya hay en otras fichas) y las sugeridas de serie, sin las que ya lleva.
+  const tagsDisponibles = opcionesParaPoner(etiquetas, socios, tags);
+
+  async function ponerEtiqueta(nombre: string) {
+    const res = await addTagSocio(id, nombre);
+    if (!res.ok) { setToastError(res.error); return false; }
+    setShowAddTag(false);
+    return true;
+  }
+
+  // Una etiqueta propia: entra en el catálogo del estudio (con su color) y se le pone a ella.
+  async function crearYPonerEtiqueta() {
+    const limpio = normalizarNombre(etiquetaNueva);
+    const motivo = motivoNombreNoValido(limpio, [...tagsDisponibles.map(e => e.nombre), ...tags]);
+    if (motivo) { setErrorEtiquetaNueva(motivo); return; }
+    const res = await crearEtiqueta(limpio, colorEtiquetaNueva);
+    if (!res.ok) { setErrorEtiquetaNueva(res.error); return; }
+    if (await ponerEtiqueta(limpio)) { setEtiquetaNueva(''); setErrorEtiquetaNueva(null); }
+  }
 
   function getReservaInfo(r: typeof misReservas[0]) {
     const ses = sesionById.get(r.sesionId);
@@ -1713,10 +1726,10 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                       hasta su zona de 44; con 6 de hueco se metía en la etiqueta de al lado. */}
                   <div className="flex flex-wrap gap-1.5 tactil:gap-4">
                     {tags.map(tag => (
-                      <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-[12.5px] font-medium text-foreground">
+                      <span key={tag} className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[12.5px] font-semibold" style={estiloDeEtiqueta(colorDe(tag, etiquetas))}>
                         {tag}
                         {gestionaClientas && (
-                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="zona-tactil -mr-1 rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <button onClick={async () => { const res = await removeTagSocio(id, tag); if (!res.ok) setToastError(res.error); }} aria-label={`Quitar la etiqueta ${tag}`} className="zona-tactil -mr-1 rounded-full p-0.5 opacity-70 hover:opacity-100">
                             <X size={12} />
                           </button>
                         )}
@@ -2558,25 +2571,43 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       {/* ═══════════════ MODALS ════════════════════════════════════════════════ */}
 
       {/* Add Tag */}
-      <Dialog open={showAddTag} onOpenChange={setShowAddTag}>
+      <Dialog open={showAddTag} onOpenChange={o => { setShowAddTag(o); if (!o) { setEtiquetaNueva(''); setErrorEtiquetaNueva(null); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-foreground">Añadir etiqueta</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-wrap gap-2 mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             {tagsDisponibles.map(t => (
               <button
-                key={t.label}
-                onClick={async () => { const res = await addTagSocio(id, t.label); if (!res.ok) { setToastError(res.error); return; } setShowAddTag(false); }}
-                className="px-3 py-1.5 rounded-full text-xs font-bold transition-all hover:scale-105"
-                style={{ backgroundColor: t.bg, color: t.text }}
+                key={t.nombre}
+                onClick={() => void ponerEtiqueta(t.nombre)}
+                className="rounded-full border px-3 py-1.5 text-xs font-bold transition-transform hover:scale-105"
+                style={estiloDeEtiqueta(t.color)}
               >
-                {t.label}
+                {t.nombre}
               </button>
             ))}
             {tagsDisponibles.length === 0 && (
-              <p className="text-sm text-muted-foreground">Todas las etiquetas ya están asignadas.</p>
+              <p className="text-sm text-muted-foreground">Ya tiene todas las etiquetas de tu estudio. Crea una nueva aquí abajo.</p>
             )}
+          </div>
+          <div className="mt-4 space-y-2.5 border-t border-border pt-4">
+            <p className="text-sm font-semibold text-foreground">O crea una nueva</p>
+            <input
+              className={inputCls}
+              placeholder="Ej. Mamás"
+              maxLength={MAX_NOMBRE_ETIQUETA + 10}
+              value={etiquetaNueva}
+              onChange={e => { setEtiquetaNueva(e.target.value); setErrorEtiquetaNueva(null); }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void crearYPonerEtiqueta(); } }}
+              aria-label="Nombre de la etiqueta nueva"
+              aria-invalid={errorEtiquetaNueva ? true : undefined}
+            />
+            {errorEtiquetaNueva && <p role="alert" className="text-xs font-medium text-destructive">{errorEtiquetaNueva}</p>}
+            <Colores valor={colorEtiquetaNueva} onElegir={setColorEtiquetaNueva} etiqueta="Color de la etiqueta nueva" />
+            <button type="button" onClick={() => void crearYPonerEtiqueta()} disabled={etiquetaNueva.trim() === ''} className="zona-tactil inline-flex items-center gap-1 rounded-full bg-primary px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">
+              <Plus size={13} aria-hidden /> Crear y poner
+            </button>
           </div>
         </DialogContent>
       </Dialog>
