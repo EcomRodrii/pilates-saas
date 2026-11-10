@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DialogoPlazaFija } from '@/components/plazas-fijas/dialogo-plaza-fija';
 import { textoClasesFijasGuardadas } from '@/lib/plazas-fijas-guardadas';
 import { EtiquetaFija } from '@/components/clientas/etiqueta-fija';
+import { clasesFijasPorClienta, compararPorClaseFija } from '@/lib/clientas/orden-clase-fija';
 import { ETIQUETA_GENERO, GENEROS, generoDe, trato, type Genero } from '@/lib/genero';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
@@ -124,7 +125,7 @@ const FILTROS_MAS_NUEVOS: { id: Exclude<FiltroMas, ''>; label: string; definicio
 // Ancho que necesitan las columnas de siempre sin partirse, y cada extra (P2.8).
 const ANCHO_TABLA_BASE = 900;
 const ANCHO_COLUMNA_EXTRA = 150;
-type SortKey = 'nombre' | 'ultima_visita' | 'sesiones_restantes' | 'fecha_registro';
+type SortKey = 'nombre' | 'ultima_visita' | 'sesiones_restantes' | 'fecha_registro' | 'clase_fija';
 type SortDir = 'asc' | 'desc';
 
 type FormSocia = {
@@ -267,6 +268,8 @@ export default function Socios() {
     () => new Set(plazasFijas.filter((p) => p.estado !== 'BAJA').map((p) => p.socioId)),
     [plazasFijas],
   );
+  // El día y la hora de su clase fija, para ordenar por ellos y enseñarlos.
+  const clasesFijas = useMemo(() => clasesFijasPorClienta(plazasFijas, hoyEnEstudio()), [plazasFijas]);
 
   // Semáforo de salud por clienta (solo el color; el motivo vive en el detalle).
   // FICHA-CLINICA.md §1, §11 — RECEPCIÓN sí ve el color, pero no el motivo ni
@@ -613,6 +616,12 @@ export default function Socios() {
     });
 
     return [...filtered].sort((a, b) => {
+      // Sin clase fija, al final aunque se invierta el orden: lo decide el comparador.
+      if (sortKey === 'clase_fija') {
+        return compararPorClaseFija(
+          { id: a.id, nombre: `${a.nombre} ${a.apellidos}` }, { id: b.id, nombre: `${b.nombre} ${b.apellidos}` }, clasesFijas, sortDir,
+        );
+      }
       let cmp = 0;
       if (sortKey === 'nombre') {
         cmp = `${a.nombre} ${a.apellidos}`.localeCompare(`${b.nombre} ${b.apellidos}`, 'es');
@@ -636,7 +645,7 @@ export default function Socios() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMasEfectivo, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy, fFrecuencia, fConstancia, fSaldo, usoPorSocio, saldoBonosPorSocio, suscripcionesPorSocio, esPlanDePrueba, estados.listo, sinCorreo]);
+  }, [socios, suscripciones, reservas, sesiones, camposPersonalizados, busqueda, filtroEstado, filtroMasEfectivo, filtroPlan, filtroEtiqueta, segmentoAplicado, sortKey, sortDir, ahoraMs, estados.porSocio, planesVivosPorSocio, seguimientosHoy, fFrecuencia, fConstancia, fSaldo, usoPorSocio, saldoBonosPorSocio, suscripcionesPorSocio, esPlanDePrueba, estados.listo, sinCorreo, clasesFijas]);
 
   // Auditoría PR #1276 (QA): el estado vacío y "Limpiar filtros" solo miraban
   // busqueda/smartFilter — con filtroEtapa/filtroEtiqueta/segmentoAplicado
@@ -1072,7 +1081,7 @@ export default function Socios() {
     if (sal && OPCIONES_SALDO.some((o) => o.id === sal)) setFiltroSaldo(sal as TramoSaldo);
     if (p.get('seguimientos') === 'hoy') setFiltroMas('seguimiento_hoy');
     const orden = p.get('orden');
-    if (orden === 'ultima_visita' || orden === 'sesiones_restantes' || orden === 'fecha_registro') setSortKey(orden);
+    if (orden === 'ultima_visita' || orden === 'sesiones_restantes' || orden === 'fecha_registro' || orden === 'clase_fija') setSortKey(orden);
     if (p.get('dir') === 'desc') setSortDir('desc');
     if (p.get('c')) setAbierta(p.get('c'));
     setUrlLeida(true);
@@ -1235,6 +1244,7 @@ export default function Socios() {
     { key: 'ultima_visita', label: 'Última clase' },
     { key: 'sesiones_restantes', label: 'Sesiones que le quedan' },
     { key: 'fecha_registro', label: 'Fecha de alta' },
+    { key: 'clase_fija', label: 'Clase fija (día y hora)' },
   ];
   const conteos = estados.conteos;
   // En el filtro «Plan» salen los que están a la venta y los que alguna tiene
@@ -1686,8 +1696,9 @@ export default function Socios() {
             opciones={[...FILTROS_MAS, ...(filtrosNuevos ? FILTROS_MAS_NUEVOS : [])].map((f) => ({ valor: f.id, texto: f.label }))}
             todos="Sin más filtros"
           />
-          {/* Ordenar: en la tabla se hace desde la cabecera de cada columna. */}
-          <div className="flex shrink-0 items-center gap-1 md:hidden">
+          {/* Ordenar: en la tabla, también desde la cabecera de cada columna; «Clase fija»
+              no tiene columna propia, así que este selector se ve en todas las pantallas. */}
+          <div className="flex shrink-0 items-center gap-1">
             <SelectFiltro
               etiqueta="Orden"
               valor={sortKey}
@@ -1926,6 +1937,9 @@ export default function Socios() {
                               {s.nombre} {s.apellidos}
                             </Link>
                             {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
+                            {sortKey === 'clase_fija' && clasesFijas.get(s.id) && (
+                              <span data-testid="clase-fija-horario" className="shrink-0 text-[11.5px] font-medium text-muted-foreground">{clasesFijas.get(s.id)!.texto}</span>
+                            )}
                           </p>
                           <p className="truncate text-[12.5px] text-muted-foreground">{contactoBajoElNombre(s)}</p>
                         </div>
@@ -2022,6 +2036,9 @@ export default function Socios() {
                         {f.aviso ? <PastillaAviso aviso={f.aviso} atendido={f.atendido} ella={trato(s.genero).ella} /> : f.estado && <PastillaEstado estado={f.estado.estado} />}
                         {f.seguimiento && hoyISO && <PastillaSeguimiento titulo={f.seguimiento.titulo} atrasado={(f.seguimiento.venceEl ?? hoyISO) < hoyISO} className="ml-1" />}
                         {idsFijas.has(s.id) && <EtiquetaFija genero={s.genero} />}
+                            {sortKey === 'clase_fija' && clasesFijas.get(s.id) && (
+                              <span data-testid="clase-fija-horario" className="shrink-0 text-[11.5px] font-medium text-muted-foreground">{clasesFijas.get(s.id)!.texto}</span>
+                            )}
                       </span>
                     </span>
                   </Link>

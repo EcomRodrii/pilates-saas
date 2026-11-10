@@ -235,7 +235,7 @@ export async function PATCH(req: NextRequest) {
     }
     if ((modo === 'autonomo' || modo === 'vacaciones') && !(await featureDeEstudio(sesion.studioId, 'sustitucionesAutonomas'))) {
       return NextResponse.json(
-        { error: `Los modos Autónomo y Vacaciones necesitan el complemento «${ADDONS.sustituciones.nombre}» o el plan ${PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre}. Actívalo en Suscripción.` },
+        { error: `Los modos Autónomo y Vacaciones necesitan el complemento «${ADDONS.sustituciones.nombre}» o el plan ${PLAN_INFO[planMinimoPara('sustitucionesAutonomas') ?? 'ESTUDIO'].nombre}. Actívalo en Plan de Tentare.` },
         { status: 403 },
       );
     }

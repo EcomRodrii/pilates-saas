@@ -258,7 +258,7 @@ export const AYUDA_POR_PANTALLA = {
   },
 
   '/suscripcion': {
-    titulo: 'Suscripción',
+    titulo: 'Plan de Tentare',
     valor: 'Lo que pagas tú a Tentare: tu plan, tus facturas y tu tarjeta. Lo que cobras a tus alumnas va en Cobros.',
     resumen:
       'Lo que le pagas tú a Tentare: tu plan, tus facturas y la tarjeta con la que se cobra. Nada que ver con lo que cobras a tus alumnas, que va por Cobros.',

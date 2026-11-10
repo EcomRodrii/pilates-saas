@@ -113,7 +113,7 @@ El menú del panel, de arriba abajo:
 - Estudio › Traer mis datos: importar alumnas, planes y reservas desde otro programa o un Excel.
 - Estudio › Libreta de clientas: un PDF con cada alumna, su plan, sus sesiones y su plaza fija.
 - Estudio › Actualizaciones: las novedades de Tentare.
-- Estudio › Suscripción: el plan de Tentare del estudio y las consultas que le quedan a este asistente.
+- Estudio › Plan de Tentare: el plan de Tentare del estudio y las consultas que le quedan a este asistente.
 
 Configuración, por apartados:
 - Mi estudio: nombre y dirección, contacto, horario de apertura, cerrar el centro (vacaciones, puentes), salas y su aforo, sedes.

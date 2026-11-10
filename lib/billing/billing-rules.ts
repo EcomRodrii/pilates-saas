@@ -102,7 +102,7 @@ export async function evaluarSuscripcion(admin: SupabaseClient | null, studioId:
   if (accesoProducto({ subscriptionStatus: billing.subscriptionStatus }) && !trial.agotada) return null;
   return {
     status: 402,
-    error: 'Tu suscripción no está activa. Reactívala en Suscripción para seguir operando.',
+    error: 'Tu suscripción no está activa. Reactívala en Plan de Tentare para seguir operando.',
     code: 'SUSCRIPCION_INACTIVA',
   };
 }
@@ -127,8 +127,8 @@ export async function evaluarFeature(
   return {
     status: 403,
     error: complemento
-      ? `«${ADDONS[complemento].nombre}» es un complemento de tu plan. Actívalo en Suscripción.`
-      : 'Tu plan no incluye esta función. Mejóralo en Suscripción.',
+      ? `«${ADDONS[complemento].nombre}» es un complemento de tu plan. Actívalo en Plan de Tentare.`
+      : 'Tu plan no incluye esta función. Mejóralo en Plan de Tentare.',
     code: 'PLAN_SIN_FEATURE',
     feature,
   };

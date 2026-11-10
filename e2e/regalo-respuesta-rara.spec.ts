@@ -52,7 +52,7 @@ for (const [caso, falla] of [
     expect(cuenta.gets, 'peticiones a /api/regalo').toBeGreaterThan(0);
     await expect(page.getByText('Algo ha ido mal')).toHaveCount(0);
     // El resto de Paquetes sigue en pie: sus pestañas se pueden tocar.
-    await expect(page.getByRole('button', { name: 'Planes de suscripción', exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Tarifas', exact: true }).first()).toBeVisible();
 
     const antes = cuenta.gets;
     cuenta.arreglar();

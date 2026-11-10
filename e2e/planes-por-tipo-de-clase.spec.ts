@@ -135,7 +135,7 @@ function planRow(id: string, nombre: string): Record<string, unknown> {
 
 async function abrirPlanes(page: Page) {
   // Las tarifas viven solo en Paquetes desde el 13-sep (Configuración → Planes
-  // y tarifas se quitó). Paquetes abre en «Suscripciones»: los planes de este
+  // y tarifas se quitó). Paquetes abre en «Cuotas»: los planes de este
   // spec son bonos, así que se entra en su pestaña.
   await page.goto('/productos');
   await expect(page.getByRole('button', { name: 'Crear', exact: true })).toBeVisible({ timeout: 30_000 });
@@ -249,7 +249,7 @@ test.describe('El tipo de tarifa se dice en castellano', () => {
     await seedSesionDeDuena(page);
     await abrirPlanes(page);
 
-    for (const nombre of [/^Suscripciones/, /^Bonos/, /^Clases sueltas/]) {
+    for (const nombre of [/^Cuotas/, /^Bonos/, /^Clases sueltas/]) {
       await expect(page.getByRole('button', { name: nombre })).toBeVisible();
     }
     for (const constante of ['MENSUAL', 'BONO', 'PUNTUAL']) {

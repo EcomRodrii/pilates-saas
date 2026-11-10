@@ -323,6 +323,9 @@ function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra?: numbe
  * un componente nuevo habría duplicado permisos, badges, modo esencial/todo y
  * la lista de items — cuatro sitios donde divergir en silencio.
  */
+/** El ítem del menú que se ancla abajo para no quedar escondido bajo el pliegue. */
+const ANCLADO = '/configuracion';
+
 export function Sidebar() {
   // Solo cambia el escritorio. En móvil no hay sidebar que mover: ya es barra
   // arriba + barra abajo, y así se queda.
@@ -556,7 +559,10 @@ export function Sidebar() {
         : 'py-2 overflow-y-auto space-y-1',
     )}>
       {seccionesVisibles.map((section, si) => (
-        <div key={si} className={cn(horizontal && 'contents')}>
+        // `contents` en el grupo de Configuración (columna): su ítem va anclado abajo
+        // (`position: sticky`) y un sticky solo se mueve dentro de su contenedor; si
+        // ese fuera el grupo, que a veces queda entero bajo el pliegue, no se anclaría.
+        <div key={si} className={cn((horizontal || section.items.some(i => i.href === ANCLADO)) && 'contents')}>
           {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
               orden, que ya agrupa por sección. */}
           {section.label && !collapsed && !horizontal && (
@@ -567,7 +573,8 @@ export function Sidebar() {
           {section.label && collapsed && si > 0 && !horizontal && (
             <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
           )}
-          {section.items.map(item => (
+          {section.items.map(item => {
+            const fila = (
             <NavItem
               key={item.href} href={item.href} label={item.label} Icon={item.icon}
               horizontal={horizontal}
@@ -579,7 +586,15 @@ export function Sidebar() {
               contador={item.href === '/mensajeria' ? sinLeerMensajes : item.href === '/dashboard' ? porDecidir : undefined}
               contadorEtiqueta={item.href === '/dashboard' ? 'por decidir' : undefined}
             />
-          ))}
+            );
+            // Configuración se ancla al borde de abajo del menú: en un portátil el
+            // menú no cabe entero y quedaba cortada bajo el pliegue (auditoría UX,
+            // 10-nov-2026; OPEN DECISION 18). Fondo opaco para tapar lo que pasa por
+            // debajo al desplazar. Tumbado (horizontal) la fila envuelve y no hace falta.
+            return item.href === ANCLADO && !horizontal
+              ? <div key={item.href} className="sticky bottom-0 z-10 bg-[#0A0A0A] pt-1">{fila}</div>
+              : fila;
+          })}
         </div>
       ))}
     </nav>

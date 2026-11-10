@@ -244,7 +244,7 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
     ...(props.gestionaCalendario ? [{ href: '/calendario?nueva=1', label: 'Crear clase', Icono: CalendarPlus, tono: 'azul' as Tono }] : []),
     ...(props.mueveDinero ? [{ href: '/cobros?nuevo=cobro', label: 'Cobrar', Icono: CreditCard, tono: 'verde' as Tono }] : []),
     ...(props.puedeIr('/mensajeria') ? [{ href: '/mensajeria', label: 'Mensajes', Icono: MessageCircle, tono: 'indigo' as Tono }] : []),
-    ...(props.puedeIr('/productos') ? [{ href: '/productos', label: 'Cuotas y bonos', Icono: Package, tono: 'verde' as Tono }] : []),
+    ...(props.puedeIr('/productos') ? [{ href: '/productos', label: 'Paquetes', Icono: Package, tono: 'verde' as Tono }] : []),
     ...(props.slug ? [{ href: rutaApp(props.slug), label: 'Tu app', Icono: ExternalLink, tono: 'magenta' as Tono, externo: true }] : []),
   ];
   if (accesos.length === 0) return null;
