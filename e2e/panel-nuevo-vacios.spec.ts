@@ -41,10 +41,10 @@ test('Libreta: sin clientas activas, enseña qué llevará y lleva a dar de alta
   await expect(page.getByText('No hay clientas activas todavía.')).toHaveCount(0);
 });
 
-test('Paquetes › Productos POS: sin productos, los ejemplos y «Añadir mi primer producto» abre el alta', async ({ page }) => {
+test('Paquetes › Productos de la caja: sin productos, los ejemplos y «Añadir mi primer producto» abre el alta', async ({ page }) => {
   await vacio(page);
   await ir(page, 'productos');
-  await page.getByRole('button', { name: 'Productos POS', exact: true }).first().click({ timeout: 60_000 });
+  await page.getByRole('button', { name: 'Productos de la caja', exact: true }).first().click({ timeout: 60_000 });
   const v = vacia(page);
   await expect(v.getByRole('heading', { name: 'Vende algo más que clases' })).toBeVisible();
   await expect(v.getByText('Calcetines antideslizantes')).toBeVisible();
@@ -84,7 +84,7 @@ test.describe('capturas', () => {
       await expect(vacia(page)).toBeVisible({ timeout: 60_000 });
       await page.screenshot({ path: `${OUT}/vacio-libreta-${sufijo}.png`, fullPage: true });
       await ir(page, 'productos');
-      await page.getByRole('button', { name: 'Productos POS', exact: true }).first().click({ timeout: 60_000 });
+      await page.getByRole('button', { name: 'Productos de la caja', exact: true }).first().click({ timeout: 60_000 });
       await expect(vacia(page)).toBeVisible();
       await page.screenshot({ path: `${OUT}/vacio-pos-${sufijo}.png`, fullPage: true });
       await ir(page, 'equipo');

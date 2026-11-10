@@ -89,9 +89,9 @@ async function montar(page: Page): Promise<Movimientos> {
 
 async function abrirFicha(page: Page) {
   await page.goto('/productos');
-  // La pantalla abre en «Planes de suscripción»; los artículos del TPV viven
+  // La pantalla abre en «Tarifas»; los artículos del TPV viven
   // en su propia pestaña.
-  await page.getByRole('button', { name: 'Productos POS' }).click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Productos de la caja' }).click({ timeout: 30_000 });
   await expect(page.getByText('Calcetines Pilates').first()).toBeVisible({ timeout: 30_000 });
   // En escritorio la fila es una tabla y solo abre por su botón; el texto de
   // la celda no es pulsable.

@@ -50,7 +50,7 @@ type Tab = 'planes' | 'pos' | 'regalo';
 // «bono agotado», «Bonos activos» en la ficha de clienta).
 type TipoPlanTab = 'MENSUAL' | 'BONO' | 'PUNTUAL';
 const TIPO_TABS: { v: TipoPlanTab; label: string; singular: string; icon: React.ElementType }[] = [
-  { v: 'MENSUAL', label: 'Suscripciones', singular: 'suscripción', icon: Repeat },
+  { v: 'MENSUAL', label: 'Cuotas', singular: 'cuota', icon: Repeat },
   { v: 'BONO', label: 'Bonos', singular: 'bono', icon: Zap },
   { v: 'PUNTUAL', label: 'Clases sueltas', singular: 'clase suelta', icon: Tag },
 ];
@@ -1167,7 +1167,7 @@ export default function Productos() {
   const [stockDe, setStockDe] = useState<string | null>(null);
 
   // CONGELADO (feature-freeze PMF): oculta la pestaña "Productos POS" mientras POS
-  // esté congelado. La pestaña "Planes de suscripción" es core de facturación y se
+  // esté congelado. La pestaña "Tarifas" es core de facturación y se
   // mantiene. El bloque de contenido POS sigue en el archivo, solo deja de ser
   // alcanzable. Reactivar = quitar '/pos' de RUTAS_CONGELADAS en lib/frozen-features.ts.
   const posCongelado = esRutaCongelada('/pos');
@@ -1178,7 +1178,7 @@ export default function Productos() {
   const mueveDinero = puedeMoverDinero(useRol());
   // «Tarjeta regalo» la ve quien ve finanzas (la RLS de sus tablas lo exige); el POS, quien mueve dinero.
   const verFinanzas = puedeVerFinanzas(useRol());
-  const TABS = ([['planes', 'Planes de suscripción'], ['regalo', 'Tarjeta regalo'], ['pos', 'Productos POS']] as const)
+  const TABS = ([['planes', 'Tarifas'], ['regalo', 'Tarjeta regalo'], ['pos', 'Productos de la caja']] as const)
     .filter(([v]) => (v !== 'pos' || (!posCongelado && mueveDinero)) && (v !== 'regalo' || verFinanzas));
 
   // Count active suscripciones per plan
@@ -1302,7 +1302,7 @@ export default function Productos() {
     <div data-tour="paquetes-vista" className="space-y-6">
       <PageHeader
         title="Paquetes"
-        description={posCongelado ? 'Suscripciones, bonos y clases sueltas' : 'Suscripciones, bonos, clases sueltas y catálogo de productos POS'}
+        description={posCongelado ? 'Cuotas, bonos y clases sueltas' : 'Cuotas, bonos, clases sueltas y productos de la caja'}
         actions={mueveDinero && tab !== 'regalo' && (panelNuevo ? (
           // La acción principal, con el degradado del logo.
           <span data-tour={tab === 'planes' ? 'paquetes-crear' : undefined} className="inline-flex">
@@ -1327,7 +1327,7 @@ export default function Productos() {
 
       {panelNuevo && <CifrasPaquetes planes={planesTarifa} suscripciones={suscripciones} verFinanzas={verFinanzas} onTipo={verTipo} />}
 
-      {/* Tabs — la pestaña "Productos POS" queda oculta con POS congelado (solo
+      {/* Tabs — la pestaña "Productos de la caja" queda oculta con POS congelado (solo
           se muestra la barra si hay más de una pestaña). */}
       {TABS.length > 1 && (
         <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">

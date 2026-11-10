@@ -18,7 +18,7 @@ import { montar, ir } from './panel-sembrado';
 
 async function abrirNuevoProducto(page: import('@playwright/test').Page) {
   await ir(page, 'productos');
-  await page.getByRole('button', { name: 'Productos POS' }).click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Productos de la caja' }).click({ timeout: 30_000 });
   await page.getByRole('button', { name: /Añadir producto/ }).click();
   await expect(page.getByRole('dialog', { name: 'Nuevo producto' })).toBeVisible();
 }
