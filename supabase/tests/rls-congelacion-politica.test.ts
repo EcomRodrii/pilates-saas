@@ -146,3 +146,7 @@ test('reintentar congelar lo que ya está congelado es idempotente aunque la pol
     await limpiarFixtures(admin, [studio]);
   }
 });
+
+// La conexión directa a Postgres de `sqlLocal()` mantiene vivo el proceso: sin cerrarla, `node --test` no termina y el job
+// se queda esperando hasta su timeout (como el resto de tests de supabase/tests que la usan).
+test.after(async () => { await sql.end(); });
