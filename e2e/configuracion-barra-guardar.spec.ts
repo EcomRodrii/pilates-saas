@@ -570,7 +570,7 @@ for (const vista of VISTAS) {
 
     test('la burbuja de WhatsApp solo se aparta mientras se ve la barra', async ({ page }) => {
       await tuPanel(page);
-      const burbuja = page.getByRole('button', { name: 'Ayuda por WhatsApp' });
+      const burbuja = page.getByTestId('boton-ayuda');
       // Sin cambios, la sección entera no la esconde.
       await expect(burbuja).toBeVisible();
 
@@ -615,7 +615,7 @@ test.describe('La barra de guardar en un portátil de 1024×768', () => {
 
   test('la burbuja se aparta y «Guardar» se puede pulsar', async ({ page }) => {
     const { layouts } = await tuPanel(page);
-    const burbuja = page.getByRole('button', { name: 'Ayuda por WhatsApp' });
+    const burbuja = page.getByTestId('boton-ayuda');
     await expect(burbuja).toBeVisible();
 
     await fijoArriba(page).click();

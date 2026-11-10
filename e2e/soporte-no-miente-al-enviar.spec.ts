@@ -1,7 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El widget de ayuda decía «Enviado. ¡Gracias!» PASARA LO QUE PASARA.
+// El panel de ayuda (antes, el widget de «Preguntas frecuentes») decía «Enviado. Gracias.» PASARA LO QUE PASARA.
 //
 // Dos fallos independientes, y ninguno se veía:
 //  · `dbInsertSoporteSolicitud` se tragaba su error y devolvía void, así que la
@@ -65,8 +65,10 @@ async function montar(page: Page, opciones: { soporte: number | 'ok'; guardaEnBd
 
   await page.goto('/dashboard');
   await page.getByRole('button', { name: 'Abrir menú de perfil' }).click();
-  await page.getByRole('button', { name: 'Preguntas frecuentes' }).click();
-  await page.getByPlaceholder('Escribe aquí...').fill('No me funciona el cobro de septiembre');
+  await page.getByRole('button', { name: 'Ayuda', exact: true }).click();
+  const panel = page.getByRole('dialog', { name: 'Ayuda de Tentare' });
+  await panel.getByRole('tab', { name: 'Mensajes' }).click();
+  await panel.getByLabel('Mensaje', { exact: true }).fill('No me funciona el cobro de septiembre');
 }
 
 test('si no llega por ninguna vía, lo dice — y no borra lo escrito', async ({ page }) => {
@@ -76,8 +78,8 @@ test('si no llega por ninguna vía, lo dice — y no borra lo escrito', async ({
 
   await expect(page.getByText('No hemos podido enviar tu mensaje')).toBeVisible();
   // Lo que costaría volver a teclear sigue ahí.
-  await expect(page.getByPlaceholder('Escribe aquí...')).toHaveValue('No me funciona el cobro de septiembre');
-  await expect(page.getByText('Enviado. ¡Gracias!')).toHaveCount(0);
+  await expect(page.getByLabel('Mensaje', { exact: true })).toHaveValue('No me funciona el cobro de septiembre');
+  await expect(page.getByText('Enviado. Gracias.')).toHaveCount(0);
   // Y el botón invita a reintentar en vez de a pulsar otra vez a ciegas.
   await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible();
 });
@@ -89,7 +91,7 @@ test('con el correo caído pero el registro guardado, SÍ ha llegado', async ({ 
 
   await page.getByRole('button', { name: 'Enviar' }).click();
 
-  await expect(page.getByText('Enviado. ¡Gracias!')).toBeVisible();
+  await expect(page.getByText('Enviado. Gracias.')).toBeVisible();
   await expect(page.getByText('No hemos podido enviar tu mensaje')).toHaveCount(0);
 });
 
@@ -98,5 +100,5 @@ test('el camino normal sigue diciendo que sí', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Enviar' }).click();
 
-  await expect(page.getByText('Enviado. ¡Gracias!')).toBeVisible();
+  await expect(page.getByText('Enviado. Gracias.')).toBeVisible();
 });

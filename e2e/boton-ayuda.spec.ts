@@ -84,7 +84,7 @@ test.describe('Botón de ayuda', () => {
     await montar(page);
     await page.route('**/rest/v1/changelog_versiones**', r => json(r, VERSIONES));
     await ir(page, 'dashboard');
-    await page.getByRole('button', { name: /cloe@example\.com|Cloe/i }).first().click({ timeout: 90_000 });
+    await page.getByRole('button', { name: 'Abrir menú de perfil' }).click({ timeout: 90_000 });
     await page.getByRole('button', { name: 'Ayuda', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Ayuda de Tentare' })).toBeVisible();
   });

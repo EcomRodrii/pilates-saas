@@ -35,7 +35,8 @@ async function panel(page: Page) {
   await page.route(u => u.pathname === '/api/oauth/consentimientos', r => json(r, { apps: [] }));
 }
 
-const burbuja = (page: Page) => page.getByRole('button', { name: 'Ayuda por WhatsApp' });
+// Desde el 10-nov-2026 la burbuja de la esquina es el botón de ayuda (el WhatsApp va en su pestaña Mensajes).
+const burbuja = (page: Page) => page.getByTestId('boton-ayuda');
 const barra = (page: Page) => page.getByRole('region', { name: 'Cambios sin guardar' });
 const titulo = (page: Page, nombre: string) => page.getByRole('heading', { level: 2, name: nombre, exact: true });
 
@@ -108,7 +109,7 @@ for (const vista of VISTAS) {
         const b = await cajon.boundingBox();
         return b ? Math.round(b.x + b.width) : null;
       }).toBe(vista.viewport.width);
-      await expect(page.getByRole('button', { name: 'Ayuda por WhatsApp' })).toBeAttached();
+      await expect(burbuja(page)).toBeAttached();
 
       await primero.focus();
       const tapados: string[] = [];
