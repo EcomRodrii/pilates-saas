@@ -40,7 +40,7 @@ export const PARADAS_RECORRIDO: readonly ParadaRecorrido[] = [
     // La maqueta decía «?»: en el panel nuevo, lo que explica cada pantalla es
     // la «i» junto a su título (AyudaDePantalla). Se dice lo que hay.
     titulo: '¿Y si me atasco?',
-    texto: 'La «i» junto al título te explica la pantalla en la que estás. WhatsApp te pone con una persona del equipo.',
+    texto: 'La «i» junto al título te explica la pantalla en la que estás. El botón de ayuda de la esquina te pone con una persona del equipo, por WhatsApp.',
     objetivos: ['[data-whatsapp-soporte]'],
   },
 ];

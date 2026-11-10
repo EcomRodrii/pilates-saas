@@ -1,8 +1,8 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Lo que flota en la esquina del panel: el WhatsApp de soporte y el botón del
-// asistente. Y, con el alta nueva (PR-5), el recorrido rápido.
+// Lo que flota en la esquina del panel: el botón de ayuda (con el WhatsApp de
+// soporte dentro de su pestaña Mensajes) y el botón del asistente. Y, con el alta nueva (PR-5), el recorrido rápido.
 //
 //   · Panel de siempre: los dos, como siempre.
 //   · Panel nuevo: el WhatsApp no flota (se amontonaban WhatsApp, el asistente y
@@ -20,7 +20,7 @@
 
 import { useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import { WhatsAppFab } from '@/components/layout/whatsapp-fab';
+import { AyudaDelPanel } from '@/components/ayuda/ayuda-del-panel';
 import { AsistenteFlotante } from '@/components/asistente/asistente-flotante';
 import { RecorridoRapido } from './recorrido-rapido';
 import { useAltaNuevaPropia } from './use-pon-en-marcha';
@@ -46,7 +46,8 @@ export function FlotantesDelPanel({ panelNuevo }: { panelNuevo: boolean }) {
 
   return (
     <>
-      {conWhatsApp && <WhatsAppFab />}
+      {/* Siempre montado: el panel se abre también desde el menú de perfil. El botón flota solo donde flotaba el WhatsApp. */}
+      <AyudaDelPanel conLanzador={conWhatsApp} />
       {asistente}
       {alta.activo === true && alta.studioId && estado && listaPendiente && (
         <RecorridoRapido studioId={alta.studioId} puedeEmpezarSolo={!estado.recorridoVisto} />

@@ -397,8 +397,8 @@ test.describe('Modo oscuro — las hojas', () => {
     // Vale cualquier hoja del panel: todas salen por el mismo portal
     // (`DashboardSheet`), que es lo que se está probando. Era la de
     // «Apariencia», retirada el 23-sep cuando el menú pasó a llevar directo al
-    // editor; «Preguntas frecuentes» se abre igual desde el mismo menú.
-    await page.getByRole('button', { name: /Preguntas frecuentes/ }).first().click({ timeout: 30_000 });
+    // editor; «Ayuda» se abre igual desde el mismo menú.
+    await page.getByRole('button', { name: 'Ayuda', exact: true }).first().click({ timeout: 30_000 });
 
     const hoja = page.getByRole('dialog');
     await expect(hoja).toBeVisible({ timeout: 30_000 });
