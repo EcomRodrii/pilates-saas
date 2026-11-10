@@ -803,6 +803,14 @@ export function resumenAlCancelarCuota(
   ]);
 }
 
+/** La política de congelación: si se puede y cuánto alarga como máximo. `null` = sin cargar. */
+export function resumenCongelacion(s: Partial<Pick<Studio, 'congelacionPermitida' | 'congelacionMaxDias'>>): string | null {
+  if (s.congelacionPermitida === undefined) return null;
+  if (s.congelacionPermitida === false) return 'no se puede congelar';
+  const max = s.congelacionMaxDias;
+  return typeof max === 'number' && max > 0 ? `alarga hasta ${max} días` : 'se puede, sin tope';
+}
+
 /** «Cada alumna en su aniversario» o «Todas el día 1 de cada mes». */
 export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo' | 'cobroDia1Modo'>>): string | null {
   if (s.cobroDia1Activo === undefined) return null;
@@ -961,6 +969,7 @@ export function resumenRegla(
       return u([
         euros(importe),
         conOtroCargo,
+        r.penalizacionUmbralFaltas > 1 ? `desde la falta ${r.penalizacionUmbralFaltas}` : null,
         r.penalizacionCobroAutomatico ? 'se cobra solo' : 'lo apruebas tú',
         tarde && falta ? null : tarde ? 'solo si cancela tarde' : falta ? 'solo si no viene' : 'sin aplicar a nada',
       ]);

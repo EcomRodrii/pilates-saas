@@ -17,7 +17,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import {
   BARRIDO_RECIBO_RESUELTO, DESDE_DETECTADA, ESTADOS_OMITIDA, ESTADOS_RECIBO_BARRIDO_ANULADAS, crearReciboYCobrar,
-  devolucionEnMarcha, omitirPorPlazaFijaSinCuota, penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
+  desdeVentanaDeFaltas, devolucionEnMarcha, omitirPorFranquicia, omitirPorPlazaFijaSinCuota, penalizacionDelRecibo, soltarReciboDePenalizacionAnulada, type EstadoPenalizacion,
 } from '@/lib/billing/penalizacion-aprobar-reglas';
 import { borrarReciboDePenalizacionSinCobro, seguirPenalizacionAlRecibo } from '@/lib/billing/penalizacion-recibo-server';
 import {
@@ -41,7 +41,8 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
     .select(`
       id, nombre, razon_social, nif, direccion, ciudad, codigo_postal, email,
       cancelacion_ventana_horas, penalizacion_importe_eur, penalizacion_cobro_automatico,
-      stripe_account_id, suspendido_en, politica_privacidad, terminos_servicio, plaza_fija_sin_cuota
+      stripe_account_id, suspendido_en, politica_privacidad, terminos_servicio, plaza_fija_sin_cuota,
+      penalizacion_umbral_faltas, penalizacion_umbral_ventana_dias
     `)
     .eq('id', pen.studio_id).maybeSingle();
   // Un fallo de lectura aquí (una columna que falta, la BD caída) deja `studio`
@@ -86,6 +87,36 @@ async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: 
         .update({ estado: 'OMITIDA_SIN_CUOTA', procesada_en: new Date().toISOString(), recibo_id: null })
         .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]).select('id');
       if (errMarca) { console.error('[penalizaciones] no se pudo marcar sin cuota', pen.id, errMarca.message); return; }
+      if ((tocadas?.length ?? 0) > 0) {
+        await borrarReciboDePenalizacionSinCobro(admin, { studioId: pen.studio_id, reciboId: `rec-penaliz-${pen.id}` });
+      }
+      return;
+    }
+  }
+
+  // «Se cobra a partir de la falta N» (`penalizacion_umbral_faltas`, migr 20261110121922). La falta ya está anotada; aquí solo
+  // se decide si se COBRA, y solo puede decidir cobrar MENOS que antes (con el umbral de serie, 1, no hace nada). Va antes de
+  // Stripe y del consentimiento para no avisar de un «cargo bloqueado» que nunca se iba a cobrar. Cuenta las faltas
+  // ANTERIORES de la alumna en la ventana (por instante y, a igualdad, por id), sin las revertidas. Sin poder contarlas no
+  // se decide nada: la próxima pasada lo repite, y nunca se cobra «por si acaso».
+  const umbral = Number(studio.penalizacion_umbral_faltas ?? 1);
+  if (umbral > 1) {
+    const ventana = Number(studio.penalizacion_umbral_ventana_dias ?? 90);
+    // El instante TAL CUAL llega de la base de datos (con microsegundos): truncarlo a milisegundos hacía que dos faltas insertadas
+    // en la misma transacción no se contaran entre sí, y las dos quedaban perdonadas.
+    const detectada = pen.detectada_en;
+    const { count: previas, error: errFaltas } = await admin.from('penalizaciones')
+      .select('id', { count: 'exact', head: true })
+      .eq('studio_id', pen.studio_id).eq('socio_id', pen.socio_id).neq('estado', 'OMITIDA_REVERTIDA')
+      .gte('detectada_en', desdeVentanaDeFaltas(new Date(detectada).toISOString(), ventana))
+      .or(`detectada_en.lt.${detectada},and(detectada_en.eq.${detectada},id.lt.${pen.id})`);
+    if (errFaltas) return;
+    if (omitirPorFranquicia({ umbral, faltasPrevias: previas ?? 0 })) {
+      // `recibo_id: null` en la misma escritura, como las demás omitidas: una DETECTADA puede apuntar ya a un recibo.
+      const { data: tocadas, error: errMarca } = await admin.from('penalizaciones')
+        .update({ estado: 'OMITIDA_FRANQUICIA', procesada_en: new Date().toISOString(), recibo_id: null })
+        .eq('id', pen.id).in('estado', [...DESDE_DETECTADA]).select('id');
+      if (errMarca) { console.error('[penalizaciones] no se pudo marcar franquicia', pen.id, errMarca.message); return; }
       if ((tocadas?.length ?? 0) > 0) {
         await borrarReciboDePenalizacionSinCobro(admin, { studioId: pen.studio_id, reciboId: `rec-penaliz-${pen.id}` });
       }

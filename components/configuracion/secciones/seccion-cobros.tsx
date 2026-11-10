@@ -1,14 +1,14 @@
 'use client';
 
-import { Ban, CalendarClock, CreditCard, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
+import { Ban, CalendarClock, Snowflake, CreditCard, FileText, Landmark, Package, Receipt, RotateCcw, Wallet } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import {
-  resumenAlCancelarCuota, resumenCobroDia1, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenHerramienta,
+  resumenAlCancelarCuota, resumenCobroDia1, resumenCongelacion, resumenDatosFiscales, resumenDevoluciones, resumenDomiciliaciones, resumenFacturacion, resumenHerramienta,
   resumenPlanesActivos,
 } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA, seccionPorId, tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { FormDatosFiscales } from '@/components/configuracion/tab-datos-fiscales';
-import { FormAlCancelarCuota, FormCobroDia1, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
+import { FormAlCancelarCuota, FormCobroDia1, FormCongelacion, FormDevoluciones, FormDomiciliaciones, FormFacturacion } from '@/components/configuracion/tab-estudio-cobros';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
@@ -26,8 +26,8 @@ import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramien
 // datáfono se conectan en Integraciones (16-oct-2026): aquí queda una fila que
 // lleva allí, y sus enlaces de siempre (`#integracion-stripe`) también.
 
-type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota'>;
-const CAJONES = ['facturacion', 'datos-fiscales', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota'] as const satisfies readonly CajonId[];
+type CajonId = Extract<TarjetaId, 'facturacion' | 'datos-fiscales' | 'cuando-se-cobra-la-cuota' | 'domiciliaciones' | 'devoluciones' | 'si-se-cancela-una-cuota' | 'congelar-una-cuota'>;
+const CAJONES = ['facturacion', 'datos-fiscales', 'cuando-se-cobra-la-cuota', 'domiciliaciones', 'devoluciones', 'si-se-cancela-una-cuota', 'congelar-una-cuota'] as const satisfies readonly CajonId[];
 
 type FilaDeCobros = Extract<(typeof FILAS_A_OTRA_PANTALLA)[number], { seccion: 'cobros' }>;
 const esDeCobros = (f: (typeof FILAS_A_OTRA_PANTALLA)[number]): f is FilaDeCobros => f.seccion === 'cobros';
@@ -71,6 +71,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
         <FilaAjuste id="domiciliaciones" icono={Landmark} valor={cargado ? resumenDomiciliaciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="devoluciones" icono={RotateCcw} valor={cargado ? resumenDevoluciones(cargado) : null} onAbrir={abrir} />
         <FilaAjuste id="si-se-cancela-una-cuota" icono={Ban} valor={cargado ? resumenAlCancelarCuota(cargado) : null} onAbrir={abrir} />
+        <FilaAjuste id="congelar-una-cuota" icono={Snowflake} valor={cargado ? resumenCongelacion(cargado) : null} onAbrir={abrir} />
       </GrupoFilas>
 
       {/* Desde Motivación (20-oct): un descuento es dinero y no depende del plan
@@ -110,6 +111,9 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
       </CajonAjuste>
       <CajonAjuste id="si-se-cancela-una-cuota" abierto={cajon === 'si-se-cancela-una-cuota'} onCerrar={cerrar}>
         <FormAlCancelarCuota {...props} />
+      </CajonAjuste>
+      <CajonAjuste id="congelar-una-cuota" abierto={cajon === 'congelar-una-cuota'} onCerrar={cerrar}>
+        <FormCongelacion {...props} />
       </CajonAjuste>
     </>
   );

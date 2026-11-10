@@ -166,6 +166,7 @@ export const SECCIONES = [
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
       { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
       { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si la alumna puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },
+      { id: 'congelar-una-cuota', titulo: 'Congelar una cuota o un bono', frase: 'Si se puede congelar una cuota o un bono, y cuántos días como máximo alarga su fecha de fin.', guardado: 'barra', palabras: ['congelar', 'congelación', 'pausar', 'pausa', 'vacaciones', 'baja temporal', 'descongelar'] },
       // Salió de Motivación el 20-oct: un descuento es dinero, no constancia, y no
       // depende del plan de gamificación.
       { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },

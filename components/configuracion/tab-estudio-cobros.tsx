@@ -402,6 +402,99 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
   );
 }
 
+// ── Congelar una cuota o un bono ────────────────────────────────────────────
+// Política del estudio (migr 20261110121938). La cumple la base de datos en `congelar_suscripcion` y
+// `descongelar_suscripcion`, no esta pantalla: aquí solo se elige y se explica. Sin dinero que cobrar ni devolver: toca
+// hasta cuándo vale lo que la alumna ya pagó, así que «Guardar» no pregunta; las congelaciones ya en marcha se reanudan
+// con la regla que haya EN ESE MOMENTO.
+
+interface CongelacionForm { permitida: boolean; tope: boolean; dias: number }
+const DIAS_CONGELACION_DE_SERIE = 30;
+const studioToCongelacion = (s: Studio | null): CongelacionForm => ({
+  permitida: s?.congelacionPermitida ?? true,
+  tope: typeof s?.congelacionMaxDias === 'number' && s.congelacionMaxDias > 0,
+  dias: typeof s?.congelacionMaxDias === 'number' && s.congelacionMaxDias > 0 ? s.congelacionMaxDias : DIAS_CONGELACION_DE_SERIE,
+});
+
+export function FormCongelacion({ onGuardado }: PropsFormularioCajon) {
+  const { studio, updateStudio } = useStudio();
+  const [form, setForm] = useState<CongelacionForm>(() => studioToCongelacion(studio));
+  const [base, setBase] = useState<CongelacionForm>(() => studioToCongelacion(studio));
+
+  const [anterior, setAnterior] = useState(studio);
+  if (studio !== anterior) {
+    setAnterior(studio);
+    const servidor = studioToCongelacion(studio);
+    setForm(sincronizarFormulario(form, base, servidor));
+    setBase(servidor);
+  }
+
+  async function alGuardar(): Promise<string | null> {
+    const enviado = form;
+    const res = await updateStudio({
+      congelacionPermitida: enviado.permitida,
+      congelacionMaxDias: enviado.permitida && enviado.tope ? enviado.dias : null,
+    });
+    if (!res.ok) return res.error;
+    setForm(f => sincronizarFormulario(f, enviado, enviado));
+    setBase(enviado);
+    onGuardado('Guardada la política de congelación');
+    return null;
+  }
+
+  return (
+    <>
+      <div className="space-y-4 pb-6">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
+          <span>
+            <span className="block text-sm font-medium text-foreground">Se pueden congelar cuotas y bonos</span>
+            <span className="block text-sm text-muted-foreground text-pretty">Una alumna que no puede venir una temporada la pausa y no pierde lo que ya pagó. Apagado, no se puede congelar nada nuevo; lo que ya está congelado se reanuda con normalidad.</span>
+          </span>
+          <Toggle on={form.permitida} onChange={v => setForm(f => ({ ...f, permitida: v }))} ariaLabel="Se pueden congelar cuotas y bonos" />
+        </div>
+        {form.permitida && (
+          <div className="space-y-3 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between gap-4">
+              <span>
+                <span className="block text-sm font-medium text-foreground">Poner un máximo de días</span>
+                <span className="block text-sm text-muted-foreground text-pretty">Cada día congelado alarga la fecha de fin de su cuota o bono. Con un máximo, una congelación olvidada no lo alarga sin fin: los días de más no se suman.</span>
+              </span>
+              <Toggle on={form.tope} onChange={v => setForm(f => ({ ...f, tope: v }))} ariaLabel="Poner un máximo de días de congelación" />
+            </div>
+            {form.tope && (
+              <Campo label="Máximo de días por congelación" ayuda="Lo máximo que una congelación alarga la fecha de fin, de 1 a 365.">
+                {id => (
+                  <input
+                    id={id} type="number" inputMode="numeric" min={1} max={365} step={1} className={inputCls}
+                    value={form.dias}
+                    onChange={e => {
+                      const n = Number(e.target.value);
+                      setForm(f => ({ ...f, dias: Number.isFinite(n) ? Math.min(365, Math.max(1, Math.trunc(n))) : f.dias }));
+                    }}
+                  />
+                )}
+              </Campo>
+            )}
+          </div>
+        )}
+        <p className="text-sm text-muted-foreground text-pretty" role="note">
+          {!form.permitida
+            ? 'Nadie del equipo podrá congelar una cuota o un bono mientras esté apagado.'
+            : form.tope
+              ? `Si una alumna está congelada 40 días, su cuota o bono se alarga como máximo ${form.dias}.`
+              : 'Cada día congelado alarga su cuota o bono, sin límite: como hasta ahora.'}
+        </p>
+      </div>
+      <BarraGuardar
+        seccion="cobros"
+        cambios={hayCambios(form, base) ? ['Política de congelación'] : []}
+        onGuardar={alGuardar}
+        onDescartar={() => setForm(base)}
+      />
+    </>
+  );
+}
+
 // ── Si se cancela una cuota ──────────────────────────────────────────────────
 // Lo elige el estudio (decisión del fundador, 16-sep). Una cuota cancelada nunca
 // genera cobros nuevos; lo que se elige es qué pasa con el recibo que ya estaba

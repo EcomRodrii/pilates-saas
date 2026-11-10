@@ -5109,6 +5109,10 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('penalizacionAplicaCancelacionTardia' in changes) db.penalizacion_aplica_cancelacion_tardia = changes.penalizacionAplicaCancelacionTardia;
   if ('penalizacionAplicaNoShow' in changes) db.penalizacion_aplica_no_show = changes.penalizacionAplicaNoShow;
   if ('penalizacionCobroAutomatico' in changes) db.penalizacion_cobro_automatico = changes.penalizacionCobroAutomatico;
+  if ('penalizacionUmbralFaltas' in changes) db.penalizacion_umbral_faltas = changes.penalizacionUmbralFaltas;
+  if ('penalizacionUmbralVentanaDias' in changes) db.penalizacion_umbral_ventana_dias = changes.penalizacionUmbralVentanaDias;
+  if ('congelacionPermitida' in changes) db.congelacion_permitida = changes.congelacionPermitida;
+  if ('congelacionMaxDias' in changes) db.congelacion_max_dias = changes.congelacionMaxDias;
   if ('plazaFijaSinCuota' in changes) db.plaza_fija_sin_cuota = changes.plazaFijaSinCuota;
   if ('plazaFijaSolicitarDesdeApp' in changes) db.plaza_fija_solicitar_desde_app = changes.plazaFijaSolicitarDesdeApp;
   if ('plazaFijaPausaDesdeApp' in changes) db.plaza_fija_pausa_desde_app = changes.plazaFijaPausaDesdeApp;
@@ -5532,6 +5536,10 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     penalizacionAplicaCancelacionTardia: r.penalizacion_aplica_cancelacion_tardia ?? true,
     penalizacionAplicaNoShow: r.penalizacion_aplica_no_show ?? true,
     penalizacionCobroAutomatico: r.penalizacion_cobro_automatico ?? false,
+    penalizacionUmbralFaltas: r.penalizacion_umbral_faltas ?? 1,
+    penalizacionUmbralVentanaDias: r.penalizacion_umbral_ventana_dias ?? 90,
+    congelacionPermitida: r.congelacion_permitida ?? true,
+    congelacionMaxDias: r.congelacion_max_dias ?? null,
     modoFacturacion: r.modo_facturacion === 'sin_facturas' || r.modo_facturacion === 'verifactu' ? r.modo_facturacion : 'facturas',
     facturarAutomatico: r.facturar_automatico !== false,
     plazaFijaSinCuota: (r.plaza_fija_sin_cuota as PoliticaPlazaFijaSinCuota | null) ?? 'MANTENER',

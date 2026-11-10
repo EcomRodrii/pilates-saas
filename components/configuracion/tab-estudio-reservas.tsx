@@ -757,6 +757,36 @@ export function FormPenalizacion({ excepciones, ...props }: PropsCajonRegla) {
               on={form.penalizacionCobroAutomatico}
               onChange={v => cambiar('penalizacionCobroAutomatico', v)}
             />
+            {/* «Se cobra a partir de la falta N» (migr 20261110121922): perdonar las primeras queda dentro de lo que la alumna
+                aceptó en su contrato, así que no cambia el texto legal. De serie 1 = desde la primera, como siempre. */}
+            <Campo label="Cobrar desde" ayuda="Las faltas anteriores quedan anotadas pero no se cobran: es tu forma de decir «la primera vez te la perdonamos».">
+              {id => (
+                <select
+                  id={id} className={inputCls}
+                  value={form.penalizacionUmbralFaltas}
+                  onChange={e => cambiar('penalizacionUmbralFaltas', Number(e.target.value))}
+                >
+                  <option value={1}>La primera falta</option>
+                  <option value={2}>La segunda falta</option>
+                  <option value={3}>La tercera falta</option>
+                  <option value={4}>La cuarta falta</option>
+                  <option value={5}>La quinta falta</option>
+                </select>
+              )}
+            </Campo>
+            {form.penalizacionUmbralFaltas > 1 && (
+              <Campo label="Contar las faltas de los últimos" ayuda="Una falta de hace más tiempo ya no cuenta para llegar al número.">
+                {id => (
+                  <select
+                    id={id} className={inputCls}
+                    value={form.penalizacionUmbralVentanaDias}
+                    onChange={e => cambiar('penalizacionUmbralVentanaDias', Number(e.target.value))}
+                  >
+                    {[30, 60, 90, 180, 365].map(d => <option key={d} value={d}>{d === 365 ? 'Un año' : `${d} días`}</option>)}
+                  </select>
+                )}
+              </Campo>
+            )}
           </>
         )}
         {cargoSinLista && (

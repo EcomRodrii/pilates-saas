@@ -68,6 +68,10 @@ export interface ReglasReserva {
   penalizacionAplicaCancelacionTardia: boolean;
   penalizacionAplicaNoShow: boolean;
   penalizacionCobroAutomatico: boolean;
+  /** Se cobra a partir de la falta N de la alumna (1 = desde la primera). Solo puede cobrar MENOS: el contrato no cambia. */
+  penalizacionUmbralFaltas: number;
+  /** Cuántos días hacia atrás cuentan las faltas para el umbral. */
+  penalizacionUmbralVentanaDias: number;
   plazaFijaSinCuota: PoliticaPlazaFijaSinCuota;
   plazaFijaSolicitarDesdeApp: boolean;
   plazaFijaPausaDesdeApp: boolean;
@@ -87,7 +91,7 @@ export const COLUMNAS_POR_TARJETA: Readonly<Record<TarjetaReglasId, readonly (ke
   'si-se-cancela-una-clase': ['cancelacionClaseDevuelveBono', 'minimoAsistentesPorClase'],
   'lista-de-espera': ['permiteListaEspera', 'listaEsperaPlazoAceptacionMinutos', 'listaEsperaReservaPlazaOfrecida'],
   asistencia: ['requiereCheckinQr', 'controlAccesoQr'],
-  'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico'],
+  'si-cancela-tarde-o-no-viene': ['penalizacionImporteEur', 'penalizacionAplicaCancelacionTardia', 'penalizacionAplicaNoShow', 'penalizacionCobroAutomatico', 'penalizacionUmbralFaltas', 'penalizacionUmbralVentanaDias'],
   'si-se-queda-sin-cuota': ['plazaFijaSinCuota'],
   'plaza-fija-desde-la-app': ['plazaFijaSolicitarDesdeApp', 'plazaFijaPausaDesdeApp', 'plazaFijaAprobacion', 'plazaFijaAutoTopePct'],
   'si-pausa-su-plaza-fija': ['plazaFijaPausaLiberaSitio', 'plazaFijaFinPausa'],
@@ -134,6 +138,8 @@ export function reglasGuardadas(s: Partial<Studio> | null | undefined): ReglasRe
     penalizacionAplicaCancelacionTardia: s?.penalizacionAplicaCancelacionTardia ?? true,
     penalizacionAplicaNoShow: s?.penalizacionAplicaNoShow ?? true,
     penalizacionCobroAutomatico: s?.penalizacionCobroAutomatico ?? false,
+    penalizacionUmbralFaltas: s?.penalizacionUmbralFaltas ?? 1,
+    penalizacionUmbralVentanaDias: s?.penalizacionUmbralVentanaDias ?? 90,
     plazaFijaSinCuota: s?.plazaFijaSinCuota ?? 'MANTENER',
     // Pedir plaza fija desde la app viene ENCENDIDO de serie (22-sep): sin motivo de
     // negocio registrado para tenerlo apagado, y con eso apagado ninguna alumna ve
@@ -454,7 +460,10 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       const tarde = r.penalizacionAplicaCancelacionTardia && ventana > 0 ? `cancela con menos de ${ventana} h` : null;
       const falta = r.penalizacionAplicaNoShow ? 'no viene sin avisar' : null;
       if (!tarde && !falta) return `Tal como está, nunca se cobran los ${euros(importe)}: elige cuándo se aplican.`;
-      return `Si ${[tarde, falta].filter(Boolean).join(' o ')}, se le cobran ${euros(importe)} ${r.penalizacionCobroAutomatico ? 'sin esperar a que lo apruebes' : 'cuando lo apruebes'}.`;
+      const cobra = `Si ${[tarde, falta].filter(Boolean).join(' o ')}, se le cobran ${euros(importe)} ${r.penalizacionCobroAutomatico ? 'sin esperar a que lo apruebes' : 'cuando lo apruebes'}.`;
+      const umbral = cifra(r.penalizacionUmbralFaltas);
+      // Las primeras faltas se dejan pasar: el cargo empieza en la N-ésima de los últimos días.
+      return umbral > 1 ? `${cobra} Se cobra a partir de su falta n.º ${umbral} en los últimos ${cifra(r.penalizacionUmbralVentanaDias)} días: las anteriores se perdonan.` : cobra;
     }
     case 'si-se-queda-sin-cuota':
       // Lo que hace el código: `reservas_plaza_fija_sin_cuota` (migr 20260915215236)

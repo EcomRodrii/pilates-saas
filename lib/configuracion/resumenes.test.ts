@@ -4,6 +4,7 @@ import type { DiaHorario } from '../types.ts';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+  resumenCongelacion,
   CORREOS_AUTOMATICOS, MAX_RESUMEN, MAX_RESUMEN_REGLA, MAX_REVISA, NO_DISPONIBLE_TODAVIA, TARJETA_DE_INTEGRACION, agruparConexiones, estadoDelPlan,
   resumenAppsConAcceso, resumenConexion, resumenCreditosPorAccion, resumenDireccion, resumenPaginaPublica, resumenReglasCreditos,
   avisosDeConfiguracion, rangoDeFechas, resumenCierres, resumenCompraPublica,
@@ -966,4 +967,11 @@ test('datáfono: sin Stripe, un SumUp Solo se ve como cualquier datáfono; sin n
   assert.equal(resumenDatafono({ stripeConectado: false, sumupDisponible: true, emparejado: false, lector: null }).valor,
     'Conéctalo para cobrar con tarjeta en la Caja');
   assert.equal(resumenDatafono({ stripeConectado: false, emparejado: false, lector: null }).valor, 'Primero conecta el cobro con tarjeta');
+});
+
+test('la fila de congelación: sin cargar no dice nada; con la política dice si se puede y cuánto alarga', () => {
+  assert.equal(resumenCongelacion({}), null);
+  assert.equal(resumenCongelacion({ congelacionPermitida: true, congelacionMaxDias: null }), 'se puede, sin tope');
+  assert.equal(resumenCongelacion({ congelacionPermitida: true, congelacionMaxDias: 30 }), 'alarga hasta 30 días');
+  assert.equal(resumenCongelacion({ congelacionPermitida: false, congelacionMaxDias: 30 }), 'no se puede congelar');
 });
