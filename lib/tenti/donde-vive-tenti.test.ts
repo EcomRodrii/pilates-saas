@@ -370,7 +370,7 @@ const VETADOS: { grupo: string; motivo: string; rutas: string[]; deRebote: boole
   {
     grupo: 'soporte', deRebote: true,
     motivo: 'la promesa es «te responde una persona, no una IA», y una mascota en el punto de contacto se lee como un bot',
-    rutas: ['components/layout/whatsapp-fab.tsx', 'components/layout/help-widget.tsx', 'components/ayuda', 'app/ayuda'],
+    rutas: ['components/layout/whatsapp-fab.tsx', 'components/ayuda', 'app/ayuda'],
   },
   {
     grupo: 'dinero', deRebote: true,

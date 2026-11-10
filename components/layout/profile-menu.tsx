@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { fetchMisEstudios, type SedeSeleccionable } from '@/lib/supabase-data';
 import { irASede } from '@/components/layout/sede-activa';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
-import { HelpWidget } from '@/components/layout/help-widget';
+import { EVENTO_ABRIR_AYUDA } from '@/lib/ayuda/panel-ayuda';
 import { usePermisos } from '@/lib/permisos';
 import { usePanelTheme } from '@/lib/panel-theme';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
@@ -34,7 +34,6 @@ export function ProfileMenu() {
   // la propietaria.
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const [open, setOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Propietaria sin ficha propia (yo === null): usa el nombre que haya
@@ -137,11 +136,11 @@ export function ProfileMenu() {
               Mi perfil
             </Link>
             <button
-              onClick={() => { setHelpOpen(true); setOpen(false); }}
+              onClick={() => { window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_AYUDA, { detail: { pestana: 'inicio' } })); setOpen(false); }}
               className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[13px] text-foreground hover:bg-muted transition-colors text-left"
             >
               <HelpCircle size={15} className="text-muted-foreground" />
-              Preguntas frecuentes
+              Ayuda
             </button>
             {panelNuevo && (
               <Link
@@ -229,7 +228,6 @@ export function ProfileMenu() {
         )}
       </div>
 
-      <HelpWidget open={helpOpen} onClose={() => setHelpOpen(false)} />
     </>
   );
 }

@@ -18,7 +18,7 @@ test('tres paradas, con las preguntas de la maqueta', () => {
 test('cada parada señala algo que existe en el código', () => {
   assert.ok(leer('components/guia/pon-en-marcha.tsx').includes('data-recorrido="lista"'), 'la lista');
   assert.ok(leer('components/layout/sidebar.tsx').includes('data-tour="menu-principal"'), 'el menú, el mismo ancla que la visita');
-  assert.ok(leer('components/layout/whatsapp-fab.tsx').includes('data-whatsapp-soporte'), 'el WhatsApp de la esquina');
+  assert.ok(leer('components/ayuda/ayuda-del-panel.tsx').includes('data-whatsapp-soporte'), 'el botón de ayuda de la esquina');
 });
 
 test('la tercera dice lo que hay junto al título: la «i» de AyudaDePantalla, no un «?»', () => {
