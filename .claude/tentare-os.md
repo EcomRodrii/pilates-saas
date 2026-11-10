@@ -576,6 +576,11 @@ esa lista con su motivo, no un import de paso.
   dinero (Cobros, Caja, cierre, facturas…) ni junto a lo que redacta un modelo
   (el Contrato, las filas del Centro de Control, el resultado de una adaptación
   o de una nota). En la web comercial se propone, no se pone.
+  ⚠️ **Excepción del fundador (11-nov-2026): el botón de ayuda de la esquina es UNO solo y lleva a
+  Tenti dentro** (`components/ayuda/ayuda-del-panel.tsx`, `panel-ayuda.tsx`): es el icono del botón
+  y de la pestaña «Tentare» (el asistente, con su chat), nunca junto a un cobro (en Cobros, Caja…
+  el botón lleva el icono sobrio) y **nunca en «Mensajes»**, que es la persona: el WhatsApp y el
+  formulario van sin mascota. Antes eran dos botones apilados («no deben de estar los 2 separados»).
   ⚠️ El veredicto del día SÍ lleva a Tenti desde el 5-oct (fundador: en lugar
   del anillo; el veto de «la IA que te habla» cae con el asistente), pero
   nunca junto a un cobro: si aprobar el mensaje cobra, `estadoDelVeredicto`

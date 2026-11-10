@@ -1,12 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  esPestanaAyuda, etiquetaTipoSoporte, extractoMensaje, guiasParaInicio, hayNovedadSinVer, ordenarVersiones,
+  esPestanaAyuda, etiquetaTipoSoporte, extractoMensaje, guiasParaInicio, hayNovedadSinVer, ordenarVersiones, pestanasVisibles,
 } from './panel-ayuda.ts';
 import { AYUDA_POR_PANTALLA } from './pantallas.ts';
 
-test('las pestañas son cuatro y lo demás no es una pestaña', () => {
-  for (const p of ['inicio', 'novedades', 'mensajes', 'ayuda']) assert.equal(esPestanaAyuda(p), true, p);
+test('las pestañas son cinco, «Tentare» solo con asistente, y lo demás no es una pestaña', () => {
+  for (const p of ['inicio', 'tentare', 'novedades', 'mensajes', 'ayuda']) assert.equal(esPestanaAyuda(p), true, p);
+  assert.deepEqual(pestanasVisibles(true), ['inicio', 'tentare', 'novedades', 'mensajes', 'ayuda']);
+  assert.deepEqual(pestanasVisibles(false), ['inicio', 'novedades', 'mensajes', 'ayuda']);
   for (const p of ['', 'Inicio', 'constructor', null, 3]) assert.equal(esPestanaAyuda(p), false, String(p));
 });
 

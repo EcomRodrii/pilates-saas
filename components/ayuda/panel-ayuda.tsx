@@ -1,8 +1,9 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// El panel del botón de ayuda de la esquina: cuatro pestañas (Inicio, Novedades,
-// Mensajes, Ayuda), como el de Momence pero con lo que Tentare ya tiene. No hay
+// El panel del botón de ayuda de la esquina: cinco pestañas (Inicio, Tentare, Novedades,
+// Mensajes, Ayuda), como el de Momence pero con lo que Tentare ya tiene. «Tentare» es el
+// asistente, con su chat dentro, y solo sale si el estudio y el rol lo tienen. No hay
 // contenido nuevo: guías del centro de ayuda, el registro de actualizaciones,
 // `soporte_solicitudes` y el WhatsApp de soporte (la maqueta aprobada el
 // 10-nov-2026).
@@ -11,16 +12,18 @@
 // chunk de cada pantalla hasta que alguien abre la ayuda.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import {
-  ArrowUpRight, BookOpen, ChevronRight, CircleHelp, Home, Megaphone, MessageSquare, Search, Send, Sparkles, X,
+  ArrowUp, ArrowUpRight, BookOpen, ChevronRight, CircleHelp, Home, Megaphone, MessageSquare, Search, Send, X,
 } from 'lucide-react';
 import { supabase } from '@/lib/db/supabase';
 import { useCore } from '@/lib/core-context';
 import { useRol } from '@/lib/permisos';
 import { puedeVerSolicitudesSoporte } from '@/lib/permisos-reglas';
-import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
+import { useAuth } from '@/lib/auth-context';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { SOPORTE_WHATSAPP } from '@/lib/soporte';
 import { cn } from '@/lib/utils';
@@ -31,12 +34,19 @@ import { enviarMensajeSoporte } from '@/lib/ayuda/enviar-soporte';
 import { filtroDeEtiqueta, type CambioVersion } from '@/lib/actualizaciones/version';
 import type { TipoSoporte } from '@/lib/types';
 import {
-  ETIQUETA_TIPO_SOPORTE, PESTANAS_AYUDA, etiquetaTipoSoporte, extractoMensaje, guiasParaInicio,
-  ordenarVersiones, type PestanaAyuda, type VersionResumen,
+  ETIQUETA_TIPO_SOPORTE, PREGUNTAS_DE_EJEMPLO, etiquetaTipoSoporte, extractoMensaje, guiasParaInicio,
+  ordenarVersiones, pestanasVisibles, type PestanaAyuda, type VersionResumen,
 } from '@/lib/ayuda/panel-ayuda';
+
+// El chat llega con su propio chunk, al abrir la pestaña.
+const PestanaTentare = dynamic(() => import('./pestana-tentare').then(m => m.PestanaTentare), {
+  ssr: false,
+  loading: () => <div aria-hidden className="m-4 h-40 animate-pulse rounded-2xl bg-muted" />,
+});
 
 const PESTANA: Record<PestanaAyuda, { titulo: string; Icono: typeof Home }> = {
   inicio: { titulo: 'Inicio', Icono: Home },
+  tentare: { titulo: 'Tentare', Icono: Home }, // el icono es Tenti: se pinta aparte
   novedades: { titulo: 'Novedades', Icono: Megaphone },
   mensajes: { titulo: 'Mensajes', Icono: MessageSquare },
   ayuda: { titulo: 'Ayuda', Icono: CircleHelp },
@@ -52,9 +62,11 @@ const FILA = 'flex w-full items-center gap-3 px-3.5 py-3 text-left transition-co
 const TARJETA = 'overflow-hidden rounded-2xl border border-border bg-card';
 const ETIQUETA = 'px-1 text-[11.5px] font-bold uppercase tracking-[0.07em] text-muted-foreground';
 
-export function PanelAyuda({ ruta, pestana, onPestana, onCerrar, onNovedadVista }: {
+export function PanelAyuda({ ruta, pestana, conTentare, onPestana, onCerrar, onNovedadVista }: {
   ruta: string;
   pestana: PestanaAyuda;
+  /** El asistente está disponible para este estudio y este rol: sale la pestaña «Tentare». */
+  conTentare: boolean;
   onPestana: (p: PestanaAyuda) => void;
   onCerrar: () => void;
   /** La última versión que se acaba de enseñar: el botón apaga su punto. */
@@ -62,6 +74,13 @@ export function PanelAyuda({ ruta, pestana, onPestana, onCerrar, onNovedadVista 
 }) {
   const raiz = useRef<HTMLDivElement>(null);
   useEffect(() => { raiz.current?.focus(); }, []);
+  // La pregunta escrita en Inicio viaja al chat y se consume al montarlo.
+  const [pregunta, setPregunta] = useState<string | null>(null);
+  const consumida = useCallback(() => setPregunta(null), []);
+  const preguntar = (texto: string) => { setPregunta(texto); onPestana('tentare'); };
+  const pestanas = pestanasVisibles(conTentare);
+  // Sin asistente, un enlace a la pestaña «Tentare» cae en Inicio.
+  const actual: PestanaAyuda = pestanas.includes(pestana) ? pestana : 'inicio';
 
   return (
     <div
@@ -71,7 +90,7 @@ export function PanelAyuda({ ruta, pestana, onPestana, onCerrar, onNovedadVista 
       tabIndex={-1}
       onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onCerrar(); } }}
       data-panel-ayuda=""
-      className="fixed inset-x-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] z-50 flex h-[min(600px,calc(100dvh-11rem))] flex-col overflow-hidden rounded-[24px] border border-border bg-card text-foreground shadow-2xl outline-none sm:inset-x-auto sm:right-4 sm:w-[384px] lg:bottom-[6rem] lg:right-6"
+      className="fixed inset-x-3 bottom-[calc(8.5rem+env(safe-area-inset-bottom,0px))] z-50 flex h-[min(640px,calc(100dvh-11rem))] flex-col overflow-hidden rounded-[24px] border border-border bg-card text-foreground shadow-2xl outline-none sm:inset-x-auto sm:right-4 sm:w-[400px] lg:bottom-[6rem] lg:right-6"
     >
       <button
         type="button"
@@ -82,17 +101,18 @@ export function PanelAyuda({ ruta, pestana, onPestana, onCerrar, onNovedadVista 
         <X size={16} aria-hidden />
       </button>
 
-      <div role="tabpanel" id="ayuda-panel" aria-labelledby={`ayuda-pestana-${pestana}`} className="min-h-0 flex-1 overflow-y-auto">
-        {pestana === 'inicio' && <Inicio ruta={ruta} onPestana={onPestana} onCerrar={onCerrar} />}
-        {pestana === 'novedades' && <Novedades onCerrar={onCerrar} onNovedadVista={onNovedadVista} />}
-        {pestana === 'mensajes' && <Mensajes />}
-        {pestana === 'ayuda' && <Categorias />}
+      <div role="tabpanel" id="ayuda-panel" aria-labelledby={`ayuda-pestana-${actual}`} className={cn('min-h-0 flex-1', actual === 'tentare' ? 'overflow-hidden' : 'overflow-y-auto')}>
+        {actual === 'inicio' && <Inicio ruta={ruta} conTentare={conTentare} onPestana={onPestana} onPreguntar={preguntar} />}
+        {actual === 'tentare' && <PestanaTentare pregunta={pregunta} onConsumida={consumida} onCerrar={onCerrar} />}
+        {actual === 'novedades' && <Novedades onCerrar={onCerrar} onNovedadVista={onNovedadVista} />}
+        {actual === 'mensajes' && <Mensajes />}
+        {actual === 'ayuda' && <Categorias />}
       </div>
 
       <div role="tablist" aria-label="Secciones de la ayuda" className="flex border-t border-border bg-card">
-        {PESTANAS_AYUDA.map(p => {
+        {pestanas.map(p => {
           const { titulo, Icono } = PESTANA[p];
-          const activa = p === pestana;
+          const activa = p === actual;
           return (
             <button
               key={p}
@@ -108,7 +128,7 @@ export function PanelAyuda({ ruta, pestana, onPestana, onCerrar, onNovedadVista 
               )}
             >
               {activa && <span aria-hidden className="absolute inset-x-[28%] -top-px h-0.5 rounded-full" style={{ backgroundColor: 'var(--t-magenta-500)' }} />}
-              <Icono size={21} aria-hidden />
+              {p === 'tentare' ? <TentiIcono ancho={22} /> : <Icono size={21} aria-hidden />}
               {titulo}
             </button>
           );
@@ -157,30 +177,79 @@ function Resultados({ consulta }: { consulta: string }) {
   );
 }
 
-function Inicio({ ruta, onPestana, onCerrar }: { ruta: string; onPestana: (p: PestanaAyuda) => void; onCerrar: () => void }) {
+function Inicio({ ruta, conTentare, onPestana, onPreguntar }: {
+  ruta: string;
+  conTentare: boolean;
+  onPestana: (p: PestanaAyuda) => void;
+  onPreguntar: (texto: string) => void;
+}) {
   const [consulta, setConsulta] = useState('');
-  const { puede, abrir } = useAsistente();
-  const puerta = usePuertaAsistente();
+  const [texto, setTexto] = useState('');
+  const { user } = useAuth();
+  const { instructores } = useCore();
+  const nombre = instructores.find(i => i.authUserId === user?.id)?.nombre?.trim().split(/\s+/)[0] ?? null;
   const { titulo, guias } = guiasParaInicio(ruta);
   const buscando = consulta.trim() !== '';
+  const enviar = (e: React.FormEvent) => { e.preventDefault(); if (texto.trim()) onPreguntar(texto.trim()); };
 
   return (
     <div className="pb-4">
-      <div className="px-5 pb-4 pt-6" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--t-blue-500) 16%, var(--card)), var(--card))' }}>
-        <p className="text-[13px] font-semibold text-muted-foreground">Tentare</p>
-        <h2 className="mt-3 text-[24px] font-bold leading-tight tracking-tight text-balance">Hola.<br />¿En qué te ayudamos?</h2>
+      <div className="px-5 pb-5 pt-6" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--t-blue-500) 18%, var(--card)), var(--card))' }}>
+        {conTentare ? (
+          <div className="flex items-center gap-3.5 pr-8">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-foreground text-background shadow-sm"><TentiIcono ancho={28} sobre="invertida" /></span>
+            <h2 className="text-[22px] font-bold leading-tight tracking-tight text-balance">
+              {nombre ? `Hola, ${nombre}.` : 'Hola.'}<br />¿En qué te ayudo hoy?
+            </h2>
+          </div>
+        ) : (
+          <>
+            <p className="text-[13px] font-semibold text-muted-foreground">Tentare</p>
+            <h2 className="mt-3 text-[24px] font-bold leading-tight tracking-tight text-balance">Hola.<br />¿En qué te ayudamos?</h2>
+          </>
+        )}
       </div>
-      <Buscador valor={consulta} onCambio={setConsulta} />
+
+      {conTentare ? (
+        <form onSubmit={enviar} className="mx-4 flex items-center gap-2 rounded-full border border-border bg-card py-1.5 pl-4 pr-1.5 shadow-sm focus-within:border-foreground/40">
+          <input
+            value={texto}
+            onChange={e => setTexto(e.target.value)}
+            placeholder="Pregúntale a Tentare…"
+            aria-label="Pregúntale a Tentare"
+            className="min-w-0 flex-1 bg-transparent text-[14.5px] outline-none placeholder:text-muted-foreground"
+          />
+          <button type="submit" disabled={!texto.trim()} aria-label="Preguntar" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity disabled:opacity-30">
+            <ArrowUp size={17} aria-hidden />
+          </button>
+        </form>
+      ) : (
+        <Buscador valor={consulta} onCambio={setConsulta} />
+      )}
+
       {buscando ? <Resultados consulta={consulta} /> : (
-        <div className="space-y-2.5 px-4 pt-4">
-          <p className={ETIQUETA}>{titulo}</p>
-          <div className={TARJETA}>
-            {guias.map(g => (
-              <a key={`${g.categoria}/${g.slug}`} href={urlArticulo(g)} target="_blank" rel="noopener noreferrer" className={cn(FILA, 'border-b border-border last:border-b-0')}>
-                <span className="min-w-0 flex-1 text-[14px] font-semibold">{g.titulo}</span>
-                <ArrowUpRight size={15} aria-hidden className="shrink-0 text-muted-foreground" />
-              </a>
-            ))}
+        <div className="space-y-3 px-4 pt-4">
+          {conTentare && (
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Preguntas de ejemplo">
+              {PREGUNTAS_DE_EJEMPLO.slice(0, 3).map(q => (
+                <button key={q} type="button" onClick={() => onPreguntar(q)} className="rounded-full border border-border px-3 py-1.5 text-left text-[12.5px] font-medium text-foreground transition-colors hover:bg-muted">
+                  {q}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <p className={ETIQUETA}>{titulo}</p>
+            <div className={TARJETA}>
+              {guias.map(g => (
+                <a key={`${g.categoria}/${g.slug}`} href={urlArticulo(g)} target="_blank" rel="noopener noreferrer" className={cn(FILA, 'border-b border-border last:border-b-0')}>
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-[9px] bg-muted"><BookOpen size={16} aria-hidden /></span>
+                  <span className="min-w-0 flex-1 text-[14px] font-semibold">{g.titulo}</span>
+                  <ArrowUpRight size={15} aria-hidden className="shrink-0 text-muted-foreground" />
+                </a>
+              ))}
+            </div>
           </div>
 
           <div className={TARJETA}>
@@ -200,16 +269,14 @@ function Inicio({ ruta, onPestana, onCerrar }: { ruta: string; onPestana: (p: Pe
               </span>
               <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />
             </button>
-            {puerta && puede && (
-              <button type="button" onClick={() => { onCerrar(); abrir(); }} className={cn(FILA, 'border-t border-border')}>
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-muted"><Sparkles size={18} aria-hidden /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[14px] font-semibold">Pregúntale a Tentare</span>
-                  <span className="block text-[12.5px] text-muted-foreground">El asistente que mira los datos de tu estudio</span>
-                </span>
-                <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />
-              </button>
-            )}
+            <button type="button" onClick={() => onPestana('ayuda')} className={cn(FILA, 'border-t border-border')}>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-muted"><Search size={18} aria-hidden /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-semibold">Buscar en la ayuda</span>
+                <span className="block text-[12.5px] text-muted-foreground">Todas las guías, por categorías</span>
+              </span>
+              <ChevronRight size={16} aria-hidden className="shrink-0 text-muted-foreground" />
+            </button>
           </div>
         </div>
       )}
