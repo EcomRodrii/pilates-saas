@@ -89,7 +89,7 @@ test('asignar una venta cobrada sin ficha apunta su código, y si ya lo había u
 test('la Caja dice con palabras por qué no vale, y lo dicen igual la venta y la vista previa', () => {
   const tipos = readFileSync(join(RAIZ, 'lib/pos/tipos.ts'), 'utf8');
   assert.match(tipos, /case 'CODIGO_YA_USADO_POR_SOCIA':\s*return MENSAJE_CODIGO_YA_USADO;/);
-  assert.match(tipos, /MENSAJE_CODIGO_YA_USADO = '[^']*una vez por clienta[^']*'/);
+  assert.match(tipos, /MENSAJE_CODIGO_YA_USADO = '[^']*una vez por alumna[^']*'/);
   // Las dos rutas traducen con `mensajeErrorVenta` y contestan 409 con el código.
   for (const ruta of ['app/api/pos/venta/route.ts', 'app/api/pos/venta/presupuesto/route.ts']) {
     assert.match(readFileSync(join(RAIZ, ruta), 'utf8'), /mensajeErrorVenta\(codigo\)/, ruta);

@@ -788,14 +788,14 @@ export default function CitasPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <FF label="Clienta">
+            <FF label="Alumna">
               <select
                 required
                 value={form.socioId}
                 onChange={(e) => setForm((f) => ({ ...f, socioId: e.target.value }))}
                 className={inputCls}
               >
-                <option value="">Seleccionar clienta...</option>
+                <option value="">Seleccionar alumna...</option>
                 {socios.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre} {s.apellidos}
@@ -947,7 +947,7 @@ export default function CitasPage() {
                 <p className="text-sm text-muted-foreground">
                   {emiteFacturas ? 'Se generará un recibo cobrado y una factura al contado por' : 'Se registrará un recibo cobrado por'}{' '}
                   <span className="font-semibold text-foreground">{cita.precio != null ? formatEuro(cita.precio) : ''}</span>
-                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta clienta'}</span>.
+                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta alumna'}</span>.
                   No se puede deshacer con un clic — si te has equivocado, gestiónalo después desde Cobros.
                 </p>
                 {errorCobro && (

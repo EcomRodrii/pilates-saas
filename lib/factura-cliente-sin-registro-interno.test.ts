@@ -93,23 +93,23 @@ test('los dos bloques se han leído de verdad, no están vacíos', () => {
   assert.ok(emitidos.includes('numeroCompleto'), 'el payload del servidor sin `numeroCompleto`');
 });
 
-test('el documento de la clienta no declara ni un campo del registro del estudio', () => {
+test('el documento de la alumna no declara ni un campo del registro del estudio', () => {
   const intrusos = declarados.filter((d) => INTERNOS.test(d));
   assert.deepEqual(intrusos, [], `FacturaImprimible declara campos internos: ${intrusos.join(', ')}`);
 });
 
-test('el servidor no manda a la clienta ni un campo del registro del estudio', () => {
+test('el servidor no manda a la alumna ni un campo del registro del estudio', () => {
   const intrusos = emitidos.filter((d) => INTERNOS.test(d));
   assert.deepEqual(
     intrusos, [],
-    `facturaDeSociaPublica manda la cadena Veri*Factu al navegador de la clienta: ${intrusos.join(', ')}`,
+    `facturaDeSociaPublica manda la cadena Veri*Factu al navegador de la alumna: ${intrusos.join(', ')}`,
   );
 });
 
 test('lo que manda el servidor es exactamente el documento, ni más ni menos', () => {
   assert.deepEqual(
     [...emitidos].sort(), [...declarados].sort(),
-    'el payload de la clienta y `FacturaImprimible` han dejado de coincidir',
+    'el payload de la alumna y `FacturaImprimible` han dejado de coincidir',
   );
 });
 

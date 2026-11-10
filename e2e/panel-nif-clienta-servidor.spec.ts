@@ -34,14 +34,14 @@ async function editarNif(page: Page, telefono: string) {
   // Editar vive en «Más acciones» de la cabecera de la ficha.
   await page.getByRole('button', { name: 'Más acciones' }).click({ timeout: 30_000 });
   await page.getByRole('menuitem', { name: 'Editar sus datos' }).click();
-  const dialogo = page.getByRole('dialog', { name: 'Editar clienta' });
+  const dialogo = page.getByRole('dialog', { name: 'Editar alumna' });
   await dialogo.getByLabel('Teléfono').fill(telefono);
   await dialogo.getByLabel('NIF (opcional)').fill(NIF);
   await dialogo.getByRole('button', { name: 'Guardar cambios' }).click();
   return dialogo;
 }
 
-test('la propietaria cambia el NIF de una clienta y viaja al servidor, no a la tabla', async ({ page }) => {
+test('la propietaria cambia el NIF de una alumna y viaja al servidor, no a la tabla', async ({ page }) => {
   await montar(page);
   const parches = await espiarSocios(page);
   const envios: { metodo: string; nif: unknown }[] = [];
@@ -53,7 +53,7 @@ test('la propietaria cambia el NIF de una clienta y viaja al servidor, no a la t
 
   const dialogo = await editarNif(page, '600999000');
 
-  await expect(page.getByText('Clienta actualizada')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Alumna actualizada')).toBeVisible({ timeout: 30_000 });
   await expect(dialogo).toBeHidden();
   expect(envios).toEqual([{ metodo: 'PUT', nif: NIF }]);
   expect(parches.length).toBeGreaterThan(0);
@@ -67,14 +67,14 @@ test('si el servidor rechaza el NIF, la ficha no lo da por guardado ni escribe e
   let intentos = 0;
   await page.route((u) => u.pathname === '/api/socios/soc-1/nif', (r) => {
     intentos++;
-    return r.fulfill({ status: 403, json: { error: 'Solo la propietaria o recepción pueden cambiar el NIF de una clienta.' } });
+    return r.fulfill({ status: 403, json: { error: 'Solo la propietaria o recepción pueden cambiar el NIF de una alumna.' } });
   });
 
   const dialogo = await editarNif(page, '600999111');
 
-  await expect(page.getByText('Solo la propietaria o recepción pueden cambiar el NIF de una clienta.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Solo la propietaria o recepción pueden cambiar el NIF de una alumna.')).toBeVisible({ timeout: 30_000 });
   expect(intentos).toBeGreaterThan(0);
   await expect(dialogo).toBeVisible();
-  await expect(page.getByText('Clienta actualizada')).toHaveCount(0);
+  await expect(page.getByText('Alumna actualizada')).toHaveCount(0);
   expect(parches).toEqual([]);
 });

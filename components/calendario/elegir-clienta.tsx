@@ -37,7 +37,7 @@ export function ElegirClienta({ titulo, subtitulo, clientas, onElegir, onClose }
           <DialogTitle>{titulo}</DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-1">{subtitulo}</p>
-        <label htmlFor={`${uid}-buscar`} className="text-xs font-semibold text-muted-foreground">Clienta</label>
+        <label htmlFor={`${uid}-buscar`} className="text-xs font-semibold text-muted-foreground">Alumna</label>
         <input
           id={`${uid}-buscar`} autoFocus type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)}
           placeholder="Busca por nombre"
@@ -45,7 +45,7 @@ export function ElegirClienta({ titulo, subtitulo, clientas, onElegir, onClose }
         />
         {resultados.length === 0 ? (
           <p className="text-sm text-muted-foreground py-3">
-            {clientas.length === 0 ? 'No hay clientas activas sin clase fija en esta clase.' : 'Ninguna clienta con ese nombre.'}
+            {clientas.length === 0 ? 'No hay alumnas activas sin clase fija en esta clase.' : 'Ninguna alumna con ese nombre.'}
           </p>
         ) : (
           <ul className="max-h-72 overflow-y-auto rounded-lg border border-border">

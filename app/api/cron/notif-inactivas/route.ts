@@ -24,6 +24,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'notif-inactivas' } });
-    return errorInterno('cron/notif-inactivas:POST', err, 'Error avisando de clientas inactivas.');
+    return errorInterno('cron/notif-inactivas:POST', err, 'Error avisando de alumnas inactivas.');
   }
 }

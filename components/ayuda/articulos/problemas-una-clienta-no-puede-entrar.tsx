@@ -25,10 +25,10 @@ export default function Contenido() {
           Dile que escriba su email en la pantalla de acceso y pulse <strong>&ldquo;Seguir&rdquo;</strong>: le llega un
           código de 6 cifras para entrar, tenga contraseña o no, en vez de intentar adivinar una que quizá nunca llegó
           a crear. Ver{' '}
-          <Link href="/ayuda/portal/acceso-de-una-clienta" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo entra una clienta por primera vez</Link>.
+          <Link href="/ayuda/portal/acceso-de-una-clienta" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo entra una alumna por primera vez</Link>.
         </p>
         <p style={{ margin: '0 0 12px' }}>
-          Si el código no le llega en unos minutos, pídele que revise spam, y comprueba tú en la ficha de la clienta
+          Si el código no le llega en unos minutos, pídele que revise spam, y comprueba tú en la ficha de la alumna
           que el email guardado es exactamente el mismo que está usando ella.
         </p>
         <p style={{ margin: 0 }}>

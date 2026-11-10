@@ -87,8 +87,8 @@ const labelCls = 'text-[12px] font-semibold text-foreground block mb-1.5';
 // selector de rol), no un catálogo duplicado en más sitios.
 const ROL_DESC: Record<Rol, string> = {
   PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
-  MANAGER: 'Lleva el día a día de la sede: horario, clientas, lista de espera, sustituciones y equipo. No ve facturación, informes de ingresos ni ajustes del negocio, y no puede dar acceso de propietaria.',
-  RECEPCION: 'Reservas, clientas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio.',
+  MANAGER: 'Lleva el día a día de la sede: horario, alumnas, lista de espera, sustituciones y equipo. No ve facturación, informes de ingresos ni ajustes del negocio, y no puede dar acceso de propietaria.',
+  RECEPCION: 'Reservas, alumnas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio.',
   INSTRUCTOR: 'Calendario, citas (sin precios), miembros, oferta digital, comunidad y mensajería — sin datos de facturación.',
 };
 
@@ -834,7 +834,7 @@ export default function EquipoPage() {
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground -mt-2">Sube una foto de su cara — solo la cara, sin recortes raros: es la que verán las clientas y el resto del equipo.</p>
+            <p className="text-[11px] text-muted-foreground -mt-2">Sube una foto de su cara — solo la cara, sin recortes raros: es la que verán las alumnas y el resto del equipo.</p>
             {errorFoto && <p className="text-[11px] text-destructive -mt-2">{errorFoto}</p>}
             <div>
               <span id={`${uid}-avatar`} className={labelCls}>Avatar</span>
@@ -864,7 +864,7 @@ export default function EquipoPage() {
                 rows={3}
                 maxLength={400}
                 value={form.bio}
-                placeholder="Cuéntales a tus clientas quién eres — aparece en tu web pública."
+                placeholder="Cuéntales a tus alumnas quién eres — aparece en tu web pública."
                 onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
               />
               <p className="text-[11px] text-muted-foreground mt-1">{form.bio.length}/400</p>
@@ -1421,7 +1421,7 @@ function ActividadTab({ actividadReciente, panelNuevo = false, cargado = true }:
         texto="Cada cambio que hace tu equipo en el panel queda apuntado con quién lo hizo y cuándo."
         ejemplos={[
           { accion: 'Alta o baja de alguien del equipo', cuando: 'y quién la hizo' },
-          { accion: 'Un cambio en un plan', cuando: 'o en la ficha de una clienta' },
+          { accion: 'Un cambio en un plan', cuando: 'o en la ficha de una alumna' },
           { accion: 'Una clase que pasa a otra instructora', cuando: 'con la hora del cambio' },
         ]}
       />

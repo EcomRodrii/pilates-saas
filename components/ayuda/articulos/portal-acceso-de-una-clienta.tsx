@@ -9,8 +9,8 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        No tienes que dar de alta tú a una clienta para que pueda entrar: si ya te ha reservado una clase desde el
-        portal público, ya existe como clienta tuya y puede crear su acceso ella misma.
+        No tienes que dar de alta tú a una alumna para que pueda entrar: si ya te ha reservado una clase desde el
+        portal público, ya existe como alumna tuya y puede crear su acceso ella misma.
       </AyudaAntesDeEmpezar>
 
       <p>
@@ -24,7 +24,7 @@ export default function Contenido() {
           es peor que ninguna. Falta hacer la nueva con un estudio de muestra. */}
 
       <p>
-        Si ya es clienta tuya, con el código entra directamente. Si es su primera vez, después le pedimos su nombre,
+        Si ya es alumna tuya, con el código entra directamente. Si es su primera vez, después le pedimos su nombre,
         su teléfono si quiere darlo y que acepte tus condiciones y tu política de privacidad (las tuyas, no las de
         Tentare). Quien tiene contraseña puede usarla con <strong>&ldquo;Usar mi contraseña&rdquo;</strong>, y si no se
         acuerda, <strong>&ldquo;¿Has olvidado la contraseña?&rdquo;</strong> le manda un enlace para crear una nueva.
@@ -32,10 +32,10 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        La clienta entra a su portal sin que tú tengas que enviarle nada a mano ni crearle un usuario. Lo único que
+        La alumna entra a su portal sin que tú tengas que enviarle nada a mano ni crearle un usuario. Lo único que
         puede fallar es que el código no le llegue — mira{' '}
         <Link href="/ayuda/problemas/una-clienta-no-puede-entrar" style={{ color: 'inherit', textDecoration: 'underline' }}>
-          una clienta no puede entrar al portal
+          una alumna no puede entrar al portal
         </Link>.
       </AyudaResultado>
     </>

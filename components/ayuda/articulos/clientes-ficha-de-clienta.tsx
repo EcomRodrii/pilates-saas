@@ -6,20 +6,20 @@ export default function Contenido() {
   return (
     <>
       <p>
-        La ficha de una clienta reúne todo lo que hay de ella en un sitio: sus datos, su plan o bono activo, el
+        La ficha de una alumna reúne todo lo que hay de ella en un sitio: sus datos, su plan o bono activo, el
         historial de clases a las que ha asistido o faltado, sus pagos y facturas, y las notas que tu equipo va
         dejando sobre su progreso.
       </p>
 
       <AyudaCaptura
         src="/help/clientes/ficha-de-clienta.png"
-        alt="Ficha de una clienta: plan activo, clase fija, recuperaciones y excepciones de automatizaciones"
-        caption="La ficha de una clienta real — resumen, plan y las pestañas de reservas, salud, pagos, comunicaciones y documentos."
+        alt="Ficha de una alumna: plan activo, clase fija, recuperaciones y excepciones de automatizaciones"
+        caption="La ficha de una alumna real — resumen, plan y las pestañas de reservas, salud, pagos, comunicaciones y documentos."
       />
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Notas de progreso</h2>
       <p>
-        Sirven para dejar constancia de cómo va una alumna sesión a sesión — no son una valoración de la clienta,
+        Sirven para dejar constancia de cómo va una alumna sesión a sesión — no son una valoración de la alumna,
         son un apunte de seguimiento pensado para que tú o sus instructoras retoméis el hilo. Como son datos de
         salud, exigen su consentimiento, y recepción no las ve: ve solo las notas internas.
       </p>

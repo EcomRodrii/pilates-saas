@@ -16,7 +16,7 @@ const base = {
   estudioConStripe: true, estudioHaceRemesas: true, hoy: '2026-10-02',
 };
 
-test('solo cuotas mensuales activas de clientas en activo; se cobran el día siguiente al fin', () => {
+test('solo cuotas mensuales activas de alumnas en activo; se cobran el día siguiente al fin', () => {
   const { cuotas, sinFechaDeFin } = proximasCuotas({
     ...base,
     suscripciones: [

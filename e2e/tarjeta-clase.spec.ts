@@ -163,7 +163,7 @@ test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
     // Antes de decir «no hay punto», esperar a que la salud HAYA llegado (la barra
     // «Adaptaciones» de la propietaria no depende de la tarjeta): si no, pasaría
     // aunque el ajuste se ignorase.
-    await expect(page.getByText('1 clienta con notas de salud')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('1 alumna con notas de salud')).toBeVisible({ timeout: 30_000 });
     await expect(maria.locator('[data-semaforo]')).toHaveCount(0);
     await expect(maria.locator('[data-pieza="adaptar"]')).toHaveCount(0);
   });

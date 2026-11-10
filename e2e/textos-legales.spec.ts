@@ -84,7 +84,7 @@ function bloqueLegal(page: Page) {
 /** Abre "Nueva clienta" y avanza al paso 2 (Política y contrato). */
 async function abrirPasoDeContrato(page: Page) {
   await page.goto('/clientas');
-  await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: /Nueva alumna|Añadir primera alumna/ }).first().click({ timeout: 30_000 });
   // Por rol y no por placeholder: "Laura" casa también con "laura@ejemplo.com".
   // Nombre, apellidos y email son los tres obligatorios del paso 1.
   // Regex anclada: con el alta en un paso, la firma («Nombre completo de la
@@ -98,7 +98,7 @@ async function abrirPasoDeContrato(page: Page) {
 }
 
 test.describe('Textos legales con los datos del estudio', () => {
-  test('la política que firma la clienta identifica al responsable', async ({ page }) => {
+  test('la política que firma la alumna identifica al responsable', async ({ page }) => {
     await mockBackend(page);
     await seedSesionDeDuena(page);
     await abrirPasoDeContrato(page);

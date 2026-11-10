@@ -49,13 +49,13 @@ test('generarFacturaHTML sigue pintando los datos normales sin escapar de más',
 
 const EMISOR = { nombre: 'Pilates Centro SL', nif: 'B00000000', direccion: 'C/ Mayor 1' };
 
-test('sin sello, la factura de la clienta no menciona Veri*Factu por ninguna parte', () => {
+test('sin sello, la factura de la alumna no menciona Veri*Factu por ninguna parte', () => {
   const html = generarFacturaHTML(factura, EMISOR, null, null);
   assert.ok(!/veri\*?factu/i.test(html), 'no debe nombrar Veri*Factu');
-  assert.ok(!html.includes('Huella'), 'la huella es del registro del estudio, no de la clienta');
+  assert.ok(!html.includes('Huella'), 'la huella es del registro del estudio, no de la alumna');
   assert.ok(!html.includes('<svg'), 'sin sello no hay QR');
   assert.ok(!/prewww2\.aeat\.es/.test(html), 'jamás el entorno de pruebas de la AEAT');
-  assert.ok(!/PRUEBAS/i.test(html), 'ningún aviso de entorno en el papel de la clienta');
+  assert.ok(!/PRUEBAS/i.test(html), 'ningún aviso de entorno en el papel de la alumna');
 });
 
 test('con sello, aparece el QR y la leyenda — y sigue sin aparecer nada interno', () => {
@@ -69,7 +69,7 @@ test('con sello, aparece el QR y la leyenda — y sigue sin aparecer nada intern
   assert.ok(!html.includes(sello.url), 'la URL va DENTRO del QR, no impresa como texto');
 });
 
-test('la factura de la clienta lleva lo que legalmente le corresponde', () => {
+test('la factura de la alumna lleva lo que legalmente le corresponde', () => {
   const html = generarFacturaHTML(
     factura,
     EMISOR,
@@ -78,8 +78,8 @@ test('la factura de la clienta lleva lo que legalmente le corresponde', () => {
   );
   assert.ok(html.includes('Pilates Centro SL'), 'datos del estudio');
   assert.ok(html.includes('B00000000'), 'NIF del estudio');
-  assert.ok(html.includes('Marta Ruiz'), 'datos de la clienta');
-  assert.ok(html.includes('12345678Z'), 'NIF de la clienta');
+  assert.ok(html.includes('Marta Ruiz'), 'datos de la alumna');
+  assert.ok(html.includes('12345678Z'), 'NIF de la alumna');
   assert.ok(html.includes('F-2026-001'), 'número de factura');
   assert.ok(html.includes('IVA (21%)'), 'desglose de impuestos');
   assert.ok(html.includes('40,00 €') && html.includes('8,40 €') && html.includes('48,40 €'));

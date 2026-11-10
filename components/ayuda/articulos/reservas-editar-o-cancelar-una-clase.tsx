@@ -24,7 +24,7 @@ export default function Contenido() {
         &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo, también en el &ldquo;⋯&rdquo; de la
         clase: &ldquo;Cancelar esta clase&rdquo; quita solo esa, y &ldquo;Cancelar esta y las siguientes&rdquo;, esa y
         las que vienen detrás. Una clase que ya ha empezado no se cancela ni se borra: su asistencia es la historia
-        de tus clientas.
+        de tus alumnas.
       </p>
       <p>
         &ldquo;Guardar esta y las siguientes&rdquo; no guarda al pulsarlo: antes te enseña qué va a pasar. Cuántas

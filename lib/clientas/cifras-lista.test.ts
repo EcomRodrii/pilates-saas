@@ -20,7 +20,7 @@ test('nuevas son solo las activas con la marca de nueva, la misma que su fila', 
   assert.equal(contarActivasNuevas(new Map()), 0);
 });
 
-test('lo que se debe es por cobrar más impagado, por clienta, como «Quién me debe»', () => {
+test('lo que se debe es por cobrar más impagado, por alumna, como «Quién me debe»', () => {
   const existe = (id: string) => id !== 'borrada';
   const r = deudaDeClientas([
     { socioId: 'ana', estado: 'PENDIENTE', importe: 50 },

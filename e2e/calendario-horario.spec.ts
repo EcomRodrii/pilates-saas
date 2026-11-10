@@ -169,7 +169,7 @@ test.describe('Calendario · las clases que se repiten', () => {
     expect(envios.some(e => e.accion === 'renovar')).toBe(false);
   });
 
-  test('«+ Clase fija» pide primero la clienta', async ({ page }) => {
+  test('«+ Clase fija» pide primero la alumna', async ({ page }) => {
     await abrirCalendario(page, () => ({ body: HORARIO }));
     await irAHorario(page);
 
@@ -177,7 +177,7 @@ test.describe('Calendario · las clases que se repiten', () => {
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByRole('heading', { name: 'Añadir clase fija' })).toBeVisible();
     await expect(dialogo.getByText(NOMBRE)).toBeVisible();
-    await expect(dialogo.getByLabel('Clienta')).toBeFocused();
+    await expect(dialogo.getByLabel('Alumna')).toBeFocused();
   });
 
   test('si el horario no carga, lo dice y «Reintentar» lo vuelve a pedir', async ({ page }) => {

@@ -101,7 +101,7 @@ export function RiesgoPlanton() {
       if (apuntadas.length === 0) continue;
 
       const enRiesgo = apuntadas
-        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Clienta', riesgo: riesgoDe(socioId) }))
+        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Alumna', riesgo: riesgoDe(socioId) }))
         .filter(x => x.riesgo.nivel === 'ALTO')
         .sort((a, b) => b.riesgo.score - a.riesgo.score);
 

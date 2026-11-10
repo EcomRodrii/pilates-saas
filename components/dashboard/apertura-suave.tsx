@@ -93,7 +93,7 @@ export function AperturaSuave({ estado, fechaApertura, onGuardar }: {
           <div>
             <input
               type="search" value={busqueda} onChange={e => setBusqueda(e.target.value)}
-              placeholder="Invitar a una clienta: escribe su nombre" aria-label="Buscar clienta para invitar"
+              placeholder="Invitar a una alumna: escribe su nombre" aria-label="Buscar alumna para invitar"
               className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-[12.5px] text-foreground placeholder:text-muted-foreground"
             />
             {sugerencias.length > 0 && (

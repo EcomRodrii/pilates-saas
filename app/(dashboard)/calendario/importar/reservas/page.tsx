@@ -150,8 +150,8 @@ export default function ImportarReservasPage() {
           <div className="flex items-start gap-2.5 rounded-2xl border border-[#FDE68A] bg-warning/10 p-4">
             <Info size={15} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-[12.5px] text-warning">
-              <span className="font-semibold">Importa antes las clientas y el horario.</span> Cada reserva se empareja con
-              una clienta por su email y con una clase por su fecha y hora: si no existen todavía, esas filas se omiten.
+              <span className="font-semibold">Importa antes las alumnas y el horario.</span> Cada reserva se empareja con
+              una alumna por su email y con una clase por su fecha y hora: si no existen todavía, esas filas se omiten.
             </p>
           </div>
 
@@ -299,7 +299,7 @@ export default function ImportarReservasPage() {
             <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex flex-col gap-1 text-[12.5px] text-muted-foreground">
                 {resultado.duplicadas > 0 && <p>{resultado.duplicadas} ya estaban y no se han duplicado</p>}
-                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin clienta: ese email no está en tus clientas</p>}
+                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin alumna: ese email no está en tus alumnas</p>}
                 {resultado.sinSesion > 0 && <p>{resultado.sinSesion} sin clase: no hay ninguna a esa fecha y hora</p>}
                 {(resultado.aforoAmpliado ?? 0) > 0 && (
                   <p className="text-warning">

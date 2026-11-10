@@ -71,7 +71,7 @@ export function CifrasClientas({ estados, verFinanzas, irACobros, activa, onCifr
     // 2 × 2 hasta que caben cuatro con aire, como en la home.
     <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4" data-testid="cifras-clientas">
       <TarjetaCifraFiltro
-        etiqueta="Clientas activas"
+        etiqueta="Alumnas activas"
         tono="magenta"
         Icono={Users}
         valor={conteos ? String(conteos.ACTIVA) : '—'}
@@ -108,7 +108,7 @@ export function CifrasClientas({ estados, verFinanzas, irACobros, activa, onCifr
           href={irACobros ? '/cobros?tab=deudas' : null}
           valor={deuda ? String(deuda.clientas) : '—'}
           arriba={deuda && deuda.clientas > 0 ? <CifraPrivada inline>{euros(deuda.importe)}</CifraPrivada> : undefined}
-          abajo={!deuda ? 'Contando…' : deuda.clientas === 0 ? 'Nadie te debe nada' : deuda.clientas === 1 ? 'clienta con algo sin cobrar' : 'clientas con algo sin cobrar'}
+          abajo={!deuda ? 'Contando…' : deuda.clientas === 0 ? 'Nadie te debe nada' : deuda.clientas === 1 ? 'alumna con algo sin cobrar' : 'alumnas con algo sin cobrar'}
         />
       ) : (
         <TarjetaCifraFiltro
@@ -129,7 +129,7 @@ export function CifrasClientas({ estados, verFinanzas, irACobros, activa, onCifr
 /** Al lado de las activas: cuántas son nuevas, o qué cuenta como activa. */
 function ladoActivas(activas: number | null, nuevas: number | null): { arriba?: ReactNode; abajo: ReactNode } {
   if (activas === null || nuevas === null) return { abajo: 'Contando…' };
-  if (activas === 0) return { abajo: 'Aún no tienes clientas activas' };
+  if (activas === 0) return { abajo: 'Aún no tienes alumnas activas' };
   if (nuevas > 0) {
     return {
       arriba: <span style={{ color: 'var(--success)' }}>{nuevas} nueva{nuevas === 1 ? '' : 's'}</span>,

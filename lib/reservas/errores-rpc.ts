@@ -41,7 +41,7 @@ export const MENSAJE_RESERVA_RPC: Record<string, string> = {
   // se le cuenta el detalle interno, pero tampoco se le enseña el código.
   NO_AUTORIZADO: 'No tienes permiso para apuntar a nadie en esta clase.',
   STUDIO_MISMATCH: 'Esa clase no es de este estudio. Recarga la página.',
-  SOCIO_NO_PERTENECE_AL_STUDIO: 'Esa clienta no es de este estudio. Recarga la página.',
+  SOCIO_NO_PERTENECE_AL_STUDIO: 'Esa alumna no es de este estudio. Recarga la página.',
 };
 
 /**

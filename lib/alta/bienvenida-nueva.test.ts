@@ -113,7 +113,7 @@ test('la vía que le toca pasa delante y se marca; empezar de cero no recomienda
 test('«Qué exportar»: sin rutas de menú inventadas, y «reconocemos» solo donde es verdad', () => {
   for (const p of PROGRAMAS) {
     const t = queExportar(p.valor);
-    assert.match(t, /exportar tus clientas a CSV o Excel/);
+    assert.match(t, /exportar tus alumnas a CSV o Excel/);
     assert.doesNotMatch(t, /›|>|menú|Ajustes|Configuración/i, `${p.valor}: nada de rutas de menú`);
     const dice = /las reconocemos solas/.test(t);
     assert.equal(dice, (PROGRAMAS_RECONOCIDOS as readonly string[]).includes(p.valor), p.valor);
@@ -136,6 +136,6 @@ test('⚠️ cada programa que decimos reconocer tiene un export con sus columna
   };
   for (const programa of PROGRAMAS_RECONOCIDOS) {
     const plan = analizarDeterminista(archivos[programa]);
-    assert.ok(plan.archivos.some(a => a.entidad === 'socias' && a.origen === 'auto' && a.ok > 0), `${programa}: no se reconocen sus clientas`);
+    assert.ok(plan.archivos.some(a => a.entidad === 'socias' && a.origen === 'auto' && a.ok > 0), `${programa}: no se reconocen sus alumnas`);
   }
 });

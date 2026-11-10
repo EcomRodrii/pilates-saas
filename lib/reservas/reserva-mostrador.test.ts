@@ -48,7 +48,7 @@ test('solo un false de verdad apaga el aviso: ante la duda, se avisa', () => {
   }
 });
 
-test('sin clase, sin clienta o sin cuerpo no se reserva nada', () => {
+test('sin clase, sin alumna o sin cuerpo no se reserva nada', () => {
   assert.equal(leerPeticionReservaMostrador(null).ok, false);
   assert.equal(leerPeticionReservaMostrador('texto').ok, false);
   assert.equal(leerPeticionReservaMostrador({ ...BASE, sesionId: '' }).ok, false);

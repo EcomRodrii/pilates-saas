@@ -89,7 +89,7 @@ test('«Plan de Tentare» es de la propietaria; a «Mi cuenta» llega todo el pe
   }
 });
 
-test('el copy dice «alumna», nunca «clienta» ni «socia»', () => {
+test('el copy dice «alumna», nunca «alumna» ni «socia»', () => {
   const textos = [
     ...SECCIONES.flatMap(s => [s.titulo, s.resumen, s.frase]),
     ...todas.flatMap(t => [t.titulo, t.frase]),

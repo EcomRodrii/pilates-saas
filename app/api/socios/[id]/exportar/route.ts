@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para exportar los datos de una clienta' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para exportar los datos de una alumna' }, { status: 403 });
   }
 
   const admin = getSupabaseAdmin();

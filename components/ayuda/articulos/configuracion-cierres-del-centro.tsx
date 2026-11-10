@@ -114,7 +114,7 @@ export default function Contenido() {
       <AyudaResultado>
         Si solo quieres regalar días de bono sin cerrar —una compensación, un detalle con un grupo—, eso es otra
         cosa: se hace desde{' '}
-        <Link href="/ayuda/bonos/ampliar-caducidades-en-lote" style={enlace}>Clientas, ampliando la caducidad</Link>{' '}
+        <Link href="/ayuda/bonos/ampliar-caducidades-en-lote" style={enlace}>Alumnas, ampliando la caducidad</Link>{' '}
         a quien tú elijas. El cierre es para cuando de verdad no hay clases.
       </AyudaResultado>
     </>

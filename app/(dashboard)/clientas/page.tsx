@@ -795,7 +795,7 @@ export default function Socios() {
       // Cuántas SÍ: son cobros, y «no se ha podido» a secas hacía pensar que no salió ninguno.
       const total = conseguidas.size + fallidas.length;
       setErrorAsignar(
-        `${conseguidas.size > 0 ? `Asignado a ${conseguidas.size} de ${total}. ` : ''}No se ha podido asignar a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} clientas (${fallidas.join(', ')})`}: ${ultimoError.replace(/\.$/, '')}. Siguen marcadas para reintentarlo.`,
+        `${conseguidas.size > 0 ? `Asignado a ${conseguidas.size} de ${total}. ` : ''}No se ha podido asignar a ${fallidas.length === 1 ? fallidas[0] : `${fallidas.length} alumnas (${fallidas.join(', ')})`}: ${ultimoError.replace(/\.$/, '')}. Siguen marcadas para reintentarlo.`,
       );
       return;
     }
@@ -806,7 +806,7 @@ export default function Socios() {
     // Antes se cerraba sin decir nada (P0.3): son N cobros, y lo que ha pasado
     // se dice con su número.
     const nombrePlan = planesTarifa.find((p) => p.id === asignarPlanId)?.nombre ?? 'el plan';
-    setAvisoPlazaFija(`Plan «${nombrePlan}» asignado a ${conseguidas.size === 1 ? '1 clienta' : `${conseguidas.size} clientas`}`);
+    setAvisoPlazaFija(`Plan «${nombrePlan}» asignado a ${conseguidas.size === 1 ? '1 alumna' : `${conseguidas.size} clientas`}`);
   }
 
   async function handleAmpliarCaducidades() {
@@ -956,7 +956,7 @@ export default function Socios() {
       if (!cierre.ok) avisos.push(`No se ha podido cerrar su consulta: ${cierre.error}`);
       setRecargaConsultas(n => n + 1);
     }
-    if (avisos.length > 0) setErrorFila(`La clienta se ha creado, pero hay algo que revisar. ${avisos.join(' ')}`);
+    if (avisos.length > 0) setErrorFila(`La alumna se ha creado, pero hay algo que revisar. ${avisos.join(' ')}`);
 
     // La bienvenida la manda addSocio (lib/studio-context.tsx) — así cubre
     // también las altas que no pasan por esta pantalla (import CSV, alta
@@ -1288,7 +1288,7 @@ export default function Socios() {
   // La cabecera nueva: la acción principal con el degradado del logo e
   // «Importar» con borde; las respuestas a las preguntas del estudio, en el ⋯.
   // En el móvil, el ⋯ lleva también «Importar» (antes no se llegaba desde ahí).
-  const accionImportar: AccionMenu = { texto: 'Importar clientas', icono: Upload, nota: 'Desde un Excel o un CSV', onClick: () => router.push('/clientas/importar') };
+  const accionImportar: AccionMenu = { texto: 'Importar alumnas', icono: Upload, nota: 'Desde un Excel o un CSV', onClick: () => router.push('/clientas/importar') };
   const accionRespuestas: AccionMenu[] = camposPersonalizados.some(c => c.activo)
     ? [{ texto: 'Respuestas', icono: ListChecks, nota: 'Lo que ha contestado cada una a tus preguntas', onClick: () => router.push('/clientas/respuestas') }]
     : [];
@@ -1310,7 +1310,7 @@ export default function Socios() {
         <BotonVivo
           Icono={Plus}
           onClick={abrirAlta}
-          label={<><span className="sm:hidden">Nueva</span><span className="hidden sm:inline">Nueva clienta</span></>}
+          label={<><span className="sm:hidden">Nueva</span><span className="hidden sm:inline">Nueva alumna</span></>}
         />
       </span>
     </>
@@ -1389,14 +1389,14 @@ export default function Socios() {
       {/* En el móvil, el «+» va en la fila del título (no una fila entera para el botón). */}
       <PageHeader
         className="max-sm:flex-row max-sm:items-start max-sm:justify-between"
-        title="Clientas"
+        title="Alumnas"
         description={conteos
           ? [
               `${conteos.ACTIVA} ${conteos.ACTIVA === 1 ? 'activa' : 'activas'}`,
               conteos.DE_PRUEBA > 0 && `${conteos.DE_PRUEBA} de prueba`,
               conteos.SIN_RENOVAR > 0 && `${conteos.SIN_RENOVAR} sin renovar`,
             ].filter(Boolean).join(' · ')
-          : 'Gestiona y haz seguimiento de todas tus clientas'}
+          : 'Gestiona y haz seguimiento de todas tus alumnas'}
         actions={
           panelNuevo ? (gestionaClientas ? accionesNuevas : null) :
           gestionaClientas ? (
@@ -1421,12 +1421,12 @@ export default function Socios() {
             </button>
             <button
               onClick={() => { setForm(emptyForm()); setShowForm('nueva'); }}
-              aria-label="Nueva clienta"
+              aria-label="Nueva alumna"
               data-tour="clientas-nueva"
               className="flex size-11 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors shadow-sm sm:size-auto sm:min-h-10 sm:rounded-xl sm:px-3.5"
             >
               <Plus size={18} className="sm:size-[15px]" aria-hidden />
-              <span className="hidden sm:inline">Nueva clienta</span>
+              <span className="hidden sm:inline">Nueva alumna</span>
             </button>
           </>
           ) : null
@@ -1457,11 +1457,11 @@ export default function Socios() {
           dataTour="clientas-interesadas"
           valor={vista}
           onCambio={(id) => { setVista(id); setAbierta(null); setSelected(new Set()); setSeleccionando(false); }}
-          pestanas={[{ id: 'clientas', label: 'Clientas', n: conteos?.TOTAL }, { id: 'interesadas', label: 'Interesadas y pruebas', n: nInteresadas }]}
+          pestanas={[{ id: 'clientas', label: 'Alumnas', n: conteos?.TOTAL }, { id: 'interesadas', label: 'Interesadas y pruebas', n: nInteresadas }]}
         />
       ) : (
       <div data-tour="clientas-interesadas" role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
-        {([['clientas', 'Clientas', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
+        {([['clientas', 'Alumnas', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
           <button
             key={id}
             role="tab"
@@ -1509,19 +1509,19 @@ export default function Socios() {
           // Con el alta nueva (PR-5, maqueta «08 · El panel después»), las tres
           // maneras de que lleguen. La primera es verdad sin hacer nada: quien
           // reserva desde su página se da de alta sola (`registrarSociaPublica`).
-          titulo={altaNuevaPropia ? 'Aún no tienes alumnas' : 'Da de alta a tu primera clienta'}
-          texto="Aquí tendrás a cada clienta con su plan, lo que le queda y cuándo vino por última vez."
+          titulo={altaNuevaPropia ? 'Aún no tienes alumnas' : 'Da de alta a tu primera alumna'}
+          texto="Aquí tendrás a cada alumna con su plan, lo que le queda y cuándo vino por última vez."
           etiquetaEjemplos={altaNuevaPropia ? 'Tres maneras' : undefined}
           ejemplos={altaNuevaPropia ? [
             { accion: 'Comparte tu enlace', cuando: 'y se dan de alta solas al reservar.' },
             { accion: 'Impórtalas', cuando: 'de tu Excel o de tu programa anterior.' },
-            { accion: 'Añádelas', cuando: 'una a una desde Clientas.' },
+            { accion: 'Añádelas', cuando: 'una a una desde Alumnas.' },
           ] : [
             { accion: 'Mira quién lleva un mes sin venir', cuando: 'antes de que se te vaya.' },
             { accion: 'Ve cuántas sesiones le quedan a cada una', cuando: 'sin abrir su ficha.' },
             { accion: 'Encuentra a quien se le acabó el plan', cuando: 'cuando aún estás a tiempo de recuperarla.' },
           ]}
-          accion={gestionaClientas ? { label: 'Añadir mi primera clienta', Icono: Plus, onClick: abrirAlta } : undefined}
+          accion={gestionaClientas ? { label: 'Añadir mi primera alumna', Icono: Plus, onClick: abrirAlta } : undefined}
           secundaria={gestionaClientas && puedeVer(rol, '/migracion') ? { label: 'Tráelas de tu programa anterior', href: '/migracion' } : undefined}
         />
       ) : (
@@ -1610,7 +1610,7 @@ export default function Socios() {
             ref={buscadorRef}
             type="search"
             placeholder="Buscar por nombre, email o teléfono"
-            aria-label="Buscar clientas"
+            aria-label="Buscar alumnas"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="w-full min-h-11 rounded-xl border border-input bg-card pl-10 pr-10 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [@media(pointer:fine)]:min-h-10 [@media(pointer:fine)]:text-[13.5px]"
@@ -1773,7 +1773,7 @@ export default function Socios() {
       {lista.length > 0 && (
         <div className="-mt-1 flex items-center justify-between gap-2 md:hidden">
           <p className="text-[12.5px] text-muted-foreground" aria-live="polite">
-            {lista.length === 1 ? '1 clienta' : `${lista.length} clientas`}
+            {lista.length === 1 ? '1 alumna' : `${lista.length} clientas`}
           </p>
           {gestionaClientas && (
             <button
@@ -1795,19 +1795,19 @@ export default function Socios() {
           // implementaciones distintas).
           <EmptyState
             icono={Users}
-            titulo={faltanDatosParaFiltrar ? 'Faltan datos para este filtro' : hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay clientas'}
+            titulo={faltanDatosParaFiltrar ? 'Faltan datos para este filtro' : hayFiltrosActivos ? 'Nadie cumple estos filtros' : 'Aún no hay alumnas'}
             descripcion={faltanDatosParaFiltrar
               ? 'No se han podido cargar todas sus clases o sus planes, y sin ellos este filtro no puede decir quién lo cumple. Recarga la página o quita el filtro.'
               : hayFiltrosActivos
               ? 'Prueba con otros filtros, o quítalos para ver a todas.'
-              : 'Añade tu primera clienta o tráelas de tu programa anterior.'}
+              : 'Añade tu primera alumna o tráelas de tu programa anterior.'}
             cta={hayFiltrosActivos
               ? { label: 'Quitar filtros', onClick: limpiarFiltros }
-              : { label: 'Añadir primera clienta', icono: Plus, onClick: () => { setForm(emptyForm()); setShowForm('nueva'); } }}
+              : { label: 'Añadir primera alumna', icono: Plus, onClick: () => { setForm(emptyForm()); setShowForm('nueva'); } }}
           />
         ) : panelAbierto ? (
           // Lista compacta junto a la ficha: nombre, plan y su aviso.
-          <ul aria-label="Clientas" className="max-h-[calc(100dvh-14rem)] divide-y divide-border overflow-y-auto">
+          <ul aria-label="Alumnas" className="max-h-[calc(100dvh-14rem)] divide-y divide-border overflow-y-auto">
             {listaVisible.map((s, i) => {
               const f = fila(s, i);
               const activa = abierta === s.id;
@@ -1863,7 +1863,7 @@ export default function Socios() {
                         type="checkbox"
                         checked={allSelected}
                         onChange={toggleSelectAll}
-                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientas de la lista`}
+                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} alumnas de la lista`}
                         className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
                       />
                     </CasillaTactil>
@@ -1871,7 +1871,7 @@ export default function Socios() {
                 )}
                 <th className={cn('py-3 pl-4 pr-3', fijaIzq && cn('sticky z-[1] bg-card', gestionaClientas ? 'left-11' : 'left-0'))}>
                   <button onClick={() => toggleSort('nombre')} className="zona-tactil inline-flex items-center uppercase hover:text-foreground">
-                    Clienta <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
+                    Alumna <SortIcon active={sortKey === 'nombre'} dir={sortDir} />
                   </button>
                 </th>
                 <th className="py-3 pr-3">Estado</th>
@@ -2001,7 +2001,7 @@ export default function Socios() {
           </table>
 
           {/* Móvil: una fila por clienta, con su plan y su estado o su aviso. */}
-          <ul aria-label="Clientas" className="divide-y divide-border md:hidden">
+          <ul aria-label="Alumnas" className="divide-y divide-border md:hidden">
             {listaVisible.map((s, i) => {
               const f = fila(s, i);
               const isSelected = selected.has(s.id);
@@ -2069,7 +2069,7 @@ export default function Socios() {
       </div>
 
       {panelAbierto && abierta && (
-        <section aria-label="Ficha de la clienta" className="min-w-0">
+        <section aria-label="Ficha de la alumna" className="min-w-0">
           <div className="mb-2 flex items-center justify-end gap-3 text-[13px] font-medium text-foreground">
             <span className="hidden text-[12px] text-muted-foreground xl:inline">↑ ↓ para moverte · Esc cierra</span>
             <Link href={`/clientas/${abierta}`} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 hover:bg-muted">
@@ -2143,7 +2143,7 @@ export default function Socios() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold text-foreground flex items-center gap-2">
-              {showForm === 'nueva' ? 'Nueva clienta' : 'Editar clienta'}
+              {showForm === 'nueva' ? 'Nueva alumna' : 'Editar alumna'}
             </DialogTitle>
           </DialogHeader>
 
@@ -2176,7 +2176,7 @@ export default function Socios() {
                   />
                 </FF>
               </div>
-              <FF label="Género" description="Solo cambia cómo se escribe en el panel: «clienta fija» o «cliente fijo», «alumna» o «alumno». Sin indicar se escribe en femenino.">
+              <FF label="Género" description="Solo cambia cómo se escribe en el panel: «alumna fija» o «cliente fijo», «alumna» o «alumno». Sin indicar se escribe en femenino.">
                 <select
                   className={inputCls}
                   value={form.genero}
@@ -2369,14 +2369,14 @@ export default function Socios() {
                   la socia queda pendiente y firma ella al entrar a reservar. */}
               {veDatosPrivados && (
               <FF
-                label="Firma de la clienta (opcional)"
+                label="Firma de la alumna (opcional)"
                 description="Solo si está delante y firma ella. Si se ha apuntado por teléfono, déjalo vacío: se lo pediremos cuando entre a reservar."
               >
                 <div className="relative">
                   <PenLine size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <input
                     className={inputCls + ' pl-8 font-medium italic'}
-                    placeholder="Nombre completo de la clienta…"
+                    placeholder="Nombre completo de la alumna…"
                     value={firma}
                     onChange={(e) => setFirma(e.target.value)}
                   />
@@ -2404,7 +2404,7 @@ export default function Socios() {
                     <div>
                       <p className="text-[12px] font-semibold text-warning">Queda pendiente de firma</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
-                        La clienta se crea igualmente. Se le pedirá aceptar el contrato la primera vez
+                        La alumna se crea igualmente. Se le pedirá aceptar el contrato la primera vez
                         que entre a reservar, y firmará ella.
                       </p>
                     </div>
@@ -2449,7 +2449,7 @@ export default function Socios() {
                 {guardando
                   ? 'Guardando…'
                   : showForm === 'nueva'
-                    ? (firma.trim() ? 'Crear clienta y firmar' : 'Crear clienta')
+                    ? (firma.trim() ? 'Crear alumna y firmar' : 'Crear alumna')
                     : 'Guardar cambios'}
               </button>
           </div>
@@ -2746,7 +2746,7 @@ export default function Socios() {
               <p className="text-[13px] text-foreground">
                 Esto <strong>anota</strong> un consentimiento que ya te han dado — en mostrador,
                 en la hoja de alta, por escrito. No se lo pide a nadie: la ley exige que lo dé
-                la clienta, así que solo regístralo si de verdad lo tienes.
+                la alumna, así que solo regístralo si de verdad lo tienes.
               </p>
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">

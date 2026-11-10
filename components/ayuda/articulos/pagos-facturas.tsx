@@ -28,7 +28,7 @@ export default function Contenido() {
         Con Veri*Factu activado, cada factura lleva además de su número una huella que la encadena con la anterior — el mecanismo que
         exige Veri*Factu para que nadie pueda editar o borrar una factura después sin que se note — y su registro se
         envía a la AEAT. Eso se hace solo, en cuanto se cobra. El código QR de verificación se imprime en la factura
-        cuando la AEAT ya tiene su registro: un QR que la AEAT no puede cotejar le diría a tu clienta que su factura
+        cuando la AEAT ya tiene su registro: un QR que la AEAT no puede cotejar le diría a tu alumna que su factura
         no consta.
       </p>
 

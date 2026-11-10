@@ -12,7 +12,7 @@ export async function crearNotaInternaAdmin(
 ): Promise<{ ok: true; id: string } | { error: string }> {
   const { data: socio } = await admin
     .from('socios').select('id').eq('id', params.socioId).eq('studio_id', params.studioId).maybeSingle();
-  if (!socio) return { error: 'Clienta no encontrada' };
+  if (!socio) return { error: 'Alumna no encontrada' };
 
   const id = `nota-${uid()}`;
   const { error } = await admin.from('notas_internas').insert({

@@ -17,7 +17,7 @@ function analiza(contenido: string) {
 
 test('salta un título + fila en blanco antes de la cabecera (Excel casero)', () => {
   const { headers, rows } = parseCsv(
-    'Listado de clientas 2026\n\nNombre,Apellidos,Email\nMaría,Soler,maria@gmail.com\n',
+    'Listado de alumnas 2026\n\nNombre,Apellidos,Email\nMaría,Soler,maria@gmail.com\n',
   );
   assert.deepEqual(headers, ['Nombre', 'Apellidos', 'Email']);
   assert.equal(rows.length, 1);
@@ -37,7 +37,7 @@ test('NO se salta la cabecera cuando las filas de datos son más estrechas', () 
   assert.equal(rows.length, 2);
 });
 
-test('un Excel casero con título se clasifica igualmente como clientas', () => {
+test('un Excel casero con título se clasifica igualmente como alumnas', () => {
   const a = analiza('Clientas\n\nNombre,Email\nMaría,maria@gmail.com\nNora,nora@hotmail.com\n');
   assert.equal(a.entidad, 'socias');
   assert.equal(a.ok, 2);

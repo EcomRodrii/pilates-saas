@@ -61,14 +61,14 @@ export function SolicitudesDerechosPendientes() {
           {solicitudes.length === 1 ? '1 solicitud sobre datos personales' : `${solicitudes.length} solicitudes sobre datos personales`}
         </h2>
       </div>
-      <p className="text-[12px] text-muted-foreground mb-3">Las piden las clientas desde su app. Hay que responder dentro del plazo.</p>
+      <p className="text-[12px] text-muted-foreground mb-3">Las piden las alumnas desde su app. Hay que responder dentro del plazo.</p>
       {errorCierre && <p className="text-[12px] text-destructive mb-2">{errorCierre}</p>}
       <ul className="space-y-2">
         {solicitudes.map(s => (
           <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 bg-card border border-border rounded-lg px-3 py-2">
             <div className="min-w-0">
               <p className="text-[13px] font-semibold text-foreground truncate">
-                {s.socia?.nombre || 'Clienta'} · {etiquetaTipoSolicitud(s.tipo)}
+                {s.socia?.nombre || 'Alumna'} · {etiquetaTipoSolicitud(s.tipo)}
               </p>
               <p className="text-[11px] text-muted-foreground">{textoPlazo(s.plazoHasta, ahora)}</p>
             </div>

@@ -214,8 +214,8 @@ const AUTOMATIZACIONES_ONBOARDING: { id: string; trigger: string; label: string;
   // Tentare de serie a todos los estudios. Pedir aquí que se activara la regla
   // era pedir un segundo recordatorio por la misma clase — un paso del
   // checklist que, completado, empeoraba el producto.
-  { id: 'ausencias', trigger: 'AUSENCIA_DIAS', label: 'Recupera clientas ausentes', descripcion: 'Pregunta cómo están las que llevan días sin venir y ofrece una vuelta con descuento si la ausencia se alarga — te ahorra llevar la cuenta a mano.' },
-  { id: 'nuevas', trigger: 'NUEVA_SOCIA', label: 'Acompaña a las clientas nuevas', descripcion: 'Anima a reservar a quien se acaba de dar de alta y no lo ha hecho, y te avisa si sigue sin venir — te ahorra el seguimiento manual de cada alta.' },
+  { id: 'ausencias', trigger: 'AUSENCIA_DIAS', label: 'Recupera alumnas ausentes', descripcion: 'Pregunta cómo están las que llevan días sin venir y ofrece una vuelta con descuento si la ausencia se alarga — te ahorra llevar la cuenta a mano.' },
+  { id: 'nuevas', trigger: 'NUEVA_SOCIA', label: 'Acompaña a las alumnas nuevas', descripcion: 'Anima a reservar a quien se acaba de dar de alta y no lo ha hecho, y te avisa si sigue sin venir — te ahorra el seguimiento manual de cada alta.' },
 ];
 
 /**
@@ -268,7 +268,7 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // llevaba a Mi estudio y prometía «nombre y contacto», que no cuentan.
     { id: 'estudio', label: 'Pon tus datos fiscales', descripcion: 'Razón social y NIF: sin NIF no sale ninguna factura de tus cobros.', minutos: 2, done: !!d.nif, href: '/configuracion?tab=cobros#datos-fiscales' },
     { id: 'marca', label: 'Personaliza tu marca', descripcion: 'Logo y color de tu estudio, en la app de tus alumnas y en tu página de reservas.', minutos: 3, done: marcaPersonalizada, href: '/configuracion?tab=marca' },
-    { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas clientas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio&abrir=salas' },
+    { id: 'salas', label: 'Configura tus salas', descripcion: 'El aforo de cada sala limita cuántas alumnas caben en cada clase.', minutos: 2, done: d.numSalas > 0, href: '/configuracion?tab=estudio&abrir=salas' },
     // Mismo criterio que «clientas»: el panel usa una sola palabra para la
     // clientela porque el equipo de un estudio de Pilates lo es casi siempre.
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: 'Gestiona horarios, sustituciones, disponibilidad y estadísticas de tus instructoras.', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
@@ -279,8 +279,8 @@ export function calcularOnboarding(d: DatosOnboarding): {
     // superan). Ya no hay horario propuesto (se quitó el 8-oct): las clases se
     // crean en el calendario, con «Crear clase» → «Clase» o «Clase semanal».
     { id: 'horario', label: 'Programa tus clases', descripcion: 'Sin clases en el calendario, la app de tus alumnas no tiene nada que enseñar. Créalas en el calendario con «Crear clase»: una suelta o una clase semanal.', minutos: 2, done: d.numSesiones > 0, href: '/calendario' },
-    { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde la app de tus alumnas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
-    { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada clienta paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/productos' },
+    { id: 'clientes', label: 'Añade tus primeras alumnas', descripcion: 'Empieza con las que ya tienes — el resto se apuntará sola desde la app de tus alumnas.', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1', labelSecundario: '¿Vienes de otro software? Importa tus datos', hrefSecundario: '/migracion' },
+    { id: 'bonos', label: 'Configura tus bonos y membresías', descripcion: 'Planes de pago recurrente o por sesiones — sin esto, cada alumna paga clase a clase.', minutos: 4, done: d.numPlanesTarifa > 0, href: '/productos' },
   ];
   // ⚠️ EL CANDADO DE STRIPE ERA FALSO. Este paso exigía `stripeAccountId`, y
   // para recibir una reserva Stripe NO hace falta: se comprobó contra el camino
@@ -464,7 +464,7 @@ export function calcularPasosOnboarding(d: DatosOnboardingLegacy): PasoOnboardin
     { id: 'instructor', label: 'Añade tu primera instructora', descripcion: '', minutos: 2, done: d.numInstructores > 0, href: '/equipo' },
     { id: 'clase', label: 'Crea tu primer tipo de clase', descripcion: '', minutos: 2, done: d.numTiposClase > 0, href: '/configuracion?tab=clases&abrir=tipos-de-clase' },
     { id: 'horario', label: 'Configura tus horarios', descripcion: '', minutos: 5, done: d.numSesiones > 0, href: '/calendario' },
-    { id: 'clientes', label: 'Añade tus primeras clientas', descripcion: '', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
+    { id: 'clientes', label: 'Añade tus primeras alumnas', descripcion: '', minutos: 3, done: d.numSocios > 0, href: '/clientas?nuevo=1' },
     { id: 'pago', label: 'Activa los métodos de pago', descripcion: '', minutos: 5, done: !!d.stripeAccountId, href: '/configuracion?tab=conexiones#integracion-stripe' },
   ];
   const listo = base.every(p => p.done);

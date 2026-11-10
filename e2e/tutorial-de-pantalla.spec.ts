@@ -148,7 +148,7 @@ test.describe('el tutorial de la pantalla', () => {
     // La máscara no tapa el menú: se puede ir a Clientas con el tutorial abierto.
     await page.locator('a[href="/clientas"]:visible').first().click();
     await expect(page).toHaveURL(/\/clientas$/);
-    await expect(titulo(page)).toHaveText('Cada clienta, su estado', { timeout: 20_000 });
+    await expect(titulo(page)).toHaveText('Cada alumna, su estado', { timeout: 20_000 });
     // Paquetes no se dio por visto ni completado: la próxima vez se volverá a abrir.
     expect((await progresoGuardado(page))['/productos']).toBeUndefined();
   });
@@ -168,8 +168,8 @@ test.describe('el tutorial de la pantalla', () => {
   test('Esc en el buscador es del buscador: el tutorial sigue', async ({ page }) => {
     await estudioNuevo(page);
     await ir(page, 'clientas');
-    await expect(titulo(page)).toHaveText('Cada clienta, su estado', { timeout: 20_000 });
-    const buscador = page.getByLabel('Buscar clientas').first();
+    await expect(titulo(page)).toHaveText('Cada alumna, su estado', { timeout: 20_000 });
+    const buscador = page.getByLabel('Buscar alumnas').first();
     await buscador.fill('Laura');
     await buscador.press('Escape');
     await page.waitForTimeout(400);

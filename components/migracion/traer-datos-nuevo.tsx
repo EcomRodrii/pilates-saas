@@ -119,7 +119,7 @@ const QUE_TRAE: Record<EntidadMigracion, { tono: Tono; Icono: ElementType; texto
   clases: { tono: 'azul', Icono: CalendarDays, texto: 'Tu horario, semanal o por fechas, con instructora, sala y aforo.' },
   reservas: { tono: 'indigo', Icono: CalendarCheck, texto: 'Quién va a cada clase, y si asistió o canceló.' },
   citas: { tono: 'indigo', Icono: Clock, texto: 'Las sesiones de una en una, con su servicio, su instructora y su precio.' },
-  pagos: { tono: 'verde', Icono: Receipt, texto: 'Lo que cada clienta te pagó antes: queda en su ficha, aparte de lo que cobres aquí.' },
+  pagos: { tono: 'verde', Icono: Receipt, texto: 'Lo que cada alumna te pagó antes: queda en su ficha, aparte de lo que cobres aquí.' },
   recuperaciones: { tono: 'magenta', Icono: RotateCcw, texto: 'Las clases que le debes a cada una, con su caducidad.' },
 };
 

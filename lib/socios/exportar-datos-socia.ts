@@ -409,7 +409,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
   if (!o.incluirSalud) {
     notas.push('Sin la sección de salud: quien ha generado este archivo no tiene permiso para ver la ficha clínica.');
   } else if (!conSalud) {
-    notas.push('Sin la sección de salud: la clienta no tiene vigente el consentimiento para tratar datos de salud.');
+    notas.push('Sin la sección de salud: la alumna no tiene vigente el consentimiento para tratar datos de salud.');
   }
 
   return {

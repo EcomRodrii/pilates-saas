@@ -18,7 +18,7 @@ test.describe.configure({ timeout: 60_000 });
 // en un diálogo con `className="max-w-md"`, el patrón de medio panel.
 const REGLA = {
   id: 'rule-1', studio_id: 'studio-test', nombre: 'Recuperar a quien deja de venir',
-  descripcion: 'Escribe a la clienta que lleva 14 días sin reservar.', icono: 'user',
+  descripcion: 'Escribe a la alumna que lleva 14 días sin reservar.', icono: 'user',
   trigger: 'AUSENCIA_DIAS', condicion: { dias: 14 }, pasos: [], activa: false,
   ejecutada_veces: 0, ultima_ejecucion: null, creada_en: '2026-09-01T09:00:00Z',
 };
@@ -30,7 +30,7 @@ async function abrirConfirmacion(page: Page): Promise<Locator> {
   await ir(page, 'automatizaciones');
   await page.getByRole('button', { name: 'Reglas', exact: true }).click();
   await page.getByRole('switch', { name: /Activar la automatización Recuperar/ }).click();
-  const dialogo = page.getByRole('dialog').filter({ hasText: 'Esto va a escribir a tus clientas' });
+  const dialogo = page.getByRole('dialog').filter({ hasText: 'Esto va a escribir a tus alumnas' });
   await expect(dialogo).toBeVisible();
   // Que termine de crecer (`.panel-dialogo` entra con escala): medir a mitad da otra caja.
   await expect.poll(() => dialogo.evaluate(el => el.getAnimations().every(a => a.playState !== 'running'))).toBe(true);

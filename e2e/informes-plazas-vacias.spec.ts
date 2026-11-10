@@ -26,7 +26,7 @@ async function montarCon(page: Page, o: { disponible: boolean; status?: number; 
     return json(r, { disponible: true, desde: url.searchParams.get('desde'), hasta: url.searchParams.get('hasta'), filas: o.filas ?? [] });
   });
   await ir(page, 'informes');
-  await expect(page.getByRole('heading', { name: 'Clientas' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Alumnas' })).toBeVisible({ timeout: 60_000 });
   return pedidas;
 }
 

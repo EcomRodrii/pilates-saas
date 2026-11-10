@@ -26,7 +26,7 @@ export default function Contenido() {
         <strong>«Buscar sustituta»</strong> pone en marcha lo mismo (y antes de pulsar te dice a quién avisaría y en
         qué orden). Si ya sabes quién la da, <strong>«¿Ya sabes quién la da?»</strong> se la asigna directamente:
         queda registrada como sustitución, a ella le llega el aviso en la app del estudio y, si quieres, a las
-        clientas apuntadas también. En una clase que sí tiene instructora, lo mismo está en su «⋯» →{' '}
+        alumnas apuntadas también. En una clase que sí tiene instructora, lo mismo está en su «⋯» →{' '}
         «Buscar sustituta».
       </p>
 

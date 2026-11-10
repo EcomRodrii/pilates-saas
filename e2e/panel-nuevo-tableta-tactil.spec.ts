@@ -21,11 +21,11 @@ test.describe.configure({ timeout: 90_000 });
 function piezasDeClientas(page: Page): [string, Locator][] {
   const cabecera = page.locator('[data-slot="page-header"]');
   return [
-    ['ⓘ de la cabecera', cabecera.getByRole('button', { name: 'Ayuda: Clientas' })],
+    ['ⓘ de la cabecera', cabecera.getByRole('button', { name: 'Ayuda: Alumnas' })],
     ['«Cómo funciona»', cabecera.getByTestId('boton-tutorial')],
     ['«Importar» (BOTON_BORDE)', cabecera.getByRole('button', { name: 'Importar' })],
-    ['«Nueva clienta» (BotonVivo)', cabecera.getByRole('button', { name: 'Nueva clienta' })],
-    ['pestaña «Clientas» (PestanasVivas)', page.getByRole('tab', { name: /^Clientas/ })],
+    ['«Nueva alumna» (BotonVivo)', cabecera.getByRole('button', { name: 'Nueva alumna' })],
+    ['pestaña «Alumnas» (PestanasVivas)', page.getByRole('tab', { name: /^Alumnas/ })],
     ['pestaña «Interesadas y pruebas»', page.getByRole('tab', { name: /^Interesadas y pruebas/ })],
     ['píldora «3 meses» (Pildoras)', page.getByRole('group', { name: 'Periodo' }).first().getByRole('button', { name: '3 meses' })],
     ['píldora «1 año»', page.getByRole('group', { name: 'Periodo' }).first().getByRole('button', { name: '1 año' })],
@@ -35,7 +35,7 @@ function piezasDeClientas(page: Page): [string, Locator][] {
 test.describe('iPad vertical (768×1024)', () => {
   test.use({ viewport: { width: 768, height: 1024 } });
 
-  test('Clientas: la cabecera, las pestañas y las píldoras tienen 44 px de zona táctil', async ({ page }) => {
+  test('Alumnas: la cabecera, las pestañas y las píldoras tienen 44 px de zona táctil', async ({ page }) => {
     await abrir(page, 'clientas');
     expect(await medir(piezasDeClientas(page))).toEqual([]);
   });
@@ -45,7 +45,7 @@ test.describe('iPad vertical (768×1024)', () => {
     const malos = await medir([
       ['ⓘ de la cabecera', page.getByRole('button', { name: 'Ayuda: Resumen' })],
       ['«Ver informe» (VerMas)', page.getByRole('link', { name: 'Ver informe' })],
-      ['«Ver clientas» (VerMas)', page.getByRole('link', { name: 'Ver clientas' })],
+      ['«Ver alumnas» (VerMas)', page.getByRole('link', { name: 'Ver alumnas' })],
     ]);
     expect(malos).toEqual([]);
   });
@@ -74,7 +74,7 @@ test.describe('iPad tumbado (1024×768)', () => {
       ['campana', arriba.getByRole('button', { name: /Notificaciones/ })],
       ['menú de perfil', arriba.getByRole('button', { name: 'Abrir menú de perfil' })],
       ['fila «Calendario»', menu.getByRole('link', { name: 'Calendario', exact: true })],
-      ['fila «Clientas»', menu.getByRole('link', { name: 'Clientas', exact: true })],
+      ['fila «Alumnas»', menu.getByRole('link', { name: 'Alumnas', exact: true })],
       ['fila «Cobros»', menu.getByRole('link', { name: 'Cobros', exact: true })],
       ['fila «Paquetes»', menu.getByRole('link', { name: 'Paquetes', exact: true })],
       ['«Portal clientes»', menu.getByRole('link', { name: 'Portal clientes' })],
@@ -106,11 +106,11 @@ test.describe('con ratón', () => {
   test('el panel nuevo en escritorio no cambia ni un píxel: ni zona ni filas más altas', async ({ page }) => {
     await abrir(page, 'clientas');
     await expect(page.locator('.panel-app[data-panel-nuevo]')).toHaveCount(1, { timeout: 30_000 });
-    const info = page.locator('[data-slot="page-header"]').getByRole('button', { name: 'Ayuda: Clientas' });
+    const info = page.locator('[data-slot="page-header"]').getByRole('button', { name: 'Ayuda: Alumnas' });
     await expect(info).toBeVisible({ timeout: 30_000 });
     expect(await info.evaluate((el) => getComputedStyle(el, '::after').content)).toBe('none');
     expect((await info.boundingBox())!.width).toBeLessThan(24);
-    const fila = page.locator('[data-panel-menu]').getByRole('link', { name: 'Clientas', exact: true });
+    const fila = page.locator('[data-panel-menu]').getByRole('link', { name: 'Alumnas', exact: true });
     expect(Math.round((await fila.boundingBox())!.height)).toBe(36);
   });
 });

@@ -239,7 +239,7 @@ export function RellenarHuecoPanel({
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-semibold text-foreground">
-                            {socia ? `${socia.nombre} ${socia.apellidos}` : 'Clienta'}
+                            {socia ? `${socia.nombre} ${socia.apellidos}` : 'Alumna'}
                           </p>
                           <p className="text-[11px] text-muted-foreground">
                             {TEXTO_MOTIVO_CANDIDATA.LISTA_ESPERA}
@@ -280,7 +280,7 @@ export function RellenarHuecoPanel({
                           className="size-4 shrink-0 accent-[var(--brand-medio)]"
                           checked={marcada}
                           onChange={() => alternar(c.socioId)}
-                          aria-label={`Seleccionar a ${socia?.nombre ?? 'esta clienta'}`}
+                          aria-label={`Seleccionar a ${socia?.nombre ?? 'esta alumna'}`}
                         />
                         <ProfileAvatar
                           size="sm"
@@ -290,7 +290,7 @@ export function RellenarHuecoPanel({
                         />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[13px] font-semibold text-foreground">
-                            {socia ? `${socia.nombre} ${socia.apellidos}` : 'Clienta'}
+                            {socia ? `${socia.nombre} ${socia.apellidos}` : 'Alumna'}
                           </p>
                           <p className="flex flex-wrap gap-x-2 text-[11px] text-muted-foreground">
                             {c.motivos.map(m => <span key={m}>{TEXTO_MOTIVO_CANDIDATA[m]}</span>)}
@@ -302,7 +302,7 @@ export function RellenarHuecoPanel({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                            aria-label={`Escribir a ${socia?.nombre ?? 'esta clienta'} por WhatsApp`}
+                            aria-label={`Escribir a ${socia?.nombre ?? 'esta alumna'} por WhatsApp`}
                           >
                             <MessageCircle size={15} />
                           </a>

@@ -510,7 +510,7 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
   return (
     <div className={CUERPO}>
       <p className="text-sm text-muted-foreground text-pretty">
-        Al desconectarlo dejamos de guardar {queSeBorra} Las clientas que trajiste se quedan.
+        Al desconectarlo dejamos de guardar {queSeBorra} Las alumnas que trajiste se quedan.
       </p>
       <div className="flex flex-col gap-2 @sm/config:flex-row @sm/config:flex-wrap">
         <button type="button" onClick={() => setPreguntando(true)} disabled={desconectando} className={cn(btnSecondary, 'text-destructive')}>
@@ -522,7 +522,7 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
         open={preguntando}
         onOpenChange={setPreguntando}
         titulo="¿Desconectar Gmail?"
-        descripcion={`Dejaremos de guardar ${queSeBorra} Las clientas que trajiste se quedan.`}
+        descripcion={`Dejaremos de guardar ${queSeBorra} Las alumnas que trajiste se quedan.`}
         textoConfirmar="Sí, desconectar"
         destructivo
         onConfirm={() => { void desconectar(); }}

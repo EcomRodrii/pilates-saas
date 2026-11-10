@@ -215,11 +215,11 @@ export default function ImportarSociasPage() {
   return (
     <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
-        back={{ href: '/clientas', label: 'Volver a Clientas' }}
-        title="Importar clientas"
+        back={{ href: '/clientas', label: 'Volver a Alumnas' }}
+        title="Importar alumnas"
         description={pegarEncendido
-          ? 'Migra tu lista de clientas desde un CSV (Excel, Bsport, Mindbody u otro) o pegándola desde tu hoja.'
-          : 'Migra tu lista de clientas desde un CSV (Excel, Bsport, Mindbody u otro).'}
+          ? 'Migra tu lista de alumnas desde un CSV (Excel, Bsport, Mindbody u otro) o pegándola desde tu hoja.'
+          : 'Migra tu lista de alumnas desde un CSV (Excel, Bsport, Mindbody u otro).'}
       />
 
       {/* Migración Mágica: el camino nuevo — todo de golpe, cualquier formato */}
@@ -234,7 +234,7 @@ export default function ImportarSociasPage() {
         <TentiIcono ancho={22} />
         <span className="flex-1 text-[13px] text-foreground">
           <strong>¿Vienes de otro software?</strong> Prueba la migración automática: arrastra tus exports tal cual
-          (clientas, bonos, horario, reservas, citas, pagos y recuperaciones — CSV o Excel) y los reconocemos
+          (alumnas, bonos, horario, reservas, citas, pagos y recuperaciones — CSV o Excel) y los reconocemos
           solos. Con acta y deshacer.
         </span>
         <span className="text-[13px] font-bold text-brand-secondary shrink-0">Ir a Traer mis datos →</span>
@@ -343,7 +343,7 @@ export default function ImportarSociasPage() {
 
           <div className="text-[13px] pt-1">
             <Link href="/clientas/importar/membresias" className="inline-flex items-center gap-1.5 text-primary font-medium hover:underline">
-              ¿Ya tienes tus clientas? Importa sus membresías y bonos <ArrowRight size={14} />
+              ¿Ya tienes tus alumnas? Importa sus membresías y bonos <ArrowRight size={14} />
             </Link>
           </div>
           <div className="text-[13px]">
@@ -386,7 +386,7 @@ export default function ImportarSociasPage() {
           {demasiadasPegadas && (
             <div role="alert" className="flex items-start gap-2 text-[13px] rounded-xl px-4 py-3 border" style={{ backgroundColor: 'color-mix(in srgb, var(--destructive, #d33) 8%, transparent)', borderColor: 'color-mix(in srgb, var(--destructive, #d33) 30%, transparent)', color: 'var(--destructive, #8E3722)' }}>
               <AlertTriangle size={15} className="shrink-0 mt-0.5" />
-              <span>Hay {conteo.ok.toLocaleString('es-ES')} clientas listas y se importan como mucho {MAX_FILAS_PEGADAS.toLocaleString('es-ES')} de una vez. Pégalas en tandas de {MAX_FILAS_PEGADAS.toLocaleString('es-ES')}.</span>
+              <span>Hay {conteo.ok.toLocaleString('es-ES')} alumnas listas y se importan como mucho {MAX_FILAS_PEGADAS.toLocaleString('es-ES')} de una vez. Pégalas en tandas de {MAX_FILAS_PEGADAS.toLocaleString('es-ES')}.</span>
             </div>
           )}
           {avisosPegado && avisosPegado.saludRelacionada.length > 0 && (
@@ -540,7 +540,7 @@ export default function ImportarSociasPage() {
                 <PartyPopper size={22} className="text-primary" />
               </div>
               <p className="text-[17px] font-bold text-foreground">
-                {resultado.importadas} {resultado.importadas === 1 ? 'clienta importada' : 'clientas importadas'}
+                {resultado.importadas} {resultado.importadas === 1 ? 'alumna importada' : 'alumnas importadas'}
               </p>
               <p className="text-[13px] text-muted-foreground mt-1">
                 {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidos por estar ya en tu lista. `}
@@ -578,10 +578,10 @@ export default function ImportarSociasPage() {
               onClick={() => router.push('/clientas')}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm"
             >
-              <Users size={14} /> Ver mis clientas
+              <Users size={14} /> Ver mis alumnas
             </button>
             <button onClick={reiniciar} className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
-              {pegado ? 'Importar más clientas' : 'Importar otro archivo'}
+              {pegado ? 'Importar más alumnas' : 'Importar otro archivo'}
             </button>
           </div>
         </div>

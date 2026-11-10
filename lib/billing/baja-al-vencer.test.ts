@@ -27,7 +27,7 @@ test('ninguna suscripción cae en las dos listas', () => {
   assert.ok(!r.renovar.some(x => r.cancelar.includes(x)));
 });
 
-test('la cuota de una clienta dada de baja no se renueva aunque nadie le programara la baja', () => {
+test('la cuota de una alumna dada de baja no se renueva aunque nadie le programara la baja', () => {
   const r = repartirVencidas(
     [{ id: 'de-baja', socio_id: 'soc-baja' }, { id: 'activa', socio_id: 'soc-activa' }],
     new Set(['soc-baja']),

@@ -182,7 +182,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
 
     // Muchas: campaña de verdad. Se crea, se busca por id y se encola — el
     // envío corre en servidor y esta pestaña no lo espera (se puede cerrar).
-    const nombreCampana = (asunto.trim() || mensaje.trim().slice(0, 40)) || 'Mensaje a mis clientas';
+    const nombreCampana = (asunto.trim() || mensaje.trim().slice(0, 40)) || 'Mensaje a mis alumnas';
     const res = await addCampana({
       nombre: nombreCampana,
       tipo: canal,
@@ -281,7 +281,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           onChange={e => setModo(e.target.value as ModoDestinatario)}
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
         >
-          <option value="todos">Un grupo de clientas…</option>
+          <option value="todos">Un grupo de alumnas…</option>
           <option value="etapa">Por estado…</option>
           {etiquetasDisponibles.length > 0 && <option value="etiqueta">Por etiqueta…</option>}
           {canal === 'EMAIL' && <option value="persona">Una persona…</option>}
@@ -336,7 +336,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
             onChange={e => setPersonaSel(e.target.value)}
             className="w-full mt-2 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
           >
-            <option value="">Elige una clienta</option>
+            <option value="">Elige una alumna</option>
             {socios.map(s => (
               <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
             ))}
@@ -368,7 +368,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           value={mensaje}
           onChange={e => setMensaje(e.target.value)}
           rows={6}
-          placeholder="Escribe el mensaje que recibirán tus clientas..."
+          placeholder="Escribe el mensaje que recibirán tus alumnas..."
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand resize-none"
         />
       </div>
@@ -380,7 +380,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           <Info size={12} className="shrink-0 mt-0.5" />
           <span>
             {esUnaPersona
-              ? 'Aviso directo a una clienta, por email.'
+              ? 'Aviso directo a una alumna, por email.'
               : 'Sale como campaña: lleva enlace de baja y no se manda a quien no haya dado su consentimiento.'}
           </span>
         </div>

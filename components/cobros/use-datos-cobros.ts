@@ -113,7 +113,7 @@ export function useDatosCobros(): DatosCobros {
       nombreDe: (id: string | null) => {
         if (!id) return 'Venta de mostrador';
         const s = sociosPorId.get(id);
-        return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Clienta eliminada';
+        return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Alumna eliminada';
       },
       facturaDe: (reciboId: string) => facturaPorRecibo.get(reciboId),
       cuotaDe: (id: string | null) => (id ? cuotaPorId.get(id) : undefined),

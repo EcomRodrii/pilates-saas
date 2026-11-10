@@ -24,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para apuntar contactos con clientas.' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para apuntar contactos con alumnas.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'socios-contactos', { max: 60, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq('id', socioId).eq('studio_id', sesion.studioId).is('borrado_en', null)
       .maybeSingle();
     if (errSocia) return errorInterno('socios:contactos:leer', errSocia, 'No se ha podido leer la ficha. No se ha apuntado nada.');
-    if (!socia) return NextResponse.json({ error: 'No se encuentra esta clienta.' }, { status: 404 });
+    if (!socia) return NextResponse.json({ error: 'No se encuentra esta alumna.' }, { status: 404 });
 
     const id = uid();
     const { error } = await admin.from('comunicaciones_socio').insert({

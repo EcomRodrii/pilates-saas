@@ -75,7 +75,7 @@ export function leerPeticionReservaMostrador(body: unknown):
   const sesionId = idValido(b.sesionId);
   if (!sesionId) return { ok: false, error: 'Falta la clase' };
   const socioId = idValido(b.socioId);
-  if (!socioId) return { ok: false, error: 'Falta la clienta' };
+  if (!socioId) return { ok: false, error: 'Falta la alumna' };
   const reservaId = typeof b.reservaId === 'string' ? b.reservaId : '';
   if (!RESERVA_ID.test(reservaId) || esReservaPlazaFija(reservaId)) {
     return { ok: false, error: 'Identificador de reserva no válido' };

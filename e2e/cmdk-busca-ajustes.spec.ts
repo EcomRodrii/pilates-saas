@@ -59,7 +59,7 @@ async function panel(page: Page, { comoRecepcion = false } = {}) {
 // e2e/buscador-global-secciones.spec.ts): el del menú lateral no está en todas.
 async function abrirBuscador(page: Page) {
   await page.getByRole('button', { name: /Qué quieres hacer o buscar/ }).click({ timeout: 30_000 });
-  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca una clienta, clase o pago…');
+  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca una alumna, clase o pago…');
   await expect(input).toBeVisible();
   return input;
 }
@@ -113,7 +113,7 @@ test.describe('⌘K encuentra los ajustes de Configuración', () => {
     // pasaría también antes de buscar. Recepción sí encuentra la acción de
     // facturar («iva» es una de sus claves), que no sale con la caja vacía.
     await expect(page.getByRole('button', { name: /Emitir una factura/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Dar de alta a una clienta/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Dar de alta a una alumna/ })).toHaveCount(0);
     await expect(page.getByText('Ajustes', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Datos fiscales e IVA/ })).toHaveCount(0);
   });

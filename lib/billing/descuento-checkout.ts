@@ -39,7 +39,7 @@ export function resolverDescuentoCheckout(
   const codigo = buscarCodigo(codigos, texto);
   if (!codigo) return { ok: false, motivo: 'Ese código no existe' };
   if (codigo.soloNuevas && !opts.esNueva) {
-    return { ok: false, motivo: 'Ese código es solo para clientas nuevas' };
+    return { ok: false, motivo: 'Ese código es solo para alumnas nuevas' };
   }
   return validarCodigoCanjeable(codigo, {
     hoyISO: opts.hoyISO, subtotal: opts.subtotal,

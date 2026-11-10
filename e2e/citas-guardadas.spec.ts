@@ -175,7 +175,7 @@ async function abrirCitas(page: Page) {
 
 async function rellenarNuevaCita(page: Page) {
   await page.getByRole('button', { name: /Nueva cita/i }).first().click();
-  await page.getByRole('combobox', { name: 'Clienta' }).selectOption('soc-1');
+  await page.getByRole('combobox', { name: 'Alumna' }).selectOption('soc-1');
   await page.getByRole('combobox', { name: 'Instructor' }).selectOption('inst-1');
   await page.getByLabel('Fecha').fill('2027-03-01');
   await page.getByLabel('Hora').fill('09:00');

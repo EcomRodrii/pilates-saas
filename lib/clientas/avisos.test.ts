@@ -4,7 +4,7 @@ import { avisoDeClienta, avisosDeCobro, avisosDelCentroDeControl } from './aviso
 
 const rec = (socioId: string | null, tipo: string, score: number, motivo = 'motivo', creadoEn: string | null = null) => ({ socioId, tipo, score, motivo, titulo: 'título', creadoEn });
 
-test('de cada clienta, la recomendación con más prioridad; las que no van sobre una clienta no cuentan', () => {
+test('de cada alumna, la recomendación con más prioridad; las que no van sobre una alumna no cuentan', () => {
   const a = avisosDelCentroDeControl([
     rec('soc-1', 'IMPULSAR_ONBOARDING', 40),
     rec('soc-1', 'RECUPERAR_SOCIA', 80, 'Venía 2 veces por semana', '2026-09-28T06:00:00Z'),

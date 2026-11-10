@@ -119,7 +119,7 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
     <div className="space-y-6 pb-6">
       <p className="text-pretty text-sm text-muted-foreground">
         Para agrupar a tus alumnas a tu manera —«Mamás», «Mañanas», «Vienen con su pareja»—. Las pones en la ficha de cada una o a varias a la vez desde
-        Clientas, y en Clientas filtras por ellas.
+        Alumnas, y en Alumnas filtras por ellas.
       </p>
 
       {puedeEditar ? (
@@ -148,7 +148,7 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
           </div>
         </section>
       ) : (
-        <p className="text-sm text-muted-foreground">Solo quien lleva las clientas puede crear o cambiar etiquetas.</p>
+        <p className="text-sm text-muted-foreground">Solo quien lleva las alumnas puede crear o cambiar etiquetas.</p>
       )}
 
       <section aria-labelledby={`${uid}-lista`} className="space-y-2">

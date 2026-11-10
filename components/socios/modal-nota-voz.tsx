@@ -76,7 +76,7 @@ export function ModalNotaVoz({ socioId, nombreSocia, instructorId, sesionId, onC
 
         {!tieneConsentimiento ? (
           <p role="alert" className="text-sm text-muted-foreground">
-            Registra primero el consentimiento de salud de esta clienta desde su ficha. Sin él no se pueden guardar notas de sesión.
+            Registra primero el consentimiento de salud de esta alumna desde su ficha. Sin él no se pueden guardar notas de sesión.
           </p>
         ) : !disponible ? (
           <p className="text-sm text-muted-foreground">

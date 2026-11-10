@@ -235,7 +235,7 @@ export const WIDGETS: readonly Widget[] = [
     // además necesitaría CORS para escribir desde otro dominio.
     id: 'contacto', estado: 'disponible', categoria: 'captacion', icono: 'Mail',
     nombre: 'Formulario de contacto', respuesta: 'Un formulario de contacto', principal: true,
-    descripcion: 'Las consultas te llegan a Clientas.',
+    descripcion: 'Las consultas te llegan a Alumnas.',
     embebido: { tab: 'contacto' }, pagina: { tab: 'contacto' },
     metodos: ['iframe', 'popup', 'enlace', 'boton'],
     contenido: [], alto: 620, anchoPopup: 560, textoBoton: 'Escríbenos',

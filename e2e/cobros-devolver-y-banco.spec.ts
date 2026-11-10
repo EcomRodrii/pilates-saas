@@ -206,7 +206,7 @@ test.describe('Devolver un cobro: dos hechos, dos acciones', () => {
   });
 
   for (const [caso, respuesta] of [
-    ['el servidor dice que no (entró por Stripe)', { status: 409, body: { error: 'Este cobro entró por Stripe: devuélvelo desde la ficha de la clienta («Devolver»), y el recibo se marcará solo.' } }],
+    ['el servidor dice que no (entró por Stripe)', { status: 409, body: { error: 'Este cobro entró por Stripe: devuélvelo desde la ficha de la alumna («Devolver»), y el recibo se marcará solo.' } }],
     ['el servidor se cae', { status: 500, body: { error: 'No se ha podido registrar la devolución.' } }],
   ] as const) {
     test(`si ${caso}, se dice y el cobro sigue como estaba`, async ({ page }) => {
@@ -317,7 +317,7 @@ test.describe('Lo que está en el banco', () => {
     expect(ll.cobrado.length + ll.devuelto.length + ll.escriturasDirectas).toBe(0);
   });
 
-  test('con remesas, la clienta sin domiciliación tampoco: solo «No llegó a ir al banco»', async ({ page }) => {
+  test('con remesas, la alumna sin domiciliación tampoco: solo «No llegó a ir al banco»', async ({ page }) => {
     // El mandato del montaje es de Bea (s2): este recibo es de Ana.
     await montar(page, { recibos: [{ ...EN_EL_BANCO, socio_id: 's1' }], conRemesa: true });
     await expect(fila(page, 'rec-remesa')).toBeVisible({ timeout: 15_000 });

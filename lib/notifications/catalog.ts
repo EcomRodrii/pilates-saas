@@ -910,7 +910,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // clienta pagó Y perdió lo entregado, y hay que devolvérselo a mano.
   ...paraRoles(EVENTOS.PAGO_DEVOLUCION_FALLIDA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Una devolución ha fallado',
-    body: 'La devolución de {importe} € a {socia} ha fallado: la clienta NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
+    body: 'La devolución de {importe} € a {socia} ha fallado: la alumna NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
     deepLink: (d: Datos) => (d.socioId ? `/clientas/${s(d.socioId)}` : '/cobros'),
   }),
   ...paraRoles(EVENTOS.PAGO_CHARGEBACK_PERDIDO, ROLES_POR_AUDIENCIA.mostrador, {
@@ -982,7 +982,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
   [`${EVENTOS.SOCIA_INACTIVA}#PROPIETARIO`]: {
-    title: 'Clienta inactiva',
+    title: 'Alumna inactiva',
     body: '{socia} lleva {dias} días sin venir. Quizá un mensaje la recupere.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
@@ -1008,7 +1008,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // del iPad de recepción.
   ...paraRoles(EVENTOS.CONSULTA_CONTACTO, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Consulta nueva desde tu web',
-    body: 'Alguien te ha escrito desde tu formulario de contacto. Respóndele desde Clientas.',
+    body: 'Alguien te ha escrito desde tu formulario de contacto. Respóndele desde Alumnas.',
     deepLink: () => `/clientas`,
   }),
   [`${EVENTOS.RIESGO_DEPENDENCIA}#PROPIETARIO`]: {
@@ -1054,7 +1054,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.SISTEMA_EMAIL_FALLIDO}#PROPIETARIO`]: {
     title: 'Fallan los envíos de email',
-    body: 'Hoy no se han podido entregar algunos correos a tus clientas (último error: {error}). Revisa la configuración de email.',
+    body: 'Hoy no se han podido entregar algunos correos a tus alumnas (último error: {error}). Revisa la configuración de email.',
     deepLink: () => `/configuracion?tab=comunicacion`,
   },
   [`${EVENTOS.TRIAL_PROXIMO_A_EXPIRAR}#PROPIETARIO`]: {

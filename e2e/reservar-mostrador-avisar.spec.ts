@@ -126,14 +126,14 @@ async function montarCalendario(page: Page, respuesta: { status: number; body: u
 
 async function apuntarABea(page: Page, { desmarcarAviso = false } = {}) {
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Añadir clienta a la clase' }).click();
+  await page.getByRole('button', { name: 'Añadir alumna a la clase' }).click();
   const casilla = page.getByRole('checkbox', { name: 'Avisarla de la reserva' });
   await expect(casilla).toBeChecked();
   if (desmarcarAviso) await casilla.uncheck();
   await page.getByRole('button', { name: /Bea/ }).click();
 }
 
-test.describe('El mostrador apunta a una clienta por el servidor', () => {
+test.describe('El mostrador apunta a una alumna por el servidor', () => {
   test('por defecto se avisa a la alumna, y la reserva se anuncia', async ({ page }) => {
     const peticiones = await montarCalendario(page, { status: 200, body: RESERVA_OK });
     await apuntarABea(page);

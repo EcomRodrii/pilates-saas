@@ -84,7 +84,7 @@ export const AYUDA_POR_PANTALLA = {
   },
 
   '/clientas': {
-    titulo: 'Clientas',
+    titulo: 'Alumnas',
     valor: 'Cada alumna con lo que le queda, cuándo vino por última vez y quién lleva semanas sin venir. Su historial, en su ficha.',
     resumen:
       'Todas tus alumnas en una lista: qué le queda a cada una, cuándo vino por última vez y quién lleva semanas sin aparecer. Abres una ficha y tienes su historial entero, sus bonos y tus notas.',
@@ -186,20 +186,20 @@ export const AYUDA_POR_PANTALLA = {
   },
 
   '/libreta': {
-    titulo: 'Libreta de clientas',
-    valor: 'Una hoja para imprimir o guardar en PDF con cada clienta activa, su plan, lo que le queda y su clase fija. Por si cae internet.',
+    titulo: 'Libreta de alumnas',
+    valor: 'Una hoja para imprimir o guardar en PDF con cada alumna activa, su plan, lo que le queda y su clase fija. Por si cae internet.',
     resumen:
-      'Tus clientas en una hoja para imprimir, siempre al día. La sacas en papel o la guardas en PDF y la tienes a mano aunque te quedes sin internet.',
+      'Tus alumnas en una hoja para imprimir, siempre al día. La sacas en papel o la guardas en PDF y la tienes a mano aunque te quedes sin internet.',
     ahorra: 'Quedarte sin saber a quién llamar el día que se cae la wifi.',
     destino: { categoria: 'clientes', slug: 'la-libreta' },
   },
 
   '/migracion': {
     titulo: 'Traer mis datos',
-    valor: 'Trae tus clientas y sus bonos del programa que usabas (Bsport, Momence u otro).',
+    valor: 'Trae tus alumnas y sus bonos del programa que usabas (Bsport, Momence u otro).',
     resumen:
       'Trae tu estudio desde el programa que usabas antes: arrastras lo que tengas, repasas el plan y confirmas. No se aplica nada hasta que lo apruebas, y se puede deshacer.',
-    ahorra: 'Volver a teclear tus clientas y sus bonos una por una.',
+    ahorra: 'Volver a teclear tus alumnas y sus bonos una por una.',
     destino: { categoria: 'clientes', slug: 'importar-clientes' },
   },
 

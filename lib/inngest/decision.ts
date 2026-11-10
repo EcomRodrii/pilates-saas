@@ -761,7 +761,7 @@ export const ejecutarRecomendacion = inngest.createFunction(
         if (!encontrados.has(id)) intentos.push({ ok: false, errorCode: 'NO_ENCONTRADO', error: 'Recibo no encontrado' });
       }
       for (const info of recibosInfo) {
-        if (!info.socio_id) { intentos.push({ ok: false, error: 'Recibo sin clienta asociada' }); continue; }
+        if (!info.socio_id) { intentos.push({ ok: false, error: 'Recibo sin alumna asociada' }); continue; }
         // El recibo de una penalización solo se cobra con el cobro ya decidido
         // (RECIBO_CREADO), el mismo guardia que «Cobrar online». `pagosEnRiesgo` ya
         // no los propone; esto cubre una recomendación creada antes de ese filtro

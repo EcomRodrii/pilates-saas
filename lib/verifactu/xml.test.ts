@@ -30,7 +30,7 @@ const BASE: RegistroAltaXml = {
   huella: 'A'.repeat(64),
 };
 
-const DESTINATARIO = { nombreRazon: 'Clienta de Ejemplo', nif: '12345678Z' };
+const DESTINATARIO = { nombreRazon: 'Alumna de Ejemplo', nif: '12345678Z' };
 const F1: RegistroAltaXml = { ...BASE, tipoFactura: 'F1', destinatarios: [DESTINATARIO] };
 
 // El orden de los elementos es una `<sequence>` del XSD: un campo fuera de sitio
@@ -78,7 +78,7 @@ test('B1: con impuesto «otros» (05) ClaveRegimen no se admite (AEAT 1260)', ()
 // ── B2: Destinatarios ────────────────────────────────────────────────────────
 test('B2: F1 válida lleva Destinatarios con nombre y NIF del receptor', () => {
   const xml = xmlRegistroAlta(F1);
-  assert.match(xml, /<sf:Destinatarios><sf:IDDestinatario><sf:NombreRazon>Clienta de Ejemplo<\/sf:NombreRazon><sf:NIF>12345678Z<\/sf:NIF><\/sf:IDDestinatario><\/sf:Destinatarios>/);
+  assert.match(xml, /<sf:Destinatarios><sf:IDDestinatario><sf:NombreRazon>Alumna de Ejemplo<\/sf:NombreRazon><sf:NIF>12345678Z<\/sf:NIF><\/sf:IDDestinatario><\/sf:Destinatarios>/);
   assert.deepEqual(validarRegistroAlta(F1), []);
 });
 

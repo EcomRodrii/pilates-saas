@@ -130,7 +130,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'contar_alumnas',
     clase: 'lectura',
-    descripcion: 'Cuántas alumnas hay en cada estado (activa, de prueba, sin renovar, pausada, inactiva, de baja, interesada), con la definición de cada estado. Son las mismas cifras que el chip de Clientas y que «Clientas activas» del Resumen. Úsala para «¿cuántas alumnas activas tengo?», «¿cuántas están de prueba?» o «¿cuántas se me han ido?».',
+    descripcion: 'Cuántas alumnas hay en cada estado (activa, de prueba, sin renovar, pausada, inactiva, de baja, interesada), con la definición de cada estado. Son las mismas cifras que el chip de Alumnas y que «Alumnas activas» del Resumen. Úsala para «¿cuántas alumnas activas tengo?», «¿cuántas están de prueba?» o «¿cuántas se me han ido?».',
     esquema: objeto({}),
     zod: sinEntrada,
     permitida: rol => delAsistente(rol) && puedeGestionarClientas(rol),
@@ -200,7 +200,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'facturacion_del_periodo',
     clase: 'lectura',
-    descripcion: 'Lo cobrado en un periodo (bruto con IVA, antes de comisiones, neto de devoluciones, por la fecha de cobro), el número de cobros, el desglose por motivo (cuotas, bonos, clases sueltas, sesiones privadas, caja, otros), cuántas clientas pagaron y el ingreso medio por clienta, comparado con el mismo tramo del periodo anterior. Es la misma cifra que «Lo que he cobrado» y que Informes › Dinero. Úsala para «¿cuánto he facturado este mes?» o «¿cuánto cobré el trimestre pasado?».',
+    descripcion: 'Lo cobrado en un periodo (bruto con IVA, antes de comisiones, neto de devoluciones, por la fecha de cobro), el número de cobros, el desglose por motivo (cuotas, bonos, clases sueltas, sesiones privadas, caja, otros), cuántas alumnas pagaron y el ingreso medio por alumna, comparado con el mismo tramo del periodo anterior. Es la misma cifra que «Lo que he cobrado» y que Informes › Dinero. Úsala para «¿cuánto he facturado este mes?» o «¿cuánto cobré el trimestre pasado?».',
     esquema: objeto({
       periodo: enumerado(PERIODO_CON_ANIO, 'El periodo (anio = año natural).'),
       cual: enumerado(CUAL, 'actual: el periodo en curso, hasta hoy; anterior: el periodo anterior entero.'),
@@ -212,7 +212,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'pagos_pendientes',
     clase: 'lectura',
-    descripcion: 'Lo que está sin cobrar: lo que se debe (por cobrar más impagado), aparte lo que está en el banco sin confirmar, cuántas clientas deben algo y hasta 20 recibos con su importe, su situación y su vencimiento. Es la misma lista que «Sin cobrar» de Cobros. Úsala para «¿qué pagos tengo pendientes?» o «¿quién me debe dinero?».',
+    descripcion: 'Lo que está sin cobrar: lo que se debe (por cobrar más impagado), aparte lo que está en el banco sin confirmar, cuántas alumnas deben algo y hasta 20 recibos con su importe, su situación y su vencimiento. Es la misma lista que «Sin cobrar» de Cobros. Úsala para «¿qué pagos tengo pendientes?» o «¿quién me debe dinero?».',
     esquema: objeto({ orden: enumerado(['mas_antiguos', 'mayor_importe'], 'mas_antiguos: primero los que vencieron antes; mayor_importe: primero los más grandes.') }),
     zod: zPendientes,
     permitida: rol => delAsistente(rol) && puedeVerFinanzas(rol),

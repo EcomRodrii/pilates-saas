@@ -17,7 +17,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para borrar contactos con clientas.' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para borrar contactos con alumnas.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'socios-contactos', { max: 60, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;

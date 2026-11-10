@@ -22,7 +22,7 @@ export default function Contenido() {
           <Link href="/ayuda/problemas/el-pago-falla-en-el-checkout" style={{ color: 'inherit', textDecoration: 'underline' }}>el pago falla en el checkout</Link>.
         </p>
         <p style={{ margin: '0 0 12px' }}>Si el cobro sí se completó, revisa en su ficha si el bono aparece como «Pausada» en vez de activo.</p>
-        <p style={{ margin: 0 }}>Confirma que estás mirando la ficha de la clienta correcta — un nombre parecido entre dos clientas es un despiste habitual.</p>
+        <p style={{ margin: 0 }}>Confirma que estás mirando la ficha de la alumna correcta — un nombre parecido entre dos alumnas es un despiste habitual.</p>
       </ComoSolucionarlo>
 
       <AyudaResultado>

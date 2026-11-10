@@ -194,7 +194,7 @@ const pend = (id: string, socioId: string | null, importe = 89) => ({ id, socioI
 const filaLibre = (id: string, extra: Partial<FilaReciboRemesa> = {}): [string, FilaReciboRemesa] =>
   [id, { id, estado: 'PENDIENTE', proximo_reintento: null, stripe_payment_intent_id: null, checkout_session_id: null, cobro_mostrador_pi: null, ...extra }];
 
-test('vista previa: qué entra y, de lo que no, por qué; las clientas sin domiciliar, en una sola línea', () => {
+test('vista previa: qué entra y, de lo que no, por qué; las alumnas sin domiciliar, en una sola línea', () => {
   const v = vistaPreviaRemesa({
     pendientes: [
       pend('a', 'nuria'), pend('b', 'elena', 65),

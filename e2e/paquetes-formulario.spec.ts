@@ -293,7 +293,7 @@ test.describe('Errores que se ven y precios que se revisan', () => {
   });
 });
 
-test.describe('Lo que la clienta va a ver', () => {
+test.describe('Lo que la alumna va a ver', () => {
   test('el resumen se escribe solo mientras se rellena', async ({ page }) => {
     await mockBackend(page);
     await seedSesionDeDuena(page);

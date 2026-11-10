@@ -19,7 +19,7 @@ const REG: RegistroParaXml = {
 };
 
 const FAC: FacturaParaXml = {
-  baseImponible: 52.89, tipoIva: 21, cuotaIva: 11.11, receptorNombre: 'Clienta de Ejemplo', receptorNif: '12345678Z',
+  baseImponible: 52.89, tipoIva: 21, cuotaIva: 11.11, receptorNombre: 'Alumna de Ejemplo', receptorNif: '12345678Z',
   tipoRectificativa: null, descripcion: 'Bono 8 clases', rectificada: null,
 };
 
@@ -27,7 +27,7 @@ test('F1: emisor y huella salen del REGISTRO (congelado), el destinatario de la 
   const xml = construirXmlRegistro(REG, FAC, 'Estudio SL', SISTEMA);
   assert.match(xml, /<sf:IDEmisorFactura>99999999R<\/sf:IDEmisorFactura><sf:NumSerieFactura>A-2026-0002</);
   assert.match(xml, /<sf:NombreRazonEmisor>Estudio SL</);
-  assert.match(xml, /<sf:IDDestinatario><sf:NombreRazon>Clienta de Ejemplo<\/sf:NombreRazon><sf:NIF>12345678Z</);
+  assert.match(xml, /<sf:IDDestinatario><sf:NombreRazon>Alumna de Ejemplo<\/sf:NombreRazon><sf:NIF>12345678Z</);
   assert.match(xml, /<sf:ClaveRegimen>01</);
   assert.match(xml, /<sf:RegistroAnterior><sf:IDEmisorFactura>99999999R<\/sf:IDEmisorFactura><sf:NumSerieFactura>A-2026-0001</);
 });

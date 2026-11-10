@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para crear seguimientos de clientas.' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para crear seguimientos de alumnas.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'seguimientos', { max: 60, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
@@ -37,17 +37,17 @@ export async function POST(req: NextRequest) {
     const { data: socia, error: errSocia } = await admin.from('socios')
       .select('id').eq('id', socioId).eq('studio_id', sesion.studioId).is('borrado_en', null).maybeSingle();
     if (errSocia) return errorInterno('seguimientos:socia', errSocia, 'No se ha podido leer la ficha. No se ha creado el seguimiento.');
-    if (!socia) return NextResponse.json({ error: 'No se encuentra esta clienta.' }, { status: 404 });
+    if (!socia) return NextResponse.json({ error: 'No se encuentra esta alumna.' }, { status: 404 });
 
     const puede = await cuentaDelEquipo(admin, sesion.studioId, asignadaA);
     if (puede === null) return errorInterno('seguimientos:equipo', new Error('lectura del equipo'), 'No se ha podido comprobar el equipo. Vuelve a intentarlo.');
-    if (!puede) return NextResponse.json({ error: 'Esa persona no está en el equipo, o no gestiona clientas.' }, { status: 400 });
+    if (!puede) return NextResponse.json({ error: 'Esa persona no está en el equipo, o no gestiona alumnas.' }, { status: 400 });
 
     if (recomendacionId) {
       const { data: rec, error: errRec } = await admin.from('recomendaciones')
         .select('id').eq('id', recomendacionId).eq('studio_id', sesion.studioId).eq('socio_id', socioId).maybeSingle();
       if (errRec) return errorInterno('seguimientos:aviso', errRec, 'No se ha podido comprobar el aviso. Vuelve a intentarlo.');
-      if (!rec) return NextResponse.json({ error: 'Ese aviso no es de esta clienta.' }, { status: 400 });
+      if (!rec) return NextResponse.json({ error: 'Ese aviso no es de esta alumna.' }, { status: 400 });
     }
 
     const id = `tarea-${uid()}`;

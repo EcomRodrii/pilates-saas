@@ -4,7 +4,7 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Tus clientas en una hoja, siempre al día. Cada una con su plan, las sesiones que le quedan, sus
+        Tus alumnas en una hoja, siempre al día. Cada una con su plan, las sesiones que le quedan, sus
         recuperaciones vivas y su clase fija si la tiene. La imprimes o la guardas en PDF.
       </AyudaAntesDeEmpezar>
 

@@ -417,7 +417,7 @@ test('avisos en el móvil: un recordatorio apagado no aparece en el resumen', ()
   assert.equal(r(false, false), 'Recordatorios apagados · textos de Tentare');
 });
 
-test('ninguna fila de herramienta pasa de una línea del móvil ni dice «clienta»', () => {
+test('ninguna fila de herramienta pasa de una línea del móvil ni dice «alumna»', () => {
   const muchos = {
     numTiposClase: 120,
     salas: { numSalas: 12, averias: Array.from({ length: 11 }, () => ({ hasta: null })), ahoraMs: AHORA },

@@ -51,7 +51,7 @@ export const SUGERENCIAS: RecompensaSugerida[] = [
   },
   {
     nombre: 'Trae a una amiga gratis',
-    descripcion: 'Una clase para alguien que aún no es clienta.',
+    descripcion: 'Una clase para alguien que aún no es alumna.',
     icono: 'amigas',
     clasesEquivalentes: 8,
     efecto: 'MANUAL',

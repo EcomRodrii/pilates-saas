@@ -386,9 +386,9 @@ function ContenidoPaso({
 
         {faltaClienta && (
           <div className="mt-3 rounded-xl bg-warning/10 px-3 py-2.5 text-[12.5px] text-foreground">
-            Para este paso hace falta al menos una clienta.
+            Para este paso hace falta al menos una alumna.
             <button type="button" onClick={() => router.push('/clientas?nuevo=1')} className="mt-1.5 block font-semibold text-brand-medio underline underline-offset-2">
-              Añadir una clienta
+              Añadir una alumna
             </button>
           </div>
         )}
@@ -444,7 +444,7 @@ function ContenidoPaso({
 function nombrePantalla(paso: PasoVisita): string {
   const base = rutaBase(paso.ruta);
   const nombres: Record<string, string> = {
-    '/dashboard': 'el Resumen', '/configuracion': 'Configuración', '/calendario': 'el Calendario', '/citas': 'Citas', '/clientas': 'la ficha de una clienta',
+    '/dashboard': 'el Resumen', '/configuracion': 'Configuración', '/calendario': 'el Calendario', '/citas': 'Citas', '/clientas': 'la ficha de una alumna',
     '/productos': 'Paquetes', '/cobros': 'Cobros', '/pos': 'la Caja', '/equipo': 'Equipo', '/sustituciones': 'Sustituciones',
     '/automatizaciones': 'Automatizaciones', '/centro-de-control': 'el Centro de Control', '/mensajeria': 'Mensajería', '/marketing': 'Marketing',
     '/informes': 'Informes', '/cierre': 'el Cierre de año', '/primeros-pasos': 'Primeros pasos',

@@ -37,7 +37,7 @@ export function validarFechaSeguimiento(venceEl: unknown, hoyISO: string): { ok:
 
 export function validarSeguimiento(cuerpo: unknown, hoyISO: string): { ok: true; seguimiento: SeguimientoValido } | { ok: false; error: string } {
   const c = (cuerpo && typeof cuerpo === 'object' ? cuerpo : {}) as Record<string, unknown>;
-  if (typeof c.socioId !== 'string' || !c.socioId) return { ok: false, error: 'Falta la clienta.' };
+  if (typeof c.socioId !== 'string' || !c.socioId) return { ok: false, error: 'Falta la alumna.' };
   const titulo = typeof c.titulo === 'string' ? c.titulo.trim() : '';
   if (!titulo) return { ok: false, error: 'Escribe qué hay que hacer.' };
   if (titulo.length > TITULO_SEGUIMIENTO_MAX) return { ok: false, error: `Como mucho ${TITULO_SEGUIMIENTO_MAX} caracteres.` };

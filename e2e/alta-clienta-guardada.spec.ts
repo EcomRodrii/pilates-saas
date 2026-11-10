@@ -78,7 +78,7 @@ async function montar(page: Page, opts: { rechazarSocia?: boolean } = {}) {
 }
 
 async function rellenarAlta(page: Page, conPlan: boolean) {
-  await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: /Nueva alumna|Añadir primera alumna/ }).first().click({ timeout: 30_000 });
   // Regex anclada: con el alta en un paso, la firma («Nombre completo de la
   // clienta…») está en la misma pantalla y `name: 'Nombre'` es subcadena.
   await page.getByRole('textbox', { name: /^Nombre\s*\*?$/ }).fill('María');
@@ -87,15 +87,15 @@ async function rellenarAlta(page: Page, conPlan: boolean) {
   if (conPlan) await page.getByRole('combobox', { name: /Plan/i }).selectOption('plan-1');
   // Alta en un solo paso (13-sep): la aceptación está en la misma pantalla.
   await page.getByRole('checkbox').check();
-  await page.getByPlaceholder(/Nombre completo de la clienta/i).fill('María Soler Puig');
+  await page.getByPlaceholder(/Nombre completo de la alumna/i).fill('María Soler Puig');
 }
 
-test.describe('El alta de una clienta solo cuenta si se guarda', () => {
+test.describe('El alta de una alumna solo cuenta si se guarda', () => {
   test('si la BD rechaza, lo dice y no cierra el diálogo', async ({ page }) => {
     const escrituras = await montar(page, { rechazarSocia: true });
     await rellenarAlta(page, true);
 
-    await page.getByRole('button', { name: /Crear clienta y firmar/ }).click();
+    await page.getByRole('button', { name: /Crear alumna y firmar/ }).click();
 
     // Se explica el fallo y el formulario sigue ahí con los datos puestos.
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -115,7 +115,7 @@ test.describe('El alta de una clienta solo cuenta si se guarda', () => {
     const escrituras = await montar(page);
     await rellenarAlta(page, true);
 
-    await page.getByRole('button', { name: /Crear clienta y firmar/ }).click();
+    await page.getByRole('button', { name: /Crear alumna y firmar/ }).click();
 
     // El diálogo se cierra solo cuando está guardado de verdad.
     await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 });

@@ -122,7 +122,7 @@ export async function quitarDobleFactorSocia(
 
   const { error: eAct } = await admin.from('actividad_reciente').insert({
     id: uid(), studio_id: p.studioId, tipo: 'DOBLE_FACTOR_QUITADO',
-    texto: `Quitó la verificación en dos pasos de ${c.socio.nombre || 'una clienta'}`,
+    texto: `Quitó la verificación en dos pasos de ${c.socio.nombre || 'una alumna'}`,
     socio_id: c.socio.id, enlace: `/clientas/${c.socio.id}`, creado_en: new Date().toISOString(), actor_nombre: p.actorNombre,
   });
   if (eAct) console.error('[quitar-doble-factor] actividad', eAct.message);

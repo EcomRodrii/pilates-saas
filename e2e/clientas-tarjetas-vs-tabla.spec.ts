@@ -86,7 +86,7 @@ async function montar(page: Page) {
 
 const chip = (page: Page, estado: string) => page.locator(`[data-estado-filtro="${estado}"]`);
 
-test.describe('Clientas: cada cifra cuenta lo mismo que su lista', () => {
+test.describe('Alumnas: cada cifra cuenta lo mismo que su lista', () => {
   test('cada chip de estado enseña exactamente las filas que dice', async ({ page }) => {
     await montar(page);
     await expect(chip(page, 'TODAS')).toContainText('4', { timeout: 30_000 });
@@ -102,7 +102,7 @@ test.describe('Clientas: cada cifra cuenta lo mismo que su lista', () => {
       await chip(page, estado).click();
       await expect(chip(page, estado)).toHaveAttribute('aria-checked', 'true');
       // El pie cuenta las filas de verdad, y solo sale quien tiene ese estado.
-      await expect(page.getByText(`Mostrando ${n} de ${n} (de 4) clientas`)).toBeVisible();
+      await expect(page.getByText(`Mostrando ${n} de ${n} (de 4) alumnas`)).toBeVisible();
       // .first(): la fila de escritorio y la tarjeta móvil conviven en el DOM.
       await expect(page.getByText(quien).first()).toBeVisible();
       for (const [, , otra] of esperado.filter(([e]) => e !== estado)) {
@@ -111,7 +111,7 @@ test.describe('Clientas: cada cifra cuenta lo mismo que su lista', () => {
     }
 
     await chip(page, 'TODAS').click();
-    await expect(page.getByText('Mostrando 4 de 4 clientas')).toBeVisible();
+    await expect(page.getByText('Mostrando 4 de 4 alumnas')).toBeVisible();
     // Un estado sin nadie no ocupa sitio (salvo «Activa», que siempre está).
     await expect(chip(page, 'DE_PRUEBA')).toHaveCount(0);
     await expect(chip(page, 'DE_BAJA')).toHaveCount(0);
@@ -122,7 +122,7 @@ test.describe('Clientas: cada cifra cuenta lo mismo que su lista', () => {
     await expect(chip(page, 'TODAS')).toContainText('4', { timeout: 30_000 });
     await expect(page.getByText('1 activa · 1 sin renovar', { exact: true })).toBeVisible();
     // La pestaña «Clientas» lleva el total; «Interesadas y pruebas», a quien está entrando.
-    await expect(page.getByRole('tab', { name: /^Clientas\s*4$/ })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /^Alumnas\s*4$/ })).toBeVisible();
     await expect(page.getByRole('tab', { name: /^Interesadas y pruebas\s*1$/ })).toBeVisible();
   });
 });

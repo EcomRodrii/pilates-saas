@@ -27,7 +27,7 @@ export const MOTIVOS_ELIMINAR_RECIBO: readonly MotivoEliminar[] = [
   { codigo: 'DUPLICADO', etiqueta: 'Está duplicado' },
   { codigo: 'IMPORTE_ERRONEO', etiqueta: 'El importe estaba mal' },
   { codigo: 'CREADO_POR_ERROR', etiqueta: 'Se creó por error' },
-  { codigo: 'CLIENTA_DE_BAJA', etiqueta: 'La clienta se da de baja' },
+  { codigo: 'CLIENTA_DE_BAJA', etiqueta: 'La alumna se da de baja' },
   { codigo: 'OTRO_MOTIVO', etiqueta: 'Otro motivo' },
 ];
 

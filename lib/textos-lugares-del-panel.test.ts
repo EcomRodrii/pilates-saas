@@ -26,7 +26,7 @@ const EXCLUIDOS = ['components/ayuda/articulos', 'components/landing'];
 
 // «Configuración → …» seguido del nombre de una pestaña de antes (15-sep:
 // Configuración se reorganizó por preguntas). Acepta →, > y &gt;.
-const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|API|Emails|Logros y motivación|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
+const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|API|Emails|Logros y motivación|Descubre y tablón|Campos de alumna|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
 
 const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Configuración → Planes/, ahora: 'Paquetes (/productos)' },

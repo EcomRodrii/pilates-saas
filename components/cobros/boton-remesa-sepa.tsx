@@ -149,7 +149,7 @@ function Remesa({ onCerrar, onOcupado }: { onCerrar: () => void; onOcupado: (o: 
       const extra = (caidos = 0) => [...(caidos > 0 ? [avisoYaNoPendientes(caidos)] : []), ...extras].map(t => ` ${t}`).join('');
       if (previa.nAdeudos === 0) {
         setAviso((previa.sinMandato > 0
-          ? `Ningún recibo pendiente tiene mandato SEPA (${previa.sinMandato} sin domiciliar). Añade el mandato en la ficha de cada clienta.`
+          ? `Ningún recibo pendiente tiene mandato SEPA (${previa.sinMandato} sin domiciliar). Añade el mandato en la ficha de cada alumna.`
           : 'No hay recibos pendientes que remesar.') + extra());
         return;
       }

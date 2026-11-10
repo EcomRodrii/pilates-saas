@@ -190,7 +190,7 @@ function Mapa({ mapa, textoPeriodo, importado, nombres }: {
     { signo: '−', etiqueta: 'Caja (TPV)', detalle: 'Un ticket puede llevar un bono dentro y no se sabe qué parte.', valor: euros(cuadre.caja) },
     { signo: '−', etiqueta: 'Sesiones privadas', valor: euros(cuadre.sesionesPrivadas) },
     { signo: '−', etiqueta: 'Otros', detalle: 'Matrículas, penalizaciones y cobros sin plan.', valor: euros(cuadre.otros) },
-    { signo: '−', etiqueta: 'Cobros sin clienta', valor: euros(cuadre.sinClienta) },
+    { signo: '−', etiqueta: 'Cobros sin alumna', valor: euros(cuadre.sinClienta) },
     { signo: '−', etiqueta: 'De alumnas que no ocuparon ninguna plaza', detalle: 'Pagaron en el periodo y no tenían clase en él.', valor: euros(cuadre.deNoVinieron) },
   ];
   const cifras = [cuadre.caja, cuadre.sesionesPrivadas, cuadre.otros, cuadre.sinClienta, cuadre.deNoVinieron];

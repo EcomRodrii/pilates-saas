@@ -138,7 +138,7 @@ async function xlsxACsv(file: File): Promise<ArchivoLocal[]> {
 
 function avisosDeMembresias(r: { caducadas?: number; conRenovacion?: number }): string[] | undefined {
   const avisos: string[] = [];
-  if (r.caducadas) avisos.push(`${r.caducadas} entraron ya caducadas: su fecha de fin (por la validez de la tarifa) ya pasó. No cuentan como clientas activas.`);
+  if (r.caducadas) avisos.push(`${r.caducadas} entraron ya caducadas: su fecha de fin (por la validez de la tarifa) ya pasó. No cuentan como alumnas activas.`);
   if (r.conRenovacion) avisos.push(`${r.conRenovacion} cuota${r.conRenovacion === 1 ? '' : 's'} sin fecha de fin en el archivo: entraron con el final de su ciclo actual y se renovarán solas desde esa fecha (generan su recibo).`);
   return avisos.length ? avisos : undefined;
 }
@@ -945,7 +945,7 @@ export default function MigracionPage() {
           </div>
 
           <p className="text-[13px] text-muted-foreground">
-            Comprueba los números contra tu software anterior (nº de clientas, bonos activos, clases de la semana).{!deshecho && (actaIncompleta(resultados) || hayIncidencias) ? ' Ojo: hay filas que no han entrado del todo; arriba tienes cuáles y por qué.' : ' ¿Todo cuadra? Ya está — no había más que hacer.'}
+            Comprueba los números contra tu software anterior (nº de alumnas, bonos activos, clases de la semana).{!deshecho && (actaIncompleta(resultados) || hayIncidencias) ? ' Ojo: hay filas que no han entrado del todo; arriba tienes cuáles y por qué.' : ' ¿Todo cuadra? Ya está — no había más que hacer.'}
           </p>
 
           <div className="flex gap-3">

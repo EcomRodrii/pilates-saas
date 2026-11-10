@@ -71,9 +71,9 @@ async function montar(page: Page, ruta: string) {
 
 
 const horarios = (page: Page) => page.locator('[data-testid="clase-fija-horario"]:visible').allTextContents();
-const nombres = (page: Page) => page.locator('tbody tr:visible a[href^="/clientas/"]').allTextContents();
+const nombres = (page: Page) => page.locator('tbody tr:visible a[href^="/alumnas/"]').allTextContents();
 
-test.describe('Clientas: orden por clase fija', () => {
+test.describe('Alumnas: orden por clase fija', () => {
   test('por día y hora: el lunes temprano primero, el domingo al final y quien no tiene, la última', async ({ page }) => {
     await montar(page, '/clientas?orden=clase_fija');
     await expect(page.getByTestId('etiqueta-fija').first()).toBeVisible({ timeout: 30_000 });

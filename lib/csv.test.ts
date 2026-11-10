@@ -167,7 +167,7 @@ test('auto-mapea y valida los campos de migración (fecha alta, dirección, naci
 
 test('detectarCabeceraYFilas se salta título y filas de separadores antes de la cabecera (usado también por el lector de Excel)', () => {
   const r = detectarCabeceraYFilas([
-    ['Listado de clientas 2026'],
+    ['Listado de alumnas 2026'],
     ['', ''],
     ['Nombre', 'Email'],
     ['Ana', 'ana@b.com'],

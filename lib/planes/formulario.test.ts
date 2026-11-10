@@ -262,7 +262,7 @@ test('una periodicidad que la BD no acepta cae a mensual, no revienta el CHECK',
   }
 });
 
-test('el resumen para la clienta dice el ciclo REAL y que la matrícula es una vez', () => {
+test('el resumen para la alumna dice el ciclo REAL y que la matrícula es una vez', () => {
   const lineas = resumenCondicionesPlan(form({
     nombre: 'Trimestral', precio: '180', periodicidadMeses: '3', matricula: '30',
   }));

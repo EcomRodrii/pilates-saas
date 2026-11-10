@@ -291,7 +291,7 @@ test('fallo → reintento NO es un alta: con el cobro fallido o pendiente tampoc
   }
 });
 
-test('lo que NO cuenta como periodo ya cobrado: otra clienta, ciclo vencido, anulado, bonos, trimestrales, sin recibos', () => {
+test('lo que NO cuenta como periodo ya cobrado: otra alumna, ciclo vencido, anulado, bonos, trimestrales, sin recibos', () => {
   const ok = (o: Parameters<typeof periodoDeCuotaAnterior>[0]) => periodoDeCuotaAnterior(o);
   const recCobrado = [{ suscripcionId: 's1', estado: 'COBRADO' }];
   assert.equal(ok({ socioId: 'otra', suscripciones: [cancelada()], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);

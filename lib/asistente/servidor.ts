@@ -255,8 +255,8 @@ export async function nombresDeReferencias(
     if (e.tipo === 'socia') {
       const x = porSocia.get(e.id);
       out[r] = x && !x.borrado_en
-        ? { nombre: [x.nombre, x.apellidos].filter(Boolean).join(' ') || 'Clienta', href: `/clientas/${e.id}` }
-        : { nombre: 'Clienta eliminada', href: null };
+        ? { nombre: [x.nombre, x.apellidos].filter(Boolean).join(' ') || 'Alumna', href: `/clientas/${e.id}` }
+        : { nombre: 'Alumna eliminada', href: null };
     } else {
       const x = porEquipo.get(e.id);
       out[r] = { nombre: x?.nombre || 'Alguien del equipo', href: null };

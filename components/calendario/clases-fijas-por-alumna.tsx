@@ -71,7 +71,7 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
   const todas = useMemo(
     () => (ahoraMs ? clasesFijasPorAlumna({
       plazasFijas, sesiones, suscripciones, planes: planesTarifa, ahoraMs,
-      nombreDe: id => nombrePorSocia.get(id) ?? 'Clienta sin nombre',
+      nombreDe: id => nombrePorSocia.get(id) ?? 'Alumna sin nombre',
     }) : []),
     [plazasFijas, sesiones, suscripciones, planesTarifa, nombrePorSocia, ahoraMs],
   );

@@ -19,7 +19,7 @@ import { montar, ir } from './panel-sembrado';
 
 const botonDetalle = (page: Page) => page.getByRole('button', { name: /todo el detalle/ });
 
-test('desde la ficha de la clienta, «Ver en el Centro de Control» lleva a SU situación, abierta y resaltada', async ({ page }) => {
+test('desde la ficha de la alumna, «Ver en el Centro de Control» lleva a SU situación, abierta y resaltada', async ({ page }) => {
   await montar(page);
   await ir(page, 'clientas/soc-4');
   const enlace = page.getByRole('link', { name: 'Ver en el Centro de Control' });

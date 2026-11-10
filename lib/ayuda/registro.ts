@@ -41,7 +41,7 @@ export const CATEGORIAS: CategoriaAyuda[] = [
   { slug: 'widget', titulo: 'Widget para tu web', descripcion: 'Incrusta las reservas de Tentare en tu propia web, con WordPress, Webflow o HTML.', icono: 'CodeXml' },
   { slug: 'automatizaciones', titulo: 'Automatizaciones y avisos', descripcion: 'Recordatorios, avisos de bono a punto de acabar y lo que Tentare avisa solo, en la app, por email y por WhatsApp.', icono: 'Zap' },
   { slug: 'integraciones', titulo: 'Integraciones', descripcion: 'Qué conecta con Tentare hoy y cómo activarlo.', icono: 'Plug' },
-  { slug: 'app', titulo: 'App de tus alumnas', descripcion: 'Lo que ve una clienta en su móvil: próxima clase, plan, progreso y recompensas.', icono: 'Smartphone' },
+  { slug: 'app', titulo: 'App de tus alumnas', descripcion: 'Lo que ve una alumna en su móvil: próxima clase, plan, progreso y recompensas.', icono: 'Smartphone' },
   { slug: 'configuracion', titulo: 'Configuración de tu cuenta', descripcion: 'Datos del estudio, usuarios y permisos, marca, idioma y seguridad.', icono: 'Settings2' },
   { slug: 'informes', titulo: 'Informes y analítica', descripcion: 'Ocupación, ingresos, retención y el rendimiento de cada instructora.', icono: 'BarChart3' },
   { slug: 'problemas', titulo: 'Problemas y soluciones', descripcion: 'Cuando algo no va: acceso, pagos, reservas y el widget.', icono: 'LifeBuoy' },
@@ -169,7 +169,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   // ─── Clientes y CRM ─────────────────────────────────────────────────────
   {
     slug: 'crear-una-clienta', categoria: 'clientes', tipo: 'guia',
-    titulo: 'Dar de alta una clienta',
+    titulo: 'Dar de alta una alumna',
     descripcion: 'A mano desde el panel, o dejando que se apunte sola desde la app de tus alumnas.',
     actualizado: '2026-09-14',
     relacionados: ['clientes/ficha-de-clienta', 'clientes/importar-clientes'],
@@ -177,7 +177,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'ficha-de-clienta', categoria: 'clientes', tipo: 'guia',
-    titulo: 'La ficha de clienta: historial, bonos y notas',
+    titulo: 'La ficha de alumna: historial, bonos y notas',
     descripcion: 'Todo lo de cada alumna en un sitio — asistencia, plan activo, notas de progreso y, si la usas, su ficha de salud.',
     terminos: ['crm', 'historial', 'notas de progreso', 'ficha clínica'],
     actualizado: '2026-09-14',
@@ -186,7 +186,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'la-libreta', categoria: 'clientes', tipo: 'guia',
-    titulo: 'La libreta: tus clientas en papel',
+    titulo: 'La libreta: tus alumnas en papel',
     descripcion: 'Cada alumna con su plan, sus sesiones y sus recuperaciones, para imprimir o guardar en PDF.',
     terminos: ['libreta', 'imprimir', 'PDF', 'copia', 'exportar', 'sin internet', 'listado'],
     actualizado: '2026-09-08',
@@ -301,7 +301,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'reembolsos', categoria: 'pagos', tipo: 'guia',
     titulo: 'Cómo devolver un cobro',
-    descripcion: 'Devolver un cobro desde la ficha de la clienta, y cuándo emitir la factura rectificativa.',
+    descripcion: 'Devolver un cobro desde la ficha de la alumna, y cuándo emitir la factura rectificativa.',
     actualizado: '2026-09-15',
     relacionados: ['pagos/cobros-fallidos', 'pagos/facturas'],
     estado: 'publicado',
@@ -441,9 +441,9 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'acceso-de-una-clienta', categoria: 'portal', tipo: 'guia',
-    titulo: 'Cómo entra una clienta al portal por primera vez',
+    titulo: 'Cómo entra una alumna al portal por primera vez',
     descripcion: 'Con su email y un código de 6 cifras que le llega al correo, con su contraseña si tiene una, o con su cuenta de Google — todo desde una sola pantalla.',
-    terminos: ['login clienta', 'primera vez', 'contraseña olvidada', 'acceso', 'código', 'código de acceso'],
+    terminos: ['login alumna', 'primera vez', 'contraseña olvidada', 'acceso', 'código', 'código de acceso'],
     actualizado: '2026-10-05',
     relacionados: ['portal/que-es-el-portal', 'problemas/una-clienta-no-puede-entrar'],
     estado: 'publicado',
@@ -498,7 +498,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
     slug: 'mensajeria', categoria: 'automatizaciones', tipo: 'guia',
     titulo: 'Mensajería: todo lo que se habla con tus alumnas',
     descripcion: 'Avisos para tu equipo, el tablón, las conversaciones y los mensajes que mandas tú a un grupo.',
-    terminos: ['mensajería', 'conversaciones', 'bandeja', 'enviar mensaje', 'hablar con clientas', 'chat'],
+    terminos: ['mensajería', 'conversaciones', 'bandeja', 'enviar mensaje', 'hablar con alumnas', 'chat'],
     actualizado: '2026-09-14',
     relacionados: ['automatizaciones/recordatorios-automaticos', 'app/comunidad', 'automatizaciones/registro-de-envios'],
     estado: 'publicado',
@@ -607,7 +607,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'una-clienta-no-puede-entrar', categoria: 'problemas', tipo: 'problema',
-    titulo: 'Una clienta no puede entrar al portal',
+    titulo: 'Una alumna no puede entrar al portal',
     descripcion: 'Las causas más comunes cuando una alumna te escribe diciendo que no consigue acceder.',
     terminos: ['verificación en dos pasos', 'código', 'doble factor', '2FA', 'autenticador'],
     actualizado: '2026-10-04',
@@ -656,7 +656,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'un-bono-no-aparece', categoria: 'problemas', tipo: 'problema',
-    titulo: 'Un bono no aparece en la ficha de la clienta',
+    titulo: 'Un bono no aparece en la ficha de la alumna',
     descripcion: 'El pago se procesó pero el bono no se ve — qué comprobar antes de escribir a soporte.',
     actualizado: '2026-09-14',
     relacionados: ['bonos/caducidad-de-un-bono', 'pagos/cobros-fallidos'],

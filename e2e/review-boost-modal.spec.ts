@@ -95,13 +95,13 @@ test.describe('Review Boost — modal tras el trial', () => {
 
   test('estudio NO elegible: el dashboard carga normal y el modal no aparece', async ({ page }) => {
     await montarDashboard(page, { elegible: false });
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toHaveCount(0);
   });
 
   test('ya mostrado antes: no se repite en una nueva carga', async ({ page }) => {
     await montarDashboard(page, { elegible: true, mostrado: true });
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toHaveCount(0);
   });
 
@@ -118,7 +118,7 @@ test.describe('Review Boost — modal tras el trial', () => {
     expect(escriturasEstudio[0].review_boost_pospuesto_en).toBeTruthy();
 
     await page.reload();
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
     // Margen para que el estudio cargue y el modal decida: sin él, «no está» podría ser «aún no».
     await page.waitForTimeout(2_000);
     await expect(page.getByText('¿Qué te está pareciendo Tentare?')).toHaveCount(0);

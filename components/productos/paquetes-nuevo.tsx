@@ -89,7 +89,7 @@ export function CifrasPaquetes({ planes, suscripciones, verFinanzas, onTipo }: {
         />
       ) : (
         <TarjetaCifra
-          etiqueta="Clientas con plan"
+          etiqueta="Alumnas con plan"
           tono="verde"
           Icono={Users}
           href={null}
@@ -201,7 +201,7 @@ export function TarjetaPlanNueva({ plan, clientas, cobertura, mueveDinero, onEdi
         <li className="flex items-center gap-2"><CalendarClock size={14} aria-hidden className="shrink-0" style={{ color: c }} />{d.caducidad}</li>
         <li className="flex items-center gap-2">
           <Users size={14} aria-hidden className="shrink-0" style={{ color: c }} />
-          <span><b className="font-semibold tabular-nums">{clientas}</b> {clientas === 1 ? 'clienta la tiene' : 'clientas la tienen'} ahora</span>
+          <span><b className="font-semibold tabular-nums">{clientas}</b> {clientas === 1 ? 'alumna la tiene' : 'alumnas la tienen'} ahora</span>
         </li>
       </ul>
 
@@ -421,7 +421,7 @@ const SIN_PERMISO = 'Crearlas es cosa de la propietaria o de recepción.';
 const VACIO_TIPO: Record<TipoPlan, { titulo: string; texto: string; ejemplos: { accion: string; cuando: string }[]; accion: string }> = {
   MENSUAL: {
     titulo: 'Asegura tus ingresos de cada mes',
-    texto: 'Una cuota se renueva sola cada mes, trimestre, semestre o año hasta que la clienta se da de baja.',
+    texto: 'Una cuota se renueva sola cada mes, trimestre, semestre o año hasta que la alumna se da de baja.',
     ejemplos: [
       { accion: 'Mensual, 2 clases por semana', cuando: 'que se renueva cada mes' },
       { accion: 'Trimestral sin límite', cuando: 'que se cobra cada tres meses' },
@@ -459,7 +459,7 @@ export function VacioPaquetes({ tipo, puedeCrear, onCrear }: { tipo?: TipoPlan; 
         tono="magenta"
         Icono={Package}
         titulo="Pon a la venta tu primera cuota o bono"
-        texto={`Es lo que tus clientas compran para venir a clase. En cuanto lo pongas a la venta, sale en tu página y en la Caja.${puedeCrear ? '' : ` ${SIN_PERMISO}`}`}
+        texto={`Es lo que tus alumnas compran para venir a clase. En cuanto lo pongas a la venta, sale en tu página y en la Caja.${puedeCrear ? '' : ` ${SIN_PERMISO}`}`}
         ejemplos={[
           { accion: 'Una cuota mensual', cuando: 'que se renueva sola cada mes' },
           { accion: 'Un bono de 10 clases', cuando: 'que se gasta al reservar y caduca' },

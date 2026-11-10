@@ -24,7 +24,7 @@ const STORAGE_KEY = 'sb-example-auth-token';
 
 const REGLA_QUE_ESCRIBE = {
   id: 'rule-1', studio_id: STUDIO_ID, nombre: 'Socia ausente',
-  descripcion: 'Recuerda a las clientas que llevan días sin venir y ofrece una vuelta con descuento',
+  descripcion: 'Recuerda a las alumnas que llevan días sin venir y ofrece una vuelta con descuento',
   icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7 }, pasos: [],
   activa: false, ejecutada_veces: 0, ultima_ejecucion: null, creada_en: '2026-01-01T00:00:00Z',
 };
@@ -76,7 +76,7 @@ async function montarPantalla(page: Page) {
   await page.getByRole('button', { name: 'Reglas', exact: true }).click({ timeout: 30_000 });
 }
 
-test.describe('Activar una automatización que escribe a las clientas', () => {
+test.describe('Activar una automatización que escribe a las alumnas', () => {
   test('el estado se lee de un vistazo y encender pide permiso', async ({ page }) => {
     await montarPantalla(page);
 
@@ -91,9 +91,9 @@ test.describe('Activar una automatización que escribe a las clientas', () => {
 
     // No se enciende sin decir qué implica y a cuánta gente alcanza.
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo).toContainText('Esto va a escribir a tus clientas');
+    await expect(dialogo).toContainText('Esto va a escribir a tus alumnas');
     await expect(dialogo).toContainText('Socia ausente');
-    await expect(dialogo).toContainText('2 clientas');
+    await expect(dialogo).toContainText('2 alumnas');
 
     // Decir que no la deja como estaba.
     await dialogo.getByRole('button', { name: 'No, dejarla pausada' }).click();

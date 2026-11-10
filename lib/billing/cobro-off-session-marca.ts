@@ -164,7 +164,7 @@ export function clasificarReservaPerdida(
 export const MENSAJE_COBRO_EN_MARCHA: Record<CobroEnMarchaPor, string> = {
   OFF_SESSION: 'Este recibo ya se está cobrando con su tarjeta o domiciliación guardada: no se ha vuelto a cobrar.',
   MOSTRADOR: 'Este recibo se está cobrando en el mostrador (datáfono o Bizum): no se ha cobrado con la tarjeta guardada.',
-  PAGO_ONLINE: 'La clienta tiene abierto un pago online de este recibo: no se ha cobrado con la tarjeta guardada.',
+  PAGO_ONLINE: 'La alumna tiene abierto un pago online de este recibo: no se ha cobrado con la tarjeta guardada.',
 };
 
 /** Para quien cobra en el mostrador (datáfono, Bizum). */

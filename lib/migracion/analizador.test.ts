@@ -8,7 +8,7 @@ delete process.env.ANTHROPIC_API_KEY;
 
 const CTX = { planes: ['Bono 10'], instructores: ['Ana'], salas: ['Sala Reformer'], servicios: [] };
 
-test('clasifica un export de clientas y valida todas las filas', async () => {
+test('clasifica un export de alumnas y valida todas las filas', async () => {
   const csv = 'Nombre;Apellidos;Email;Teléfono\nMaría;Soler;maria@test.com;600111222\nNora;Ruiz;nora@test.com;600333444\n';
   const plan = await analizarArchivos([{ nombre: 'clientas.csv', contenido: csv }], CTX);
   const a = plan.archivos[0];
@@ -51,7 +51,7 @@ test('formato irreconocible queda sin clasificar (decide el humano)', async () =
 // El caso que perdía los bonos: Momence/Timp/Eversports exportan la clienta y
 // su bono en la MISMA fila. Antes ganaba "socias" y las columnas del bono se
 // tiraban en silencio → 850 clientas y 0 bonos, con el acta en verde.
-test('un CSV con clienta Y bono en la misma fila importa las dos cosas', async () => {
+test('un CSV con alumna Y bono en la misma fila importa las dos cosas', async () => {
   const csv =
     'First Name;Last Name;Email;Phone;Membership;Credits Remaining;Expiry Date;Status\n' +
     'Nora;Ruiz;nora@test.com;611333444;Bono 10;4;14/09/2026;Active\n' +
@@ -60,7 +60,7 @@ test('un CSV con clienta Y bono en la misma fila importa las dos cosas', async (
 
   const socias = plan.archivos.find(a => a.entidad === 'socias');
   const bonos = plan.archivos.find(a => a.entidad === 'membresias');
-  assert.ok(socias, 'debe seguir detectando las clientas');
+  assert.ok(socias, 'debe seguir detectando las alumnas');
   assert.ok(bonos, 'debe detectar además los bonos del mismo archivo');
   assert.equal(socias.ok, 2);
   assert.equal(bonos.ok, 2);
@@ -100,7 +100,7 @@ test('sin columnas propias no inventa una segunda entidad', async () => {
   assert.equal(plan.archivos[0].entidad, 'socias');
 });
 
-test('membresías sin archivo de clientas → aviso global; orden respeta dependencias', async () => {
+test('membresías sin archivo de alumnas → aviso global; orden respeta dependencias', async () => {
   const socias = 'Nombre;Email\nMaría;maria@test.com\n';
   const bonos = 'Email;Plan\nmaria@test.com;Bono 10\n';
   const plan = await analizarArchivos(
@@ -111,7 +111,7 @@ test('membresías sin archivo de clientas → aviso global; orden respeta depend
   assert.equal(plan.avisos.length, 0);
 
   const soloBonos = await analizarArchivos([{ nombre: 'bonos.csv', contenido: bonos }], CTX);
-  assert.ok(soloBonos.avisos.some(a => a.includes('clientas')));
+  assert.ok(soloBonos.avisos.some(a => a.includes('alumnas')));
 });
 
 // ── Regresión: la migración inventaba deudas ─────────────────────────────────

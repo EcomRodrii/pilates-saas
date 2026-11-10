@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 // Tenti (VETADOS, «tarjetas del asistente»).
 
 const DESTINOS: [string, string][] = [
-  ['/calendario', 'Calendario'], ['/clientas', 'Clientas'], ['/cobros', 'Cobros'], ['/informes', 'Informes'],
+  ['/calendario', 'Calendario'], ['/clientas', 'Alumnas'], ['/cobros', 'Cobros'], ['/informes', 'Informes'],
   ['/centro-de-control', 'Centro de Control'], ['/dashboard', 'Inicio'],
 ];
 

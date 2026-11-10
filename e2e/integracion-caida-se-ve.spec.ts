@@ -75,7 +75,7 @@ test.describe('Una integración caída se ve sin ir a buscarla', () => {
     // distingue un token caducado de un número mal puesto.
     await expect(page.getByText(/Session has expired/)).toBeVisible();
     // Y qué está costando mientras tanto.
-    await expect(page.getByText(/no está llegando a tus clientas/)).toBeVisible();
+    await expect(page.getByText(/no está llegando a tus alumnas/)).toBeVisible();
     // Y lleva a donde está la tarjeta de WhatsApp (Integraciones), no a una
     // sección sin ella.
     await expect(page.getByRole('link', { name: /Arreglarlo en Configuración/ }))
@@ -85,7 +85,7 @@ test.describe('Una integración caída se ve sin ir a buscarla', () => {
   test('funcionando no interrumpe: cero píxeles', async ({ page }) => {
     // Un aviso que también aparece cuando todo va bien deja de ser un aviso.
     await montarDashboard(page, [wa({ ultimo_ok_en: '2026-08-18T10:00:00Z' })]);
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/ha dejado de funcionar/)).toHaveCount(0);
   });
 
@@ -96,7 +96,7 @@ test.describe('Una integración caída se ve sin ir a buscarla', () => {
       ultimo_ok_en: '2026-08-18T10:00:00Z',
       ultimo_error: 'timeout', ultimo_error_en: '2026-08-17T10:00:00Z',
     })]);
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/ha dejado de funcionar/)).toHaveCount(0);
   });
 

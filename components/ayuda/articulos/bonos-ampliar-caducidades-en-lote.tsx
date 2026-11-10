@@ -13,7 +13,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Selecciona a quién afecta">
-        En <strong>Clientas</strong>, marca las casillas de las alumnas a las que quieres ampliar. Si es a todas,
+        En <strong>Alumnas</strong>, marca las casillas de las alumnas a las que quieres ampliar. Si es a todas,
         la casilla de la cabecera las selecciona de golpe — y respeta el filtro que tengas puesto, así que puedes
         ampliar solo a las activas, o solo a las de una etiqueta.
       </AyudaPaso>

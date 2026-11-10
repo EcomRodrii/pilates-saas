@@ -121,7 +121,7 @@ test('apagar la confirmación de reserva escribe `enviar: false` y NO toca `acti
   expect(fila?.studio_id).toBe(STUDIO_ID);
 });
 
-test('apagado, la lista dice qué deja de recibir la clienta', async ({ page }) => {
+test('apagado, la lista dice qué deja de recibir la alumna', async ({ page }) => {
   await seedSesionDeDuena(page);
   await mockBackend(page, [{
     id: 'pl-1', studio_id: STUDIO_ID, tipo: 'reserva',

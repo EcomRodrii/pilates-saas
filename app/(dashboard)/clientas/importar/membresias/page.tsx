@@ -110,9 +110,9 @@ export default function ImportarMembresiasPage() {
   return (
     <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
-        back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
+        back={{ href: '/clientas/importar', label: 'Volver a importar alumnas' }}
         title="Importar membresías"
-        description="Trae las membresías y bonos activos de tus clientas desde un CSV."
+        description="Trae las membresías y bonos activos de tus alumnas desde un CSV."
       />
 
       {/* Aviso de requisitos */}
@@ -304,7 +304,7 @@ export default function ImportarMembresiasPage() {
                 {resultado.importadas} {resultado.importadas === 1 ? 'membresía importada' : 'membresías importadas'}
               </p>
               <p className="text-[13px] text-muted-foreground mt-1">
-                {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidas por existir ya (misma clienta y plan). `}
+                {resultado.duplicadas > 0 && `${resultado.duplicadas} omitidas por existir ya (misma alumna y plan). `}
                 {resultado.errores.length > 0 && `${resultado.errores.length} con errores.`}
                 {resultado.duplicadas === 0 && resultado.errores.length === 0 && 'Todo limpio.'}
               </p>
@@ -339,7 +339,7 @@ export default function ImportarMembresiasPage() {
               onClick={() => router.push('/clientas')}
               className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm"
             >
-              <Users size={14} /> Ver mis clientas
+              <Users size={14} /> Ver mis alumnas
             </button>
             <button onClick={reiniciar} className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">
               Importar otro archivo

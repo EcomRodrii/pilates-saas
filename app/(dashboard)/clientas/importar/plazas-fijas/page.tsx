@@ -112,9 +112,9 @@ export default function ImportarPlazasFijasPage() {
   return (
     <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
-        back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
+        back={{ href: '/clientas/importar', label: 'Volver a importar alumnas' }}
         title="Importar clases fijas"
-        description="Trae las clases fijas (el hueco semanal de cada clienta) desde un CSV."
+        description="Trae las clases fijas (el hueco semanal de cada alumna) desde un CSV."
       />
 
       <div className="flex items-start gap-2 text-[12.5px] rounded-xl px-4 py-3 border max-w-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 6%, transparent)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
@@ -299,7 +299,7 @@ export default function ImportarPlazasFijasPage() {
 
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/clientas')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm">
-              <CalendarClock size={14} /> Ver mis clientas
+              <CalendarClock size={14} /> Ver mis alumnas
             </button>
             <button onClick={reiniciar} className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">Importar otro archivo</button>
           </div>

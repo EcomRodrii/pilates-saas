@@ -74,7 +74,7 @@ test.describe('Badge NUEVO del menú', () => {
 
     await expect(enlaceMenu(page, 'Cobros')).toContainText('Nuevo', { timeout: 30_000 });
     // Que aparezca en la marcada no prueba nada si aparece en todas.
-    await expect(enlaceMenu(page, 'Clientas')).not.toContainText('Nuevo');
+    await expect(enlaceMenu(page, 'Alumnas')).not.toContainText('Nuevo');
     await expect(enlaceMenu(page, 'Calendario')).not.toContainText('Nuevo');
   });
 
@@ -102,7 +102,7 @@ test.describe('Badge NUEVO del menú', () => {
 
     // Un badge que no aparece no rompe nada; un menú que desaparece, sí.
     await expect(enlaceMenu(page, 'Cobros')).toBeVisible({ timeout: 30_000 });
-    await expect(enlaceMenu(page, 'Clientas')).toBeVisible();
+    await expect(enlaceMenu(page, 'Alumnas')).toBeVisible();
     await expect(enlaceMenu(page, 'Cobros')).not.toContainText('Nuevo');
   });
 });

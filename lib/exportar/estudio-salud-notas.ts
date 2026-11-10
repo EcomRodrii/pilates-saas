@@ -117,7 +117,7 @@ export function tablaSalud(d: DatosSalud): TablaCsv & { socios: string[] } {
   }
 
   return {
-    headers: ['Email de la clienta', 'Nombre', 'Tipo', 'Fecha', 'Qué', 'Detalle', 'Estado'],
+    headers: ['Email de la alumna', 'Nombre', 'Tipo', 'Fecha', 'Qué', 'Detalle', 'Estado'],
     rows: ordenar(filas),
     socios: [...new Set(filas.map(f => f.socioId))].sort(),
   };
@@ -151,7 +151,7 @@ export function tablaNotasProgreso(d: DatosNotasProgreso): TablaCsv & { socios: 
       };
     });
   return {
-    headers: ['Email de la clienta', 'Nombre', 'Fecha', 'Instructora', 'Progreso', 'Alertas', 'Plan próxima sesión', 'Ejercicios en casa', 'Texto dictado'],
+    headers: ['Email de la alumna', 'Nombre', 'Fecha', 'Instructora', 'Progreso', 'Alertas', 'Plan próxima sesión', 'Ejercicios en casa', 'Texto dictado'],
     rows: ordenar(filas),
     socios: [...new Set(filas.map(f => f.socioId))].sort(),
   };
@@ -181,7 +181,7 @@ export function tablaNotasInternas(d: DatosNotasInternas): TablaCsv {
     };
   });
   return {
-    headers: ['Email de la clienta', 'Nombre', 'Fecha', 'Tipo', 'Visibilidad', 'Nota'],
+    headers: ['Email de la alumna', 'Nombre', 'Fecha', 'Tipo', 'Visibilidad', 'Nota'],
     rows: ordenar(filas),
   };
 }
@@ -205,7 +205,7 @@ export function tablaConsentimientos(d: DatosConsentimientos): TablaCsv {
     return { socioId, fecha: en, fila: [celda(s?.email), celda(nombre(s)), que, celda(accion), en, celda(origen), celda(texto)] };
   };
   return {
-    headers: ['Email de la clienta', 'Nombre', 'Consentimiento', 'Acción', 'Fecha', 'Origen', 'Texto aceptado'],
+    headers: ['Email de la alumna', 'Nombre', 'Consentimiento', 'Acción', 'Fecha', 'Origen', 'Texto aceptado'],
     rows: ordenar([
       ...d.salud.map(e => fila(e.socio_id, 'Datos de salud', e.tipo, e.en, e.origen, e.texto ?? '')),
       ...d.contrato.map(e => fila(e.socio_id, 'Condiciones del estudio', 'aceptación', e.en, e.origen, `huella ${e.texto_hash}`)),

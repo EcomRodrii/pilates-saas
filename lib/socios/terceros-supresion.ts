@@ -77,6 +77,6 @@ export function avisoPendientes(pendientes: readonly Pick<TerceroPendiente, 'ter
   if (pendientes.length === 0) return null;
   const partes = new Set(pendientes.map(p =>
     p.tercero === 'stripe_customer' ? 'su ficha de cliente en Stripe' : 'su cuenta de acceso'));
-  return `Los datos de la clienta se han borrado del estudio, pero ${[...partes].join(' y ')} `
+  return `Los datos de la alumna se han borrado del estudio, pero ${[...partes].join(' y ')} `
     + 'no se ha podido borrar todavía. Queda registrado para completarlo; si persiste, escríbenos a soporte.';
 }

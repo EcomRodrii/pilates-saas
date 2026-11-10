@@ -86,7 +86,7 @@ export async function comprobarAccesoSaludSocia(
   opciones: { exigirConsentimiento: boolean },
 ): Promise<ResultadoAcceso> {
   if (!puedeVerFichaClinica(sesion.rol)) return NO_AUTORIZADO;
-  if (typeof socioId !== 'string' || !socioId) return { ok: false, status: 400, error: 'Falta la clienta.' };
+  if (typeof socioId !== 'string' || !socioId) return { ok: false, status: 400, error: 'Falta la alumna.' };
   const admin = getSupabaseAdmin();
   if (!admin) return SIN_SERVIDOR;
 
@@ -97,11 +97,11 @@ export async function comprobarAccesoSaludSocia(
     .is('borrado_en', null)
     .maybeSingle();
   if (error) return SIN_SERVIDOR;
-  if (!socio) return { ok: false, status: 404, error: 'No encontramos a esta clienta en tu estudio.' };
+  if (!socio) return { ok: false, status: 404, error: 'No encontramos a esta alumna en tu estudio.' };
 
   if (opciones.exigirConsentimiento
     && (!socio.consentimiento_salud_fecha || socio.consentimiento_salud_revocado_en)) {
-    return { ok: false, status: 403, error: 'Registra primero el consentimiento de salud de esta clienta.' };
+    return { ok: false, status: 403, error: 'Registra primero el consentimiento de salud de esta alumna.' };
   }
   return { ok: true };
 }

@@ -451,8 +451,8 @@ export async function PATCH(req: NextRequest) {
         ok: true,
         alumnas,
         aviso: cancelacion.fallos === 1
-          ? 'La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
-          : `La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de ${cancelacion.fallos} clientas. Revísalo a mano.`,
+          ? 'La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de una alumna. Revísalo a mano.'
+          : `La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de ${cancelacion.fallos} alumnas. Revísalo a mano.`,
       });
     }
 

@@ -25,7 +25,7 @@ test('con bono NO: sus reservas de plaza fija nunca descuentan sesiones', () => 
   assert.equal(cuotaParaPlazaFija('soc-1', [sus({ planId: 'bono', sesionesRestantes: 8 })], [bono], HOY, 'tc-ref'), null);
 });
 
-test('una cuota vencida, pausada, de otra clienta o que no cubre la clase no cuenta', () => {
+test('una cuota vencida, pausada, de otra alumna o que no cubre la clase no cuenta', () => {
   const soloMat = plan({ id: 'mat', tiposClaseIds: ['tc-mat'] });
   const libre = plan({ id: 'libre' });
   assert.equal(cuotaParaPlazaFija('soc-1', [sus({ planId: 'libre', fechaFin: '2026-09-14' })], [libre], HOY, 'tc-ref'), null);

@@ -97,7 +97,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c1.1', ruta: '/dashboard', selector: 'menu-principal', tipo: 'mira',
         titulo: 'Tu menú',
-        texto: 'Todo el panel cuelga de aquí. «Operación» es lo de cada día: calendario, citas, clientas. «Equipo», «Negocio» y «Estudio» son lo que tocas de vez en cuando.',
+        texto: 'Todo el panel cuelga de aquí. «Operación» es lo de cada día: calendario, citas, alumnas. «Equipo», «Negocio» y «Estudio» son lo que tocas de vez en cuando.',
         accion: 'Mira el menú de la izquierda. En el móvil, la barra de abajo; lo que no cabe está en «Más».',
       },
       {
@@ -109,7 +109,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c1.3', ruta: '/dashboard', selector: 'buscador', tipo: 'mira', soloEscritorio: true,
         titulo: 'El buscador',
-        texto: 'Cuando no sepas dónde está algo, empieza por aquí. Escribe dos palabras —«IVA», «bono», el nombre de una clienta— y te lleva directa.',
+        texto: 'Cuando no sepas dónde está algo, empieza por aquí. Escribe dos palabras —«IVA», «bono», el nombre de una alumna— y te lleva directa.',
         accion: 'Mira la barra de arriba: ahí escribes lo que buscas. El atajo es ⌘K (Ctrl+K en Windows).',
       },
     ],
@@ -191,23 +191,23 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   },
   {
     id: 'c4',
-    titulo: 'Tus clientas',
-    paraQue: 'Para tener a quién venderle una tarifa: sin clientas no hay nada que asignar.',
+    titulo: 'Tus alumnas',
+    paraQue: 'Para tener a quién venderle una tarifa: sin alumnas no hay nada que asignar.',
     minutos: 5,
-    aprendido: ['qué significa cada estado de una clienta', 'cómo dar de alta una clienta o traer las de otro programa', 'qué hay en su ficha'],
+    aprendido: ['qué significa cada estado de una alumna', 'cómo dar de alta una alumna o traer las de otro programa', 'qué hay en su ficha'],
     pasos: [
       {
         id: 'c4.1', ruta: '/clientas', selector: 'clientas-lista', tipo: 'mira',
-        titulo: 'Todas tus clientas',
+        titulo: 'Todas tus alumnas',
         texto: 'Cada una con su estado: «Activa» es la que tiene un plan en marcha. Aquí buscas, filtras y les escribes. Quien solo ha preguntado no es una ficha: vive en tus consultas.',
         accion: 'Mira la lista y los filtros de arriba.',
       },
       {
         id: 'c4.2', ruta: '/clientas', selector: 'clientas-nueva', tipo: 'hacer', hecho: 'socios',
-        titulo: 'Añade una clienta de verdad',
-        texto: 'Nombre y email bastan. Mejor una clienta real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
-        accion: 'Pulsa «Nueva clienta» y rellena su nombre y su email.',
-        accionSiYaLoTienes: 'Ya tienes clientas. Para añadir otra, usa «Nueva clienta».',
+        titulo: 'Añade una alumna de verdad',
+        texto: 'Nombre y email bastan. Mejor una alumna real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
+        accion: 'Pulsa «Nueva alumna» y rellena su nombre y su email.',
+        accionSiYaLoTienes: 'Ya tienes alumnas. Para añadir otra, usa «Nueva alumna».',
       },
       {
         id: 'c4.3', ruta: '/clientas/*', selector: 'ficha-clienta', tipo: 'mira', requiere: 'socios',
@@ -220,9 +220,9 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   {
     id: 'c5',
     titulo: 'Tarifas: qué vendes, a quién y para qué clases',
-    paraQue: 'Para vender: qué tarifas ofreces, qué clases cubre cada una y cómo se la das a una clienta. Es lo que más cuesta al principio, y lo vemos paso a paso.',
+    paraQue: 'Para vender: qué tarifas ofreces, qué clases cubre cada una y cómo se la das a una alumna. Es lo que más cuesta al principio, y lo vemos paso a paso.',
     minutos: 7,
-    aprendido: ['por qué una tarifa en borrador no existe para tus clientas', 'qué clases cubre cada tarifa', 'cómo asignarle una tarifa a una clienta'],
+    aprendido: ['por qué una tarifa en borrador no existe para tus alumnas', 'qué clases cubre cada tarifa', 'cómo asignarle una tarifa a una alumna'],
     pasos: [
       {
         id: 'c5.1', ruta: '/productos', selector: 'paquetes-vista', tipo: 'mira',
@@ -232,7 +232,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       },
       {
         id: 'c5.2', ruta: '/productos', selector: 'paquetes-vista', tipo: 'hacer', hecho: 'tarifaActiva',
-        titulo: 'Una tarifa en borrador no existe para tus clientas',
+        titulo: 'Una tarifa en borrador no existe para tus alumnas',
         texto: 'Hasta que no tenga precio y esté activa, nadie puede comprarla ni tú asignársela. Si el asistente de alta te dejó tarifas a 0 €, son borradores: ábrelas y termínalas.',
         accion: 'Abre una tarifa (o pulsa «Crear»), ponle precio y márcala como activa.',
         accionSiYaLoTienes: 'Ya tienes tarifas activas. Para crear otra, usa «Crear».',
@@ -245,8 +245,8 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       },
       {
         id: 'c5.4', ruta: '/clientas/*', selector: 'ficha-plan', tipo: 'hacer', hecho: 'planAsignado', requiere: 'socios',
-        titulo: 'Asígnale una tarifa a una clienta',
-        texto: 'Es lo que une todo: la clienta, la tarifa y las clases. Desde que tiene plan puede reservar lo que esa tarifa cubre.',
+        titulo: 'Asígnale una tarifa a una alumna',
+        texto: 'Es lo que une todo: la alumna, la tarifa y las clases. Desde que tiene plan puede reservar lo que esa tarifa cubre.',
         accion: 'En la tarjeta «Plan», pulsa «Asignar plan» y elige la tarifa.',
         accionSiYaLoTienes: 'Ya has asignado alguna tarifa. Para asignar otra, usa «Asignar plan» en la tarjeta «Plan».',
       },
@@ -259,7 +259,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c5.6', ruta: '/configuracion', href: '/configuracion?tab=reservas', selector: '#reservar', tipo: 'mira',
         titulo: 'Lo que lo une todo',
-        texto: 'Aquí decides quién puede reservar. Si exiges plan, una clienta solo reserva las clases que cubre su tarifa. Si alguna no puede reservar, mira primero su plan y sus «Clases incluidas».',
+        texto: 'Aquí decides quién puede reservar. Si exiges plan, una alumna solo reserva las clases que cubre su tarifa. Si alguna no puede reservar, mira primero su plan y sus «Clases incluidas».',
         accion: 'Mira la fila «Reservar»: ahí decides quién puede reservar.',
       },
     ],

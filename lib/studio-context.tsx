@@ -3621,8 +3621,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           const fallos = await devolverBonosEnServidor(aDevolver.map(r => r.id), motivo);
           if (fallos > 0) {
             avisoBono = fallos === 1
-              ? 'No hemos podido devolver la sesión al bono de una clienta. Revísalo a mano.'
-              : `No hemos podido devolver la sesión al bono de ${fallos} clientas. Revísalo a mano.`;
+              ? 'No hemos podido devolver la sesión al bono de una alumna. Revísalo a mano.'
+              : `No hemos podido devolver la sesión al bono de ${fallos} alumnas. Revísalo a mano.`;
           }
         }
       }
@@ -4560,8 +4560,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return {
         ok: false,
         error: enEspera
-          ? 'Esa clienta todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
-          : 'No hemos encontrado la reserva de esa clienta en esta clase.',
+          ? 'Esa alumna todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
+          : 'No hemos encontrado la reserva de esa alumna en esta clase.',
       };
     }
     const anterior = reserva;
@@ -5455,7 +5455,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const res = await dbCanjearRecompensa(redemptionId, catalogItemId, studioId, socioId);
       if ('error' in res) {
         const msg = res.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
-          : res.error === 'LIMITE_ALCANZADO' ? 'Esta clienta ya la ha canjeado el máximo de veces.'
+          : res.error === 'LIMITE_ALCANZADO' ? 'Esta alumna ya la ha canjeado el máximo de veces.'
             : res.error === 'FUERA_DE_VIGENCIA' ? 'Esta recompensa no está disponible en esta fecha.'
               : res.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
                 : res.error === 'SALDO_INSUFICIENTE' ? 'Saldo insuficiente para este canje.'

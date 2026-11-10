@@ -27,7 +27,7 @@ async function aplicarCodigo(page: Page) {
   await page.getByRole('button', { name: 'Aplicar' }).click();
 }
 
-test('si la vista previa dice que esta clienta ya lo usó, el código se quita, se dice por qué y no se intenta cobrar con él', async ({ page }) => {
+test('si la vista previa dice que esta alumna ya lo usó, el código se quita, se dice por qué y no se intenta cobrar con él', async ({ page }) => {
   const cuenta = await abrirCaja(
     page,
     (r, cuerpo) => cuerpo.codigoDescuentoId ? json(r, YA_USADO, 409) : json(r, CON_MATRICULA),

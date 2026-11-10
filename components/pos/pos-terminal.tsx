@@ -634,7 +634,7 @@ export function PosTerminal() {
                 ref={buscadorRef}
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                placeholder="Buscar artículo, bono o clienta…"
+                placeholder="Buscar artículo, bono o alumna…"
                 aria-label="Buscar"
                 className="w-full h-14 pl-11 pr-11 rounded-2xl border border-border bg-card text-[16px] text-foreground placeholder:text-muted-foreground outline-none focus:border-foreground transition-colors"
               />
@@ -649,7 +649,7 @@ export function PosTerminal() {
                 antemano si lo que escribes es un producto o una persona. */}
             {clientasEncontradas.length > 0 && (
               <div className="rounded-2xl border border-border bg-card overflow-hidden">
-                <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Clientas</p>
+                <p className="px-4 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Alumnas</p>
                 {clientasEncontradas.map((s) => (
                   <button
                     key={s.id}
@@ -927,12 +927,12 @@ export function PosTerminal() {
                 <User size={15} className={cuotaSinFicha ? 'text-destructive' : bonoSinFicha ? 'text-warning' : 'text-muted-foreground'} />
                 <span className={cn('flex-1 text-[14px] truncate', cliente ? 'text-foreground font-medium' : cuotaSinFicha ? 'text-destructive font-medium' : bonoSinFicha ? 'text-warning font-medium' : 'text-muted-foreground')}>
                   {cliente ? `${cliente.nombre} ${cliente.apellidos ?? ''}`
-                    : cuotaSinFicha ? 'Una cuota necesita clienta: búscala arriba'
-                    : bonoSinFicha ? 'Sin ficha: el bono quedará por asignar' : 'Venta sin clienta'}
+                    : cuotaSinFicha ? 'Una cuota necesita alumna: búscala arriba'
+                    : bonoSinFicha ? 'Sin ficha: el bono quedará por asignar' : 'Venta sin alumna'}
                 </span>
                 {cliente && (
                   <span
-                    role="button" tabIndex={0} aria-label="Quitar clienta"
+                    role="button" tabIndex={0} aria-label="Quitar alumna"
                     onClick={(e) => { e.stopPropagation(); setClienteId(null); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setClienteId(null); } }}
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-destructive"

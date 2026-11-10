@@ -95,17 +95,17 @@ const ESCENAS: Record<string, { descripcion: string; contenido: React.ReactNode 
     contenido: <PanelCobros className="wh-tab-ui" completo />,
   },
   alumnas: {
-    descripcion: 'Captura real del listado de clientas del panel con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos como «Viene menos» o «Recibo sin cobrar».',
+    descripcion: 'Captura real del listado de alumnas del panel con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos como «Viene menos» o «Recibo sin cobrar».',
     contenido: (
       <picture className="wh-tab-captura">
-        <source type="image/avif" srcSet="/producto/v2/panel-clientas-555.avif 555w, /producto/v2/panel-clientas-1110.avif 1110w" sizes="(max-width: 1000px) 92vw, 720px" />
+        <source type="image/avif" srcSet="/producto/v2/panel-alumnas-555.avif 555w, /producto/v2/panel-alumnas-1110.avif 1110w" sizes="(max-width: 1000px) 92vw, 720px" />
         <img
           src="/producto/v2/panel-clientas-555.webp"
-          srcSet="/producto/v2/panel-clientas-555.webp 555w, /producto/v2/panel-clientas-1110.webp 1110w"
+          srcSet="/producto/v2/panel-alumnas-555.webp 555w, /producto/v2/panel-alumnas-1110.webp 1110w"
           sizes="(max-width: 1000px) 92vw, 720px"
           width={1110}
           height={489}
-          alt="Listado de clientas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos"
+          alt="Listado de alumnas del panel de Tentare con datos de muestra: filtros por estado y una fila por alumna con su plan, su saldo, su última clase y avisos"
           // Sin `lazy`: va en una pestaña oculta (`hidden`) y el navegador no pide una
           // imagen perezosa que no se pinta, así que al abrir «Alumnas» salía en blanco
           // un instante (y e2e/landing-imagenes la daba por colgada). Pesa unos 10 KB.

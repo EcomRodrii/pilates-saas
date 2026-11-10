@@ -61,7 +61,7 @@ async function montar(page: Page, opts: { campos?: unknown[]; activas?: boolean 
   await page.route('**/rest/v1/campos_personalizados**', (r) => json(r, opts.campos ?? CAMPOS));
 }
 
-test.describe('Clientas → Respuestas', () => {
+test.describe('Alumnas → Respuestas', () => {
   test('todas las respuestas juntas: resumen, tabla, filtro y enlace a la ficha', async ({ page }) => {
     await montar(page);
     await page.goto('/clientas/respuestas');
@@ -115,7 +115,7 @@ test.describe('Clientas → Respuestas', () => {
     await expect(page.getByRole('note')).toContainText('todavía no las contestan en su app', { timeout: 30_000 });
   });
 
-  test('Clientas lleva a Respuestas', async ({ page }) => {
+  test('Alumnas lleva a Respuestas', async ({ page }) => {
     await montar(page);
     await page.goto('/clientas');
     await page.getByRole('button', { name: 'Respuestas' }).click({ timeout: 30_000 });

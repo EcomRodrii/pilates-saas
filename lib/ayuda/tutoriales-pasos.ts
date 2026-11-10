@@ -81,18 +81,18 @@ export const PASOS_TUTORIAL: { readonly [R in RutaConTutorial]: TutorialPasos } 
   '/clientas': {
     pasos: [
       // Las definiciones son las de `lib/clientas/estado.ts` (DEFINICION_ESTADO).
-      { selector: 'clientas-estados', titulo: 'Cada clienta, su estado', texto: '«Activa» es quien puede reservar ahora o ha venido hace poco. Pulsa un estado para ver solo esas.', opcional: true },
+      { selector: 'clientas-estados', titulo: 'Cada alumna, su estado', texto: '«Activa» es quien puede reservar ahora o ha venido hace poco. Pulsa un estado para ver solo esas.', opcional: true },
       { selector: 'clientas-interesadas', titulo: 'Interesadas y pruebas, aparte', texto: 'Quien solo preguntó o tiene su clase de prueba está en «Interesadas y pruebas», para que le hagas seguimiento.', opcional: true },
       { selector: 'clientas-importar', titulo: '¿Vienes de otro programa?', texto: 'Con «Importar» subes tu lista entera de una vez, sin teclear a nadie.', soloEscritorio: true },
       // Obligatorios: nombre, apellidos y aceptar las condiciones; el email no (clientas/page.tsx).
-      { selector: 'clientas-nueva', titulo: 'Da de alta a una clienta', texto: 'Nombre, apellidos y que acepte las condiciones; el email es opcional, pero sin él no entra en su app.' },
+      { selector: 'clientas-nueva', titulo: 'Da de alta a una alumna', texto: 'Nombre, apellidos y que acepte las condiciones; el email es opcional, pero sin él no entra en su app.' },
     ],
   },
   '/cobros': {
     pasos: [
       { selector: 'cobros-resumen', titulo: 'Tu mes de un vistazo', texto: 'Lo que te deben, lo que está en el banco y lo cobrado este mes, frente al anterior.' },
       // «Se cobra sola» solo con Stripe Y un método guardado (tarjeta o SEPA).
-      { selector: 'cobros-secciones', titulo: 'Lo pendiente y lo cobrado', texto: 'Con Stripe y la tarjeta de la clienta guardada, la cuota se cobra sola; lo que no entra sale en «Quién me debe».' },
+      { selector: 'cobros-secciones', titulo: 'Lo pendiente y lo cobrado', texto: 'Con Stripe y la tarjeta de la alumna guardada, la cuota se cobra sola; lo que no entra sale en «Quién me debe».' },
       { selector: 'cobros-nuevo', titulo: 'Te han pagado en mano', texto: 'Efectivo o transferencia: apúntalo con «Nuevo cobro» y queda en su ficha.' },
     ],
   },

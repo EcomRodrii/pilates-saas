@@ -77,7 +77,7 @@ test('ClassPass y alumnas sin cobro en el periodo ocupan plaza y valen 0 €, co
   assert.equal(c.repartido, 180, 'lo de las tres que pagaron, ni un céntimo más');
 });
 
-test('la Caja, las sesiones privadas, «otros» y lo sin clienta no se reparten, y cuadran con el titular', () => {
+test('la Caja, las sesiones privadas, «otros» y lo sin alumna no se reparten, y cuadran con el titular', () => {
   const { sesiones, reservas, recibos } = ejemploDelExplicador();
   const fuera = [
     recibo('ana', 50, null, { id: 'rec-pos-1' }), // Caja: el ticket entero

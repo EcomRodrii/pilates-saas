@@ -116,7 +116,7 @@ test('caduca hoy o mañana: se dice así, no "en 0 días"', () => {
 const CLASES: Array<[string, Record<string, string | number | boolean>, boolean, string]> = [
   ['RECUPERAR_SOCIA', { nombre: 'Ana' }, true, '«Te echamos de menos», también con la cuota activa'],
   ['ENVIAR_REACTIVACION', { nombre: 'Ana', descuentoPct: 15 }, true, 'una oferta con descuento'],
-  ['CONTACTAR_LEAD', { nombre: 'Ana' }, true, 'una interesada: no es clienta'],
+  ['CONTACTAR_LEAD', { nombre: 'Ana' }, true, 'una interesada: no es alumna'],
   ['CONVERTIR_PRUEBA', { nombre: 'Ana' }, true, 'tras la clase de prueba'],
   ['PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 1 }, true, 'F1: «¿Renovamos tu bono?»'],
   ['PROPONER_RENOVACION_BONO', { nombre: 'Ana', sesionesRestantes: 4, diasParaCaducar: 10 }, false, 'F3: clases ya pagadas que caducan'],

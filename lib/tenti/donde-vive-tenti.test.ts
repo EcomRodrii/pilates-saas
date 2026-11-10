@@ -1084,7 +1084,7 @@ test('«Sparkles» sigue siendo el icono del changelog', () => {
 
 // El emoji era peor que un icono equivocado: ni siquiera era parte de un
 // sistema. Se comprueba aparte porque CON_TENTI mira etiquetas, no caracteres.
-test('app/(dashboard)/clientas/importar/page.tsx: ya no queda ningún ✨ suelto', () => {
+test('app/(dashboard)/alumnas/importar/page.tsx: ya no queda ningún ✨ suelto', () => {
   assert.doesNotMatch(leerCodigo('app/(dashboard)/clientas/importar/page.tsx'), /✨/,
     'Aquí va Tenti: es un enlace a lo que Tentare hace por ti, y su marca no es un emoji que cada sistema dibuja a su manera.');
 });

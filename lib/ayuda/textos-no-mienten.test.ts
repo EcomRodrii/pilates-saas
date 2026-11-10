@@ -51,7 +51,7 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Logros y motivación/, ahora: 'la sección se llama Motivación' },
   { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Cómo reservan mis alumnas' },
   {
-    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|API|Emails|Descubre y tablón|Campos de clienta|Cuestionario de salud|Copias de seguridad)\\b`),
+    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|API|Emails|Descubre y tablón|Campos de alumna|Cuestionario de salud|Copias de seguridad)\\b`),
     ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad',
   },
   // 15-sep (PR B): cada ajuste se fue a su sección.

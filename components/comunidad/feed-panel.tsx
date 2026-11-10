@@ -886,7 +886,7 @@ export function FeedVacio({ onEmpezar }: { onEmpezar: () => void }) {
       </div>
       <p className="mt-5 text-[17px] font-bold text-foreground">Tu tablón está en silencio</p>
       <p className="mt-2 max-w-sm text-[13.5px] leading-relaxed text-muted-foreground">
-        Un aviso, una foto de la sala nueva o el evento del sábado. Lo que publiques aquí lo verán tus clientas
+        Un aviso, una foto de la sala nueva o el evento del sábado. Lo que publiques aquí lo verán tus alumnas
         en su portal, sin tener que abrir el correo.
       </p>
       <button

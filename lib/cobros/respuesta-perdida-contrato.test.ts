@@ -61,7 +61,7 @@ test('devolver un recibo: el botón no se queda en «enviando» ni calla si algo
   assert.match(c, /finally \{\s*setEnviando\(false\);/);
 });
 
-test('deuda de clienta: cancelar un cobro con datáfono o Bizum no ofrece otro método hasta que se CONFIRMA que no hay cobro vivo', () => {
+test('deuda de alumna: cancelar un cobro con datáfono o Bizum no ofrece otro método hasta que se CONFIRMA que no hay cobro vivo', () => {
   const f = leer('components/pos/deuda-clienta.tsx');
   const c = f.slice(f.indexOf('async function cancelar()'), f.indexOf("if (fase.f === 'esperando') {", f.indexOf('async function cancelar()')));
   const iCancelar = c.indexOf("confirmarCobroRecibo(reciboId, metodo, 'cancelar', referencia)");

@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 // datos». La API (/api/exportar/mis-datos) solo exige sesión de PROPIETARIO, sin
 // gate de suscripción, así que desde /suscripcion funciona igual.
 const EXPORTABLES: { tabla: string; label: string }[] = [
-  { tabla: 'clientas', label: 'Clientas' },
+  { tabla: 'clientas', label: 'Alumnas' },
   { tabla: 'reservas', label: 'Reservas y asistencia' },
   { tabla: 'suscripciones', label: 'Suscripciones y bonos' },
   { tabla: 'recibos', label: 'Recibos' },
@@ -99,7 +99,7 @@ export function ExportarDatosEstudio({ id, className, sinCabecera = false }: {
     return (
       <div className={cn('space-y-3', className)}>
         <p className="text-sm text-muted-foreground">
-          La ficha de salud y las notas de progreso salen solo de las clientas con el consentimiento de salud vigente, y la descarga queda registrada. Para entregar a una alumna sus propios datos, usa «Descargar sus datos» en su ficha.
+          La ficha de salud y las notas de progreso salen solo de las alumnas con el consentimiento de salud vigente, y la descarga queda registrada. Para entregar a una alumna sus propios datos, usa «Descargar sus datos» en su ficha.
         </p>
         {botones}
       </div>
@@ -113,7 +113,7 @@ export function ExportarDatosEstudio({ id, className, sinCabecera = false }: {
         <h3 id={id ? `${id}-titulo` : undefined} className="text-[14px] font-semibold text-foreground">Exportar datos del estudio</h3>
       </div>
       <p className="text-[12px] text-muted-foreground">
-        Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. La ficha de salud y las notas de progreso salen solo de las clientas con el consentimiento de salud vigente, y la descarga queda registrada como una lectura de su ficha. Para entregar a una clienta sus propios datos, usa «Descargar sus datos» en su ficha.
+        Un CSV por tabla con los datos de todo el estudio, listo para abrir en Excel o llevarte a otra plataforma. La ficha de salud y las notas de progreso salen solo de las alumnas con el consentimiento de salud vigente, y la descarga queda registrada como una lectura de su ficha. Para entregar a una alumna sus propios datos, usa «Descargar sus datos» en su ficha.
       </p>
       {botones}
     </section>

@@ -43,7 +43,7 @@ export interface MensajeAutomatizacion {
 }
 
 const V = {
-  nombre: { clave: 'nombre', descripcion: 'El nombre de la clienta', ejemplo: 'Elena' },
+  nombre: { clave: 'nombre', descripcion: 'El nombre de la alumna', ejemplo: 'Elena' },
   dias: { clave: 'dias', descripcion: 'Días que llevan pasados', ejemplo: '9' },
   importe: { clave: 'importe', descripcion: 'Importe del recibo', ejemplo: '75' },
   concepto: { clave: 'concepto', descripcion: 'Concepto del recibo', ejemplo: 'Cuota mensual' },
@@ -96,7 +96,7 @@ export const MENSAJES_AUTOMATIZACION: MensajeAutomatizacion[] = [
   {
     clave: 'nueva_sin_reservar',
     trigger: 'NUEVA_SOCIA',
-    cuando: 'Cuando una clienta nueva todavía no ha reservado nada',
+    cuando: 'Cuando una alumna nueva todavía no ha reservado nada',
     asunto: 'Reserva tu primera clase',
     plantilla: '{nombre}, ¿ya has echado un vistazo a los horarios? Reserva tu primera clase cuando quieras desde tu área de socia — te esperamos.',
     variables: [V.nombre],

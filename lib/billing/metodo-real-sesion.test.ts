@@ -15,7 +15,7 @@ test('sesión sin bizum entre las opciones -> TARJETA sin llamar a Stripe', asyn
   assert.equal(llamado, false);
 });
 
-test('bizum ofrecido y la clienta pagó con bizum de verdad -> BIZUM', async () => {
+test('bizum ofrecido y la alumna pagó con bizum de verdad -> BIZUM', async () => {
   const stripe = {
     paymentIntents: {
       retrieve: async () => ({ latest_charge: { payment_method_details: { type: 'bizum' } } }),
@@ -25,7 +25,7 @@ test('bizum ofrecido y la clienta pagó con bizum de verdad -> BIZUM', async () 
   assert.equal(r, 'BIZUM');
 });
 
-test('bizum ofrecido pero la clienta pagó con tarjeta -> TARJETA', async () => {
+test('bizum ofrecido pero la alumna pagó con tarjeta -> TARJETA', async () => {
   const stripe = {
     paymentIntents: {
       retrieve: async () => ({ latest_charge: { payment_method_details: { type: 'card' } } }),

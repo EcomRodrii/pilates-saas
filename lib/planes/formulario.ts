@@ -39,7 +39,7 @@ export const NOMBRE_TIPO_PLAN: Record<TipoPlan, string> = {
 
 /** Una línea explicando cada tipo, para el desplegable de crear tarifa. */
 export const EXPLICACION_TIPO_PLAN: Record<TipoPlan, string> = {
-  MENSUAL: 'Se cobra sola cada mes, trimestre, semestre o año hasta que la clienta se dé de baja.',
+  MENSUAL: 'Se cobra sola cada mes, trimestre, semestre o año hasta que la alumna se dé de baja.',
   BONO: 'Un puñado de sesiones que se van gastando conforme reserva.',
   PUNTUAL: 'Un pago único, sin renovación.',
 };

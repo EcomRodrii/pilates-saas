@@ -131,7 +131,7 @@ export default function RespuestasPage() {
       <PageHeader
         title="Respuestas de tus alumnas"
         description="Lo que ha contestado cada una a tus preguntas de «Datos extra de la ficha»."
-        back={{ href: '/clientas', label: 'Volver a Clientas' }}
+        back={{ href: '/clientas', label: 'Volver a Alumnas' }}
         actions={exporta && preguntas.length > 0 && lista.length > 0 ? (
           <button
             onClick={exportar}

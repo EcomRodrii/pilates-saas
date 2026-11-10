@@ -87,7 +87,7 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
         if (!cierre.ok) {
           // La supresión SÍ se hizo: se dice tal cual, sin fingir que todo fue bien.
           setAccion(null);
-          onToast(`Sus datos se han eliminado, pero la solicitud no se ha podido cerrar (${cierre.error}). Ciérrala desde Clientas.`, { variant: 'error' });
+          onToast(`Sus datos se han eliminado, pero la solicitud no se ha podido cerrar (${cierre.error}). Ciérrala desde Alumnas.`, { variant: 'error' });
           return;
         }
         // Ya no hay ficha que mostrar: la socia ha quedado anonimizada.
@@ -187,7 +187,7 @@ export function DerechosRgpdFicha({ socioId, nombreSocia, onToast }: {
           ) : (
             <label className="block">
               <span className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-                {accion?.tipo === 'rechazar' ? 'Motivo (se guarda y lo verá la clienta en sus datos)' : 'Qué se ha hecho (opcional)'}
+                {accion?.tipo === 'rechazar' ? 'Motivo (se guarda y lo verá la alumna en sus datos)' : 'Qué se ha hecho (opcional)'}
               </span>
               <textarea
                 value={nota}

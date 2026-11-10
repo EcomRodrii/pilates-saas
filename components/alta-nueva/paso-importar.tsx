@@ -194,7 +194,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
       <CabeceraPaso
         etiqueta="Paso 4 de 5 · opcional · unos 3 minutos"
         titulo="¿Traes alumnas de otro sitio?"
-        sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Clientas."
+        sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Alumnas."
         masTarde={{ onClick: () => void seguirIgual(onListo), disabled: ocupado }}
         tituloRef={titulo}
       />
@@ -224,7 +224,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
         <div role="status" className="mt-6 flex gap-2.5 rounded-2xl border border-success/30 bg-success/10 px-4 py-3.5">
           <Check size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />
           <p className="text-[14px] leading-[21px] text-foreground">
-            Empiezas de cero. Tus alumnas se darán de alta solas al reservar con tu enlace; si un día quieres traer una lista, está en Clientas › Importar.
+            Empiezas de cero. Tus alumnas se darán de alta solas al reservar con tu enlace; si un día quieres traer una lista, está en Alumnas › Importar.
           </p>
         </div>
       ) : (

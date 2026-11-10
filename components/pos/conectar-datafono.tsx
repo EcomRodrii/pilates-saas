@@ -188,7 +188,7 @@ export function ConectarDatafono({
             {cabecera('Conecta tu datáfono', 1)}
             <div className="overflow-y-auto px-6 py-5">
               <p className="text-[14px] text-muted-foreground text-pretty">
-                Con el datáfono conectado, el cobro llega solo: lo mandas desde aquí, la clienta pasa la tarjeta y la
+                Con el datáfono conectado, el cobro llega solo: lo mandas desde aquí, la alumna pasa la tarjeta y la
                 venta queda cobrada. Sin teclear el importe dos veces.
               </p>
               <div className="mt-4 space-y-3">

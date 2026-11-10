@@ -193,7 +193,7 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   const nombres = tiposClase.filter(tc => form.tiposClaseIds.includes(tc.id)).map(tc => tc.nombre);
   return (
     <div className="rounded-2xl border border-border bg-muted/40 p-4">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Así lo verá tu clienta</p>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Así lo verá tu alumna</p>
       <div className="rounded-xl bg-card border border-border p-4 shadow-sm">
         <p className="font-bold text-foreground leading-tight break-words">
           {form.nombre.trim() || <span className="text-muted-foreground font-normal">Sin nombre todavía</span>}
@@ -452,7 +452,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground text-pretty">
                       {tipoSugerido === 'PUNTUAL'
-                        ? 'Una cuota se cobra sola a la clienta cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
+                        ? 'Una cuota se cobra sola a la alumna cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
                         : 'Un bono es un puñado de sesiones que se gastan al reservar y caduca. Si es lo que quieres, cámbiala; si no, ignora este aviso.'}
                     </p>
                     <button type="button" onClick={() => cambiarTipo(tipoSugerido)}
@@ -767,7 +767,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     </span>
                     <p id={`${uid}-activo-ayuda`} className="text-[12px] text-muted-foreground mt-0.5">
                       {form.activo
-                        ? 'Tus clientas pueden comprarlo desde la web y desde el mostrador.'
+                        ? 'Tus alumnas pueden comprarlo desde la web y desde el mostrador.'
                         : 'Nadie nuevo puede comprarlo. Quien ya lo tenga lo conserva y lo sigue usando con normalidad.'}
                     </p>
                   </div>

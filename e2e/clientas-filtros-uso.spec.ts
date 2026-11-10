@@ -160,8 +160,8 @@ async function abrir(page: Page, ruta = '/clientas') {
   await expect(filas(page).first()).toBeVisible({ timeout: 30_000 });
 }
 
-test.describe('Clientas: filtros de cómo viene cada una (P2.8)', () => {
-  test('apagado: Clientas es la de siempre aunque la URL traiga un filtro nuevo, y lo ha preguntado', async ({ page }) => {
+test.describe('Alumnas: filtros de cómo viene cada una (P2.8)', () => {
+  test('apagado: Alumnas es la de siempre aunque la URL traiga un filtro nuevo, y lo ha preguntado', async ({ page }) => {
     const peticiones = await montar(page);
     await abrir(page, '/clientas?frecuencia=ALTA&constancia=TODAS&sesiones=UNA_O_NINGUNA&mas=nunca_compro');
     await expect.poll(() => peticiones.interruptores).toBeGreaterThan(0);

@@ -214,7 +214,7 @@ export function BandejaVacia({ onNueva }: { onNueva: () => void }) {
     <EmptyState
       icono={Inbox}
       titulo="Aquí aparecerán tus conversaciones"
-      descripcion="Escribe a una clienta desde el mostrador o deja que ella empiece desde su portal — todo llega a esta bandeja."
+      descripcion="Escribe a una alumna desde el mostrador o deja que ella empiece desde su portal — todo llega a esta bandeja."
       cta={{ label: 'Nueva conversación', icono: MessageSquarePlus, onClick: onNueva }}
       className="border-0 py-14"
     />
@@ -579,7 +579,7 @@ export function NuevaConversacion({
     <div className="border-b border-border bg-muted/40 shrink-0">
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
         <p className="text-[13px] font-bold text-foreground">
-          {socio ? 'Y ahora, ¿con quién habla?' : 'Elige una clienta'}
+          {socio ? 'Y ahora, ¿con quién habla?' : 'Elige una alumna'}
         </p>
         <button
           onClick={onCerrar}
@@ -599,7 +599,7 @@ export function NuevaConversacion({
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder={verContacto ? 'Busca por nombre o email…' : 'Busca por nombre…'}
-              aria-label="Buscar clienta"
+              aria-label="Buscar alumna"
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0"
             />
           </label>
@@ -607,9 +607,9 @@ export function NuevaConversacion({
             {resultados.length === 0 ? (
               <p className="text-xs text-muted-foreground py-6 text-center">
                 {busqueda.trim()
-                  ? <>Ninguna clienta coincide con «{busqueda.trim()}».</>
+                  ? <>Ninguna alumna coincide con «{busqueda.trim()}».</>
                   : verContacto
-                    ? 'Todavía no hay clientas activas.'
+                    ? 'Todavía no hay alumnas activas.'
                     : 'Aún no hay alumnas con reserva en tus clases.'}
               </p>
             ) : (

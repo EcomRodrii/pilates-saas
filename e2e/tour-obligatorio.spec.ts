@@ -156,7 +156,7 @@ test.describe('La visita guiada por capítulos', () => {
     await expect.poll(() => JSON.stringify(s.progreso)).toContain('"vistos":["c1"]');
   });
 
-  test('un paso «hacer» se cierra solo cuando los datos cambian: el caso de la clienta con 4 tarifas', async ({ page }) => {
+  test('un paso «hacer» se cierra solo cuando los datos cambian: el caso de la alumna con 4 tarifas', async ({ page }) => {
     // Navega a pantallas pesadas (calendario, Paquetes, Configuración): en CI la primera compilación tarda.
     test.slow();
     // Capítulos 1–4 cerrados y 5.1 visto: toca 5.2, «una tarifa en borrador no existe».
@@ -172,7 +172,7 @@ test.describe('La visita guiada por capítulos', () => {
     let planes = [tarifa('a', 0, false), tarifa('b', 0, false)];
     await montarVisita(page, { progreso, extra: async p => { await p.route('**/rest/v1/planes_tarifa**', r => json(r, planes)); } });
     await page.goto('/productos');
-    const paso = page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador no existe para tus clientas/ });
+    const paso = page.getByRole('region', { name: /Visita guiada: Una tarifa en borrador no existe para tus alumnas/ });
     await expect(paso).toBeVisible({ timeout: 30_000 });
     await expect(paso).toContainText('Esperando a que lo hagas');
     await expect(paso).not.toContainText('Ya lo tienes');

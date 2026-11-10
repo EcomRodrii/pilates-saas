@@ -19,7 +19,7 @@ test('terminada: si falta pasar lista se dice cuántas quedan por marcar', () =>
   assert.equal(estadoDeFicha(base({ estado: 'SIN_PASAR_LISTA', sinMarcar: 2 }), AHORA).pastilla?.texto, 'Terminada · falta pasar lista');
   assert.equal(estadoDeFicha(base({ estado: 'SIN_PASAR_LISTA', sinMarcar: 2 }), AHORA).cifra, '2 sin marcar');
   assert.equal(estadoDeFicha(base({ estado: 'FINALIZADA', asistidas: 5 }), AHORA).cifra, '5 de 5 vinieron');
-  assert.equal(estadoDeFicha(base({ estado: 'FINALIZADA', apuntadas: 0 }), AHORA).cifra, 'Sin clientas');
+  assert.equal(estadoDeFicha(base({ estado: 'FINALIZADA', apuntadas: 0 }), AHORA).cifra, 'Sin alumnas');
 });
 
 test('una clase de más tarde no lleva pastilla; la que empieza pronto, sí', () => {

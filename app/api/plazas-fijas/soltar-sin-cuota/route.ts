@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   const body = (await req.json().catch(() => null)) as { socioId?: unknown } | null;
   const socioId = typeof body?.socioId === 'string' ? body.socioId : '';
-  if (!socioId) return NextResponse.json({ error: 'Falta la clienta' }, { status: 400 });
+  if (!socioId) return NextResponse.json({ error: 'Falta la alumna' }, { status: 400 });
 
   const admin = getSupabaseAdmin();
   if (!admin) return NextResponse.json({ error: 'Servidor no configurado' }, { status: 503 });

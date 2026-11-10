@@ -65,7 +65,7 @@ async function mockBackend(page: Page, { comoInstructora = false } = {}) {
 // falla en silencio (timeout) en cualquier pantalla que solo tenga el topbar.
 async function abrirBuscador(page: Page) {
   await page.getByRole('button', { name: /Qué quieres hacer o buscar/ }).click({ timeout: 30_000 });
-  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca una clienta, clase o pago…');
+  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca una alumna, clase o pago…');
   await expect(input).toBeVisible();
   return input;
 }

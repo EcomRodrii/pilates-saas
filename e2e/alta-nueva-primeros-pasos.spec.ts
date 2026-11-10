@@ -327,7 +327,7 @@ test.describe('los vacíos que enseñan', () => {
     await expect(page.getByText(/Para crear la clase falta/)).toHaveCount(0);
   });
 
-  test('Clientas sin alumnas: «Aún no tienes alumnas» y las tres maneras', async ({ page }) => {
+  test('Alumnas sin alumnas: «Aún no tienes alumnas» y las tres maneras', async ({ page }) => {
     await montar(page);
     await page.goto('/clientas');
     await expect(page.getByRole('heading', { name: 'Aún no tienes alumnas' })).toBeVisible({ timeout: 60_000 });

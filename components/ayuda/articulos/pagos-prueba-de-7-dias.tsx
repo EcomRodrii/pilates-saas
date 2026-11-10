@@ -28,14 +28,14 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo se cuentan</h2>
       <p>
-        Las alumnas, por el estado «Activa» de su ficha: el mismo número que «Clientas activas» en el Resumen. Las
+        Las alumnas, por el estado «Activa» de su ficha: el mismo número que «Alumnas activas» en el Resumen. Las
         reservas, las de las clases de los últimos 30 días, sin contar las canceladas ni las que están en lista de
         espera o pendientes de aprobar. Las de clase fija también cuentan.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Tus datos se quedan</h2>
       <p>
-        Si el panel se cierra, no se borra nada: tus clases, clientas y configuración siguen ahí en cuanto eliges
+        Si el panel se cierra, no se borra nada: tus clases, alumnas y configuración siguen ahí en cuanto eliges
         plan.
       </p>
 

@@ -8,7 +8,7 @@ export default function Contenido() {
         alumna — Tentare nunca gestiona el dinero fuera de ese circuito.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Abre el cobro en la ficha de la clienta">
+      <AyudaPaso numero={1} titulo="Abre el cobro en la ficha de la alumna">
         <p>El botón «Devolver» de la ficha aparece cuando has activado tu política de devoluciones en Configuración &gt; Cobros y facturas &gt; Devoluciones. El «Devolver» de la pantalla de Cobros solo lo apunta como devuelto: no mueve dinero.</p>
       </AyudaPaso>
 

@@ -26,13 +26,13 @@ export function BloqueRiesgo({ riesgo, hoy, nombreDe }: {
   const claseBloque = useClaseBloque();
   return (
     <section aria-labelledby="informe-riesgo" className={`space-y-4 ${claseBloque}`} data-testid="informe-riesgo">
-      <CabeceraBloque id="informe-riesgo" titulo="Clientas en riesgo">
-        Hoy, no en el periodo. Son las mismas listas que en Clientas, con el mismo cálculo que sus etiquetas.
+      <CabeceraBloque id="informe-riesgo" titulo="Alumnas en riesgo">
+        Hoy, no en el periodo. Son las mismas listas que en Alumnas, con el mismo cálculo que sus etiquetas.
       </CabeceraBloque>
 
       {!riesgo ? (
         <p role="alert" className="rounded-xl bg-warning/10 px-4 py-3 text-[13px] font-medium text-foreground">
-          No se han podido cargar tus clientas del todo, así que no enseñamos listas que podrían estar mal. Recarga la
+          No se han podido cargar tus alumnas del todo, así que no enseñamos listas que podrían estar mal. Recarga la
           página; si sigue pasando, contacta con soporte.
         </p>
       ) : (
@@ -96,7 +96,7 @@ function Lista({ testId, titulo, explicacion, vacio, clientas, href, detalle, no
             ))}
           </ul>
           <Link href={href} className="mt-2 inline-block text-[13px] font-semibold text-brand-medio underline-offset-2 hover:underline">
-            {clientas.length > MAXIMO ? `Ver las ${clientas.length} en Clientas →` : 'Verlas en Clientas →'}
+            {clientas.length > MAXIMO ? `Ver las ${clientas.length} en Alumnas →` : 'Verlas en Alumnas →'}
           </Link>
         </>
       )}

@@ -25,7 +25,7 @@ const VERSIONES = [
     { etiqueta: 'ARREGLO', texto: 'Una reserva podía confirmarse sin descontar la sesión del bono.', orden: 1, imagen_url: null },
   ] },
   { id: '2', version: '0.37', titulo: 'Clases online con Zoom', fecha_publicacion: '2026-08-21', changelog_cambios: [
-    { etiqueta: 'MEJORA', texto: 'El listado de clientas carga más rápido.', orden: 0 },
+    { etiqueta: 'MEJORA', texto: 'El listado de alumnas carga más rápido.', orden: 0 },
   ] },
 ];
 

@@ -47,7 +47,7 @@ export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sin
   const claseBloque = useClaseBloque();
   return (
     <section aria-labelledby="informe-clientas" className={`space-y-4 ${claseBloque}`}>
-      <CabeceraBloque id="informe-clientas" titulo="Clientas" />
+      <CabeceraBloque id="informe-clientas" titulo="Alumnas" />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-xl border border-border p-4">
@@ -114,7 +114,7 @@ export function BloqueClientas({ clientas, nuevas, nuevasAntes, comparacion, sin
         <div>
           <h3 className="text-[13.5px] font-semibold text-foreground">Cuántas siguen viniendo, por mes en que empezaron</h3>
           <p className="text-[12.5px] text-muted-foreground text-pretty">
-            No depende del periodo de arriba: siempre los seis últimos meses. De las clientas que compraron su primer plan o bono
+            No depende del periodo de arriba: siempre los seis últimos meses. De las alumnas que compraron su primer plan o bono
             cada mes, cuántas vinieron a alguna clase en su segundo mes y en su tercero. No cuentan las importadas ni las que ya
             venían de antes. «—»: ese mes aún no ha pasado entero para todas.
           </p>

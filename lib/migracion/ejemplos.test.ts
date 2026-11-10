@@ -61,11 +61,11 @@ test('Timp: fecha DD/MM/AAAA europea se normaliza a ISO', () => {
 // Un solo archivo con clienta + bono en la misma fila (lo que exporta media
 // España) debe dar las DOS entidades. Antes ganaba "socias" y los bonos se
 // perdían sin decir nada.
-test('Excel casero: del mismo archivo salen las clientas Y sus bonos', () => {
+test('Excel casero: del mismo archivo salen las alumnas Y sus bonos', () => {
   const plan = analizarDeterminista(EJEMPLOS.find(e => e.id === 'excel')!.archivos);
   const socias = plan.archivos.find(a => a.entidad === 'socias');
   const bonos = plan.archivos.find(a => a.entidad === 'membresias');
-  assert.ok(socias, 'las clientas deben seguir detectándose');
+  assert.ok(socias, 'las alumnas deben seguir detectándose');
   assert.ok(bonos, 'los bonos de la columna "Bono" no pueden perderse');
   assert.equal(bonos.origenNombre, 'mis_clientas.csv');
   assert.deepEqual(plan.orden, ['socias', 'membresias']);

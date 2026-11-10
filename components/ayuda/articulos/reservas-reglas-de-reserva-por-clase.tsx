@@ -29,7 +29,7 @@ export default function Contenido() {
       </p>
       <p>
         Las apruebas o las rechazas desde Resumen, en &ldquo;Lo que espera tu visto bueno&rdquo;, sin tener que
-        buscarlas clase a clase; o desde la propia clase en el calendario, en su lista de clientas. Una reserva que
+        buscarlas clase a clase; o desde la propia clase en el calendario, en su lista de alumnas. Una reserva que
         sigue pendiente cuando la clase empieza se cancela sola y se avisa a la alumna.
       </p>
 

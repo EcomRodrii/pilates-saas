@@ -31,7 +31,7 @@ test('los acentos no importan en ningún sentido', () => {
 });
 
 test('encuentra aunque las palabras vayan en otro orden', () => {
-  assert.ok(ids('alta clienta').includes('nueva-clienta'));
+  assert.ok(ids('alta alumna').includes('nueva-clienta'));
 });
 
 test('"cobrar" lleva a cobrar la mensualidad (la caja/POS está congelada)', () => {

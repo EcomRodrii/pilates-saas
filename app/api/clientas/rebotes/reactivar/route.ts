@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'Tu rol no puede gestionar clientas' }, { status: 403 });
+    return NextResponse.json({ error: 'Tu rol no puede gestionar alumnas' }, { status: 403 });
   }
 
   const admin = getSupabaseAdmin();
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
       .is('borrado_en', null)
       .maybeSingle();
     if (!socio) {
-      return NextResponse.json({ error: 'Esa dirección no pertenece a ninguna clienta de tu estudio' }, { status: 403 });
+      return NextResponse.json({ error: 'Esa dirección no pertenece a ninguna alumna de tu estudio' }, { status: 403 });
     }
 
     const r = await reactivarBuzon(admin, normalizado);

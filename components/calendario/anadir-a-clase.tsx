@@ -165,12 +165,12 @@ export function AnadirAClase({
           onClick={() => { onAvisar(true); setAbierto(true); }}
           className="flex min-h-11 flex-1 items-center gap-2 rounded-xl border border-border bg-background px-3 text-left text-[13.5px] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
         >
-          <UserPlus size={16} aria-hidden />Añadir clienta a la clase
+          <UserPlus size={16} aria-hidden />Añadir alumna a la clase
         </button>
         {hrefQr && (
           <Link
             href={hrefQr}
-            title="Escanear el QR de una clienta para esta clase"
+            title="Escanear el QR de una alumna para esta clase"
             aria-label="Escanear QR"
             className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
           >
@@ -194,7 +194,7 @@ export function AnadirAClase({
               onClick={() => setDe(o)}
               className={cn('rounded-md px-2.5 py-1', de === o ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}
             >
-              {o === 'CLIENTA' ? 'Clienta' : NOMBRE_PLATAFORMA[o]}
+              {o === 'CLIENTA' ? 'Alumna' : NOMBRE_PLATAFORMA[o]}
             </button>
           ))}
         </div>
@@ -249,10 +249,10 @@ export function AnadirAClase({
             <Search size={15} className="shrink-0 text-muted-foreground" aria-hidden />
             <input
               className="min-w-0 flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground focus:outline-none pointer-fine:text-[14px]"
-              placeholder="Buscar clienta…"
+              placeholder="Buscar alumna…"
               value={texto}
               onChange={e => setTexto(e.target.value)}
-              aria-label="Buscar clienta"
+              aria-label="Buscar alumna"
               autoFocus
             />
           </label>
@@ -417,14 +417,14 @@ export function AnadirAClase({
           {encontradas.length === 0 && (
             <div className="space-y-1.5 py-2 text-center">
               <p className="text-[12.5px] text-muted-foreground">
-                {texto.trim() ? `Ninguna clienta coincide con «${texto.trim()}»` : 'No hay clientas que añadir'}
+                {texto.trim() ? `Ninguna alumna coincide con «${texto.trim()}»` : 'No hay alumnas que añadir'}
               </p>
               <Link
                 href={`/clientas?nuevo=1${texto.trim() ? `&nombre=${encodeURIComponent(texto.trim())}` : ''}`}
                 className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-brand-medio hover:underline"
               >
                 <UserPlus size={13} aria-hidden />
-                {texto.trim() ? `Dar de alta a «${texto.trim()}»` : 'Dar de alta una clienta nueva'}
+                {texto.trim() ? `Dar de alta a «${texto.trim()}»` : 'Dar de alta una alumna nueva'}
               </Link>
             </div>
           )}

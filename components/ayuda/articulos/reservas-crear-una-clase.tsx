@@ -54,7 +54,7 @@ export default function Contenido() {
           Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
           &ldquo;Horario&rdquo; (junto a Día y Semana) reúne todas las que se repiten por día de la semana:
           hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen clase fija, con los botones para
-          renovarla o dar una clase fija a una clienta sin salir de ahí.
+          renovarla o dar una clase fija a una alumna sin salir de ahí.
         </p>
       </AyudaPaso>
 
@@ -68,11 +68,11 @@ export default function Contenido() {
         Junto al título «Calendario» hay dos botones pequeños. El de las flechas lo{' '}
         <strong>amplía a toda la pantalla</strong>: esconde el menú y la barra de arriba para que quepan más horas y
         más días; con el mismo botón, o con <strong>Esc</strong>, vuelve a su tamaño. Ese mismo botón lo tienen
-        Clientas, Cobros, Informes, Mensajería y Equipo.
+        Alumnas, Cobros, Informes, Mensajería y Equipo.
       </p>
       <p>
         El otro saca la agenda del día a una <strong>ventana flotante</strong> que se queda a mano mientras vas a
-        Clientas, Cobros o cualquier otra pantalla. La mueves arrastrándola por su barra y se queda donde la dejes,
+        Alumnas, Cobros o cualquier otra pantalla. La mueves arrastrándola por su barra y se queda donde la dejes,
         también si recargas. Desde la propia ventana cambias de día, la pliegas para que solo quede la barra, o pulsas
         una clase para abrirla en el Calendario; con sus flechas la agrandas para ver la semana entera sin que deje de flotar, y con las mismas vuelve a pequeña. Solo aparece en un ordenador, no en el móvil ni en la tablet.
       </p>

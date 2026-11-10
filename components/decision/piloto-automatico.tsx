@@ -8,7 +8,7 @@ import type { AutonomiaEstado } from './use-autonomia-config';
 
 const TIPO_LABEL: Record<string, string> = {
   ENVIAR_EMAIL: 'Emails de reactivación y recordatorio',
-  CONTACTO_MANUAL: 'Mensajes a clientas (email o WhatsApp)',
+  CONTACTO_MANUAL: 'Mensajes a alumnas (email o WhatsApp)',
 };
 
 // Piloto automático del Decision OS: deja que las recomendaciones de ALTA

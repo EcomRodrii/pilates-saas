@@ -476,7 +476,7 @@ test('un bono SÍ se puede cobrar sin ficha, avisando de que queda por asignar',
   const cuerpo = c.cuerpos[0] as { socioId: string | null };
   expect(
     cuerpo.socioId,
-    'la venta sin ficha viaja SIN clienta; inventar una sería peor que no tenerla',
+    'la venta sin ficha viaja SIN alumna; inventar una sería peor que no tenerla',
   ).toBeNull();
 });
 
@@ -499,13 +499,13 @@ test('una CUOTA no se puede cobrar sin ficha: se bloquea, se explica, y no sale 
 
   await page.getByRole('button', { name: /Cuota mensual ilimitada/ }).click();
 
-  await expect(page.getByText('Una cuota necesita clienta: búscala arriba')).toBeVisible();
+  await expect(page.getByText('Una cuota necesita alumna: búscala arriba')).toBeVisible();
   await expect(page.getByText('Sin ficha: el bono quedará por asignar')).toHaveCount(0);
   const cobrar = page.getByRole('button', { name: /^Cobrar/ });
   await expect(cobrar).toBeDisabled();
   await cobrar.click({ force: true });
   await expect(page.getByRole('button', { name: /^Efectivo/ })).toHaveCount(0);
-  expect(c.ventas, 'con una cuota sin clienta no puede salir ninguna venta').toBe(0);
+  expect(c.ventas, 'con una cuota sin alumna no puede salir ninguna venta').toBe(0);
 });
 
 test('desde «Cobrado» se puede sacar la factura, sin salir del mostrador', async ({ page }) => {

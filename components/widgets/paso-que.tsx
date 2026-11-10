@@ -386,7 +386,7 @@ const SE_ACTUALIZA_SOLO: Record<string, ReactNode> = {
   estudio: <>La descripción, la dirección y el horario salen de <EnlaceA href="/configuracion?tab=estudio">Tu estudio</EnlaceA>.</>,
   equipo: <>Salen las instructoras que dan clase, con su foto. Se editan en <EnlaceA href="/equipo">Equipo</EnlaceA>.</>,
   bonos: <>Sale cada bono activo con su precio. Se editan en <EnlaceA href="/productos">Paquetes</EnlaceA>.</>,
-  contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Clientas</EnlaceA>.</>,
+  contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Alumnas</EnlaceA>.</>,
 };
 
 export function QueEnsena({ w, c, metodo, cambiar, datos, porId, tituloHorario = 'Qué enseña' }: {

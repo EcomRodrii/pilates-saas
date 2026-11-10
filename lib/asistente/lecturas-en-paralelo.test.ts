@@ -44,7 +44,7 @@ test('cargarClientasServidor: las clases del estudio se leen a la vez que socias
   assert.ok(orden.indexOf('ini:sesiones') < orden.indexOf('fin:socios'), 'sesiones empieza antes de que termine la primera lectura');
 });
 
-test('cargarClientasServidor: con una lectura fallida devuelve null (no «no hay clientas»)', async () => {
+test('cargarClientasServidor: con una lectura fallida devuelve null (no «no hay alumnas»)', async () => {
   const { admin } = supabaseFalso({ socios: [], suscripciones: [], planes_tarifa: [], reservas: [], sesiones: [] }, { fallan: ['sesiones'] });
   assert.equal(await cargarClientasServidor(admin, ST, { ahora: new Date() }), null);
 });

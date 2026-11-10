@@ -18,7 +18,7 @@ async function sesionConPermiso(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return { error: NextResponse.json({ error: 'No autorizado' }, { status: 401 }) } as const;
   if (!puedeGestionarClientas(sesion.rol)) {
-    return { error: NextResponse.json({ error: 'No tienes permiso para gestionar el acceso de una clienta.' }, { status: 403 }) } as const;
+    return { error: NextResponse.json({ error: 'No tienes permiso para gestionar el acceso de una alumna.' }, { status: 403 }) } as const;
   }
   const admin = getSupabaseAdmin();
   if (!admin) return { error: NextResponse.json({ error: 'Servidor no configurado' }, { status: 500 }) } as const;
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   try {
     const e = await estadoDobleFactorSocia(r.admin, r.sesion.studioId, id);
-    if (!e.encontrada) return NextResponse.json({ error: 'Clienta no encontrada' }, { status: 404 });
+    if (!e.encontrada) return NextResponse.json({ error: 'Alumna no encontrada' }, { status: 404 });
     const sePuedeQuitar = e.activa && e.motivo === null;
     const tienePermiso = puedeQuitarVerificacionClienta(r.sesion.rol);
     return NextResponse.json({
@@ -65,7 +65,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       actorNombre: r.sesion.rol === 'PROPIETARIO' ? 'Propietaria' : (r.sesion.nombre || null),
     });
     if (!res.ok) {
-      if (res.motivo === 'no_encontrada') return NextResponse.json({ error: 'Clienta no encontrada' }, { status: 404 });
+      if (res.motivo === 'no_encontrada') return NextResponse.json({ error: 'Alumna no encontrada' }, { status: 404 });
       return NextResponse.json({ error: MENSAJE_NO_QUITAR[res.motivo] }, { status: 409 });
     }
     return NextResponse.json({ ok: true, avisada: res.avisada });

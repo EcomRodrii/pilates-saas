@@ -163,7 +163,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">
                     {item.costeCreditos} {moneda}{item.stock != null ? ` · ${item.stock} en stock` : ''}
-                    {item.limitePorSocia != null ? ` · máx. ${item.limitePorSocia} por clienta` : ''}
+                    {item.limitePorSocia != null ? ` · máx. ${item.limitePorSocia} por alumna` : ''}
                     {item.disponibleDesde || item.disponibleHasta
                       ? ` · ${item.disponibleDesde ?? '…'} a ${item.disponibleHasta ?? '…'}`
                       : ''}

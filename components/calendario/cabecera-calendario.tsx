@@ -136,7 +136,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
   const panelNuevo = usePanelNuevo();
   const router = useRouter();
   const herramientas: AccionMenu[] = [
-    ...(p.hrefEscanear ? [{ texto: 'Escanear QR', icono: QrCode, nota: 'El QR de una clienta en la puerta', onClick: () => router.push(p.hrefEscanear!) }] : []),
+    ...(p.hrefEscanear ? [{ texto: 'Escanear QR', icono: QrCode, nota: 'El QR de una alumna en la puerta', onClick: () => router.push(p.hrefEscanear!) }] : []),
     ...(p.hrefImportar ? [{ texto: 'Importar horario', icono: Upload, nota: 'De un Excel o de otra plataforma', onClick: () => router.push(p.hrefImportar!) }] : []),
     ...(p.repetirMes ? [{ texto: p.repetirMes.texto, icono: Repeat, nota: 'Crear el mes siguiente con las clases que se repiten', onClick: p.repetirMes.onAbrir }] : []),
     ...(p.seleccion && !p.seleccion.activa ? [{ texto: 'Seleccionar varias', icono: CheckSquare, nota: 'Para cambiarles la instructora de una vez', onClick: p.seleccion.onAlternar }] : []),
@@ -166,7 +166,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
             {panelNuevo && p.seleccion?.activa && (
               <Herramienta icono={CheckSquare} texto="Salir de selección" activa onClick={p.seleccion.onAlternar} compacta={false} />
             )}
-            {!panelNuevo && p.hrefEscanear && <Herramienta icono={QrCode} texto="Escanear QR" titulo="Escanear el QR de una clienta en la puerta" href={p.hrefEscanear} compacta={p.compacta} />}
+            {!panelNuevo && p.hrefEscanear && <Herramienta icono={QrCode} texto="Escanear QR" titulo="Escanear el QR de una alumna en la puerta" href={p.hrefEscanear} compacta={p.compacta} />}
             {!panelNuevo && p.hrefImportar && <Herramienta icono={Upload} texto="Importar horario" titulo="Traer tu horario de un Excel o de otra plataforma" href={p.hrefImportar} compacta={p.compacta} />}
             {!panelNuevo && p.repetirMes && <Herramienta icono={Repeat} texto={p.repetirMes.texto} titulo="Crear el mes siguiente con las clases que se repiten cada semana" onClick={p.repetirMes.onAbrir} compacta={p.compacta} />}
             {!panelNuevo && p.seleccion && (
