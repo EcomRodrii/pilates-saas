@@ -150,7 +150,7 @@ const allSections: NavSection[] = [
       // Wallet y no CreditCard: CreditCard ya es /cobros (dinero de las socias)
       // y repetirlo aquí hacía indistinguibles dos conceptos opuestos — cobrar
       // tú vs pagar tu cuota de Tentare (auditoría 2026-08-20).
-      { href: '/suscripcion', label: 'Plan de Tentare', icon: Wallet, alias: ['suscripcion', 'suscripción', 'mi plan', 'facturación de tentare', 'pagar tentare'] },
+      { href: '/suscripcion', label: 'Plan de Tentare', icon: Wallet, alias: ['suscripcion', 'mi plan', 'facturacion de tentare', 'pagar tentare'] },
     ],
   },
 ];
