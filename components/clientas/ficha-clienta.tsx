@@ -1484,7 +1484,18 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                           estaban fuera de `verFinanzas`: una instructora las veía y
                           podía cancelarle el plan a una clienta. */}
                       {puedeCobrar && suscripcion.estado === 'ACTIVA' && (
-                        <BotonTarjeta icono={Pause} onClick={async () => { const res = await pausarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}>Pausar</BotonTarjeta>
+                        <BotonTarjeta
+                          icono={Pause}
+                          // La política de congelación del estudio (Configuración → Cobros y facturas): la hace cumplir la base de
+                          // datos; aquí solo se explica por qué no se puede, o hasta cuánto alarga.
+                          disabled={studio?.congelacionPermitida === false}
+                          title={studio?.congelacionPermitida === false
+                            ? 'Tu estudio tiene apagada la congelación de cuotas y bonos (Configuración → Cobros y facturas).'
+                            : studio?.congelacionMaxDias ? `Cada congelación alarga su plan como máximo ${studio.congelacionMaxDias} días.` : undefined}
+                          onClick={async () => { const res = await pausarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}
+                        >
+                          Pausar
+                        </BotonTarjeta>
                       )}
                       {puedeCobrar && suscripcion.estado === 'PAUSADA' && (
                         <BotonTarjeta icono={Play} onClick={async () => { const res = await reanudarSuscripcion(suscripcion.id); if (!res.ok) setToastError(res.error); }}>Reanudar</BotonTarjeta>

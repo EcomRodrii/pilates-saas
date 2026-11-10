@@ -40,7 +40,7 @@ import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 export type EstadoPenalizacion =
   | 'DETECTADA'
   | 'OMITIDA_SIN_TARJETA' | 'OMITIDA_SIN_CONSENTIMIENTO' | 'OMITIDA_COMPENSADA' | 'OMITIDA_REVERTIDA'
-  | 'OMITIDA_SIN_CUOTA'
+  | 'OMITIDA_SIN_CUOTA' | 'OMITIDA_FRANQUICIA'
   | 'PENDIENTE_APROBACION' | 'RECIBO_CREADO' | 'COBRADA' | 'FALLIDA' | 'REEMBOLSADA';
 
 /**
@@ -717,7 +717,7 @@ export type VeredictoCobroManual = { ok: true; sinComprobar?: true } | { ok: fal
 
 /** Las OMITIDA_*: se decidió no cobrar. */
 export const ESTADOS_OMITIDA: readonly EstadoPenalizacion[] =
-  ['OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA'];
+  ['OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA', 'OMITIDA_FRANQUICIA'];
 
 /**
  * Plaza fija sin cuota (política del estudio, migr 20260915215236): con LIBERAR o
@@ -730,6 +730,24 @@ export function omitirPorPlazaFijaSinCuota(p: { politica: string | null | undefi
   // AVISAR_Y_LIBERAR: mientras corre su plazo para renovar, tampoco se cobra (y después ya están liberadas).
   const politicaNoCobra = p.politica === 'LIBERAR' || p.politica === 'MANTENER_SIN_PENALIZAR' || p.politica === 'AVISAR_Y_LIBERAR';
   return politicaNoCobra && esReservaPlazaFija(p.reservaId) && !p.cubre;
+}
+
+/**
+ * «Se cobra a partir de la falta N» (`studios.penalizacion_umbral_faltas`, migr 20261110130000). `faltasPrevias` son las
+ * faltas ANTERIORES de la alumna dentro de la ventana (sin las revertidas): esta es la número `faltasPrevias + 1`. Con
+ * umbral 1 (de serie) nunca se omite: el comportamiento de siempre. SOLO puede dejar de cobrar, jamás cobrar más.
+ * Un umbral que no es un entero válido no omite nada (ante la duda, lo de siempre).
+ */
+export function omitirPorFranquicia(p: { umbral: number | null | undefined; faltasPrevias: number }): boolean {
+  const umbral = p.umbral;
+  if (typeof umbral !== 'number' || !Number.isInteger(umbral) || umbral <= 1) return false;
+  if (!Number.isInteger(p.faltasPrevias) || p.faltasPrevias < 0) return false;
+  return p.faltasPrevias + 1 < umbral;
+}
+
+/** Desde qué instante cuentan las faltas anteriores: `ventanaDias` días antes de la falta que se decide. */
+export function desdeVentanaDeFaltas(detectadaEn: string, ventanaDias: number): string {
+  return new Date(new Date(detectadaEn).getTime() - ventanaDias * 86_400_000).toISOString();
 }
 
 /**
@@ -757,6 +775,7 @@ const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
   OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',
   OMITIDA_REVERTIDA: 'se anuló al corregir la asistencia.',
   OMITIDA_SIN_CUOTA: 'se dejó sin cobrar porque era una clase que tenía por su clase fija y ya no tenía cuota, como elegiste en Configuración.',
+  OMITIDA_FRANQUICIA: 'se dejó sin cobrar porque era de las primeras faltas de la alumna: tu regla en Configuración cobra a partir de una posterior.',
   COBRADA: 'ya consta como cobrada.',
   // No se vuelve a cobrar con la tarjeta: tras agotar los reintentos sería un cargo
   // nuevo mientras la alumna puede estar pagándola. Marcar el recibo cobrado sí es

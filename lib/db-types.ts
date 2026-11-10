@@ -1154,6 +1154,14 @@ export interface RowStudios {
   recordatorio_largo_activo: boolean | null;
   // migr 20261104100000.
   recordatorio_corto_activo: boolean | null;
+  // migr 20261110130000.
+  penalizacion_umbral_faltas: number | null;
+  // migr 20261110130000.
+  penalizacion_umbral_ventana_dias: number | null;
+  // migr 20261110140000.
+  congelacion_permitida: boolean | null;
+  // migr 20261110140000.
+  congelacion_max_dias: number | null;
 }
 
 export interface RowSuscripciones {
@@ -5951,6 +5959,10 @@ export type StudiosInsert = {
   avisos_push_apagados?: string[] | null | null;
   recordatorio_largo_activo?: boolean | null | null;
   recordatorio_corto_activo?: boolean | null | null;
+  penalizacion_umbral_faltas?: number | null | null;
+  penalizacion_umbral_ventana_dias?: number | null | null;
+  congelacion_permitida?: boolean | null | null;
+  congelacion_max_dias?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6119,6 +6131,10 @@ export type StudiosUpdate = {
   avisos_push_apagados?: string[] | null | null;
   recordatorio_largo_activo?: boolean | null | null;
   recordatorio_corto_activo?: boolean | null | null;
+  penalizacion_umbral_faltas?: number | null | null;
+  penalizacion_umbral_ventana_dias?: number | null | null;
+  congelacion_permitida?: boolean | null | null;
+  congelacion_max_dias?: number | null | null;
 }
 
 export type SuscripcionesInsert = {

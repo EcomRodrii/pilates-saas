@@ -149,11 +149,13 @@ export function TarjetaFicha({ titulo, icono, accion, children, className, id, d
 }
 
 /** Botón secundario de la cabecera de una tarjeta («Pausar», «Cambiar plan»). */
-export function BotonTarjeta({ icono: Icono, children, onClick, disabled }: {
+export function BotonTarjeta({ icono: Icono, children, onClick, disabled, title }: {
   icono?: LucideIcon;
   children: ReactNode;
   onClick: () => void;
   disabled?: boolean;
+  /** Por qué está desactivado, o qué hace: sale al pasar el ratón y lo lee el lector de pantalla. */
+  title?: string;
 }) {
   const panelNuevo = usePanelNuevo();
   return (
@@ -161,6 +163,7 @@ export function BotonTarjeta({ icono: Icono, children, onClick, disabled }: {
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={cn(panelNuevo ? 'rounded-full' : 'rounded-xl', "zona-tactil inline-flex min-h-9 items-center gap-1.5 border border-border bg-card px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-50 [@media(pointer:coarse)]:min-h-10")}
     >
       {Icono && <Icono size={14} aria-hidden />}

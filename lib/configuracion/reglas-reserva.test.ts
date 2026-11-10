@@ -38,7 +38,9 @@ const NUEVAS = ['plazaFijaSinCuota', 'plazaFijaSolicitarDesdeApp', 'plazaFijaPau
   // guardar la plaza ofrecida a la lista de espera, contar las reservas pendientes de aprobar para el tope).
   'cancelacionTardiaDevuelveRecuperacion', 'listaEsperaReservaPlazaOfrecida', 'reservaPendienteCuentaParaTope',
   // 27-oct: «la semana es la ventana» (sin recuperaciones al cancelar a tiempo), en la tarjeta de Recuperaciones.
-  'recuperacionSoloEnLaSemana'];
+  'recuperacionSoloEnLaSemana',
+  // 10-nov: «se cobra a partir de la falta N» y cuántos días hacia atrás cuentan las faltas.
+  'penalizacionUmbralFaltas', 'penalizacionUmbralVentanaDias'];
 
 test('la sección guarda las columnas de antes, menos las dos que se fueron a su sitio, más las nuevas con nombre', () => {
   const r = reglasAGuardar(formularioReglas(null), reglasGuardadas(null));
@@ -60,7 +62,7 @@ test('sin dato del servidor, los mismos valores por defecto que el formulario de
     minimoAsistentesPorClase: 0, recuperacionMaxVivas: 4, recuperacionCaducidadTipo: 'FIN_MES_SIGUIENTE', recuperacionCaducidadDias: null,
     recuperacionAutoSemanal: false, recuperacionSoloEnLaSemana: false, permiteListaEspera: true, listaEsperaPlazoAceptacionMinutos: 0, listaEsperaReservaPlazaOfrecida: false,
     requiereCheckinQr: true, controlAccesoQr: true, penalizacionImporteEur: null, penalizacionAplicaCancelacionTardia: true,
-    penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false,
+    penalizacionAplicaNoShow: true, penalizacionCobroAutomatico: false, penalizacionUmbralFaltas: 1, penalizacionUmbralVentanaDias: 90,
     // Sin elegir: como siempre (decisión del fundador, 16-sep).
     plazaFijaSinCuota: 'MANTENER',
     // Pedir plaza fija desde la app: ENCENDIDO de serie desde el 22-sep (antes
@@ -236,6 +238,11 @@ test('la consecuencia de cada cajón: una línea que dice lo que va a pasar', ()
   assert.equal(consecuenciaRegla('si-cancela-tarde-o-no-viene', cargo), 'Si cancela con menos de 12 h o no viene sin avisar, se le cobran 7,50 € cuando lo apruebes.');
   assert.equal(consecuenciaRegla('si-cancela-tarde-o-no-viene', { ...cargo, penalizacionAplicaNoShow: false, penalizacionCobroAutomatico: true }),
     'Si cancela con menos de 12 h, se le cobran 7,50 € sin esperar a que lo apruebes.');
+  // «A partir de la falta N»: con el umbral de serie (1) la frase es la de siempre; con más, dice cuándo empieza y que se perdona lo anterior.
+  assert.equal(consecuenciaRegla('si-cancela-tarde-o-no-viene', { ...cargo, penalizacionUmbralFaltas: 1 }),
+    'Si cancela con menos de 12 h o no viene sin avisar, se le cobran 7,50 € cuando lo apruebes.');
+  assert.equal(consecuenciaRegla('si-cancela-tarde-o-no-viene', { ...cargo, penalizacionUmbralFaltas: 3, penalizacionUmbralVentanaDias: 180 }),
+    'Si cancela con menos de 12 h o no viene sin avisar, se le cobran 7,50 € cuando lo apruebes. Se cobra a partir de su falta n.º 3 en los últimos 180 días: las anteriores se perdonan.');
   // Sin plazo no hay cancelación tardía: no se promete un cargo que nunca llega.
   assert.match(consecuenciaRegla('si-cancela-tarde-o-no-viene', { ...cargo, cancelacionVentanaHoras: 0, penalizacionAplicaNoShow: false }), /nunca se cobran los 7,50 €/);
 

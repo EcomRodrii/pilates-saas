@@ -14,6 +14,8 @@ import {
   VUELTA_A_DETECTADA,
   crearReciboYCobrar,
   cuerpoRespuesta,
+  desdeVentanaDeFaltas,
+  omitirPorFranquicia,
   decidirAntesDeCobrar,
   decidirTrasArmar,
   dunningPuedeCobrarPenalizacion,
@@ -67,7 +69,7 @@ import {
 // (`app/api/penalizaciones/aprobar`) y el cron solo ejecutan lo que sale de aquí.
 
 const ESTADOS: EstadoPenalizacion[] = [
-  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA',
+  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA', 'OMITIDA_FRANQUICIA',
   'PENDIENTE_APROBACION', 'RECIBO_CREADO', 'COBRADA', 'FALLIDA', 'REEMBOLSADA',
 ];
 // Un `Record` y no una lista: un código nuevo de `cobrarReciboOffSession` no compila
@@ -1405,7 +1407,7 @@ test('respaldo: 402 y 409 tienen texto propio; el resto usa el genérico', () =>
 // ── Cobrar a mano un recibo de penalización (Cobros, Automatizaciones) ──────
 
 const TODOS_LOS_ESTADOS: EstadoPenalizacion[] = [
-  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA',
+  'DETECTADA', 'OMITIDA_SIN_TARJETA', 'OMITIDA_SIN_CONSENTIMIENTO', 'OMITIDA_COMPENSADA', 'OMITIDA_REVERTIDA', 'OMITIDA_SIN_CUOTA', 'OMITIDA_FRANQUICIA',
   'PENDIENTE_APROBACION', 'RECIBO_CREADO', 'COBRADA', 'FALLIDA', 'REEMBOLSADA',
 ];
 const RECIBO_PEN = `${PREFIJO_RECIBO_PENALIZACION}pen-1`;
@@ -1911,4 +1913,35 @@ test('⚠️ el botón de la remesa filtra las penalizaciones ANTES de generar e
   assert.match(cuerpo, /if \(error\) return \{ ok: false \};/);
   assert.match(cuerpo, /catch \{\s*return \{ ok: false \};/);
   assert.match(cuerpo, /penalizacionDelRecibo\(reciboId\) === fila\.id/, 'solo si la penalización apunta a ESE recibo');
+});
+
+// ── «Se cobra a partir de la falta N» (migr 20261110130000) ─────────────────
+
+test('franquicia: con el umbral de serie (1) nunca se omite, ni con muchas faltas previas', () => {
+  for (const faltasPrevias of [0, 1, 5, 50]) assert.equal(omitirPorFranquicia({ umbral: 1, faltasPrevias }), false);
+});
+
+test('franquicia: con umbral 3 se perdonan la 1.ª y la 2.ª y se cobra desde la 3.ª', () => {
+  assert.equal(omitirPorFranquicia({ umbral: 3, faltasPrevias: 0 }), true, 'la primera falta');
+  assert.equal(omitirPorFranquicia({ umbral: 3, faltasPrevias: 1 }), true, 'la segunda falta');
+  assert.equal(omitirPorFranquicia({ umbral: 3, faltasPrevias: 2 }), false, 'la tercera falta ya se cobra');
+  assert.equal(omitirPorFranquicia({ umbral: 3, faltasPrevias: 9 }), false, 'y las siguientes');
+});
+
+test('franquicia: ante un umbral o un recuento que no son enteros válidos, lo de siempre (se cobra)', () => {
+  for (const umbral of [null, undefined, 0, -2, 2.5, Number.NaN]) {
+    assert.equal(omitirPorFranquicia({ umbral: umbral as number, faltasPrevias: 0 }), false, `umbral ${String(umbral)}`);
+  }
+  assert.equal(omitirPorFranquicia({ umbral: 3, faltasPrevias: -1 }), false);
+  assert.equal(omitirPorFranquicia({ umbral: 3, faltasPrevias: 0.5 }), false);
+});
+
+test('franquicia: es una omitida (no se cobra en el mostrador) y se explica en lenguaje llano', () => {
+  assert.ok(ESTADOS_OMITIDA.includes('OMITIDA_FRANQUICIA'));
+  assert.ok(ESTADOS_ANULADOS_PARA_EL_MOSTRADOR.includes('OMITIDA_FRANQUICIA'));
+});
+
+test('franquicia: la ventana empieza los días indicados antes de la falta', () => {
+  assert.equal(desdeVentanaDeFaltas('2026-11-10T10:00:00.000Z', 30), '2026-10-11T10:00:00.000Z');
+  assert.equal(desdeVentanaDeFaltas('2026-11-10T10:00:00.000Z', 365), '2025-11-10T10:00:00.000Z');
 });
