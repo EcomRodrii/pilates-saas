@@ -96,7 +96,7 @@ export function AyudaDelPanel({ conLanzador }: { conLanzador: boolean }) {
           <button
             type="button"
             onClick={() => setAbierta(a => !a)}
-            aria-label={abierta ? 'Cerrar la ayuda' : punto ? 'Ayuda: hay novedades' : 'Ayuda'}
+            aria-label={abierta ? 'Cerrar la ayuda' : punto ? 'Abrir la ayuda: hay novedades' : 'Abrir la ayuda'}
             aria-expanded={abierta}
             data-testid="boton-ayuda"
             className="relative flex size-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg ring-1 ring-black/10 transition-transform hover:scale-105 active:scale-95"
