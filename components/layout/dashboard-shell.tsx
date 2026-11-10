@@ -527,7 +527,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               visita)… salvo con el alta nueva mientras «Pon en marcha tu estudio»
               no esté terminada, que también trae el recorrido rápido
               (components/guia/flotantes-del-panel.tsx). */}
-          <FlotantesDelPanel panelNuevo={panelNuevo} />
+          <FlotantesDelPanel />
           {/* «Primeros pasos» ya no flota aquí: es una píldora de la barra de arriba (topbar.tsx). */}
           </AsistenteProvider>
           </TutorialProvider>

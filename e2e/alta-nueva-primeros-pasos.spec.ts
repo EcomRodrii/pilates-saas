@@ -231,20 +231,20 @@ test.describe('el recorrido rápido de tres paradas', () => {
   });
 });
 
-test.describe('WhatsApp con una persona mientras la lista no esté terminada', () => {
-  test('a la vista con la lista a medias, y fuera cuando está terminada', async ({ page }) => {
+test.describe('El botón de ayuda, con el WhatsApp dentro, siempre a la vista', () => {
+  test('a la vista con la lista a medias', async ({ page }) => {
     await montar(page);
     await expect(tarjeta(page)).toBeVisible({ timeout: 60_000 });
     await expect(page.locator('[data-whatsapp-soporte]')).toBeVisible();
   });
 
-  test('terminada: «Tu estudio está en marcha», con la lista plegada, y sin WhatsApp flotante', async ({ page }) => {
+  test('terminada: «Tu estudio está en marcha», con la lista plegada, y el botón de ayuda sigue ahí', async ({ page }) => {
     await montar(page, { estado: { ...RECIEN, claseReservable: true, enlaceCompartido: true, alumnas: true, primeraReserva: true, planEnsenado: true } });
     await expect(tarjeta(page).getByRole('heading', { name: 'Tu estudio está en marcha' })).toBeVisible({ timeout: 60_000 });
     await expect(tarjeta(page)).toContainText('Has hecho los 5 primeros pasos. Lo que queda es opcional.');
     await expect(tarjeta(page).getByTestId('paso-de-cinco')).toHaveText('5 de 5 hechos');
     await expect(tarjeta(page).getByTestId('tareas-alta')).toHaveCount(0);
-    await expect(page.locator('[data-whatsapp-soporte]')).toHaveCount(0);
+    await expect(page.locator('[data-whatsapp-soporte]')).toBeVisible();
   });
 });
 
