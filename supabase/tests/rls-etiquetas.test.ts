@@ -1,4 +1,4 @@
-// Etiquetas de alumnas (migración 20261110120000): un catálogo por estudio y dos RPC que tocan a TODAS las alumnas.
+// Etiquetas de alumnas (migración 20261110105611): un catálogo por estudio y dos RPC que tocan a TODAS las alumnas.
 //
 //  · el catálogo es del estudio: otro estudio no lo ve ni lo toca;
 //  · lo lee y lo escribe quien gestiona clientas (propietaria, gerencia, recepción), no una instructora;

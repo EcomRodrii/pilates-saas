@@ -2,7 +2,7 @@
 // fichas. Pura y sin imports: la ejecuta `node --test` directamente.
 //
 // Quién tiene cada etiqueta sigue en `socios.tags` (campañas, segmentos y el filtro de Clientas la leen de ahí). El
-// catálogo (`etiquetas`, migr 20261110120000) añade un nombre estable, un color y las etiquetas que aún no tiene nadie.
+// catálogo (`etiquetas`, migr 20261110105611) añade un nombre estable, un color y las etiquetas que aún no tiene nadie.
 // Una etiqueta puesta en alguna ficha y que no está en el catálogo SIGUE siendo válida: se lista, sin color propio.
 // Las etiquetas no se distinguen por mayúsculas («VIP» y «vip» son la misma), igual que en la base de datos.
 

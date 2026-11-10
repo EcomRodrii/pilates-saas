@@ -2128,7 +2128,7 @@ export async function dbDeleteCampoPersonalizado(id: string): Promise<ResultadoE
 }
 
 // ── Etiquetas de alumnas (catálogo por estudio) ─────────────────────────────
-// Nombre + color por estudio (migr 20261110120000). Quién tiene cada una sigue en `socios.tags`; renombrar y eliminar
+// Nombre + color por estudio (migr 20261110105611). Quién tiene cada una sigue en `socios.tags`; renombrar y eliminar
 // van por RPC porque tocan a todas las alumnas del estudio de golpe. Ver lib/etiquetas/etiquetas.ts.
 export async function dbFetchEtiquetas(): Promise<Etiqueta[]> {
   const { data, error } = await supabase.from('etiquetas').select('id, nombre, color').order('nombre', { ascending: true });

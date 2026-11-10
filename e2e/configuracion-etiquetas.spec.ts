@@ -2,7 +2,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 import { montar, ir } from './panel-sembrado';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Etiquetas de alumnas (Configuración → Alta de alumnas → Etiquetas; migr 20261110120000).
+// Etiquetas de alumnas (Configuración → Alta de alumnas → Etiquetas; migr 20261110105611).
 //
 // Antes una etiqueta era un texto suelto en la ficha (siete fijas) y no había forma de crear una propia ni de renombrar,
 // juntar o quitar una de todas las alumnas a la vez. Lo que se fija aquí, contra el panel sembrado:
