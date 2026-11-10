@@ -22,10 +22,15 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, MessageCircleQuestion } from 'lucide-react';
 import { supabase } from '@/lib/db/supabase';
+import { usePuertaAsistente } from '@/lib/asistente-context';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { cn } from '@/lib/utils';
 import {
   CLAVE_NOVEDAD_VISTA, EVENTO_ABRIR_AYUDA, esPestanaAyuda, hayNovedadSinVer, type PestanaAyuda,
 } from '@/lib/ayuda/panel-ayuda';
+
+// Donde Tenti no va junto a un cobro (guardia de lib/tenti/donde-vive-tenti.test.ts): ahí, el icono sobrio.
+const PANTALLAS_DE_DINERO = /^\/(cobros|caja|cierre|facturas|transacciones|suscripcion|pos)(\/|$)/;
 
 const PanelAyuda = dynamic(() => import('./panel-ayuda').then(m => m.PanelAyuda), { ssr: false });
 
@@ -38,6 +43,8 @@ function guardarVista(version: string) {
 
 export function AyudaDelPanel({ conLanzador }: { conLanzador: boolean }) {
   const pathname = usePathname() ?? '/';
+  // El asistente vive DENTRO del panel (pestaña «Tentare»): un solo botón en la esquina.
+  const conTentare = usePuertaAsistente();
   const [abierta, setAbierta] = useState(false);
   const [pestana, setPestana] = useState<PestanaAyuda>('inicio');
   const [ultima, setUltima] = useState<string | null>(null);
@@ -82,6 +89,7 @@ export function AyudaDelPanel({ conLanzador }: { conLanzador: boolean }) {
         <PanelAyuda
           ruta={pathname}
           pestana={pestana}
+          conTentare={conTentare}
           onPestana={setPestana}
           onCerrar={() => setAbierta(false)}
           onNovedadVista={alVerNovedad}
@@ -96,12 +104,16 @@ export function AyudaDelPanel({ conLanzador }: { conLanzador: boolean }) {
           <button
             type="button"
             onClick={() => setAbierta(a => !a)}
-            aria-label={abierta ? 'Cerrar la ayuda' : punto ? 'Abrir la ayuda: hay novedades' : 'Abrir la ayuda'}
+            aria-label={abierta ? 'Cerrar la ayuda' : punto ? 'Abrir la ayuda y a Tentare: hay novedades' : 'Abrir la ayuda y a Tentare'}
             aria-expanded={abierta}
             data-testid="boton-ayuda"
             className="relative flex size-14 items-center justify-center rounded-full bg-foreground text-background shadow-lg ring-1 ring-black/10 transition-transform hover:scale-105 active:scale-95"
           >
-            {abierta ? <ChevronDown size={26} aria-hidden /> : <MessageCircleQuestion size={26} aria-hidden />}
+            {abierta
+              ? <ChevronDown size={26} aria-hidden />
+              : conTentare && !PANTALLAS_DE_DINERO.test(pathname)
+                ? <TentiIcono ancho={28} sobre="invertida" />
+                : <MessageCircleQuestion size={26} aria-hidden />}
             {punto && <span aria-hidden className={cn('absolute right-0.5 top-0.5 size-3.5 rounded-full border-2 border-card')} style={{ backgroundColor: 'var(--t-magenta-500)' }} />}
           </button>
         </div>

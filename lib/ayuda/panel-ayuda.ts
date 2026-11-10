@@ -9,9 +9,25 @@ import { articulosPublicadosDe, type ArticuloAyuda } from './registro.ts';
 import { ayudaDePantalla } from './pantallas.ts';
 import { compararVersiones } from '../utils.ts';
 
-export type PestanaAyuda = 'inicio' | 'novedades' | 'mensajes' | 'ayuda';
+export type PestanaAyuda = 'inicio' | 'tentare' | 'novedades' | 'mensajes' | 'ayuda';
 
-export const PESTANAS_AYUDA: readonly PestanaAyuda[] = ['inicio', 'novedades', 'mensajes', 'ayuda'];
+export const PESTANAS_AYUDA: readonly PestanaAyuda[] = ['inicio', 'tentare', 'novedades', 'mensajes', 'ayuda'];
+
+/**
+ * Las pestañas que se enseñan: «Tentare» (el asistente, con su chat dentro) solo si el
+ * asistente está disponible para este estudio y este rol; sin él, las otras cuatro.
+ */
+export function pestanasVisibles(conTentare: boolean): readonly PestanaAyuda[] {
+  return conTentare ? PESTANAS_AYUDA : PESTANAS_AYUDA.filter(p => p !== 'tentare');
+}
+
+/** Las preguntas de ejemplo de Inicio (las mismas que enseña el chat al abrirse). */
+export const PREGUNTAS_DE_EJEMPLO: readonly string[] = [
+  '¿Cuántas alumnas activas tengo?',
+  '¿Qué clases hay mañana?',
+  '¿Cuánto he facturado este mes?',
+  '¿Qué debería revisar hoy?',
+];
 
 export function esPestanaAyuda(v: unknown): v is PestanaAyuda {
   return typeof v === 'string' && (PESTANAS_AYUDA as readonly string[]).includes(v);

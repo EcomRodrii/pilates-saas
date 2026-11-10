@@ -205,7 +205,10 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // veto («la IA que te habla») se cae con el asistente; el de dinero no
   // (estadoDelVeredicto → sin Tenti si aprobar cobra).
   'components/decision/veredicto-del-dia.tsx': { usos: 1, motivo: 'el veredicto del día: analizando, recién hecho, el mensaje que te pregunta o lo que el piloto no pudo; nunca junto a un cobro' },
-  'components/asistente/asistente-flotante.tsx': { usos: 1, motivo: 'el botón flotante del chat «Pregúntale a Tentare»: la puerta del asistente en todas las pantallas del panel (fundador, 8-oct-2026)' },
+  // El botón flotante del chat vivía solo (8-oct-2026); el 11-nov el fundador lo quiso DENTRO del botón de ayuda: «no deben de
+  // estar los 2 separados». Ahora Tenti es el icono de ese único botón y de la pestaña «Tentare» (no en «Mensajes», la de la persona).
+  'components/ayuda/ayuda-del-panel.tsx': { usos: 1, motivo: 'el botón único de la esquina: Tenti es su icono cuando el asistente está disponible (no junto a un cobro)' },
+  'components/ayuda/panel-ayuda.tsx': { usos: 2, motivo: 'el panel de ayuda: la pestaña «Tentare» (su icono) y el saludo de Inicio, donde se le pregunta al asistente' },
   // La demo personalizada de la landing (/demo, 28-oct-2026): la propietaria que aún no es clienta habla con Tenti, que entiende
   // su duda y le prepara un recorrido. UN solo Tenti, en la cabecera del chat (no uno por mensaje: cada uno monta un canvas),
   // «pensando» solo mientras la petición al servidor va (PENSANDO_CUANDO) y sin Tenti en la transición de «preparando».
@@ -369,8 +372,14 @@ const VETADOS: { grupo: string; motivo: string; rutas: string[]; deRebote: boole
   },
   {
     grupo: 'soporte', deRebote: true,
-    motivo: 'la promesa es «te responde una persona, no una IA», y una mascota en el punto de contacto se lee como un bot',
-    rutas: ['components/layout/whatsapp-fab.tsx', 'components/ayuda', 'app/ayuda'],
+    motivo: 'la promesa es «te responde una persona, no una IA», y una mascota en el punto de contacto se lee como un bot (el panel de ayuda de la esquina, con el asistente dentro, es la excepción del fundador, 11-nov-2026: su pestaña «Mensajes», la de la persona, va sin Tenti)',
+    rutas: [
+      'components/layout/whatsapp-fab.tsx', 'app/ayuda', 'components/ayuda/articulos', 'components/ayuda/ArticuloShell.tsx',
+      'components/ayuda/AyudaBreadcrumbs.tsx', 'components/ayuda/AyudaCTASoporte.tsx', 'components/ayuda/AyudaCaptura.tsx',
+      'components/ayuda/AyudaDePantalla.tsx', 'components/ayuda/AyudaFeedback.tsx', 'components/ayuda/AyudaPasos.tsx',
+      'components/ayuda/AyudaRelacionados.tsx', 'components/ayuda/AyudaStructuredData.tsx', 'components/ayuda/TroubleshootShell.tsx',
+      'components/ayuda/cajon-ayuda.tsx', 'components/ayuda/iconos.tsx',
+    ],
   },
   {
     grupo: 'dinero', deRebote: true,

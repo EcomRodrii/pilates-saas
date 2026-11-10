@@ -22,17 +22,25 @@ test.describe.configure({ timeout: 120_000 });
 
 const flotante = (page: import('@playwright/test').Page) => page.getByTestId('chat-asistente-flotante');
 
-test('el botón flotante está en cualquier pantalla y abre el chat sin salir de ella; el chat no viaja antes del clic', async ({ page }) => {
+const panel = (page: import('@playwright/test').Page) => page.getByRole('dialog', { name: 'Ayuda de Tentare' });
+
+// 11-nov-2026: el botón del asistente ya no flota aparte. Hay UN botón de ayuda en la esquina y
+// Tentare vive dentro de su panel, como pestaña (fundador: «no deben de estar los 2 separados»).
+test('un solo botón en cualquier pantalla: Tentare está dentro de su panel, y el chat no viaja antes de abrir su pestaña', async ({ page }) => {
   const scripts = recolectarScripts(page);
   const n = await conAsistente(page);
   await ir(page, 'calendario');
-  const boton = page.getByTestId('asistente-flotante');
+  const boton = page.getByTestId('boton-ayuda');
   await expect(boton).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('asistente-flotante')).toHaveCount(0);
   expect(n.disponible).toBeGreaterThan(0);
   expect(await scripts.contiene(HUELLA_DEL_CHAT)).toBe(false);
 
   await boton.click();
-  await expect(page.getByRole('dialog', { name: 'Pregúntale a Tentare' })).toBeVisible({ timeout: 60_000 });
+  await expect(panel(page)).toBeVisible({ timeout: 60_000 });
+  // Con el panel abierto y sin entrar en «Tentare», el chat sigue sin descargarse.
+  expect(await scripts.contiene(HUELLA_DEL_CHAT)).toBe(false);
+  await panel(page).getByRole('tab', { name: 'Tentare' }).click();
   await expect(flotante(page).getByText(/¿En qué te ayudo hoy/)).toBeVisible({ timeout: 60_000 });
   expect(await scripts.contiene(HUELLA_DEL_CHAT)).toBe(true);
   // Sigue en la misma pantalla: no ha navegado.
@@ -42,27 +50,42 @@ test('el botón flotante está en cualquier pantalla y abre el chat sin salir de
   await expect.poll(() => n.preguntas).toBe(1);
   await expect(flotante(page).getByTestId('chat-respuesta')).toContainText('Mañana tienes 5 clases');
 
-  // Escape cierra la ventana y el botón sigue ahí.
+  // Escape cierra el panel y el botón sigue ahí.
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Pregúntale a Tentare' })).toHaveCount(0);
+  await expect(panel(page)).toHaveCount(0);
   await expect(boton).toBeVisible();
+});
+
+test('lo que se escribe en Inicio lo contesta el asistente, en su pestaña', async ({ page }) => {
+  const n = await conAsistente(page);
+  await ir(page, 'calendario');
+  await page.getByTestId('boton-ayuda').click({ timeout: 30_000 });
+  await panel(page).getByLabel('Pregúntale a Tentare', { exact: true }).fill('¿Qué clases hay mañana?');
+  await panel(page).getByRole('button', { name: 'Preguntar' }).click();
+  await expect(panel(page).getByRole('tab', { name: 'Tentare' })).toHaveAttribute('aria-selected', 'true');
+  await expect.poll(() => n.preguntas, { timeout: 60_000 }).toBe(1);
+  await expect(flotante(page).getByTestId('chat-respuesta')).toContainText('Mañana tienes 5 clases');
 });
 
 test('«Abrir en pantalla completa» lleva a /asistente y ahí no hay botón flotante', async ({ page }) => {
   await conAsistente(page);
   await ir(page, 'calendario');
-  await page.getByTestId('asistente-flotante').click();
+  await page.getByTestId('boton-ayuda').click({ timeout: 30_000 });
+  await panel(page).getByRole('tab', { name: 'Tentare' }).click();
   await page.getByRole('link', { name: 'Abrir en pantalla completa' }).click();
   await expect(page).toHaveURL(/\/asistente$/, { timeout: 30_000 });
   await expect(page.getByTestId('chat-asistente')).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByTestId('asistente-flotante')).toHaveCount(0);
+  await expect(page.getByTestId('boton-ayuda')).toHaveCount(0);
 });
 
-test('sin asistente para el estudio, o sin rol, no se pinta el botón', async ({ page }) => {
+test('sin asistente para el estudio, o sin rol, el botón de ayuda sigue pero sin la pestaña «Tentare»', async ({ page }) => {
   const apagado = await conAsistente(page, { disponible: false });
   await ir(page, 'calendario');
   await expect.poll(() => apagado.disponible, { timeout: 30_000 }).toBeGreaterThan(0);
-  await expect(page.getByTestId('asistente-flotante')).toHaveCount(0);
+  await page.getByTestId('boton-ayuda').click({ timeout: 30_000 });
+  await expect(panel(page)).toBeVisible();
+  await expect(panel(page).getByRole('tab', { name: 'Tentare' })).toHaveCount(0);
+  await expect(panel(page).getByRole('tab')).toHaveCount(4);
 });
 
 test('Centro de Control sin plan: explica el porqué y da salida, sin «Reintentar»', async ({ page }) => {
