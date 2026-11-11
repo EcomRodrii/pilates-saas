@@ -167,6 +167,31 @@ export const AYUDA_POR_PANTALLA = {
     destino: { categoria: 'configuracion', slug: 'cierres-del-centro' },
   },
 
+  // «Apps e integraciones» (12-nov-2026): la puerta de la tienda, las conexiones y la API.
+  '/apps': {
+    titulo: 'Apps e integraciones',
+    valor: 'La tienda donde enciendes lo que Tentare puede hacer por ti, y desde aquí mismo conectas tus herramientas y tu API.',
+    resumen:
+      'Tres páginas: la Tienda de apps, con lo que puedes activar y lo que cuesta; Integraciones de terceros, con una pestaña por herramienta (Stripe, Zoom, Google Calendar, Kisi, Klaviyo, Mailchimp, Zapier y las plataformas que venden tus clases); y la API de desarrollador, con tus claves y los datos que puede leer.',
+    ahorra: 'Buscar por Configuración dónde se conectaba cada cosa y qué complemento hacía falta para cada función.',
+    destino: { categoria: 'integraciones', slug: 'integraciones-disponibles' },
+  },
+
+  '/apps/integraciones': {
+    titulo: 'Integraciones de terceros',
+    resumen:
+      'Cada pestaña dice qué hace esa herramienta, en qué estado está y qué te falta para conectarla. Lo que cambies afecta a todo tu estudio, no solo a tu usuario. Las claves y los permisos que das se guardan cifrados y los puedes quitar cuando quieras.',
+    ahorra: 'Ir buscando por Configuración dónde se conectaba cada herramienta.',
+    destino: { categoria: 'integraciones', slug: 'integraciones-disponibles' },
+  },
+  '/apps/api': {
+    titulo: 'API de desarrollador',
+    resumen:
+      'La API deja que tu programa de contabilidad, tu web u otra herramienta lea tus clientes, reservas, cobros y planes, y cree clientes, reservas, notas y tareas, según el permiso de cada clave. El dinero nunca se mueve desde fuera. Solo la propietaria crea y quita claves.',
+    ahorra: 'Pedirle a alguien que te explique qué datos puede leer tu programa de contabilidad y cómo.',
+    destino: { categoria: 'integraciones', slug: 'integraciones-disponibles' },
+  },
+
   '/informes': {
     titulo: 'Informes',
     valor: 'Cuánto has cobrado, cómo se llena cada clase y quién viene, frente al periodo anterior. Sin montar un Excel.',

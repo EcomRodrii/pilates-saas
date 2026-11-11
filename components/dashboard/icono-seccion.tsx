@@ -40,6 +40,7 @@ export const TONO_DE_SECCION: Record<string, Tono> = {
   '/actualizaciones': 'magenta',
   '/suscripcion': 'verde',
   '/festivos': 'magenta',
+  '/apps': 'azul',
 };
 
 export function IconoSeccion() {

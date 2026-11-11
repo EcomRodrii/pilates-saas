@@ -7,7 +7,7 @@ import {
   Clock, Megaphone, Play,
   Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace, Network,
-  Calculator, Notebook, DownloadCloud, Wallet, PartyPopper,
+  Calculator, Notebook, DownloadCloud, Wallet, PartyPopper, Blocks,
 } from 'lucide-react';
 // Relativos y con extensión: `npm test` corre `node --test
 // --experimental-strip-types`, que no resuelve ni el alias `@/` ni las
@@ -28,6 +28,20 @@ export interface NavItemDef {
    * nombres, en minúsculas y sin tildes (`normalizar` ya las quita).
    */
   alias?: string[];
+  /**
+   * Páginas de un desplegable lateral (como «Apps e integraciones» de Momence).
+   * La entrada no navega por sí sola: abre el desplegable. Cada hijo es una
+   * ruta del panel y pasa por `puedeVer` igual que cualquier otra.
+   */
+  hijos?: readonly NavHijoDef[];
+}
+export interface NavHijoDef {
+  href: string;
+  label: string;
+  /** Rótulo del grupo en el desplegable (CATÁLOGO, CONEXIONES…): los hijos seguidos con el mismo comparten rótulo. */
+  grupo?: string;
+  /** Una línea que dice qué hay dentro. */
+  nota?: string;
 }
 export interface NavSection {
   label?: string;
@@ -135,6 +149,20 @@ const allSections: NavSection[] = [
   {
     label: 'Estudio',
     items: [
+      // «Apps e integraciones» (12-nov-2026, petición del fundador, como el módulo
+      // de Momence): tres páginas en un desplegable. Es la excepción a «una
+      // función nueva vive dentro de un módulo existente» y está decidida: la
+      // tienda, las conexiones y la API no tenían puerta propia, estaban dentro
+      // de Configuración y de Módulos. Propietaria y gerencia.
+      {
+        href: '/apps', label: 'Apps e integraciones', icon: Blocks,
+        alias: ['tienda de apps', 'apps', 'integraciones', 'conexiones', 'api', 'zapier', 'desarrollador', 'modulos', 'complementos'],
+        hijos: [
+          { href: '/apps', label: 'Tienda de apps', grupo: 'Catálogo', nota: 'Complementos, módulos y lo que viene' },
+          { href: '/apps/integraciones', label: 'Integraciones de terceros', grupo: 'Conexiones', nota: 'Stripe, Zoom, Google Calendar y más' },
+          { href: '/apps/api', label: 'API de desarrollador', grupo: 'Desarrollo', nota: 'Tus claves y cada endpoint' },
+        ],
+      },
       { href: '/configuracion', label: 'Configuración', icon: Settings },
       // Festivos (14-oct-2026, a todos los estudios por decisión del fundador el
       // mismo día): los oficiales de su comunidad, las fiestas locales que busca
@@ -213,7 +241,7 @@ export const bottomNavItems: NavItemDef[] = [
 // escribía y la propietaria no tenía forma de enterarse sin ir a buscarlo.
 // '/festivos' (14-oct-2026) entra para que se vea con el menú en «Esencial», el de
 // serie: un módulo que se enciende en Módulos y no sale en el menú no está encendido.
-export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos'];
+export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos', '/apps'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];

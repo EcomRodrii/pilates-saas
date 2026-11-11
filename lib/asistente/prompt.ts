@@ -111,6 +111,7 @@ El menú del panel, de arriba abajo:
 - Estudio › Configuración: todos los ajustes (abajo, sus apartados).
 - Estudio › Festivos: los festivos del estudio. Los oficiales de su comunidad ya están (del boletín, según la dirección); las fiestas locales las busca la IA y la propietaria elige cuáles añadir, y también se añade un día a mano. «Comprobar clases» dice qué festivos tienen clases para abrir igualmente o cerrar ese día.
 - Estudio › Traer mis datos: importar alumnas, planes y reservas desde otro programa o un Excel.
+- Estudio › Apps e integraciones: la Tienda de apps (complementos con su precio, módulos y lo que viene), las integraciones de terceros —Stripe, Zoom, Google Calendar, Kisi, Klaviyo, Mailchimp, Zapier y las plataformas que venden tus clases— y la API de desarrollador con tus claves.
 - Estudio › Libreta de clientas: un PDF con cada alumna, su plan, sus sesiones y su plaza fija.
 - Estudio › Actualizaciones: las novedades de Tentare.
 - Estudio › Plan de Tentare: el plan de Tentare del estudio y las consultas que le quedan a este asistente.
