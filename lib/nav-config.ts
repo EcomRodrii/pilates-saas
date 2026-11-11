@@ -174,7 +174,8 @@ const allSections: NavSection[] = [
       // que viene de otra app piensa en migrar, piensa en traerse lo suyo.
       { href: '/migracion', label: 'Traer mis datos', icon: DownloadCloud },
       { href: '/libreta', label: 'Libreta de clientes', icon: Notebook },
-      { href: '/actualizaciones', label: 'Actualizaciones', icon: Megaphone, alias: ['novedades', 'changelog', 'versiones', 'que hay de nuevo'] },
+      // «Actualizaciones» ya no está en el menú (fundador, 12-nov-2026). La pantalla sigue en /actualizaciones: la abre
+      // «Ver todas las novedades» del botón de ayuda de la esquina.
       // Wallet y no CreditCard: CreditCard ya es /cobros (dinero de las socias)
       // y repetirlo aquí hacía indistinguibles dos conceptos opuestos — cobrar
       // tú vs pagar tu cuota de Tentare (auditoría 2026-08-20).
@@ -241,7 +242,7 @@ export const bottomNavItems: NavItemDef[] = [
 // escribía y la propietaria no tenía forma de enterarse sin ir a buscarlo.
 // '/festivos' (14-oct-2026) entra para que se vea con el menú en «Esencial», el de
 // serie: un módulo que se enciende en Módulos y no sale en el menú no está encendido.
-export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/actualizaciones', '/festivos', '/apps'];
+export const ESSENTIAL_HREFS = ['/dashboard', '/centro-de-control', '/calendario', '/citas', '/clientas', '/mensajeria', '/equipo', '/cobros', '/productos', '/informes', '/configuracion', '/migracion', '/festivos', '/apps'];
 
 // Módulos que nunca se pueden ocultar (acceso crítico a facturación/config).
 export const NO_OCULTABLES = ['/dashboard', '/configuracion', '/suscripcion'];

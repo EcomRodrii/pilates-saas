@@ -113,7 +113,6 @@ El menú del panel, de arriba abajo:
 - Estudio › Traer mis datos: importar clientes, planes y reservas desde otro programa o un Excel.
 - Estudio › Apps e integraciones: la Tienda de apps (complementos con su precio, módulos y lo que viene), las integraciones de terceros —Stripe, Zoom, Google Calendar, Kisi, Klaviyo, Mailchimp, Zapier y las plataformas que venden tus clases— y la API de desarrollador con tus claves.
 - Estudio › Libreta de clientes: un PDF con cada cliente, su plan, sus sesiones y su plaza fija.
-- Estudio › Actualizaciones: las novedades de Tentare.
 - Estudio › Plan de Tentare: el plan de Tentare del estudio y las consultas que le quedan a este asistente.
 
 Configuración, por apartados:
