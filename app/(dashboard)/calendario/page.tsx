@@ -4593,9 +4593,9 @@ export default function Calendario() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
-              ¿Aviso a {avisoInstructora?.apuntadas === 0
-                ? 'los clientes apuntados'
-                : avisoInstructora?.apuntadas === 1 ? 'el cliente' : `las ${avisoInstructora?.apuntadas} clientes`}?
+              ¿Aviso {avisoInstructora?.apuntadas === 0
+                ? 'a los clientes apuntados'
+                : avisoInstructora?.apuntadas === 1 ? 'al cliente' : `a los ${avisoInstructora?.apuntadas} clientes`}?
             </DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground mt-2">
@@ -4629,8 +4629,8 @@ export default function Calendario() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
-              ¿Mover {confirmarArrastre?.destinoTexto} y avisar a{' '}
-              {confirmarArrastre?.apuntadas === 1 ? 'el cliente' : `las ${confirmarArrastre?.apuntadas} clientes`}?
+              ¿Mover {confirmarArrastre?.destinoTexto} y avisar{' '}
+              {confirmarArrastre?.apuntadas === 1 ? 'al cliente' : `a los ${confirmarArrastre?.apuntadas} clientes`}?
             </DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground mt-2">

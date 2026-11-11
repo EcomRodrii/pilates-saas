@@ -97,7 +97,7 @@ test('las puertas que escriben la aceptación la sellan en servidor', () => {
   assert.doesNotMatch(leer('lib/db/supabase-data-admin.ts'), /db\.aceptacion_fecha\s*=/);
 
   const mostrador = leer('app/api/socios/[id]/aceptacion-contrato/route.ts');
-  assert.match(mostrador, /puedeGestionarAlumnas\(sesion\.rol\)/);
+  assert.match(mostrador, /puedeGestionarClientas\(sesion\.rol\)/);
   assert.match(mostrador, /origen: 'MOSTRADOR'/);
   assert.match(mostrador, /actorUid: sesion\.userId/);
   assert.match(leer('app/(dashboard)/clientas/page.tsx'), /sellarAceptacionMostrador\(/);

@@ -469,7 +469,7 @@ const reservaRow = (id: string, sesionId: string, estado: string) => ({
 // Martes 4 de agosto, ya pasado (AHORA es el miércoles 5).
 const MARTES_PASADO = { ...MARTES_10[0], id: 'mar-pasado', inicio: '2026-08-04T08:00:00.000Z', fin: '2026-08-04T08:50:00.000Z' };
 
-test.describe('Clase fija: «Cliente fijo» y su calendario', () => {
+test.describe('Clase fija: «Cliente fija» y su calendario', () => {
   test('la ficha dice que es cliente fijo y el mes marca lo que de verdad pasó y tiene reservado', async ({ page }) => {
     await montar(page, {
       sesiones: [MARTES_PASADO, ...MARTES_10, ...JUEVES_18],
@@ -481,7 +481,7 @@ test.describe('Clase fija: «Cliente fijo» y su calendario', () => {
         reservaRow('res-pf-4', 'mar-3', 'CONFIRMADA'),
       ],
     });
-    await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Cliente fijo');
+    await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Cliente fija');
 
     const cal = page.getByTestId('calendario-plaza-fija');
     await expect(cal).toBeVisible();

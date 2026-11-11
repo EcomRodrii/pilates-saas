@@ -52,7 +52,7 @@ function TarjetaDetalle({ s, nombre, ventana }: { s: InstructorDependencySnapsho
           <>
             <button onClick={() => setAbierto(v => !v)} className="mt-2.5 flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline">
               <ChevronDown size={14} className={cn('transition-transform', abierto && 'rotate-180')} />
-              {abierto ? 'Ocultar' : `Ver las ${s.detalle.length} clientes cautivas`}
+              {abierto ? 'Ocultar' : `Ver los ${s.detalle.length} clientes cautivos`}
             </button>
             {abierto && (
               <ul className="mt-2 divide-y divide-border">

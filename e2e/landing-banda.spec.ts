@@ -33,7 +33,7 @@ for (const [nombre, ancho, alto] of [['movil', 390, 844], ['escritorio', 1280, 8
     await abrir(page, ENLACE_ANUNCIO);
 
     await expect(banda(page)).toBeVisible();
-    await expect(banda(page)).toContainText('Gratis hasta 150 clientes activos y 250 reservas al mes');
+    await expect(banda(page)).toContainText('Gratis hasta 150 alumnas activas y 250 reservas al mes');
     await expect(banda(page)).not.toContainText('días gratis');
     await expect(banda(page)).toContainText(/Migración incluida, sin coste aparte/);
     await expect(banda(page).getByRole('link', { name: /Empezar/ })).toHaveAttribute('href', '/crear-estudio');

@@ -145,7 +145,7 @@ test('los dos sitios que mandan esos correos construyen la dirección de la app'
 test('la plantilla del correo del código dice la app, no «enlace de reservas»', () => {
   const html = leer('supabase/templates/confirmation.html');
   assert.doesNotMatch(html, /enlace de reservas/i);
-  assert.match(html, /El enlace de la app de tus clientes, listo para mandar/);
+  assert.match(html, /El enlace de la app de tus alumnas, listo para mandar/);
 });
 
 // ── El aviso de las 72 h sin reservas ────────────────────────────────────────

@@ -1863,7 +1863,7 @@ export default function Socios() {
                         type="checkbox"
                         checked={allSelected}
                         onChange={toggleSelectAll}
-                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar las ${lista.length} clientes de la lista`}
+                        aria-label={allSelected ? 'Quitar la selección de todas' : `Seleccionar los ${lista.length} clientes de la lista`}
                         className="size-4 cursor-pointer rounded accent-[var(--foreground)]"
                       />
                     </CasillaTactil>

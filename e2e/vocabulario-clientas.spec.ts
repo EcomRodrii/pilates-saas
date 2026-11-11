@@ -26,7 +26,7 @@ const STORAGE_KEY = 'sb-example-auth-token';
 // importar plazas fijas, «Una socia tiene plaza fija» en el calendario. Un
 // sinónimo en singular es el mismo sinónimo.
 const SINONIMOS = [
-  /\bAlumnos?\b/i, /\bAlumnas?\b/i, /\bsocias?\b/i, /\bNuevo cliente\b/,
+  /\bAlumnos?\b/i, /\bAlumnas?\b/i, /\bClientas?\b/i, /\bsocias?\b/i,
 ];
 
 function json(route: Route, body: unknown, status = 200) {

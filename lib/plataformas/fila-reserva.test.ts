@@ -27,7 +27,7 @@ test('Urban Sports Club se etiqueta como USC y, sin nombre, dice de dónde viene
   assert.equal(f.nombre, 'Cliente de Urban Sports Club');
 });
 
-test('sin origen (código antiguo) se trata como socia; sin socia nunca enlaza a /alumnas/null', () => {
+test('sin origen (código antiguo) se trata como socia; sin socia nunca enlaza a /clientas/null', () => {
   assert.equal(filaReserva({ socioId: 's-1' }, nombre).enlaceFicha, '/clientas/s-1');
   assert.equal(filaReserva({ socioId: null }, nombre).enlaceFicha, null);
 });

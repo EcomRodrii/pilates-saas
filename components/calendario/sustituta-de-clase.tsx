@@ -239,7 +239,7 @@ export function SustitutaDeClase({
               ) : (
                 <label className="flex items-center gap-2 text-[12.5px] text-foreground">
                   <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={avisarClientas} onChange={e => setAvisarClientas(e.target.checked)} />
-                  Avisar a {apuntadas === 1 ? 'el cliente apuntado' : `las ${apuntadas} clientes apuntados`}
+                  Avisar {apuntadas === 1 ? 'al cliente apuntado' : `a los ${apuntadas} clientes apuntados`}
                 </label>
               ))}
               {whatsapp && (

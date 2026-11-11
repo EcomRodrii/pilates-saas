@@ -83,7 +83,7 @@ async function montar(page: Page, ruta: string) {
   return { parches };
 }
 
-test.describe('Clientes: «Cliente fijo» al lado del nombre', () => {
+test.describe('Clientes: «Cliente fija» al lado del nombre', () => {
   test('la lista marca a quien tiene clase fija, en femenino o masculino, y a nadie más', async ({ page }) => {
     await montar(page, '/clientas');
     // .first(): la fila de escritorio y la tarjeta móvil conviven en el DOM.
@@ -93,7 +93,7 @@ test.describe('Clientes: «Cliente fijo» al lado del nombre', () => {
 
     const etiquetaDe = (nombre: string) => page.locator('p', { hasText: `${nombre} Prueba` }).getByTestId('etiqueta-fija');
 
-    await expect(etiquetaDe('Ana').first()).toHaveText('Cliente fijo');
+    await expect(etiquetaDe('Ana').first()).toHaveText('Cliente fija');
     await expect(etiquetaDe('Bruno').first()).toHaveText('Cliente fijo');
     // Su plaza está de baja: ya no es fija.
     await expect(etiquetaDe('Carla')).toHaveCount(0);
@@ -104,7 +104,7 @@ test.describe('Clientes: «Cliente fijo» al lado del nombre', () => {
 test.describe('Género: cambia las palabras de la persona', () => {
   test('se elige en la ficha, viaja al guardar y la etiqueta pasa a «Cliente fijo»', async ({ page }) => {
     const { parches } = await montar(page, '/clientas/soc-ana');
-    await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Cliente fijo', { timeout: 30_000 });
+    await expect(page.getByTestId('etiqueta-clienta-fija')).toHaveText('Cliente fija', { timeout: 30_000 });
 
     // Editar vive en «Más acciones» de la cabecera de la ficha.
     await page.getByRole('button', { name: 'Más acciones' }).click();

@@ -53,7 +53,7 @@ test('la propietaria cambia el NIF de un cliente y viaja al servidor, no a la ta
 
   const dialogo = await editarNif(page, '600999000');
 
-  await expect(page.getByText('Cliente actualizado')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Cliente actualizada')).toBeVisible({ timeout: 30_000 });
   await expect(dialogo).toBeHidden();
   expect(envios).toEqual([{ metodo: 'PUT', nif: NIF }]);
   expect(parches.length).toBeGreaterThan(0);
@@ -75,6 +75,6 @@ test('si el servidor rechaza el NIF, la ficha no lo da por guardado ni escribe e
   await expect(page.getByText('Solo la propietaria o recepción pueden cambiar el NIF de un cliente.')).toBeVisible({ timeout: 30_000 });
   expect(intentos).toBeGreaterThan(0);
   await expect(dialogo).toBeVisible();
-  await expect(page.getByText('Cliente actualizado')).toHaveCount(0);
+  await expect(page.getByText('Cliente actualizada')).toHaveCount(0);
   expect(parches).toEqual([]);
 });
