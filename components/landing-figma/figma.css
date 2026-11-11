@@ -278,7 +278,9 @@ a.lf-red:hover { background: rgba(255, 255, 255, .2); }
   .lf-acceso-login { display: none; }
   .lf-heroe { margin-inline: 8px; padding-top: 72px; border-radius: 28px 28px 0 0; }
   .lf-ordenador { margin-top: 36px; padding: 10px 10px 0; border-radius: 22px 22px 0 0; }
-  .lf-ordenador-pantalla { border-radius: 14px 14px 0 0; }
+  /* En el móvil, la captura entera en su proporción (sin hueco en blanco debajo). */
+  .lf-ordenador { height: auto; }
+  .lf-ordenador-pantalla { height: auto; aspect-ratio: 1600 / 880; border-radius: 14px 14px 0 0; background-size: 100% auto; }
   .lf-rejilla-3, .lf-rejilla-2 { grid-template-columns: minmax(0, 1fr); }
   .lf-tarjeta--pagos, .lf-tarjeta--datos { min-height: 620px; }
   .lf-confianza { padding-top: 64px; }
