@@ -332,11 +332,11 @@ const PANTALLAS = [
   { ruta: 'configuracion', titulo: null },
   { ruta: 'configuracion?tab=cobros', titulo: 'Cobros y facturas' },
   { ruta: 'configuracion?tab=comunicacion', titulo: 'Cómo me comunico' },
-  { ruta: 'configuracion?tab=reservas', titulo: 'Cómo reservan mis alumnas' },
+  { ruta: 'configuracion?tab=reservas', titulo: 'Cómo reservan mis clientes' },
   // Desde el 15-sep (v2) los campos y los interruptores de Reservas van en su
   // cajón: el ancla lo abre y se mide dentro (campos, apagados y ayudas).
-  { ruta: 'configuracion?tab=reservas#cancelar-y-recuperar', titulo: 'Cómo reservan mis alumnas' },
-  { ruta: 'configuracion?tab=reservas#reservar', titulo: 'Cómo reservan mis alumnas' },
+  { ruta: 'configuracion?tab=reservas#cancelar-y-recuperar', titulo: 'Cómo reservan mis clientes' },
+  { ruta: 'configuracion?tab=reservas#reservar', titulo: 'Cómo reservan mis clientes' },
 ] as const;
 
 for (const vista of VISTAS) {

@@ -58,7 +58,7 @@ export default function HiloInstructoraPage() {
       modo="instructora"
       titulo={alumna?.nombre ?? 'Mensajes'}
       avatar={alumna ? { nombre: alumna.nombre, fotoUrl: alumna.fotoUrl } : null}
-      subtitulo="Tu alumna"
+      subtitulo="Tu cliente"
       hrefPerfil={alumna ? href(`/equipo/alumnas/${encodeURIComponent(alumna.socioId)}`) : null}
       aviso={AVISO_ESTUDIO_PUEDE_LEER}
       cargar={cargar}

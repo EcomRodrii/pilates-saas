@@ -346,7 +346,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
           {!conSesion && <p className="t-label mt-[18px] text-t-tertiary">Código correcto</p>}
           <h1 ref={tituloRef} tabIndex={-1} className={cn(TITULO, conSesion && 'mt-[18px]')}>{estudioCreado ?? nombreVisible} ya existe</h1>
           <p className={SUBTITULO}>
-            Hemos creado tu estudio y la app de tus alumnas. Ahora, lo esencial: dos pantallas con casi todo puesto y,
+            Hemos creado tu estudio y la app de tus clientes. Ahora, lo esencial: dos pantallas con casi todo puesto y,
             después, tu primera clase.
           </p>
           <ul className="relative mt-5 grid">
@@ -503,7 +503,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
               </div>
               <p id={`${id('nombre')}-a`} className={cn(AYUDA, 'mt-1.5')}>
                 {/* La misma dirección que enseña el iPhone de al lado: la de la app de sus alumnas. */}
-                La app de tus alumnas:{' '}
+                La app de tus clientes:{' '}
                 <span className="font-t-mono text-[12.5px] text-t-secondary [overflow-wrap:anywhere]" data-testid="direccion-prevista">
                   tentare.app/portal/{slug}
                 </span>
@@ -816,20 +816,20 @@ function VistaPrevia({ nombre, slug }: { nombre: string; slug: string }) {
   const escala = useEscalaIphone(0.66, 300);
   return (
     <aside
-      aria-label="Vista previa de la app de tus alumnas"
+      aria-label="Vista previa de la app de tus clientes"
       className="flex min-w-0 flex-col items-center gap-[18px] self-start rounded-[20px] bg-t-sunken p-5 text-center lg:sticky lg:top-6 lg:rounded-[24px] lg:p-8"
     >
-      <p className="t-label -mb-1 text-t-tertiary">Así empieza la app de tus alumnas</p>
+      <p className="t-label -mb-1 text-t-tertiary">Así empieza la app de tus clientes</p>
       <AppDeMuestra nombre={nombre} escala={escala} />
       <p className="max-w-full truncate rounded-full bg-t-raised px-3 py-1.5 font-t-mono text-[12px] leading-4 text-t-secondary shadow-t-card" data-testid="enlace-app-prevista">
         tentare.app/portal/{slug}
       </p>
       <p className="max-w-[300px] text-[12.5px] leading-[18px] text-t-tertiary">
-        Es tu app de verdad: lo primero que ve una alumna al abrir tu enlace. Tu logo y tu color los eliges en el paso 5;
+        Es tu app de verdad: lo primero que ve un cliente al abrir tu enlace. Tu logo y tu color los eliges en el paso 5;
         la foto es una de serie hasta que subas la tuya en Apariencia.
       </p>
       <ul className="grid max-w-[300px] gap-2 text-left">
-        {['Tu app existe desde que creas tu estudio', 'Tus alumnas entran desde el móvil, sin descargarse nada', 'Si te atascas, te ayuda una persona'].map((v) => (
+        {['Tu app existe desde que creas tu estudio', 'Tus clientes entran desde el móvil, sin descargarse nada', 'Si te atascas, te ayuda una persona'].map((v) => (
           <li key={v} className="flex gap-2.5 text-[14px] leading-5 text-t-secondary">
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-t-success" aria-hidden="true" />
             {v}

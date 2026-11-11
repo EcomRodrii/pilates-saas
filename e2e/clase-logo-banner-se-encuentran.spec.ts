@@ -67,7 +67,7 @@ async function abrirEditarClase(page: Page) {
 
   await page.goto('/configuracion?tab=clases&abrir=tipos-de-clase');
   await page.getByRole('button', { name: 'Editar' }).first().click({ timeout: 30_000 });
-  await expect(page.getByText('Así la verá tu alumna')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Así la verá tu cliente')).toBeVisible({ timeout: 15_000 });
 }
 
 test('la sección plegada dice si la clase tiene logo y banner', async ({ page }) => {

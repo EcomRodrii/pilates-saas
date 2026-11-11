@@ -158,7 +158,7 @@ export async function PATCH(req: NextRequest) {
     }
     try {
       const ok = await marcarInvitada(admin, studioId, socioId, invitada);
-      if (!ok) return NextResponse.json({ error: 'Esa clienta no es de este estudio' }, { status: 404 });
+      if (!ok) return NextResponse.json({ error: 'Ese cliente no es de este estudio' }, { status: 404 });
     } catch (e) {
       console.error('[opening:patch] invitada', e);
       return NextResponse.json({ error: 'No se pudo guardar' }, { status: 500 });

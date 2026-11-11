@@ -151,4 +151,4 @@ export function marcarPersonasEnPregunta(
 }
 
 /** Lo que se le explica al modelo sobre las marcas (adaptado de INSTRUCCION_MARCAS). */
-export const INSTRUCCION_REFERENCIAS = 'Las personas nunca aparecen con su nombre: [ALUMNA_1], [ALUMNA_2]… son alumnas del estudio; [EQUIPO_1]… personas del equipo; [PERSONA_1] es alguien a quien la propietaria ha nombrado y que no se ha podido identificar; [EMAIL_1] y [TELEFONO_1], un correo o un teléfono. Si necesitas nombrar a alguien, copia su marca EXACTAMENTE igual, con sus corchetes: el panel la convierte en su nombre. No intentes adivinar a quién se refiere ni inventes nombres.';
+export const INSTRUCCION_REFERENCIAS = 'Las personas nunca aparecen con su nombre: [ALUMNA_1], [ALUMNA_2]… son clientes del estudio; [EQUIPO_1]… personas del equipo; [PERSONA_1] es alguien a quien la propietaria ha nombrado y que no se ha podido identificar; [EMAIL_1] y [TELEFONO_1], un correo o un teléfono. Si necesitas nombrar a alguien, copia su marca EXACTAMENTE igual, con sus corchetes: el panel la convierte en su nombre. No intentes adivinar a quién se refiere ni inventes nombres.';

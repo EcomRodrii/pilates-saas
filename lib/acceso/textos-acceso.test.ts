@@ -21,7 +21,7 @@ test('los textos del encargo, tal cual', () => {
   assert.equal(explicacionAcceso('PLAZA_FIJA', vacio), 'Clase fija confirmada.');
   assert.equal(explicacionAcceso('RESERVA_CONFIRMADA', vacio), 'Reserva confirmada.');
   assert.equal(explicacionAcceso('PENDIENTE_APROBACION', vacio), 'Esta reserva está pendiente de aprobación.');
-  assert.equal(explicacionAcceso('IMPAGO', vacio), 'Esta alumna tiene un estado que requiere revisión.');
+  assert.equal(explicacionAcceso('IMPAGO', vacio), 'Este cliente tiene un estado que requiere revisión.');
 });
 
 test('otra clase: dice a cuál, con hora del estudio y sala', () => {

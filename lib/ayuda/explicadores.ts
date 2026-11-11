@@ -41,7 +41,7 @@ export const EXPLICADORES: Record<IdExplicador, Explicador> = {
     titulo: '¿Qué es el € por plaza?',
     pasos: [
       {
-        titulo: 'Cada alumna reparte lo que pagó entre sus clases',
+        titulo: 'Cada cliente reparte lo que pagó entre sus clases',
         dibujo: 'repartoAlumna',
         lineas: [
           'Ana pagó 60 € en el periodo y vino 4 veces: cada clase suya aporta 15 €.',
@@ -69,8 +69,8 @@ export const EXPLICADORES: Record<IdExplicador, Explicador> = {
         titulo: 'Por qué no basta con la ocupación',
         dibujo: 'dosSalas',
         lineas: [
-          'Un Reformer de 4 plazas lleno (100 %), con alumnas de cuota que vienen mucho: 4 × 5 € = 20 €, 5 € por plaza.',
-          'Un Mat de 10 plazas con 7 alumnas (70 %) de bono: 7 × 10 € = 70 €, 7 € por plaza.',
+          'Un Reformer de 4 plazas lleno (100 %), con clientes de cuota que vienen mucho: 4 × 5 € = 20 €, 5 € por plaza.',
+          'Un Mat de 10 plazas con 7 clientes (70 %) de bono: 7 × 10 € = 70 €, 7 € por plaza.',
           'Mirando solo el porcentaje, parecería mejor la que menos trae por plaza.',
         ],
       },

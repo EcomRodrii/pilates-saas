@@ -139,7 +139,7 @@ export function formatNumeroVenta(numero: number | null | undefined): string {
  * 16-oct-2026). Lo decide `registrar_venta_pos` con el mismo índice que los cobros
  * online: la alumna pudo usarlo aquí o en su app.
  */
-export const MENSAJE_CODIGO_YA_USADO = 'Esta clienta ya ha usado este código, aquí o en su app: cada código vale una vez por clienta. Cobra sin él o elige otro.';
+export const MENSAJE_CODIGO_YA_USADO = 'Este cliente ya ha usado este código, aquí o en su app: cada código vale una vez por cliente. Cobra sin él o elige otro.';
 
 export function mensajeErrorVenta(codigo: string): string {
   const [clave, ...partes] = codigo.split(':');
@@ -162,11 +162,11 @@ export function mensajeErrorVenta(codigo: string): string {
     // Lo que la RPC sí lanza desde la 60ª pasada, y solo para las cuotas:
     // mismo criterio y misma frase que `cuotaSinClienta` en /api/pos/venta.
     case 'CUOTA_SIN_CLIENTA':        return MENSAJE_CUOTA_SIN_CLIENTA;
-    case 'VENTA_YA_ASIGNADA':        return 'Esa venta ya está a nombre de una clienta.';
+    case 'VENTA_YA_ASIGNADA':        return 'Esa venta ya está a nombre de un cliente.';
     // 31ª pasada de auditoría: asignar una venta ya devuelta reentregaría un
     // bono/créditos por dinero que el estudio ya no tiene.
-    case 'VENTA_YA_DEVUELTA':        return 'Esa venta ya se ha devuelto (entera o en parte): no se puede asignar a una clienta.';
-    case 'CLIENTA_NO_ENCONTRADA':    return 'No encontramos esa clienta.';
+    case 'VENTA_YA_DEVUELTA':        return 'Esa venta ya se ha devuelto (entera o en parte): no se puede asignar a un cliente.';
+    case 'CLIENTA_NO_ENCONTRADA':    return 'No encontramos ese cliente.';
     case 'PLAN_CANTIDAD_UNICA':      return 'Cada bono va en su propia línea. Añádelo otra vez para vender dos.';
     case 'CODIGO_NO_CANJEABLE':      return 'Ese código ya no se puede usar (caducado, agotado o desactivado).';
     case 'CODIGO_YA_USADO_POR_SOCIA': return MENSAJE_CODIGO_YA_USADO;

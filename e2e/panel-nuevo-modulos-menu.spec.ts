@@ -54,7 +54,7 @@ const tarjeta = (page: Page, href: string) => page.locator(`[data-testid="modulo
 
 test('con el panel nuevo: sin «Esencial / Todo», Módulos en el menú, y de serie el menú de siempre', async ({ page }) => {
   await abrir(page, 'clientas');
-  await expect(enElMenu(page, 'Clientas')).toBeVisible({ timeout: 60_000 });
+  await expect(enElMenu(page, 'Clientes')).toBeVisible({ timeout: 60_000 });
   await expect(menu(page).getByRole('button', { name: 'Esencial', exact: true })).toHaveCount(0);
   await expect(menu(page).getByRole('button', { name: 'Todo', exact: true })).toHaveCount(0);
   await expect(enElMenu(page, 'Módulos')).toHaveAttribute('href', '/explorar-funciones');

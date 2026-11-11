@@ -5,7 +5,7 @@ import { codificarEvento, lectorNdjson, type EventoAsistente } from './protocolo
 test('NDJSON ida y vuelta, también con una línea partida entre dos trozos', () => {
   const eventos: EventoAsistente[] = [
     { t: 'inicio', conversacionId: 'c1', disponibles: 49 },
-    { t: 'texto', delta: 'Tienes 84 alumnas activas.\n¿Algo más?' },
+    { t: 'texto', delta: 'Tienes 84 clientes activos.\n¿Algo más?' },
     { t: 'fin', unidades: 1, disponibles: 48, motivo: 'OK' },
   ];
   const todo = eventos.map(codificarEvento).join('');

@@ -81,7 +81,7 @@ test('una web se guarda solo entera: con https y un dominio de verdad', () => {
   assert.equal(webValida('/reservar'), false);
 });
 
-test('las pantallas de la lista existen en la app de la alumna', () => {
+test('las pantallas de la lista existen en la app del cliente', () => {
   const rutas = new Set(readdirSync(join(RAIZ, 'app/portal/[slug]'), { withFileTypes: true }).filter(d => d.isDirectory()).map(d => `/${d.name}`));
   for (const p of PANTALLAS_APP) assert.ok(rutas.has(p.ruta), `${p.ruta} no es una pantalla de app/portal/[slug]`);
   assert.equal(nombrePantalla('/bonos'), 'Mi plan');

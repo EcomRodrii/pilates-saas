@@ -132,7 +132,7 @@ test('marcar clases no abre el panel: cambia lo que significa el clic', async ({
   await expect(page.getByText('1 clase marcada')).toBeVisible();
 });
 
-test('cuenta alumnas distintas, no reservas, y descarta la que ya da esa instructora', async ({ page }) => {
+test('cuenta clientes distintas, no reservas, y descarta la que ya da esa instructora', async ({ page }) => {
   await montar(page, [], []);
   await marcarLasTres(page);
   await expect(page.getByText('3 clases marcadas')).toBeVisible();
@@ -142,7 +142,7 @@ test('cuenta alumnas distintas, no reservas, y descarta la que ya da esa instruc
   // Se mueven 2 de las 3: la tercera ya la da Laura.
   await expect(page.getByText('¿Pasar 2 clases a Laura?')).toBeVisible();
   // Ana está en las dos clases y Bea en una → 2 personas, no 3 reservas.
-  await expect(page.getByText(/2 alumnas/)).toBeVisible();
+  await expect(page.getByText(/2 clientes/)).toBeVisible();
   // Y el texto NO promete deduplicar: Ana recibirá un aviso por cada clase suya.
   await expect(page.getByText(/un correo por cada clase suya que cambie/)).toBeVisible();
   await expect(page.getByText(/1 de las marcadas no se mueve/)).toBeVisible();

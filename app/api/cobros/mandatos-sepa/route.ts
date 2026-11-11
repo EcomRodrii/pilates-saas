@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const iban = typeof body?.iban === 'string' ? body.iban : '';
   const refMandato = typeof body?.refMandato === 'string' ? body.refMandato.trim() : '';
   const fechaFirma = typeof body?.fechaFirma === 'string' ? body.fechaFirma.slice(0, 10) : '';
-  if (!socioId) return NextResponse.json({ error: 'Falta la clienta' }, { status: 400 });
+  if (!socioId) return NextResponse.json({ error: 'Falta el cliente' }, { status: 400 });
   // Sin IBAN solo se puede EDITAR un mandato que ya existe: se conserva el cifrado.
   const conservaIban = iban.trim() === '';
   if (!conservaIban && !validarIBAN(iban)) return NextResponse.json({ error: 'IBAN no válido.' }, { status: 400 });
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       admin.from('mandatos_sepa').select('id').eq('studio_id', sesion.studioId).eq('socio_id', socioId).eq('estado', 'VIGENTE').maybeSingle(),
     ]);
     if (eSocia || eVigente) throw eSocia ?? eVigente;
-    if (!socia) return NextResponse.json({ error: 'No encontramos a esta clienta en tu estudio.' }, { status: 404 });
+    if (!socia) return NextResponse.json({ error: 'No encontramos a este cliente en tu estudio.' }, { status: 404 });
 
     if (conservaIban) {
       if (!vigente) return NextResponse.json({ error: 'IBAN no válido.' }, { status: 400 });

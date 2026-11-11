@@ -120,7 +120,7 @@ export function TabServiciosCita({ showToast }: { showToast: MostrarToast }) {
             pública (/reservar) y la tienda de la app de la alumna. */}
         <p className="text-[13px] text-muted-foreground">
           {servicios.length} servicio{servicios.length !== 1 ? 's' : ''} de cita ·{' '}
-          los que <span className="font-medium text-foreground">la reservan solas</span> salen en tu página de reservas y en la app de tus alumnas
+          los que <span className="font-medium text-foreground">la reservan solas</span> salen en tu página de reservas y en la app de tus clientes
         </p>
         <button className={btnPrimary} onClick={openNueva}>
           <Plus size={14} />
@@ -131,7 +131,7 @@ export function TabServiciosCita({ showToast }: { showToast: MostrarToast }) {
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {servicios.length === 0 ? (
           <div className="px-5 py-10 text-center text-[13px] text-muted-foreground">
-            No hay servicios de cita. Crea uno (p. ej. &quot;Clase privada&quot;, &quot;Evaluación inicial&quot;) para que tus alumnas puedan reservarlo.
+            No hay servicios de cita. Crea uno (p. ej. &quot;Clase privada&quot;, &quot;Evaluación inicial&quot;) para que tus clientes puedan reservarlo.
           </div>
         ) : (
           <>
@@ -218,7 +218,7 @@ export function TabServiciosCita({ showToast }: { showToast: MostrarToast }) {
           <div className="space-y-3 mt-2">
             <Field
               label="Nombre del servicio"
-              description="Como lo verá la alumna al pedir cita. Ej: «Valoración postural»."
+              description="Como lo verá el cliente al pedir cita. Ej: «Valoración postural»."
             >
               <input className={inputCls} value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
@@ -263,14 +263,14 @@ export function TabServiciosCita({ showToast }: { showToast: MostrarToast }) {
             >
               <input className={inputCls} value={form.descripcion}
                 onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                placeholder="Breve descripción para la alumna" />
+                placeholder="Breve descripción para el cliente" />
             </Field>
             <div className="flex items-center justify-between pt-1">
               <div>
-                <span className={labelCls}>Tus alumnas pueden reservarla solas</span>
-                <p className="text-xs text-muted-foreground -mt-0.5">Sale en tu página de reservas y en la app de tus alumnas.</p>
+                <span className={labelCls}>Tus clientes pueden reservarla solas</span>
+                <p className="text-xs text-muted-foreground -mt-0.5">Sale en tu página de reservas y en la app de tus clientes.</p>
               </div>
-              <Toggle on={form.autoReservable} onChange={v => setForm(f => ({ ...f, autoReservable: v }))} ariaLabel="Tus alumnas pueden reservarla solas" />
+              <Toggle on={form.autoReservable} onChange={v => setForm(f => ({ ...f, autoReservable: v }))} ariaLabel="Tus clientes pueden reservarla solas" />
             </div>
             <div className="flex items-center justify-between">
               <span className={labelCls}>Activo</span>

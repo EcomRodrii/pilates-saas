@@ -72,7 +72,7 @@ const F1: RegistroAltaXml = {
   fechaExpedicionFactura: '05-09-2026',
   tipoFactura: 'F1',
   descripcionOperacion: 'Bono 8 clases',
-  destinatarios: [{ nombreRazon: 'Clienta de Ejemplo', nif: '12345678Z' }],
+  destinatarios: [{ nombreRazon: 'Cliente de Ejemplo', nif: '12345678Z' }],
   desglose: [{ claveRegimen: CLAVE_REGIMEN_GENERAL, calificacionOperacion: 'S1', tipoImpositivo: 21, baseImponible: 52.89, cuotaRepercutida: 11.11 }],
   cuotaTotal: 11.11,
   importeTotal: 64,

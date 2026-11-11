@@ -51,7 +51,7 @@ export function AsiLoViveTuAlumna({ reglas, tipos, sesiones, planes }: {
     <section aria-labelledby="asi-lo-vive" className={cn(cardCls, 'max-w-2xl overflow-hidden')}>
       <div className="space-y-3 border-b border-border px-4 py-4 sm:px-5">
         <div>
-          <h3 id="asi-lo-vive" className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Así lo vive tu alumna</h3>
+          <h3 id="asi-lo-vive" className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Así lo vive tu cliente</h3>
           <p className="text-[16px] font-semibold text-foreground">
             {clase.deEjemplo ? `Una clase de ejemplo · ${instante(clase.inicio)}` : `${clase.nombre ?? 'Tu clase'} · ${instante(clase.inicio)}`}
           </p>

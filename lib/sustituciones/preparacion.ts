@@ -80,5 +80,5 @@ export function motivoSinCandidatas(sinDispExcluyendoOriginal: number): string {
       ? 'Ninguna candidata para esta franja. Además hay 1 instructora sin disponibilidad cargada: no he podido ni considerarla.'
       : `Ninguna candidata para esta franja. Además hay ${sinDispExcluyendoOriginal} instructoras sin disponibilidad cargada: no he podido ni considerarlas.`;
   }
-  return 'Ninguna candidata disponible para esta franja. Cancela la clase (avisamos a las alumnas) o resuélvelo por tu cuenta.';
+  return 'Ninguna candidata disponible para esta franja. Cancela la clase (avisamos a los clientes) o resuélvelo por tu cuenta.';
 }

@@ -5,7 +5,7 @@ import { agregadoPublicable, mesEnMadrid, puedeActualizarValoracion, puedeCambia
 const voto = (alumna: string, puntuacion: number, creadoEn: string): VotoValoracion => ({ alumna, puntuacion, creadoEn });
 const AHORA = new Date('2026-09-14T10:00:00Z');
 
-test('con menos de 5 alumnas distintas no se publica nada, aunque haya muchos votos', () => {
+test('con menos de 5 clientes distintas no se publica nada, aunque haya muchos votos', () => {
   const votos: VotoValoracion[] = [];
   for (let i = 0; i < 20; i++) votos.push(voto(`a${i % 4}`, 5, `2026-06-${String(1 + i).padStart(2, '0')}T10:00:00Z`));
   assert.equal(agregadoPublicable(votos, AHORA), null);
@@ -16,7 +16,7 @@ test('el mes en curso no cuenta', () => {
   assert.equal(agregadoPublicable(votos, AHORA), null);
 });
 
-test('un mes con pocas alumnas espera y se publica junto al siguiente', () => {
+test('un mes con pocos clientes espera y se publica junto al siguiente', () => {
   const votos = [
     voto('a', 5, '2026-07-03T10:00:00Z'), voto('b', 3, '2026-07-10T10:00:00Z'),
     voto('c', 4, '2026-08-01T10:00:00Z'), voto('d', 4, '2026-08-05T10:00:00Z'), voto('e', 4, '2026-08-20T10:00:00Z'),
@@ -38,7 +38,7 @@ test('un voto tardío no mueve lo ya publicado: entra con su fecha, en un bloque
   // La alumna «a» cambia de opinión o vota otra clase de julio… pero lo escribe en agosto.
   const despues = agregadoPublicable([...base, voto('a', 1, '2026-08-20T10:00:00Z')], new Date('2026-09-15T10:00:00Z'));
   assert.deepEqual(antes, { media: 4, total: 5, hasta: '2026-07-31' });
-  assert.deepEqual(despues, antes, 'agosto tiene una sola alumna: su bloque sigue abierto y no cambia nada');
+  assert.deepEqual(despues, antes, 'agosto tiene una sola cliente: su bloque sigue abierto y no cambia nada');
 });
 
 test('la salida nunca dice quién votó', () => {
@@ -53,7 +53,7 @@ test('ignora puntuaciones fuera de 1–5 y fechas rotas', () => {
   assert.deepEqual(agregadoPublicable(votos, AHORA), { media: 4, total: 5, hasta: '2026-07-31' });
 });
 
-test('entre dos cierres de mes seguidos, lo que cambia viene siempre de 5 o más alumnas distintas', () => {
+test('entre dos cierres de mes seguidos, lo que cambia viene siempre de 5 o más clientes distintas', () => {
   // Un año de votos pseudoaleatorios deterministas, con meses flojos y meses fuertes.
   const votos: VotoValoracion[] = [];
   let semilla = 7;
@@ -75,7 +75,7 @@ test('entre dos cierres de mes seguidos, lo que cambia viene siempre de 5 o más
         const dia = v.creadoEn.slice(0, 10);
         return dia > desde && dia <= actual.hasta;
       });
-      assert.ok(new Set(nuevos.map((v) => v.alumna)).size >= 5, `cierre ${actual.hasta}: el cambio sale de menos de 5 alumnas`);
+      assert.ok(new Set(nuevos.map((v) => v.alumna)).size >= 5, `cierre ${actual.hasta}: el cambio sale de menos de 5 clientes`);
     }
     previo = actual;
   }

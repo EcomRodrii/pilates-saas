@@ -474,7 +474,7 @@ export function ConfirmarEstiloEnTuWeb({ abierto, onAbierto, piezas, borrador, t
         <DialogHeader>
           <DialogTitle>{titulo}</DialogTitle>
           <DialogDescription>
-            Cambiará a la vez en todos los widgets de tu web que no lleven un diseño propio, en cuanto tus alumnas vuelvan a abrir la página.{' '}
+            Cambiará a la vez en todos los widgets de tu web que no lleven un diseño propio, en cuanto tus clientes vuelvan a abrir la página.{' '}
             <strong className="font-semibold text-foreground">No tienes que volver a pegar ningún código.</strong>
           </DialogDescription>
         </DialogHeader>

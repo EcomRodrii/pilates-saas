@@ -76,7 +76,7 @@ test('leer un QR en el panel y ver los correos rebotados exigen rol, no solo ses
 
   const rebotes = sinComentarios(leer('app/api/clientas/rebotes/route.ts'));
   const gateRebotes = rebotes.indexOf('if (!puedeGestionarClientas(sesion.rol))');
-  assert.ok(gateRebotes > 0 && gateRebotes < rebotes.indexOf("from('socios')"), 'clientas/rebotes: rol antes de leer las direcciones');
+  assert.ok(gateRebotes > 0 && gateRebotes < rebotes.indexOf("from('socios')"), 'alumnas/rebotes: rol antes de leer las direcciones');
 });
 
 test('las tarjetas del equipo y las tarifas ya no responden a la instructora', () => {

@@ -38,7 +38,7 @@ test('columna: una clase sin instructora no se atenúa por los ojos de las instr
   assert.equal(claseAtenuadaPorColumna({ tipoClaseId: 't1', instructorId: null, apuntadas: 1 }, f({ instructorasApagadas: new Set(['i1']) })), false);
 });
 
-test('columna: «solo con alumnas apuntadas» atenúa las vacías y nada más', () => {
+test('columna: «solo con clientes apuntados» atenúa las vacías y nada más', () => {
   assert.equal(claseAtenuadaPorColumna({ tipoClaseId: 't1', instructorId: 'i1', apuntadas: 0 }, f({ soloConApuntadas: true })), true);
   assert.equal(claseAtenuadaPorColumna({ tipoClaseId: 't1', instructorId: 'i1', apuntadas: 1 }, f({ soloConApuntadas: true })), false);
 });

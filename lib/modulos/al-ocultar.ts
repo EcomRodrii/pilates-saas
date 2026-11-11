@@ -67,7 +67,7 @@ export const LO_PROPIO: Record<string, (d: DatosAlOcultar) => Propio> = {
     enLaApp: 'Les siguen llegando los mensajes de las automatizaciones que tengas encendidas.',
     sigue: ['Las automatizaciones encendidas siguen funcionando.'],
     aviso: hay(d.automatizacionesEncendidas)
-      ? `Tienes ${plural(d.automatizacionesEncendidas, 'automatización encendida', 'automatizaciones encendidas')}: ${d.automatizacionesEncendidas === 1 ? 'seguirá' : 'seguirán'} escribiendo a tus alumnas. Si quieres que paren, apágalas antes en Automatizaciones.`
+      ? `Tienes ${plural(d.automatizacionesEncendidas, 'automatización encendida', 'automatizaciones encendidas')}: ${d.automatizacionesEncendidas === 1 ? 'seguirá' : 'seguirán'} escribiendo a tus clientes. Si quieres que paren, apágalas antes en Automatizaciones.`
       : null,
   }),
   '/calendario': (d) => ({
@@ -80,14 +80,14 @@ export const LO_PROPIO: Record<string, (d: DatosAlOcultar) => Propio> = {
   '/citas': (d) => ({
     enLaApp: hay(d.serviciosCitaOnline) ? 'No cambia nada: pueden seguir pidiendo citas desde su app.' : NO_CAMBIA,
     aviso: hay(d.citasProximas)
-      ? `Tienes ${plural(d.citasProximas, 'cita', 'citas')} por delante: ${d.citasProximas === 1 ? 'sigue' : 'siguen'} en pie.${hay(d.serviciosCitaOnline) ? ' Y tus alumnas pueden pedir más sin que lo veas en el menú.' : ''}`
+      ? `Tienes ${plural(d.citasProximas, 'cita', 'citas')} por delante: ${d.citasProximas === 1 ? 'sigue' : 'siguen'} en pie.${hay(d.serviciosCitaOnline) ? ' Y tus clientes pueden pedir más sin que lo veas en el menú.' : ''}`
       : hay(d.serviciosCitaOnline)
-        ? 'Tus alumnas pueden seguir pidiendo citas desde su app, y sin Citas en el menú no lo verás a mano.'
+        ? 'Tus clientes pueden seguir pidiendo citas desde su app, y sin Citas en el menú no lo verás a mano.'
         : null,
   }),
   '/clientas': () => ({
     enLaApp: NO_CAMBIA,
-    sigue: ['Las fichas de tus alumnas siguen ahí, con todo lo que tienen.'],
+    sigue: ['Las fichas de tus clientes siguen ahí, con todo lo que tienen.'],
   }),
   '/mensajeria': (d) => ({
     enLaApp: 'No cambia nada: pueden seguir escribiéndote, y sus mensajes te siguen llegando.',

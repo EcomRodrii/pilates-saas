@@ -187,7 +187,7 @@ test('vista previa: la huella cambia si cambia la lista o el día', () => {
   assert.equal(h1, vistaPreviaAlineacion(c, '2026-10-05').huella);
 });
 
-test('vista previa sin alumnas: ejemplo de cortesía y sin romper', () => {
+test('vista previa sin clientes: ejemplo de cortesía y sin romper', () => {
   const v = vistaPreviaAlineacion([], '2026-10-05');
   assert.equal(v.alumnas, 0);
   assert.equal(v.totalCobraB, 0);

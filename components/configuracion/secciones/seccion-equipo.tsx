@@ -98,7 +98,7 @@ export function SeccionEquipo({ showToast }: { showToast: (m: string) => void })
           icono={BellRing}
           titulo={tarjetaPorId('ajuste-avisar-alumnas').titulo}
           valor={resumenAvisarAlumnas(cargado?.avisarAlumnas)}
-          descripcion="Si avisa a sus alumnas cuando su clase cambia por una baja"
+          descripcion="Si avisa a sus clientes cuando su clase cambia por una baja"
           seccion="reservas"
           ancla="ajuste-avisar-alumnas"
         />

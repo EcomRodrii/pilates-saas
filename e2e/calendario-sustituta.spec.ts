@@ -166,31 +166,31 @@ test.describe('Buscar sustituta desde la ficha de la clase', () => {
     expect(patches).toEqual([{ action: 'contactar', sustitucionId: 'sust-1', instructorId: 'ins-2' }]);
   });
 
-  test('«¿Ya sabes quién la da?» la asigna por el servidor, avisando a las clientas', async ({ page }) => {
+  test('«¿Ya sabes quién la da?» la asigna por el servidor, avisando a los clientes', async ({ page }) => {
     const { posts } = await montarCalendario(page);
     await page.getByRole('combobox', { name: 'Instructora que la da' }).selectOption({ label: 'Cloe Pons' }, { timeout: 30_000 });
     // Cloe tiene teléfono: se le puede preguntar antes por WhatsApp, como en el diálogo de antes.
     await expect(page.getByRole('link', { name: /Preguntarle antes por WhatsApp/ })).toBeVisible();
-    await expect(page.getByRole('checkbox', { name: 'Avisar a la clienta apuntada' })).toBeChecked();
+    await expect(page.getByRole('checkbox', { name: 'Avisar al cliente apuntado' })).toBeChecked();
     await page.getByRole('button', { name: 'Asignar y avisarla' }).click();
 
-    await expect(page.getByText('Clase cubierta con Cloe Pons · avisadas 1 de 1 clientas')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Clase cubierta con Cloe Pons · avisadas 1 de 1 clientes')).toBeVisible({ timeout: 30_000 });
     expect(posts).toEqual([{ sesionId: 'ses-1', asignarA: 'ins-3', avisar: true }]);
   });
 
-  test('con el aviso a las clientas apagado en el estudio, lo dice en vez de ofrecer una casilla que no haría nada', async ({ page }) => {
+  test('con el aviso a los clientes apagado en el estudio, lo dice en vez de ofrecer una casilla que no haría nada', async ({ page }) => {
     const { posts } = await montarCalendario(page, {
       avisarAlumnas: false,
       // Lo que devuelve el servidor con el aviso apagado: ni las cuenta.
       asignar: { status: 200, body: { ok: true, sesion_id: 'ses-1', alumnas: { avisadas: 0, total: 0, skipped: false, desactivado: true } } },
     });
     await page.getByRole('combobox', { name: 'Instructora que la da' }).selectOption({ label: 'Cloe Pons' }, { timeout: 30_000 });
-    await expect(page.getByText('A las clientas no se les avisa del cambio: ese aviso está apagado en Sustituciones.')).toBeVisible();
+    await expect(page.getByText('A los clientes no se les avisa del cambio: ese aviso está apagado en Sustituciones.')).toBeVisible();
     await expect(page.getByRole('checkbox', { name: /Avisar a/ })).toHaveCount(0);
     await page.getByRole('button', { name: 'Asignar y avisarla' }).click();
 
     // Antes este «sin avisar» no salía nunca: se miraba el total (0) antes que `desactivado`.
-    await expect(page.getByText('Clase cubierta con Cloe Pons · sin avisar a las clientas (el aviso está apagado en Sustituciones)'))
+    await expect(page.getByText('Clase cubierta con Cloe Pons · sin avisar a los clientes (el aviso está apagado en Sustituciones)'))
       .toBeVisible({ timeout: 30_000 });
     expect(posts.length, 'tiene que haber asignado por el servidor').toBe(1);
   });

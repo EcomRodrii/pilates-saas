@@ -63,8 +63,8 @@ async function abrirCajon(page: Page) {
   await expect(cajon(page).getByRole('heading', { level: 2, name: 'Etiquetas', exact: true })).toBeVisible();
 }
 
-test.describe('Etiquetas de alumnas', () => {
-  test('desde la ficha se crea una etiqueta propia y se le pone a la alumna, con lo que contesta el servidor', async ({ page }) => {
+test.describe('Etiquetas de clientes', () => {
+  test('desde la ficha se crea una etiqueta propia y se le pone al cliente, con lo que contesta el servidor', async ({ page }) => {
     test.setTimeout(150_000); // la ficha compila bajo demanda en `next dev` la primera vez
     const rastro = await abrir(page);
     const fichas: Record<string, unknown>[] = [];
@@ -97,8 +97,8 @@ test.describe('Etiquetas de alumnas', () => {
     await expect(valor(page)).toHaveText('3 etiquetas', { timeout: 30_000 });
     await abrirCajon(page);
     await expect(lista(page)).toHaveCount(3);
-    await expect(fila(page, 'VIP')).toContainText('Sin alumnas');
-    await expect(fila(page, 'reformer')).toContainText('1 alumna');
+    await expect(fila(page, 'VIP')).toContainText('Sin clientes');
+    await expect(fila(page, 'reformer')).toContainText('1 cliente');
   });
 
   test('crear una etiqueta manda su estudio, nombre y color, y aparece en la lista', async ({ page }) => {
@@ -133,12 +133,12 @@ test.describe('Etiquetas de alumnas', () => {
     await expect(fila(page, 'Mañanas')).toHaveCount(0);
   });
 
-  test('renombrar dice antes a cuántas alumnas toca y cambia la lista al confirmar el servidor', async ({ page }) => {
+  test('renombrar dice antes a cuántos clientes toca y cambia la lista al confirmar el servidor', async ({ page }) => {
     const rastro = await abrir(page);
     await abrirCajon(page);
     await cajon(page).getByRole('button', { name: 'Renombrar reformer' }).click();
     await cajon(page).getByLabel('Nuevo nombre').fill('Reformer');
-    await expect(cajon(page).getByRole('status')).toHaveText('Se cambiará en 1 alumna.');
+    await expect(cajon(page).getByRole('status')).toHaveText('Se cambiará en 1 cliente.');
     await cajon(page).getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(fila(page, 'Reformer')).toBeVisible();
     await expect(fila(page, 'reformer')).toHaveCount(1); // la misma fila, ya con su nuevo nombre
@@ -154,7 +154,7 @@ test.describe('Etiquetas de alumnas', () => {
     await cajon(page).getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(lista(page)).toHaveCount(2);
     expect(rastro.renombradas).toEqual([{ p_viejo: 'reformer', p_nuevo: 'vip' }]);
-    await expect(fila(page, 'VIP')).toContainText('1 alumna');
+    await expect(fila(page, 'VIP')).toContainText('1 cliente');
   });
 
   test('si el servidor dice que no, renombrar deja la lista como estaba y se dice por qué', async ({ page }) => {
@@ -169,11 +169,11 @@ test.describe('Etiquetas de alumnas', () => {
     await expect(cajon(page).getByRole('button', { name: 'Renombrar Reformer', exact: true })).toHaveCount(0);
   });
 
-  test('eliminar pide confirmación diciendo a cuántas alumnas se les quita', async ({ page }) => {
+  test('eliminar pide confirmación diciendo a cuántos clientes se les quita', async ({ page }) => {
     const rastro = await abrir(page);
     await abrirCajon(page);
     await cajon(page).getByRole('button', { name: 'Eliminar nueva' }).click();
-    await expect(confirmar(page)).toContainText('Se quita de 1 alumna');
+    await expect(confirmar(page)).toContainText('Se quita de 1 cliente');
     await confirmar(page).getByRole('button', { name: 'Eliminar', exact: true }).click();
     await expect(fila(page, 'nueva')).toHaveCount(0);
     expect(rastro.eliminadas).toEqual([{ p_nombre: 'nueva' }]);

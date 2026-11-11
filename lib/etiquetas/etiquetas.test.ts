@@ -37,7 +37,7 @@ test('la lista junta el catálogo y lo que hay en las fichas, sin repetir y con 
   ]);
 });
 
-test('una alumna con la misma etiqueta escrita de dos maneras cuenta una vez', () => {
+test('un cliente con la misma etiqueta escrita de dos maneras cuenta una vez', () => {
   const [v] = listaDeEtiquetas([cat('VIP')], [{ tags: ['VIP', 'vip'] }]);
   assert.equal(v.usos, 1);
 });
@@ -68,7 +68,7 @@ test('una etiqueta se pinta con su color del catálogo; sin catálogo, con el de
   assert.equal(colorDe('Algo mío', []), 'gris');
 });
 
-test('renombrar dice a cuántas alumnas toca y si se funde con otra', () => {
+test('renombrar dice a cuántos clientes toca y si se funde con otra', () => {
   const lista = listaDeEtiquetas([cat('VIP'), cat('Vip2')], [{ tags: ['VIP'] }, { tags: ['VIP'] }, { tags: ['Vip2'] }]);
   assert.deepEqual(efectoDeRenombrar(lista, 'VIP', 'Premium'), { alumnas: 2, seFunde: false });
   assert.deepEqual(efectoDeRenombrar(lista, 'VIP', 'vip2'), { alumnas: 2, seFunde: true });

@@ -19,7 +19,7 @@ test('qué estado se enseña de cada recibo que se debe', () => {
   for (const estado of ['COBRADO', 'EN_CURSO', 'ANULADO']) assert.equal(estadoVisible(r('a', { estado })), null, estado);
 });
 
-test('un grupo por clienta, la deuda más antigua primero; la suma es «Te deben» de arriba', () => {
+test('un grupo por cliente, la deuda más antigua primero; la suma es «Te deben» de arriba', () => {
   const recibos = [
     r('a1', { socioId: 'ana', fechaVencimiento: '2026-09-28', importe: 15 }),
     r('l1', { socioId: 'laura', fechaVencimiento: '2026-08-05', importe: 89, estado: 'FALLIDO' }),
@@ -49,7 +49,7 @@ test('días debiendo: desde el vencimiento más antiguo; lo que no ha vencido, 0
   assert.equal(diasDebiendo({ desde: '2026-10-10' }, '2026-10-02'), 0);
 });
 
-test('los chips cuentan clientas con ALGÚN recibo en ese estado (por eso suman más que el total)', () => {
+test('los chips cuentan clientes con ALGÚN recibo en ese estado (por eso suman más que el total)', () => {
   const recibos = [
     r('l1', { socioId: 'laura', estado: 'FALLIDO' }),
     r('l2', { socioId: 'laura', estado: 'DEVUELTO' }),

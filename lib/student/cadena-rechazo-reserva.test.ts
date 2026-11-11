@@ -61,7 +61,7 @@ test('salto 1 bis: NINGÚN rechazo de crearReservaPublica se queda sin `codigo`'
   assert.deepEqual(
     sinCodigo, [],
     'Estos rechazos viajan sin `codigo`, asi que reserva-codigos.ts cae en el `default`: '
-    + 'la alumna ve «algo no ha salido como esperabamos · intentalo de nuevo» en vez del motivo, '
+    + 'el cliente ve «algo no ha salido como esperabamos · intentalo de nuevo» en vez del motivo, '
     + 'y reservar.ts los reporta a Sentry como si fueran una averia. Anade el codigo (y registralo '
     + 'en CODIGOS_DE_NEGOCIO de lib/student/reserva-codigos.ts).',
   );
@@ -113,7 +113,7 @@ test('salto 3: BookingStatus pinta el mensaje del servidor cuando lo hay', () =>
   );
 });
 
-test('el mensaje crudo del servidor NO se le ensena a la alumna', () => {
+test('el mensaje crudo del servidor NO se le ensena al cliente', () => {
   const fuente = leer('lib/student/reservar.ts');
   assert.match(
     fuente, /esRechazoConocido\(codigo\)\s*\?\s*\{ \.\.\.desenlace, mensaje: undefined \}/,
@@ -182,7 +182,7 @@ test('salto 0: todo `raise exception` de reservar_plaza lo traduce el TS', () =>
   assert.deepEqual(
     sinTraducir, [],
     `La RPC lanza estos rechazos y crearReservaPublica no los traduce, asi que caen en `
-    + `codigo:'error': copy generico de averia para la alumna y un evento de Sentry por `
+    + `codigo:'error': copy generico de averia para el cliente y un evento de Sentry por `
     + `intento. Anade su rama a la escalera (y el codigo a lib/student/reserva-codigos.ts). `
     + `Migracion mirada: ${ultima}`,
   );

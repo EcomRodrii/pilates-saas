@@ -68,7 +68,7 @@ test('se ha leído una definición de verdad, no un fichero vacío', () => {
   assert.match(sql, /conversacion_participantes/);
 });
 
-test('la reutilización de la conversación de alumna busca por socio_id', () => {
+test('la reutilización de la conversación de cliente busca por socio_id', () => {
   const bloque = bloqueMostrador(sql);
   // La búsqueda de conversación existente: `exists (select 1 from
   // conversacion_participantes cp where … )`.

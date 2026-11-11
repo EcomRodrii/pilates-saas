@@ -32,16 +32,16 @@ export interface CategoriaAyuda {
 
 export const CATEGORIAS: CategoriaAyuda[] = [
   { slug: 'empezar', titulo: 'Empezar con Tentare', descripcion: 'Crea tu cuenta, configura tu estudio y prepara tu primera semana de clases.', icono: 'Sparkles' },
-  { slug: 'reservas', titulo: 'Reservas y calendario', descripcion: 'Clases, horarios, lista de espera, cancelaciones y las reglas con las que reserva cada alumna.', icono: 'CalendarDays' },
-  { slug: 'clientes', titulo: 'Clientes y CRM', descripcion: 'Ficha de cada alumna, historial, notas e importación desde tu software anterior.', icono: 'Users' },
+  { slug: 'reservas', titulo: 'Reservas y calendario', descripcion: 'Clases, horarios, lista de espera, cancelaciones y las reglas con las que reserva cada cliente.', icono: 'CalendarDays' },
+  { slug: 'clientes', titulo: 'Clientes y CRM', descripcion: 'Ficha de cada cliente, historial, notas e importación desde tu software anterior.', icono: 'Users' },
   { slug: 'instructores', titulo: 'Instructoras y equipo', descripcion: 'Altas, disponibilidad, tarifas, permisos y sustituciones cuando alguien no puede dar su clase.', icono: 'UserRound' },
   { slug: 'pagos', titulo: 'Pagos y facturación', descripcion: 'Stripe, tarjeta guardada, cobros fallidos, reembolsos y factura de cada cobro.', icono: 'CreditCard' },
   { slug: 'bonos', titulo: 'Bonos y membresías', descripcion: 'Bonos de sesiones, cuotas mensuales, clases fijas, créditos y caducidades.', icono: 'Ticket' },
-  { slug: 'portal', titulo: 'App y página de reservas', descripcion: 'La app donde tus alumnas reservan, su enlace y su QR, y la página de reservas que va en tu web: personalización, marca y acceso.', icono: 'LayoutTemplate' },
+  { slug: 'portal', titulo: 'App y página de reservas', descripcion: 'La app donde tus clientes reservan, su enlace y su QR, y la página de reservas que va en tu web: personalización, marca y acceso.', icono: 'LayoutTemplate' },
   { slug: 'widget', titulo: 'Widget para tu web', descripcion: 'Incrusta las reservas de Tentare en tu propia web, con WordPress, Webflow o HTML.', icono: 'CodeXml' },
   { slug: 'automatizaciones', titulo: 'Automatizaciones y avisos', descripcion: 'Recordatorios, avisos de bono a punto de acabar y lo que Tentare avisa solo, en la app, por email y por WhatsApp.', icono: 'Zap' },
   { slug: 'integraciones', titulo: 'Integraciones', descripcion: 'Qué conecta con Tentare hoy y cómo activarlo.', icono: 'Plug' },
-  { slug: 'app', titulo: 'App de tus alumnas', descripcion: 'Lo que ve una clienta en su móvil: próxima clase, plan, progreso y recompensas.', icono: 'Smartphone' },
+  { slug: 'app', titulo: 'App de tus clientes', descripcion: 'Lo que ve un cliente en su móvil: próxima clase, plan, progreso y recompensas.', icono: 'Smartphone' },
   { slug: 'configuracion', titulo: 'Configuración de tu cuenta', descripcion: 'Datos del estudio, usuarios y permisos, marca, idioma y seguridad.', icono: 'Settings2' },
   { slug: 'informes', titulo: 'Informes y analítica', descripcion: 'Ocupación, ingresos, retención y el rendimiento de cada instructora.', icono: 'BarChart3' },
   { slug: 'problemas', titulo: 'Problemas y soluciones', descripcion: 'Cuando algo no va: acceso, pagos, reservas y el widget.', icono: 'LifeBuoy' },
@@ -79,7 +79,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'configurar-tu-estudio', categoria: 'empezar', tipo: 'guia',
     titulo: 'Configura los datos de tu estudio',
-    descripcion: 'Nombre, NIF, dirección, color de marca y logo — todo lo que ven tus alumnas cuando reservan.',
+    descripcion: 'Nombre, NIF, dirección, color de marca y logo — todo lo que ven tus clientes cuando reservan.',
     terminos: ['datos fiscales', 'marca', 'logo', 'color'],
     actualizado: '2026-09-16',
     relacionados: ['empezar/crear-tu-cuenta', 'configuracion/datos-del-estudio', 'portal/personalizar-tu-portal'],
@@ -88,7 +88,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'primera-semana-de-clases', categoria: 'empezar', tipo: 'guia',
     titulo: 'Prepara tu primera semana de clases',
-    descripcion: 'Salas, tipos de clase y tu primer horario, antes de invitar a tu primera alumna.',
+    descripcion: 'Salas, tipos de clase y tu primer horario, antes de invitar a tu primer cliente.',
     actualizado: '2026-09-15',
     relacionados: ['reservas/crear-una-clase', 'instructores/dar-de-alta-una-instructora'],
     estado: 'publicado',
@@ -107,7 +107,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'editar-o-cancelar-una-clase', categoria: 'reservas', tipo: 'guia',
     titulo: 'Editar o cancelar una clase',
-    descripcion: 'Qué le llega a cada alumna con reserva cuando cambias la hora, la sala o cancelas la clase entera.',
+    descripcion: 'Qué le llega a cada cliente con reserva cuando cambias la hora, la sala o cancelas la clase entera.',
     actualizado: '2026-09-15',
     relacionados: ['reservas/crear-una-clase', 'reservas/no-shows', 'problemas/una-reserva-no-aparece', 'reservas/clases-que-se-repiten'],
     estado: 'publicado',
@@ -132,7 +132,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'clases-con-requisito', categoria: 'reservas', tipo: 'guia',
-    titulo: 'Clases solo para alumnas autorizadas',
+    titulo: 'Clases solo para clientes autorizados',
     descripcion: 'Marca una clase como avanzada o con requisitos y decide tú quién puede reservarla. Sin inventar niveles que tus actividades no tienen.',
     terminos: ['niveles', 'nivel', 'avanzado', 'intermedio', 'gentil', 'autorizar', 'permiso', 'requisitos'],
     actualizado: '2026-09-15',
@@ -151,7 +151,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'no-shows', categoria: 'reservas', tipo: 'guia',
     titulo: 'No-shows y cancelaciones tardías',
-    descripcion: 'Cómo se marcan, qué le pasa al bono de la alumna y cuándo puede haber una penalización económica.',
+    descripcion: 'Cómo se marcan, qué le pasa al bono del cliente y cuándo puede haber una penalización económica.',
     actualizado: '2026-09-15',
     relacionados: ['reservas/reglas-de-reserva-por-clase', 'pagos/cobros-fallidos'],
     estado: 'publicado',
@@ -169,16 +169,16 @@ export const ARTICULOS: ArticuloAyuda[] = [
   // ─── Clientes y CRM ─────────────────────────────────────────────────────
   {
     slug: 'crear-una-clienta', categoria: 'clientes', tipo: 'guia',
-    titulo: 'Dar de alta una clienta',
-    descripcion: 'A mano desde el panel, o dejando que se apunte sola desde la app de tus alumnas.',
+    titulo: 'Dar de alta un cliente',
+    descripcion: 'A mano desde el panel, o dejando que se apunte sola desde la app de tus clientes.',
     actualizado: '2026-09-14',
     relacionados: ['clientes/ficha-de-clienta', 'clientes/importar-clientes'],
     estado: 'publicado',
   },
   {
     slug: 'ficha-de-clienta', categoria: 'clientes', tipo: 'guia',
-    titulo: 'La ficha de clienta: historial, bonos y notas',
-    descripcion: 'Todo lo de cada alumna en un sitio — asistencia, plan activo, notas de progreso y, si la usas, su ficha de salud.',
+    titulo: 'La ficha de cliente: historial, bonos y notas',
+    descripcion: 'Todo lo de cada cliente en un sitio — asistencia, plan activo, notas de progreso y, si la usas, su ficha de salud.',
     terminos: ['crm', 'historial', 'notas de progreso', 'ficha clínica'],
     actualizado: '2026-09-14',
     relacionados: ['clientes/crear-una-clienta', 'bonos/tipos-de-bono'],
@@ -186,8 +186,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'la-libreta', categoria: 'clientes', tipo: 'guia',
-    titulo: 'La libreta: tus clientas en papel',
-    descripcion: 'Cada alumna con su plan, sus sesiones y sus recuperaciones, para imprimir o guardar en PDF.',
+    titulo: 'La libreta: tus clientes en papel',
+    descripcion: 'Cada cliente con su plan, sus sesiones y sus recuperaciones, para imprimir o guardar en PDF.',
     terminos: ['libreta', 'imprimir', 'PDF', 'copia', 'exportar', 'sin internet', 'listado'],
     actualizado: '2026-09-08',
     relacionados: ['clientes/ficha-de-clienta', 'bonos/recuperaciones'],
@@ -267,7 +267,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'la-app-de-tus-instructoras', categoria: 'instructores', tipo: 'guia',
     titulo: 'La app de tus instructoras',
-    descripcion: 'Tu equipo trabaja desde el móvil: su agenda, pasar lista, su disponibilidad, sus alumnas y los mensajes. Cómo entran la primera vez y qué ve cada una.',
+    descripcion: 'Tu equipo trabaja desde el móvil: su agenda, pasar lista, su disponibilidad, sus clientes y los mensajes. Cómo entran la primera vez y qué ve cada una.',
     terminos: ['app instructora', 'equipo', 'pasar lista', 'agenda', 'móvil', 'invitación', 'cómo entra'],
     actualizado: '2026-09-21',
     relacionados: ['instructores/dar-de-alta-una-instructora', 'instructores/permisos-por-rol', 'instructores/disponibilidad-y-tarifas', 'instructores/sustituciones'],
@@ -285,7 +285,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'tarjeta-guardada-y-cobro-automatico', categoria: 'pagos', tipo: 'guia',
     titulo: 'Tarjeta guardada y cobro automático',
-    descripcion: 'Cómo guarda una alumna su tarjeta y qué pasa en cada renovación mensual.',
+    descripcion: 'Cómo guarda un cliente su tarjeta y qué pasa en cada renovación mensual.',
     actualizado: '2026-09-14',
     relacionados: ['pagos/conectar-stripe', 'bonos/renovaciones'],
     estado: 'publicado',
@@ -293,7 +293,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'cobros-fallidos', categoria: 'pagos', tipo: 'problema',
     titulo: 'Un cobro ha fallado: qué hacer',
-    descripcion: 'Reintentos automáticos, cuándo se avisa a la alumna y cómo reintentarlo tú a mano.',
+    descripcion: 'Reintentos automáticos, cuándo se avisa al cliente y cómo reintentarlo tú a mano.',
     actualizado: '2026-09-14',
     relacionados: ['pagos/reembolsos', 'problemas/el-pago-falla-en-el-checkout'],
     estado: 'publicado',
@@ -301,7 +301,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'reembolsos', categoria: 'pagos', tipo: 'guia',
     titulo: 'Cómo devolver un cobro',
-    descripcion: 'Devolver un cobro desde la ficha de la clienta, y cuándo emitir la factura rectificativa.',
+    descripcion: 'Devolver un cobro desde la ficha del cliente, y cuándo emitir la factura rectificativa.',
     actualizado: '2026-09-15',
     relacionados: ['pagos/cobros-fallidos', 'pagos/facturas'],
     estado: 'publicado',
@@ -362,8 +362,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'prueba-de-7-dias', categoria: 'pagos', tipo: 'guia',
     titulo: 'Founding Studio gratis: cómo funciona',
-    descripcion: 'Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta. Qué pasa si te pasas y cómo se cuenta.',
-    terminos: ['prueba de 7 días', 'prueba gratis', 'trial', 'gratis', 'límite', 'reservas al mes', 'alumnas activas', '29 €'],
+    descripcion: 'Gratis hasta 150 clientes activos y 250 reservas al mes, sin tarjeta. Qué pasa si te pasas y cómo se cuenta.',
+    terminos: ['prueba de 7 días', 'prueba gratis', 'trial', 'gratis', 'límite', 'reservas al mes', 'clientes activos', '29 €'],
     actualizado: '2026-10-15',
     relacionados: ['empezar/crear-tu-cuenta'],
     estado: 'publicado',
@@ -389,14 +389,14 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'caducidad-de-un-bono', categoria: 'bonos', tipo: 'guia',
     titulo: 'Caducidad y pausa de un bono',
-    descripcion: 'Cuándo caduca un bono y cómo pausar su plan mientras una alumna está de baja, sin perder sus sesiones.',
+    descripcion: 'Cuándo caduca un bono y cómo pausar su plan mientras un cliente está de baja, sin perder sus sesiones.',
     actualizado: '2026-09-14',
     relacionados: ['bonos/tipos-de-bono', 'problemas/un-bono-no-aparece'],
     estado: 'publicado',
   },
   {
     slug: 'recuperaciones', categoria: 'bonos', tipo: 'guia',
-    titulo: 'Recuperaciones: las clases que le debes a una alumna',
+    titulo: 'Recuperaciones: las clases que le debes a un cliente',
     descripcion: 'Qué son, cuándo nacen solas, cuánto duran y cómo ponerle otra fecha a un caso concreto.',
     terminos: ['recuperacion', 'recuperaciones', 'clase a recuperar', 'compensar', 'caducidad'],
     actualizado: '2026-09-15',
@@ -406,15 +406,15 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'plazas-fijas', categoria: 'bonos', tipo: 'guia',
     titulo: 'Clases fijas: su hueco de cada semana',
-    descripcion: 'Ana viene todos los martes a las 10. Cómo marcar a una alumna en una clase fija, qué ve ella en su app, cómo se pausa y qué pasa si se queda sin cuota.',
-    terminos: ['clase fija', 'plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar clase fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir clase fija', 'marcarse en una clase fija', 'plazas fijas', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve la alumna', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija', 'aprobación automática', 'ampliar clase fija', 'termina pronto'],
+    descripcion: 'Ana viene todos los martes a las 10. Cómo marcar a un cliente en una clase fija, qué ve ella en su app, cómo se pausa y qué pasa si se queda sin cuota.',
+    terminos: ['clase fija', 'plaza fija', 'hueco semanal', 'recurrente', 'sitio fijo', 'reserva recurrente', 'pausar clase fija', 'vacaciones', 'sin cuota', 'petición de plaza', 'pedir clase fija', 'marcarse en una clase fija', 'plazas fijas', 'con bono', 'no puedo asistir', 'próximas clases', 'qué ve el cliente', 'crear clase fija', 'clase fija con nombre', 'ofrecer clase fija', 'duración de la clase fija', 'aprobación automática', 'ampliar clase fija', 'termina pronto'],
     actualizado: '2026-09-22',
     relacionados: ['bonos/recuperaciones', 'reservas/editar-o-cancelar-una-clase', 'reservas/clases-que-se-repiten'],
     estado: 'publicado',
   },
   {
     slug: 'ampliar-caducidades-en-lote', categoria: 'bonos', tipo: 'guia',
-    titulo: 'Ampliar caducidades a varias alumnas de una vez',
+    titulo: 'Ampliar caducidades a varios clientes de una vez',
     descripcion: 'Cierras una semana por vacaciones y nadie debería perder días de bono. Cómo ampliarlo a todas de golpe, y qué no se toca.',
     terminos: ['vacaciones', 'cierre', 'festivos', 'prorrogar', 'masivo', 'en lote', 'ampliar'],
     actualizado: '2026-09-14',
@@ -433,24 +433,24 @@ export const ARTICULOS: ArticuloAyuda[] = [
   // ─── Portal de reservas ─────────────────────────────────────────────────
   {
     slug: 'que-es-el-portal', categoria: 'portal', tipo: 'guia',
-    titulo: 'La app de tus alumnas y tu página de reservas',
-    descripcion: 'Qué enlace compartes con tus alumnas (el de su app), cuál es el de tu web, y el código QR para el escaparate.',
+    titulo: 'La app de tus clientes y tu página de reservas',
+    descripcion: 'Qué enlace compartes con tus clientes (el de su app), cuál es el de tu web, y el código QR para el escaparate.',
     actualizado: '2026-10-22',
     relacionados: ['portal/acceso-de-una-clienta', 'portal/personalizar-tu-portal', 'widget/que-es-el-widget', 'portal/ocultar-tu-pagina'],
     estado: 'publicado',
   },
   {
     slug: 'acceso-de-una-clienta', categoria: 'portal', tipo: 'guia',
-    titulo: 'Cómo entra una clienta al portal por primera vez',
+    titulo: 'Cómo entra un cliente al portal por primera vez',
     descripcion: 'Con su email y un código de 6 cifras que le llega al correo, con su contraseña si tiene una, o con su cuenta de Google — todo desde una sola pantalla.',
-    terminos: ['login clienta', 'primera vez', 'contraseña olvidada', 'acceso', 'código', 'código de acceso'],
+    terminos: ['login cliente', 'primera vez', 'contraseña olvidada', 'acceso', 'código', 'código de acceso'],
     actualizado: '2026-10-05',
     relacionados: ['portal/que-es-el-portal', 'problemas/una-clienta-no-puede-entrar'],
     estado: 'publicado',
   },
   {
     slug: 'personalizar-tu-portal', categoria: 'portal', tipo: 'guia',
-    titulo: 'Cambiar cómo se ve la app de tus alumnas',
+    titulo: 'Cambiar cómo se ve la app de tus clientes',
     descripcion: 'Estilo, color, tipografía y foto de portada, probados en un móvil antes de publicarlos.',
     terminos: ['apariencia', 'estilo', 'tipografía', 'fuente', 'portada', 'colores', 'tema'],
     actualizado: '2026-09-22',
@@ -461,7 +461,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'ocultar-tu-pagina', categoria: 'portal', tipo: 'guia',
     titulo: 'Ocultar tu página mientras la preparas',
-    descripcion: 'Tu página de reservas y la app de tus alumnas enseñan un aviso en vez de tus clases. Con una clave puedes dejar entrar a quien tú quieras.',
+    descripcion: 'Tu página de reservas y la app de tus clientes enseñan un aviso en vez de tus clases. Con una clave puedes dejar entrar a quien tú quieras.',
     terminos: ['ocultar', 'privada', 'esconder', 'visible', 'clave', 'en construcción', 'todavía no abro'],
     actualizado: '2026-09-16',
     relacionados: ['portal/que-es-el-portal', 'portal/personalizar-tu-portal', 'widget/que-es-el-widget'],
@@ -471,7 +471,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'que-es-el-widget', categoria: 'widget', tipo: 'guia',
     titulo: 'Qué es el widget de reservas',
-    descripcion: 'Tu calendario de Tentare, incrustado en tu propia web — sin que la alumna salga de tu dominio.',
+    descripcion: 'Tu calendario de Tentare, incrustado en tu propia web — sin que el cliente salga de tu dominio.',
     actualizado: '2026-09-15',
     relacionados: ['widget/instalar-en-wordpress', 'widget/instalar-con-html'],
     estado: 'publicado',
@@ -496,9 +496,9 @@ export const ARTICULOS: ArticuloAyuda[] = [
   // ─── Automatizaciones y avisos ──────────────────────────────────────────
   {
     slug: 'mensajeria', categoria: 'automatizaciones', tipo: 'guia',
-    titulo: 'Mensajería: todo lo que se habla con tus alumnas',
+    titulo: 'Mensajería: todo lo que se habla con tus clientes',
     descripcion: 'Avisos para tu equipo, el tablón, las conversaciones y los mensajes que mandas tú a un grupo.',
-    terminos: ['mensajería', 'conversaciones', 'bandeja', 'enviar mensaje', 'hablar con clientas', 'chat'],
+    terminos: ['mensajería', 'conversaciones', 'bandeja', 'enviar mensaje', 'hablar con clientes', 'chat'],
     actualizado: '2026-09-14',
     relacionados: ['automatizaciones/recordatorios-automaticos', 'app/comunidad', 'automatizaciones/registro-de-envios'],
     estado: 'publicado',
@@ -543,7 +543,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'que-ve-una-alumna', categoria: 'app', tipo: 'guia',
-    titulo: 'Qué ve una alumna en su portal',
+    titulo: 'Qué ve un cliente en su portal',
     descripcion: 'Su próxima clase, su plan y sesiones restantes, créditos, logros y nivel.',
     actualizado: '2026-08-28',
     relacionados: ['portal/que-es-el-portal', 'portal/acceso-de-una-clienta'],
@@ -570,7 +570,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'marca', categoria: 'configuracion', tipo: 'guia',
     titulo: 'Tu marca: logo y color',
-    descripcion: 'El logo y el color que ven tus alumnas en tu página de reservas y en su app.',
+    descripcion: 'El logo y el color que ven tus clientes en tu página de reservas y en su app.',
     actualizado: '2026-09-16',
     relacionados: ['portal/personalizar-tu-portal'],
     estado: 'publicado',
@@ -607,8 +607,8 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'una-clienta-no-puede-entrar', categoria: 'problemas', tipo: 'problema',
-    titulo: 'Una clienta no puede entrar al portal',
-    descripcion: 'Las causas más comunes cuando una alumna te escribe diciendo que no consigue acceder.',
+    titulo: 'Un cliente no puede entrar al portal',
+    descripcion: 'Las causas más comunes cuando un cliente te escribe diciendo que no consigue acceder.',
     terminos: ['verificación en dos pasos', 'código', 'doble factor', '2FA', 'autenticador'],
     actualizado: '2026-10-04',
     relacionados: ['portal/acceso-de-una-clienta', 'problemas/no-puedo-iniciar-sesion'],
@@ -625,7 +625,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'no-llega-un-whatsapp', categoria: 'problemas', tipo: 'problema',
     titulo: 'No llega un WhatsApp',
-    descripcion: 'Qué comprobar cuando un aviso por WhatsApp no le llega a una instructora o alumna.',
+    descripcion: 'Qué comprobar cuando un aviso por WhatsApp no le llega a una instructora o cliente.',
     actualizado: '2026-09-15',
     relacionados: ['automatizaciones/recordatorios-automaticos', 'problemas/no-llega-un-email'],
     estado: 'publicado',
@@ -641,7 +641,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'una-reserva-no-aparece', categoria: 'problemas', tipo: 'problema',
     titulo: 'Una reserva no aparece',
-    descripcion: 'La alumna dice que ha reservado y tú no la ves — las causas más frecuentes.',
+    descripcion: 'El cliente dice que ha reservado y tú no la ves — las causas más frecuentes.',
     actualizado: '2026-08-28',
     relacionados: ['reservas/lista-de-espera', 'reservas/reglas-de-reserva-por-clase'],
     estado: 'publicado',
@@ -656,7 +656,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   },
   {
     slug: 'un-bono-no-aparece', categoria: 'problemas', tipo: 'problema',
-    titulo: 'Un bono no aparece en la ficha de la clienta',
+    titulo: 'Un bono no aparece en la ficha del cliente',
     descripcion: 'El pago se procesó pero el bono no se ve — qué comprobar antes de escribir a soporte.',
     actualizado: '2026-09-14',
     relacionados: ['bonos/caducidad-de-un-bono', 'pagos/cobros-fallidos'],

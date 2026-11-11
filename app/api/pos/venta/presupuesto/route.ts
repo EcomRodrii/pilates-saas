@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (socioId) {
     const { data: socia } = await admin.from('socios')
       .select('id').eq('id', socioId).eq('studio_id', sesion.studioId).maybeSingle();
-    if (!socia) return NextResponse.json({ error: 'Esa clienta no es de este estudio.' }, { status: 403 });
+    if (!socia) return NextResponse.json({ error: 'Ese cliente no es de este estudio.' }, { status: 403 });
   }
 
   const { data, error } = await admin.rpc('registrar_venta_pos', {

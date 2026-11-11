@@ -61,7 +61,7 @@ function MiPlan() {
     ]);
     return { bonos, plazaFija, renovacion, nombresTipo, reservas, clases, pagos, productos, stripeAccountId: d?.studio?.stripeAccountId ?? null, instructoras, gamificacion };
   }, [estudio.slug]);
-  const { data: cargado, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:bonos`);
+  const { data: cargado, estado, reintentar, refrescar } = useAsync(cargar, () => false, `cliente:${estudio.slug}:bonos`);
   const actualizar = useCallback(async () => {
     invalidarCatalogo(estudio.slug, { conservarVistas: true });
     await refrescar();

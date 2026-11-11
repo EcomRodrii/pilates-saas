@@ -79,7 +79,7 @@ export function AlineacionAlumnasActuales() {
       }
       reflejarStudioGuardado({ cobroDia1Modo: modo });
       setConfirmando(false);
-      setHecho(modo === 'PROPORCIONAL' ? 'Activado: las alumnas pagarán la parte proporcional en su próxima renovación.' : 'Vuelves a la cuota entera en la renovación.');
+      setHecho(modo === 'PROPORCIONAL' ? 'Activado: los clientes pagarán la parte proporcional en su próxima renovación.' : 'Vuelves a la cuota entera en la renovación.');
       void cargar();
     } finally {
       setGuardando(false);
@@ -89,7 +89,7 @@ export function AlineacionAlumnasActuales() {
   if (!soloPropietaria) {
     return (
       <p className="mt-4 text-sm text-muted-foreground text-pretty">
-        Cómo se alinean al día 1 las alumnas que ya tienes lo cambia la propietaria. Ahora: {modoActivo === 'PROPORCIONAL' ? 'parte proporcional en la renovación' : 'cuota entera en la renovación'}.
+        Cómo se alinean al día 1 los clientes que ya tienes lo cambia la propietaria. Ahora: {modoActivo === 'PROPORCIONAL' ? 'parte proporcional en la renovación' : 'cuota entera en la renovación'}.
       </p>
     );
   }
@@ -111,14 +111,14 @@ export function AlineacionAlumnasActuales() {
 
   return (
     <section className="mt-6 rounded-xl border border-border p-4" aria-labelledby="titulo-alineacion">
-      <h3 id="titulo-alineacion" className="text-sm font-semibold text-foreground">¿Y las alumnas que ya tienes?</h3>
+      <h3 id="titulo-alineacion" className="text-sm font-semibold text-foreground">¿Y los clientes que ya tienes?</h3>
       <p className="mt-1 text-sm text-muted-foreground text-pretty">
-        Pasan al día 1 en su próxima renovación. Elige cómo. Solo afecta a cuotas mensuales de Tentare que aún no acaban a fin de mes; cada alumna cambia una sola vez, en su renovación.
+        Pasan al día 1 en su próxima renovación. Elige cómo. Solo afecta a cuotas mensuales de Tentare que aún no acaban a fin de mes; cada cliente cambia una sola vez, en su renovación.
       </p>
 
       {/* Región viva siempre presente: un role="status" que aparece de golpe muchas veces no se anuncia. */}
       <div className="mt-3 empty:hidden text-sm text-muted-foreground" aria-live="polite">
-        {cargando && !vista ? 'Calculando con tus alumnas reales…' : null}
+        {cargando && !vista ? 'Calculando con tus clientes reales…' : null}
         {hecho && !error ? <span className="text-foreground">{hecho}</span> : null}
       </div>
       {!vista && !cargando && error && (
@@ -130,19 +130,19 @@ export function AlineacionAlumnasActuales() {
         <p className="mt-3 rounded-lg bg-muted p-3 text-sm text-foreground text-pretty">{vista.ejemplo}</p>
       )}
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Cómo alinear a las alumnas actuales">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Cómo alinear a los clientes actuales">
         <label className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-brand', elegido === 'ENTERA' ? 'border-brand bg-brand/5' : 'border-border hover:bg-muted')}>
           <input type="radio" name="modo-alineacion" className="mt-1 accent-[var(--brand)]" checked={elegido === 'ENTERA'} onChange={() => { setElegido('ENTERA'); setConfirmando(false); }} />
           <span>
             <span className="block text-sm font-medium text-foreground">A · Cuota entera en su renovación{modoActivo === 'ENTERA' ? ' (la de ahora)' : ''}</span>
             <span className="block text-sm text-muted-foreground text-pretty">
-              Paga la cuota entera cuando le toca y queda cubierta hasta el último día del mes siguiente. Sencillo para ella, pero cada alumna recibe entre 1 y 30 días gratis (según el día en que renueve), una sola vez. Es dinero que dejas de ingresar.
+              Paga la cuota entera cuando le toca y queda cubierta hasta el último día del mes siguiente. Sencillo para ella, pero cada cliente recibe entre 1 y 30 días gratis (según el día en que renueve), una sola vez. Es dinero que dejas de ingresar.
             </span>
             {vista && vista.alumnas > 0 && (
-              <span className="mt-1 block text-sm font-medium text-foreground">Lo que regalas: {eur(vista.totalRegalaA)} entre {vista.alumnas} alumnas.</span>
+              <span className="mt-1 block text-sm font-medium text-foreground">Lo que regalas: {eur(vista.totalRegalaA)} entre {vista.alumnas} clientes.</span>
             )}
             {vista && vista.alumnas === 0 && (
-              <span className="mt-1 block text-sm text-muted-foreground">Hoy no regalarías nada: ninguna alumna cambia de fecha.</span>
+              <span className="mt-1 block text-sm text-muted-foreground">Hoy no regalarías nada: ningún cliente cambia de fecha.</span>
             )}
           </span>
         </label>
@@ -155,7 +155,7 @@ export function AlineacionAlumnasActuales() {
             </span>
             {vista && vista.alumnas > 0 && (
               <span className="mt-1 block text-sm font-medium text-foreground">
-                {alumnasQuePagan > 0 ? `Cobrarías ${eur(vista.totalCobraB)} a ${alumnasQuePagan} ${alumnasQuePagan === 1 ? 'alumna' : 'alumnas'}.` : 'A todas les quedan muy pocos días: no se les cobra nada por ellos.'}
+                {alumnasQuePagan > 0 ? `Cobrarías ${eur(vista.totalCobraB)} a ${alumnasQuePagan} ${alumnasQuePagan === 1 ? 'cliente' : 'clientes'}.` : 'A todas les quedan muy pocos días: no se les cobra nada por ellos.'}
               </span>
             )}
           </span>
@@ -164,21 +164,21 @@ export function AlineacionAlumnasActuales() {
 
       {elegido === 'PROPORCIONAL' && vista && (
         <div className="mt-4">
-          <h4 className="text-sm font-medium text-foreground">Vista previa con tus alumnas reales (no se cobra nada)</h4>
+          <h4 className="text-sm font-medium text-foreground">Vista previa con tus clientes reales (no se cobra nada)</h4>
           {vista.alumnas === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground text-pretty">Hoy ninguna alumna cambiaría: todas acaban ya a fin de mes o no tienen cuota mensual de Tentare.</p>
+            <p className="mt-2 text-sm text-muted-foreground text-pretty">Hoy ningún cliente cambiaría: todas acaban ya a fin de mes o no tienen cuota mensual de Tentare.</p>
           ) : (
             <>
               <p className="mt-1 text-sm text-muted-foreground text-pretty">
-                {vista.alumnas} {vista.alumnas === 1 ? 'alumna cambia' : 'alumnas cambian'} en su renovación. En total pagarían {eur(vista.totalCobraB)} esos días y el día 1 empezarían a pagar la cuota entera. Con la opción A regalarías {eur(vista.totalRegalaA)}.
+                {vista.alumnas} {vista.alumnas === 1 ? 'cliente cambia' : 'clientes cambian'} en su renovación. En total pagarían {eur(vista.totalCobraB)} esos días y el día 1 empezarían a pagar la cuota entera. Con la opción A regalarías {eur(vista.totalRegalaA)}.
                 {vista.alumnasEnCortesia > 0 && ` A ${vista.alumnasEnCortesia} les quedan ${vista.diasMinimos} días o menos de mes: no se les cobra nada por esos días (${eur(vista.totalCortesiaB)} que dejas de ingresar) y pagan la entera el día 1.`}
               </p>
               <div className="mt-2 max-h-72 overflow-auto rounded-lg border border-border">
                 <table className="w-full text-left text-sm">
-                  <caption className="sr-only">Alumnas afectadas, fecha de renovación y lo que pagarían</caption>
+                  <caption className="sr-only">Clientes afectados, fecha de renovación y lo que pagarían</caption>
                   <thead className="sticky top-0 bg-muted text-xs text-muted-foreground">
                     <tr>
-                      <th scope="col" className="px-3 py-2 font-medium">Alumna</th>
+                      <th scope="col" className="px-3 py-2 font-medium">Cliente</th>
                       <th scope="col" className="px-3 py-2 font-medium">Renueva</th>
                       <th scope="col" className="hidden px-3 py-2 text-right font-medium sm:table-cell">Cuota</th>
                       <th scope="col" className="px-2 py-2 text-right font-medium sm:px-3">Paga en B</th>
@@ -206,7 +206,7 @@ export function AlineacionAlumnasActuales() {
             </>
           )}
           <p className="mt-3 text-sm text-muted-foreground text-pretty">
-            <strong className="font-medium text-foreground">Qué verá cada alumna:</strong> el recibo de su renovación dirá, por ejemplo, {textoRecibo}. No enviamos ningún aviso aparte ni cobramos más de lo que ya aceptó: el importe es menor que su cuota. Si quieres avisarlas antes, escríbeles tú.
+            <strong className="font-medium text-foreground">Qué verá cada cliente:</strong> el recibo de su renovación dirá, por ejemplo, {textoRecibo}. No enviamos ningún aviso aparte ni cobramos más de lo que ya aceptó: el importe es menor que su cuota. Si quieres avisarlas antes, escríbeles tú.
           </p>
         </div>
       )}
@@ -231,11 +231,11 @@ export function AlineacionAlumnasActuales() {
       {confirmando && vista && (
         <div ref={dialogoRef} tabIndex={-1} className="mt-3 rounded-lg border border-brand p-3 outline-none focus-visible:ring-2 focus-visible:ring-brand" role="alertdialog" aria-labelledby="titulo-confirmar-alineacion" aria-describedby="texto-confirmar-alineacion"
           onKeyDown={e => { if (e.key === 'Escape' && !guardando) setConfirmando(false); }}>
-          <p id="titulo-confirmar-alineacion" className="text-sm font-medium text-foreground">¿Cobrar solo la parte proporcional a las alumnas actuales?</p>
+          <p id="titulo-confirmar-alineacion" className="text-sm font-medium text-foreground">¿Cobrar solo la parte proporcional a los clientes actuales?</p>
           <p id="texto-confirmar-alineacion" className="mt-1 text-sm text-muted-foreground text-pretty">
             {vista.alumnas === 0
-              ? 'Hoy no cambia ninguna alumna. Quedará activado para las cuotas que lleguen a renovar en adelante. '
-              : <>Afecta a <strong className="font-medium text-foreground">{vista.alumnas} {vista.alumnas === 1 ? 'alumna' : 'alumnas'}</strong>, que renuevan entre el {primeraFecha ? fechaCorta(primeraFecha) : '—'} y el {ultimaFecha ? fechaCorta(ultimaFecha) : '—'}. En esas renovaciones cobrarás <strong className="font-medium text-foreground">{eur(vista.totalCobraB)} en total</strong> por los días que quedan de ese mes (sin esta opción, esos días no se cobrarían); el día 1 pagan la cuota entera. </>}
+              ? 'Hoy no cambia ningún cliente. Quedará activado para las cuotas que lleguen a renovar en adelante. '
+              : <>Afecta a <strong className="font-medium text-foreground">{vista.alumnas} {vista.alumnas === 1 ? 'cliente' : 'clientes'}</strong>, que renuevan entre el {primeraFecha ? fechaCorta(primeraFecha) : '—'} y el {ultimaFecha ? fechaCorta(ultimaFecha) : '—'}. En esas renovaciones cobrarás <strong className="font-medium text-foreground">{eur(vista.totalCobraB)} en total</strong> por los días que quedan de ese mes (sin esta opción, esos días no se cobrarían); el día 1 pagan la cuota entera. </>}
             No se cambia ninguna cuota ahora: cada una cambia solo cuando le toca renovar. Puedes volver a la cuota entera cuando quieras; las que ya se alinearon siguen alineadas.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">

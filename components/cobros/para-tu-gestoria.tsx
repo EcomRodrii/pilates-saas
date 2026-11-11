@@ -58,7 +58,7 @@ export function ParaTuGestoria({ hoy, avisos }: { hoy: string; avisos: AvisosCob
       <div className="grid gap-4 md:grid-cols-3">
         <Bloque
           destacado titulo={bloques.anterior.etiqueta} cifra={cifras.anterior.neto}
-          detalle={`Con IVA, neto de lo devuelto · ${cifras.anterior.nCobros} ${cifras.anterior.nCobros === 1 ? 'cobro' : 'cobros'} · el fichero lleva fecha, clienta, concepto y método de cada uno`}
+          detalle={`Con IVA, neto de lo devuelto · ${cifras.anterior.nCobros} ${cifras.anterior.nCobros === 1 ? 'cobro' : 'cobros'} · el fichero lleva fecha, cliente, concepto y método de cada uno`}
           acciones={boton(bloques.anterior, 'Descargar')}
         />
         <Bloque

@@ -5,7 +5,7 @@ export default function Contenido() {
     <>
       <AyudaAntesDeEmpezar>
         Con el datáfono de Stripe conectado, cobrar con tarjeta en la Caja es un solo gesto: eliges <strong>Datáfono</strong>,
-        el importe aparece en su pantalla, la clienta pasa la tarjeta y la venta queda cobrada sola. Necesitas el cobro con
+        el importe aparece en su pantalla, el cliente pasa la tarjeta y la venta queda cobrada sola. Necesitas el cobro con
         tarjeta conectado (<strong>Configuración &gt; Cobros y facturas</strong>) y un datáfono de Stripe:{' '}
         <strong>Stripe Reader S700</strong> o <strong>BBPOS WisePOS E</strong>. Lo conectan la propietaria o recepción.
       </AyudaAntesDeEmpezar>

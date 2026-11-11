@@ -29,7 +29,7 @@ export const DONDE_SE_ARREGLA: Readonly<Record<string, string>> = {
 };
 
 /** Cuando ya no queda ninguna clase por venir (`avisoListo` lo calla: en «¡Listo!» lo enseña la vista previa). */
-export const AVISO_SIN_CLASE_FUTURA = 'Tus clases ya han pasado: no queda ninguna por venir que una alumna pueda reservar.';
+export const AVISO_SIN_CLASE_FUTURA = 'Tus clases ya han pasado: no queda ninguna por venir que un cliente pueda reservar.';
 
 /**
  * Por qué una alumna nueva todavía no puede reservar, con la frase de

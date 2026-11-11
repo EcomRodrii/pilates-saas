@@ -5,14 +5,14 @@ export default function Contenido() {
   return (
     <>
       <p>
-        En el checkout de un plan o bono, la alumna paga con el formulario de pago de Stripe — que ya muestra Apple
+        En el checkout de un plan o bono, el cliente paga con el formulario de pago de Stripe — que ya muestra Apple
         Pay o Google Pay solos si su dispositivo y navegador los soportan, sin que tengas que activar nada aparte.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Qué pasa en cada renovación</h2>
       <p>
         Si su plan es mensual, la tarjeta guardada se carga sola en la fecha de renovación. No hace falta que tú
-        hagas nada: el cobro, la factura y el aviso a la alumna salen solos.
+        hagas nada: el cobro, la factura y el aviso al cliente salen solos.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si quiere cambiar de tarjeta</h2>

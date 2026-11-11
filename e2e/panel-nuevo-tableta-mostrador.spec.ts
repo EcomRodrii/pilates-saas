@@ -41,7 +41,7 @@ test.describe('iPad vertical (768×1024)', () => {
     ])).toEqual([]);
   });
 
-  test('Clientas: estados, orden, lápiz y la casilla, que se marca tocando al lado', async ({ page }) => {
+  test('Clientes: estados, orden, lápiz y la casilla, que se marca tocando al lado', async ({ page }) => {
     await abrirPanel(page, 'clientas');
     const casilla = page.getByRole('checkbox', { name: 'Seleccionar a Bea Ortega' });
     await expect(casilla).toBeVisible({ timeout: 30_000 });
@@ -49,7 +49,7 @@ test.describe('iPad vertical (768×1024)', () => {
       ['estado «Todas»', page.getByRole('radio', { name: /^Todas/ })],
       ['estado «Activa»', page.getByRole('radio', { name: /^Activa/ })],
       ['«Segmentos»', page.getByRole('button', { name: /^Segmentos/ })],
-      ['ordenar por «Clienta»', page.getByRole('button', { name: 'Clienta', exact: true })],
+      ['ordenar por «Cliente»', page.getByRole('button', { name: 'Cliente', exact: true })],
       ['lápiz', page.getByRole('button', { name: 'Editar a Bea Ortega' })],
       // La casilla (16 px) no puede llevar el `::after`: la zona es su etiqueta.
       ['casilla (su etiqueta)', casilla.locator('xpath=..')],
@@ -68,9 +68,9 @@ test.describe('iPad vertical (768×1024)', () => {
       ['pestaña «Facturas»', secciones.getByRole('button', { name: 'Facturas' })],
       ['filtro «Todas»', page.getByRole('button', { name: /^Todas/ })],
       ['filtro «No se pudo cobrar»', page.getByRole('button', { name: /^No se pudo cobrar/ })],
-      ['buscador', page.getByRole('searchbox', { name: 'Buscar clienta o concepto' })],
+      ['buscador', page.getByRole('searchbox', { name: 'Buscar cliente o concepto' })],
       ['«Seleccionar todo»', page.getByRole('button', { name: 'Seleccionar todo' })],
-      ['marcar a una clienta', page.getByRole('button', { name: 'Marcar a Bea Ortega' })],
+      ['marcar a un cliente', page.getByRole('button', { name: 'Marcar a Bea Ortega' })],
       ['«Cobrar» de la fila', page.getByRole('button', { name: 'Cobrar', exact: true }).first()],
       ['«Ver lo que he cobrado»', page.getByRole('button', { name: 'Ver lo que he cobrado' })],
       ['nombre en «Próximas cuotas»', page.getByRole('link', { name: 'Laura Martín' }).last()],
@@ -84,8 +84,8 @@ test.describe('iPad vertical (768×1024)', () => {
     const malos = await controlesCortos([
       ['pestaña «Quién me debe»', secciones.getByRole('button', { name: /^Quién me debe/ })],
       ['filtro «No se pudo cobrar»', page.getByRole('button', { name: /^No se pudo cobrar/ })],
-      ['buscador', page.getByRole('searchbox', { name: 'Buscar clienta o concepto' })],
-      ['marcar a una clienta', page.getByRole('button', { name: 'Marcar a Bea Ortega' })],
+      ['buscador', page.getByRole('searchbox', { name: 'Buscar cliente o concepto' })],
+      ['marcar a un cliente', page.getByRole('button', { name: 'Marcar a Bea Ortega' })],
       ['«Ver lo que he cobrado»', page.getByRole('button', { name: 'Ver lo que he cobrado' })],
     ]);
     expect(malos.length, malos.join('\n')).toBe(5);
@@ -160,7 +160,7 @@ for (const [ancho, alto, nombre] of [[768, 1024, 'vertical'], [1024, 768, 'tumba
   });
 }
 
-test.describe('ficha de la clienta, iPad tumbado (1024×768)', () => {
+test.describe('ficha del cliente, iPad tumbado (1024×768)', () => {
   test.use({ viewport: { width: 1024, height: 768 } });
 
   test('los controles de la ficha y el título de cada tarjeta, entero', async ({ page }) => {
@@ -169,7 +169,7 @@ test.describe('ficha de la clienta, iPad tumbado (1024×768)', () => {
       await page.waitForTimeout(2000); await page.reload({ waitUntil: 'domcontentloaded' });
     }
     expect(await controlesCortos([
-      ['volver a «Clientas»', page.getByRole('link', { name: 'Clientas', exact: true }).last()],
+      ['volver a «Clientes»', page.getByRole('link', { name: 'Clientes', exact: true }).last()],
       ['«Reservar»', page.getByRole('button', { name: 'Reservar', exact: true })],
       ['«Más acciones»', page.getByRole('button', { name: 'Más acciones' }).first()],
       ['pestaña «Historia»', page.getByRole('tablist', { name: 'Secciones de la ficha' }).getByRole('tab', { name: 'Historia' })],

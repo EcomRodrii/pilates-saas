@@ -10,7 +10,7 @@ import { sembrarSociaCompleta, SLUG } from './socia-completa';
 
 const base = `/portal/${SLUG}`;
 
-test.describe('Fotos de la alumna', () => {
+test.describe('Fotos del cliente', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 393, height: 852 } });
 

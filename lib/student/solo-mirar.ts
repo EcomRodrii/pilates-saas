@@ -37,7 +37,7 @@ export const NOMBRE_MARCO_SOLO_MIRAR = 'tentare-solo-mirar';
 export const MOTIVO_SOLO_MIRAR = 'Vista previa del alta: aquí no se escribe nada';
 
 /** Lo que se le dice a quien intenta entrar o mandarse un código en el marco. */
-export const AVISO_SOLO_MIRAR = 'Es la vista previa de tu app: aquí no se manda ningún código ni se crea ninguna cuenta. Tus alumnas entran así, con su email.';
+export const AVISO_SOLO_MIRAR = 'Es la vista previa de tu app: aquí no se manda ningún código ni se crea ninguna cuenta. Tus clientes entran así, con su email.';
 
 /** Las rutas del propio origen que LEEN con POST (ver la cabecera). */
 export const LECTURAS_POR_POST: readonly string[] = [

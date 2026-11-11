@@ -14,9 +14,9 @@ export default function Contenido() {
       </p>
 
       <ul style={{ margin: '0 0 20px', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 15, lineHeight: 1.6 }}>
-        <li><strong>Dinero</strong> — lo cobrado, ya restado lo devuelto: la misma cifra que «Lo que he cobrado» en Cobros. Por qué entró (cuotas, bonos, clases sueltas, sesiones privadas, caja y otros) y el ingreso medio por clienta que pagó.</li>
-        <li><strong>Clases</strong> — la ocupación de cada tipo de clase. Se despliega por franja (día y hora) y, dentro, cada clase con su margen y su punto de equilibrio: cuántas alumnas necesitas para que esa clase no dé pérdidas.</li>
-        <li><strong>Clientas</strong> — las que más vienen, las nuevas del periodo, las activas hoy y cuántas siguen viniendo según el mes en que empezaron.</li>
+        <li><strong>Dinero</strong> — lo cobrado, ya restado lo devuelto: la misma cifra que «Lo que he cobrado» en Cobros. Por qué entró (cuotas, bonos, clases sueltas, sesiones privadas, caja y otros) y el ingreso medio por cliente que pagó.</li>
+        <li><strong>Clases</strong> — la ocupación de cada tipo de clase. Se despliega por franja (día y hora) y, dentro, cada clase con su margen y su punto de equilibrio: cuántos clientes necesitas para que esa clase no dé pérdidas.</li>
+        <li><strong>Clientes</strong> — las que más vienen, las nuevas del periodo, las activas hoy y cuántas siguen viniendo según el mes en que empezaron.</li>
       </ul>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Descargar</h2>

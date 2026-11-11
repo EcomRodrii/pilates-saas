@@ -68,7 +68,7 @@ export default function NotificacionesPage() {
     () => getNotificaciones(estudio.slug, estudio.id),
     [estudio.slug, estudio.id],
   );
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, undefined, `alumna:${estudio.slug}:avisos`);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, undefined, `cliente:${estudio.slug}:avisos`);
 
   // Sus reservas y clases, para saber si un botón tiene sentido. Si no se pueden
   // leer, los avisos se ven igual, sin botones: un botón a ciegas es peor.

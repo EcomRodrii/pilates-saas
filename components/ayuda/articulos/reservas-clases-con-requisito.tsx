@@ -14,15 +14,15 @@ export default function Contenido() {
 
       <AyudaPaso numero={1} titulo="Marca la clase">
         En <strong>Configuración → Mis clases y citas</strong>, edita el tipo de clase y activa{' '}
-        <strong>«Solo para alumnas autorizadas»</strong>.
+        <strong>«Solo para clientes autorizados»</strong>.
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Autoriza a quien corresponda">
-        En la ficha de cada alumna aparece un bloque nuevo, <strong>«Clases con requisito»</strong>, con la lista
+        En la ficha de cada cliente aparece un bloque nuevo, <strong>«Clases con requisito»</strong>, con la lista
         de las que has marcado. Enciende las suyas. Mientras no lo hagas, no puede reservarlas.
       </AyudaPaso>
 
-      <h2 style={h2}>Por qué no es un «nivel» de la alumna</h2>
+      <h2 style={h2}>Por qué no es un «nivel» del cliente</h2>
       <p>
         Podríamos haber puesto un nivel del 1 al 3 en su ficha, pero eso da por hecho que tus clases se ordenan
         de menor a mayor. En un estudio real conviven <strong>Máquina, Suelo, Gyrotonic y Yoga</strong> además de
@@ -30,7 +30,7 @@ export default function Contenido() {
         Suelo».
       </p>
       <p>
-        Con una lista por alumna autorizas exactamente lo que quieres, sin que subir de nivel a alguien le abra
+        Con una lista por cliente autorizas exactamente lo que quieres, sin que subir de nivel a alguien le abra
         de golpe clases que no tienen nada que ver.
       </p>
 

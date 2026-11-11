@@ -19,9 +19,9 @@ export interface QueHaceUnRol {
 
 const DETALLES: readonly (readonly [Rol, string])[] = [
   ['PROPIETARIO', 'Todo el panel, cobros incluidos. Es el único rol en Informes y Automatizaciones, y el único que ve toda la Configuración.'],
-  ['MANAGER', 'Lleva la sede: agenda, alumnas, sustituciones y equipo, y en Configuración su horario, sus salas y sus clases. De la salud solo ve el color del semáforo, y no ve cobros ni informes.'],
-  ['RECEPCION', 'Lleva la agenda, apunta alumnas y cobra. De la salud solo ve el color del semáforo, y no entra en Equipo, Informes ni Configuración.'],
-  ['INSTRUCTOR', 'No entra en el panel: trabaja en la app de tu estudio, con su agenda, sus bajas, su disponibilidad y sus alumnas.'],
+  ['MANAGER', 'Lleva la sede: agenda, clientes, sustituciones y equipo, y en Configuración su horario, sus salas y sus clases. De la salud solo ve el color del semáforo, y no ve cobros ni informes.'],
+  ['RECEPCION', 'Lleva la agenda, apunta clientes y cobra. De la salud solo ve el color del semáforo, y no entra en Equipo, Informes ni Configuración.'],
+  ['INSTRUCTOR', 'No entra en el panel: trabaja en la app de tu estudio, con su agenda, sus bajas, su disponibilidad y sus clientes.'],
 ];
 
 /** En el orden del filtro de Equipo: de quien más puede a quien menos. */

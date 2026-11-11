@@ -34,7 +34,7 @@ const DOCUMENTOS: { campo: Campo; titulo: string; ayuda: string; aviso: string; 
     campo: 'politicaPrivacidad',
     titulo: 'Política de privacidad',
     ayuda: 'La acepta al registrarse, antes de terminar el alta.',
-    aviso: 'Si lo cambias, a tus alumnas actuales no se les cobrará ninguna penalización hasta que acepten el texto nuevo.',
+    aviso: 'Si lo cambias, a tus clientes actuales no se les cobrará ninguna penalización hasta que acepten el texto nuevo.',
     guardado: 'Política de privacidad guardada',
   },
   {
@@ -42,8 +42,8 @@ const DOCUMENTOS: { campo: Campo; titulo: string; ayuda: string; aviso: string; 
     // tal cual se leyó, la fecha y el nombre con el que firmó.
     campo: 'terminosServicio',
     titulo: 'Términos y condiciones',
-    ayuda: 'El contrato que acepta cada alumna al darse de alta.',
-    aviso: 'Si lo cambias, a tus alumnas actuales no se les cobrará ninguna penalización hasta que acepten el texto nuevo.',
+    ayuda: 'El contrato que acepta cada cliente al darse de alta.',
+    aviso: 'Si lo cambias, a tus clientes actuales no se les cobrará ninguna penalización hasta que acepten el texto nuevo.',
     guardado: 'Términos y condiciones guardados',
   },
 ];
@@ -136,8 +136,8 @@ export function FormContratoYPrivacidad({ onGuardado }: PropsFormularioCajon) {
         seccion="altas"
         cambios={hayCambios(form, base) ? ['Contrato y privacidad'] : []}
         confirmar={hayPenalizacion ? {
-          titulo: '¿Cambiar los textos que aceptan tus alumnas?',
-          descripcion: 'Solo se cobra una penalización a quien aceptó exactamente el texto vigente. Si lo cambias, a tus alumnas actuales no se les cobrará ninguna hasta que acepten el nuevo. Con términos propios no se cobran nunca.',
+          titulo: '¿Cambiar los textos que aceptan tus clientes?',
+          descripcion: 'Solo se cobra una penalización a quien aceptó exactamente el texto vigente. Si lo cambias, a tus clientes actuales no se les cobrará ninguna hasta que acepten el nuevo. Con términos propios no se cobran nunca.',
           textoConfirmar: 'Sí, cambiarlos',
         } : null}
         onGuardar={alGuardar}

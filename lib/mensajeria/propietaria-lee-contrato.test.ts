@@ -20,7 +20,7 @@ const POLITICAS: [politica: string, tabla: string][] = [
   ['mensajeria_broadcast_lectura', 'realtime\\.messages'],
 ];
 
-test('una rama más, de propietaria y solo en hilos instructora–alumna, en las cuatro políticas de lectura', () => {
+test('una rama más, de propietaria y solo en hilos instructora–cliente, en las cuatro políticas de lectura', () => {
   assert.ok(NOMBRE, 'falta la migración *_mensajeria_propietaria_lee_instructora_alumna.sql');
   for (const [politica, tabla] of POLITICAS) {
     assert.match(SQL, new RegExp(`drop policy if exists ${politica} on ${tabla};`), `${politica}: sin drop previo`);

@@ -16,7 +16,7 @@ test('con el uso REAL y los límites que aplica el servidor', () => {
   const t = tarjetaDelPlan({ gratis: gratis(), sedes: null })!;
   assert.equal(t.subtitulo, 'Founding Studio · gratis');
   assert.deepEqual(t.cifras, [
-    { etiqueta: 'Alumnas activas', valor: 2, limite: 150 },
+    { etiqueta: 'Clientes activos', valor: 2, limite: 150 },
     // Lo que mide el servidor: las reservas de las clases de los últimos 30 días, no «este mes».
     { etiqueta: 'Reservas en los últimos 30 días', valor: 3, limite: 250 },
   ]);

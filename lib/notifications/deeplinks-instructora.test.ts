@@ -31,7 +31,7 @@ test('sin slug ningún aviso a una instructora genera un `/portal//…` roto', (
   assert.deepEqual(rotos, []);
 });
 
-test('un mensaje de una alumna la lleva a esa conversación en la app', () => {
+test('un mensaje de un cliente la lleva a esa conversación en la app', () => {
   const p = plantillaDe(EVENTOS.MENSAJE_RECIBIDO, 'INSTRUCTOR');
   assert.equal(p?.deepLink?.({ ...DATOS, tipo: 'ALUMNA_INSTRUCTORA' }), '/portal/pilates-centro/equipo/mensajes/c-1');
 });

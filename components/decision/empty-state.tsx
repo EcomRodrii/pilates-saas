@@ -25,7 +25,7 @@ export function EmptyState() {
         </p>
         <div className="flex flex-col items-start gap-1.5 pt-1 text-[13px] text-foreground">
           <span>✓ Crear una clase</span>
-          <span>✓ Añadir alumnas</span>
+          <span>✓ Añadir clientes</span>
           <span>✓ Registrar pagos</span>
         </div>
       </CardContent>

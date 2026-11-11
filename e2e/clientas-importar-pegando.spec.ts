@@ -44,7 +44,7 @@ async function montarCon(page: Page, o: { encendido: boolean; importar?: { statu
     return json(r, res.body, res.status);
   });
   await ir(page, 'clientas/importar');
-  await expect(page.getByRole('heading', { name: 'Importar clientas' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Importar clientes' })).toBeVisible({ timeout: 60_000 });
   return { importadas, preguntas };
 }
 
@@ -81,8 +81,8 @@ test('encendido: pegar lleva a la vista previa; nada se envía hasta «Importar�
   await expect(page.getByText(/La columna «Lesiones» parece de salud/)).toBeVisible();
   expect(importadas).toHaveLength(0);
 
-  await page.getByRole('button', { name: 'Importar 2 clientas' }).click();
-  await expect(page.getByText('2 clientas importadas')).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Importar 2 clientes' }).click();
+  await expect(page.getByText('2 clientes importados')).toBeVisible({ timeout: 20_000 });
   expect(importadas).toHaveLength(1);
   expect(importadas[0]).toContain('ana.pegada@example.com');
   expect(importadas[0]).not.toContain('Hernia');
@@ -96,7 +96,7 @@ test('relacionar a mano la columna de salud no deja importar', async ({ page }) 
 
   await page.getByLabel('Etiquetas').selectOption({ label: 'Lesiones' });
   await expect(page.getByRole('alert').filter({ hasText: '«Lesiones» parece de salud y está relacionada con «Etiquetas»' })).toBeVisible();
-  const boton = page.getByRole('button', { name: /Importar 2 clientas/ });
+  const boton = page.getByRole('button', { name: /Importar 2 clientes/ });
   await expect(boton).toBeDisabled();
   await boton.click({ force: true });
   expect(importadas).toHaveLength(0);
@@ -128,10 +128,10 @@ test('sin títulos (pegado desde el menú): la casilla lo corrige sin perder lo 
 test('si el servidor no importa, se dice (y sí se intentó)', async ({ page }) => {
   const { importadas } = await montarCon(page, { encendido: true, importar: { status: 500, body: { error: 'fallo' } } });
   await pegar(page, PEGADO);
-  await page.getByRole('button', { name: 'Importar 2 clientas' }).click();
+  await page.getByRole('button', { name: 'Importar 2 clientes' }).click();
   await expect.poll(() => importadas.length, { timeout: 20_000 }).toBeGreaterThan(0);
   await expect(page.getByText('La importación falló')).toBeVisible();
-  await expect(page.getByText(/clientas importadas/)).toHaveCount(0);
+  await expect(page.getByText(/clientes importados/)).toHaveCount(0);
 });
 
 test('más de 5.000 listas: se dice antes y el botón no envía nada', async ({ page }) => {
@@ -139,7 +139,7 @@ test('más de 5.000 listas: se dice antes y el botón no envía nada', async ({ 
   const muchas = ['Nombre\tEmail', ...Array.from({ length: 5001 }, (_, i) => `N${i}\tn${i}.pegada@example.com`)].join('\n');
   await pegar(page, muchas);
   await expect(page.getByRole('alert').filter({ hasText: 'se importan como mucho 5000 de una vez' })).toBeVisible({ timeout: 30_000 });
-  const boton = page.getByRole('button', { name: /Importar 5001 clientas/ });
+  const boton = page.getByRole('button', { name: /Importar 5001 clientes/ });
   await expect(boton).toBeDisabled();
   await boton.click({ force: true });
   expect(importadas).toHaveLength(0);

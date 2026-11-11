@@ -105,7 +105,7 @@ test.describe('La card de sustituta no enseña porcentajes sin respaldo', () => 
   test('sin historial suficiente: barra de encaje sí, porcentaje NO', async ({ page }) => {
     await mockBackend(page, [{
       instructor_id: 'inst-marta', nombre: 'Marta Sanz', score: 115, compatibilidad: 99, veces: 5,
-      motivos: ['está disponible', 'ya ha dado esta clase 5 veces — las alumnas la conocen'],
+      motivos: ['está disponible', 'ya ha dado esta clase 5 veces — los clientes la conocen'],
       prob_aceptacion: null, prob_aceptadas: 4, prob_ofertas: 4,
     }]);
     await seedSesionDeDuena(page);

@@ -37,7 +37,7 @@ export const PRIMEROS_PASOS_ALTA = [
   'Crea tu cuenta',
   'Crea tu primera clase',
   'Comparte el enlace de tu app',
-  'Trae a tus alumnas',
+  'Trae a tus clientes',
   'Recibe tu primera reserva',
 ] as const;
 
@@ -92,9 +92,9 @@ ${contenido}
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
 <div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Tu cuenta está activa</div>
-${parrafo(`<b>${escaparHtml(estudio)}</b> ya tiene la app de sus alumnas:`)}
+${parrafo(`<b>${escaparHtml(estudio)}</b> ya tiene la app de sus clientes:`)}
 <div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
-${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus alumnas podrán entrar con su email y reservar desde el móvil, sin descargarse nada.')}
+${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus clientes podrán entrar con su email y reservar desde el móvil, sin descargarse nada.')}
 </td></tr>`,
     botonTentare({ href: p.urlPrimeraClase, texto: 'Crear mi primera clase' }),
     caja(`${etiqueta('Primeros pasos · 1 de 5')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${pasos}</table>`),
@@ -152,10 +152,10 @@ export function correoRecibirReservas(p: {
 ${parrafo(`Tu clase <b>${escaparHtml(p.claseNombre.trim() || 'de hoy')}</b> está publicada (${escaparHtml(p.cuando)}). Copia este enlace y mándalo:`)}
 <div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.arena}" style="background:${t.arena};border-radius:8px;margin:0 0 14px;"><tr>
-<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus alumnas" style="display:block;border:0;width:120px;height:120px;background:${t.papel};"></td>
-<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus alumnas.</td>
+<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus clientes" style="display:block;border:0;width:120px;height:120px;background:${t.papel};"></td>
+<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus clientes.</td>
 </tr></table>
-${parrafo('Pégalo en tu Instagram o en el grupo de WhatsApp de tus alumnas. Entran con su email, sin descargarse nada.')}
+${parrafo('Pégalo en tu Instagram o en el grupo de WhatsApp de tus clientes. Entran con su email, sin descargarse nada.')}
 ${parrafo('Si quieres que reserven desde tu propia web, lo preparas en Configuración › Mi app y mi web.')}
 </td></tr>`,
     botonTentare({ href: p.urlApp, texto: 'Abrir mi app' }),
@@ -203,7 +203,7 @@ export function correoPrimeraClase(p: {
       parrafo(`Está preparada con valores de ejemplo: ${escaparHtml(p.variante.ejemplo.clase)}, ${p.variante.ejemplo.minutos} minutos y ${p.variante.ejemplo.plazas} plazas. Tú eliges el día y la hora, pones el precio y la publicas.`),
     ].join('')
     : [
-      parrafo(`A <b>${escaparHtml(estudio)}</b> le falta una cosa para recibir reservas: que una alumna nueva pueda reservar tu clase.`),
+      parrafo(`A <b>${escaparHtml(estudio)}</b> le falta una cosa para recibir reservas: que un cliente nuevo pueda reservar tu clase.`),
       parrafo(escaparHtml(p.variante.aviso)),
     ].join('');
 
@@ -220,7 +220,7 @@ ${cuerpo}
   return {
     asunto: p.variante.tipo === 'sin_clase'
       ? 'Tu primera clase en Tentare, en 5 minutos'
-      : `Tus alumnas todavía no pueden reservar en ${estudio}`,
+      : `Tus clientes todavía no pueden reservar en ${estudio}`,
     preheader,
     html: marcoTentare(preheader, bloques, pieDelRecordatorio(estudio)),
   };
@@ -264,14 +264,14 @@ export function correoEmpuje(p: {
 
   const contenido = p.variante === 'compartir'
     ? {
-      asunto: 'Tu clase está lista: falta que lo sepan tus alumnas',
-      preheader: `${estudio} ya puede recibir reservas. Solo falta que tus alumnas tengan el enlace.`,
+      asunto: 'Tu clase está lista: falta que lo sepan tus clientes',
+      preheader: `${estudio} ya puede recibir reservas. Solo falta que tus clientes tengan el enlace.`,
       titular: `Tu app ya puede recibir reservas${nombre ? `, ${escaparHtml(nombre)}` : ''}`,
       cuerpo: [
-        parrafo(`En <b>${escaparHtml(estudio)}</b> ya hay una clase que una alumna nueva puede reservar. Lo único que falta es que se enteren.`),
+        parrafo(`En <b>${escaparHtml(estudio)}</b> ya hay una clase que un cliente nuevo puede reservar. Lo único que falta es que se enteren.`),
         parrafo('El enlace de tu app es el que tienes que darles. Entran con su email, sin descargarse nada, y reservan desde el móvil. Lo que más sencillo resulta:'),
         lista([
-          'pegarlo en el <b>grupo de WhatsApp</b> de tus alumnas;',
+          'pegarlo en el <b>grupo de WhatsApp</b> de tus clientes;',
           'ponerlo en la <b>bio de tu Instagram</b>;',
           'imprimir su <b>código QR</b> y dejarlo en recepción.',
         ]),
@@ -280,15 +280,15 @@ export function correoEmpuje(p: {
     }
     : {
       asunto: `Ya compartiste el enlace de ${estudio}: las primeras reservas`,
-      preheader: 'Casi siempre las primeras alumnas llegan cuando se lo pides tú, una a una.',
+      preheader: 'Casi siempre las primeras clientes llegan cuando se lo pides tú, una a una.',
       titular: `Las primeras reservas${nombre ? `, ${escaparHtml(nombre)}` : ''}`,
       cuerpo: [
         parrafo(`Compartiste el enlace de la app de <b>${escaparHtml(estudio)}</b>, pero todavía no ha reservado nadie.`),
         parrafo('Es lo habitual la primera vez: con un enlace suelto en un grupo no basta, hay que pedírselo directamente. Tres cosas que ayudan:'),
         lista([
-          'escribir <b>tú misma</b> a las alumnas que ya tienes, con el enlace, y pedirles que reserven su próxima clase;',
+          'escribir <b>tú misma</b> a los clientes que ya tienes, con el enlace, y pedirles que reserven su próxima clase;',
           'dejar el <b>QR impreso</b> en recepción para quien venga a clase;',
-          'dar de alta a tus alumnas con su <b>correo</b>: sin correo no pueden entrar a la app.',
+          'dar de alta a tus clientes con su <b>correo</b>: sin correo no pueden entrar a la app.',
         ]),
       ].join(''),
       boton: 'Ver mi enlace y mi QR',

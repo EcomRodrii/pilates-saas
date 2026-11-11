@@ -54,7 +54,7 @@ export function tarjetaDelPlan(p: { gratis: EstadoGratisApi | null | undefined; 
   return {
     subtitulo: varias ? `${founding} · gratis · 1 sede` : `${founding} · gratis`,
     cifras: [
-      { etiqueta: 'Alumnas activas', valor: g.uso.alumnasActivas, limite: g.limites.alumnas },
+      { etiqueta: 'Clientes activos', valor: g.uso.alumnasActivas, limite: g.limites.alumnas },
       { etiqueta: 'Reservas en los últimos 30 días', valor: g.uso.reservas30Dias, limite: g.limites.reservasMes },
     ],
     texto,

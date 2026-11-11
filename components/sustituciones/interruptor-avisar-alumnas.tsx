@@ -55,7 +55,7 @@ export function InterruptorAvisarAlumnas({ guardado, onGuardado, className }: {
         {/* El nombre lo pone el <label>; el interruptor es el mismo de todo el panel. */}
         <Interruptor on={!!guardado} disabled={guardado === null} ocupado={enviando} onChange={() => void cambiar()} />
         <span className="text-foreground">
-          Avisar a las alumnas, por email y en su app, cuando por una baja su clase cambia de instructora, se mueve o se cancela
+          Avisar a los clientes, por email y en su app, cuando por una baja su clase cambia de instructora, se mueve o se cancela
         </span>
       </label>
       <p role="status" className="mt-1 min-h-[1em] text-xs text-muted-foreground">

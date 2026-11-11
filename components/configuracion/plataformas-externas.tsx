@@ -300,7 +300,7 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
   return (
     <div className="mt-3 space-y-2 rounded-xl bg-muted/60 px-3 py-3" data-testid={`liberar-apartadas-${plataforma.toLowerCase()}`}>
       <p className="text-xs text-muted-foreground">
-        Las plazas que cedes a {nombre} quedan apartadas: tus alumnas no pueden reservarlas mientras {nombre} no las venda.
+        Las plazas que cedes a {nombre} quedan apartadas: tus clientes no pueden reservarlas mientras {nombre} no las venda.
       </p>
       {horas === undefined ? (
         <p className="text-xs text-warning">No hemos podido leer cuándo se liberan. Vuelve a abrir esta pantalla en un momento.</p>
@@ -341,7 +341,7 @@ function LiberarApartadas({ plataforma, preguntar, showToast }: {
             </button>
           </div>
           <p id={`liberar-horas-ayuda-${plataforma}`} className="text-xs text-muted-foreground">
-            Pon las mismas que tengas en {nombre}: a esa hora, las plazas que no haya vendido pasan a tus alumnas (entre 0 y 72).
+            Pon las mismas que tengas en {nombre}: a esa hora, las plazas que no haya vendido pasan a tus clientes (entre 0 y 72).
             {sinConfigurar && ' Mientras no lo pongas, se quedan apartadas hasta que empieza la clase.'}
           </p>
         </form>

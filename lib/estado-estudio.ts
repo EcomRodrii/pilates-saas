@@ -189,8 +189,8 @@ const LINEAS: DefLinea[] = [
   // Sin tarjeta guardada (cuota cobrada en recepción) la renovación no se cobra
   // sola: o la cobras tú, o ella la paga desde su app, que ya se lo ha avisado.
   { id: 'renovacionesSinCobro', bandeja: 'decidir', href: '/cobros?tab=deudas',
-    uno: 'Una renovación no se cobra sola: su clienta no tiene tarjeta guardada',
-    varios: n => `${n} renovaciones no se cobran solas: sus clientas no tienen tarjeta guardada` },
+    uno: 'Una renovación no se cobra sola: su cliente no tiene tarjeta guardada',
+    varios: n => `${n} renovaciones no se cobran solas: sus clientes no tienen tarjeta guardada` },
   { id: 'penalizacionesPorAprobar', bandeja: 'decidir', href: null,
     uno: 'Una penalización espera tu visto bueno para cobrarse', varios: n => `${n} penalizaciones esperan tu visto bueno para cobrarse` },
   { id: 'devolucionesPorRevisar', bandeja: 'decidir', href: null,
@@ -212,7 +212,7 @@ const LINEAS: DefLinea[] = [
   // «Recuérdamelo» de una ficha: hoy toca llamarla o escribirle. Se ve en la
   // lista de Clientas con ese filtro, y cada uno en su ficha.
   { id: 'seguimientosParaHoy', bandeja: 'decidir', href: '/clientas?mas=seguimiento_hoy',
-    uno: 'Un seguimiento de una clienta para hoy', varios: n => `${n} seguimientos de clientas para hoy o atrasados` },
+    uno: 'Un seguimiento de un cliente para hoy', varios: n => `${n} seguimientos de clientes para hoy o atrasados` },
   { id: 'canjesPorEntregar', bandeja: 'decidir', href: null,
     uno: 'Una recompensa canjeada por entregar', varios: n => `${n} recompensas canjeadas por entregar` },
   // Backstop A-14: cobro confirmado en Stripe sin venta registrada. Se resuelve

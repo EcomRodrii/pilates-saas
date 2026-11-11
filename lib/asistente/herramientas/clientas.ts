@@ -29,7 +29,7 @@ export async function contarAlumnas(_input: unknown, ctx: ContextoHerramienta): 
     },
     bloques: [{
       tipo: 'metricas',
-      titulo: 'Tus alumnas',
+      titulo: 'Tus clientes',
       metricas: ESTADOS_CLIENTA.filter(e => c[e] > 0 || e === 'ACTIVA').map(e => ({
         // El mismo filtro de Clientas al que llevan las cifras del Resumen.
         etiqueta: ETIQUETA_ESTADO[e], valor: String(c[e]), tipo: 'n' as const, href: `/clientas?estado=${e}`,

@@ -4,11 +4,11 @@ import { abrirSeccion, interruptor, volverDeHerramienta } from './ayudas.ts';
 export const avisos: Capitulo = {
   id: 'avisos',
   titulo: 'Mis avisos',
-  frase: 'Los avisos que te llegan a ti, no los de tus alumnas.',
+  frase: 'Los avisos que te llegan a ti, no los de tus clientes.',
   async guion(g, pos) {
     const { page } = g;
     await abrirSeccion(g, pos, 'avisos', 'Mis avisos', 'Los avisos que te llegan a ti.',
-      'Decimotercer capítulo: mis avisos. Son los avisos que te llegan a ti, no los de tus alumnas.');
+      'Decimotercer capítulo: mis avisos. Son los avisos que te llegan a ti, no los de tus clientes.');
 
     g.momento('tus-avisos');
     await g.mientras('Tipos de aviso. Enciendes o apagas cada tipo de aviso, dentro del panel o como notificación push en el móvil. Entramos a la tabla.', async () => {

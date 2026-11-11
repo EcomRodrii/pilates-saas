@@ -110,7 +110,7 @@ test('franjas que ya tiene: una plaza de un tipo concreto solo cubre la franja d
   assert.equal(franjasQueYaTiene([franja({ tipoClaseId: 'tc-1' })], [plaza({ tipoClaseId: 'tc-1' })], '2026-09-21'), 1);
 });
 
-test('estado de la alumna respecto a la oferta', () => {
+test('estado del cliente respecto a la oferta', () => {
   assert.equal(estadoAlumnaOferta({ franjas: 2, yaTiene: 0, pedida: false }), 'LIBRE');
   assert.equal(estadoAlumnaOferta({ franjas: 2, yaTiene: 0, pedida: true }), 'PEDIDA');
   assert.equal(estadoAlumnaOferta({ franjas: 2, yaTiene: 1, pedida: false }), 'PARCIAL');
@@ -245,7 +245,7 @@ test('nombreDePlazaSuelta: tipo, día y hora; sin tipo, «Clase»', () => {
   assert.equal(nombreDePlazaSuelta(sueltaQueTermina({ tipo: '  ', diaSemana: 0, horaInicio: '08:30' })), 'Clase · domingo 08:30');
 });
 
-test('agruparTerminanPronto: UN aviso por alumna y fecha de fin, no uno por plaza', () => {
+test('agruparTerminanPronto: UN aviso por cliente y fecha de fin, no uno por plaza', () => {
   const avisos = agruparTerminanPronto([
     sueltaQueTermina({ id: 'pf-a', diaSemana: 5, horaInicio: '18:00:00', tipo: 'Mat' }),
     sueltaQueTermina({ id: 'pf-b', diaSemana: 3 }),

@@ -52,7 +52,7 @@ export function DoblesCobrosPorRevisar({ onToast }: { onToast: MostrarToast }) {
         </p>
       </div>
       <p className="mb-3 text-[11px] text-muted-foreground">
-        A la alumna se le ha cobrado de más. Devuelve el cargo que sobra desde Cobros y márcalo aquí.
+        Al cliente se le ha cobrado de más. Devuelve el cargo que sobra desde Cobros y márcalo aquí.
       </p>
       <ul className="flex flex-col gap-2">
         {items.map((d) => (

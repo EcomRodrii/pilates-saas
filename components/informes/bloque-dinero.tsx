@@ -95,16 +95,16 @@ export function BloqueDinero({ periodo, actual, anterior, puntos, comparacion, v
         </div>
 
         <div className="rounded-xl border border-border p-4" data-testid="informe-ingreso-medio">
-          <h3 className="text-[13.5px] font-semibold text-foreground">Ingreso medio por clienta que pagó</h3>
+          <h3 className="text-[13.5px] font-semibold text-foreground">Ingreso medio por cliente que pagó</h3>
           <p className="mt-1 text-[24px] font-semibold tabular-nums text-foreground">
             {actual.ingresoMedioPorClienta == null ? '—' : <Euros n={actual.ingresoMedioPorClienta} />}
           </p>
           <p className="text-[12.5px] text-muted-foreground text-pretty">
             {actual.clientasQuePagaron === 0
-              ? 'Ninguna clienta ha pagado nada en este periodo.'
+              ? 'Ningún cliente ha pagado nada en este periodo.'
               : <>
-                  {actual.clientasQuePagaron} {actual.clientasQuePagaron === 1 ? 'clienta pagó' : 'clientas pagaron'}{' '}
-                  <Euros n={actual.pagadoPorClientas} />; no cuenta las ventas de caja sin clienta.
+                  {actual.clientasQuePagaron} {actual.clientasQuePagaron === 1 ? 'cliente pagó' : 'clientes pagaron'}{' '}
+                  <Euros n={actual.pagadoPorClientas} />; no cuenta las ventas de caja sin cliente.
                 </>}
           </p>
         </div>

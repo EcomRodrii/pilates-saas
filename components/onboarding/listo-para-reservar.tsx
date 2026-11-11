@@ -266,13 +266,13 @@ export function ListoParaReservar({
               aviso; y mientras el servidor contesta, ni lo uno ni lo otro. En el
               paso 7 del alta, con el SÍ, la frase de la maqueta. */}
           {nombreClase && comprobado
-            ? 'Tus alumnas entran con su email, sin descargarse nada, y la reservan desde el móvil. Mándales el enlace de tu app: así llega tu primera reserva.'
+            ? 'Tus clientes entran con su email, sin descargarse nada, y la reservan desde el móvil. Mándales el enlace de tu app: así llega tu primera reserva.'
             : finalParrafo}
         </p>
         {nombreClase && comprobado && (
           <p className="mx-auto mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-foreground" data-testid="comprobado-reservar">
             <CircleCheck size={16} className="text-success" aria-hidden />
-            Comprobado: una alumna nueva puede reservar
+            Comprobado: un cliente nuevo puede reservar
           </p>
         )}
         {avisoFinal && (
@@ -349,15 +349,15 @@ export function ListoParaReservar({
                 url={url}
                 slug={slug}
                 estudio={nombreEstudio}
-                nombreEnlace="App de tus alumnas"
+                nombreEnlace="App de tus clientes"
                 onDescargado={() => { if (esPropietaria) apuntarEnlaceCompartido('qr'); }}
               />
-              <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus alumnas.</p>
+              <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus clientes.</p>
             </div>
           )}
 
           <p className="mt-5 text-[12.5px] leading-relaxed text-muted-foreground">
-            Pégalo en tu Instagram, en el grupo de WhatsApp o donde ya hablas con tus alumnas.
+            Pégalo en tu Instagram, en el grupo de WhatsApp o donde ya hablas con tus clientes.
             Entran con su email y un código, sin descargarse nada.
           </p>
           {/* Solo si el servidor lo ha mandado de verdad: sale una vez y con el SÍ. */}
@@ -383,7 +383,7 @@ export function ListoParaReservar({
         {/* Su app DE VERDAD, no una ilustración. */}
         <div>
           <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Así lo ve tu alumna
+            Así lo ve tu cliente
           </p>
           {/* ⚠️ A ancho de móvil real (402 pt) y encogida con `scale`: un iframe de
               240 px sería un viewport que no existe en ningún teléfono. Es el marco

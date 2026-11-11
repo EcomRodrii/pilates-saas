@@ -47,7 +47,7 @@ test('SIN_PLAN / BONO: puede reservar ahora mismo con un plan o bono (no «tiene
   assert.deepEqual(resolverDestinatariasCampana('SIN_PLAN', { socios, suscripciones, estados }).map(s => s.id), ['2']);
 });
 
-test('sin el estado de cada clienta, esas audiencias no resuelven a NADIE (nunca a quien no toca)', () => {
+test('sin el estado de cada cliente, esas audiencias no resuelven a NADIE (nunca a quien no toca)', () => {
   const socios = [socio({ id: '1' }), socio({ id: '2', activo: false })];
   for (const seg of ['ACTIVAS', 'INACTIVAS', 'BONO', 'SIN_PLAN', 'ETAPA:ACTIVA'] as const) {
     assert.deepEqual(resolverDestinatariasCampana(seg, { socios, suscripciones: [], estados: null }), [], seg);

@@ -108,7 +108,7 @@ export default function DatosInstructoraPage() {
               quitar={() => quitarFotoInstructora(slug)}
             />
             <p className="t-meta" style={{ textAlign: 'center', margin: 0 }}>
-              Tu foto, tu nombre y tu descripción los ven las alumnas de {estudio.nombre}.
+              Tu foto, tu nombre y tu descripción los ven los clientes de {estudio.nombre}.
             </p>
 
             <Input

@@ -25,7 +25,7 @@ test('uno que viene se quita, y la confirmación dice que las clases y los bonos
   assert.equal(a.momento, 'proximo');
   assert.equal(a.boton, 'Quitar este cierre');
   assert.equal(a.titulo, '¿Quitar el cierre del 24–26 dic?');
-  assert.ok(a.descripcion.startsWith('Tus alumnas podrán volver a reservar esos días.'));
+  assert.ok(a.descripcion.startsWith('Tus clientes podrán volver a reservar esos días.'));
   assert.ok(a.descripcion.includes(LO_QUE_NO_VUELVE));
   assert.equal(a.textoConfirmar, 'Sí, quitar el cierre');
   assert.equal(a.hecho, 'Cierre quitado');

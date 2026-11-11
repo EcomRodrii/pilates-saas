@@ -66,7 +66,7 @@ async function nombrar(page: Page) {
   });
 }
 
-test.describe('app de la alumna', () => {
+test.describe('app del cliente', () => {
   // La pantalla del iPhone 17 Pro (402 × 874) menos los 59 pt de la barra de estado, que
   // scripts/capturas-landing.mjs añade encima: así el marco de components/ui/marco-iphone.tsx
   // dibuja la hora y la isla sin tapar la cabecera de la app.
@@ -238,7 +238,7 @@ test.describe('panel · resto', () => {
       { id: 'pt-mes', studio_id: STUDIO, nombre: 'Mensual ilimitado', precio: 89, tipo: 'MENSUAL', sesiones: null, activo: true },
     ]));
     const filas = ['email,membershipName,creditsRemaining'];
-    for (let i = 1; i <= 38; i++) filas.push(`alumna${String(i).padStart(2, '0')}@example.com,${i % 3 ? 'Bono 10 Reformer' : 'Mensual ilimitado'},${i % 3 ? (i % 9) + 1 : ''}`);
+    for (let i = 1; i <= 38; i++) filas.push(`cliente${String(i).padStart(2, '0')}@example.com,${i % 3 ? 'Bono 10 Reformer' : 'Mensual ilimitado'},${i % 3 ? (i % 9) + 1 : ''}`);
     await page.route('**/api/migracion/analizar**', (r) => json(r, {
       orden: ['membresias'], avisos: [],
       archivos: [{ nombre: 'bonos-y-membresias.csv', entidad: 'membresias', entidadEtiqueta: 'Bonos y membresías', origen: 'auto', confianza: 1,

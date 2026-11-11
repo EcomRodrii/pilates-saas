@@ -18,10 +18,10 @@ export default function ComunidadPage() {
     <div className="space-y-6">
       <PageHeader
         title="Comunidad"
-        description="Lo que publiques aquí lo verán tus clientas en su portal."
+        description="Lo que publiques aquí lo verán tus clientes en su portal."
         badge={conteos ? (
           <span className="rounded-full border border-border bg-card px-2.5 py-0.5 text-[12px] text-muted-foreground">
-            {conteos.ACTIVA} {conteos.ACTIVA === 1 ? 'clienta activa' : 'clientas activas'}
+            {conteos.ACTIVA} {conteos.ACTIVA === 1 ? 'cliente activo' : 'clientes activos'}
           </span>
         ) : undefined}
       />

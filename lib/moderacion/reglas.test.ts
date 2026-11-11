@@ -53,7 +53,7 @@ test('quien bloqueó lo ve como suyo; a quien bloquearon no se le dice quién fu
   assert.equal(estadoDelHilo({ tipo: 'ALUMNA_INSTRUCTORA', cerradaEn: null, participantes, yo: { authUserId: 'cuenta-profe' } }), 'NO_ADMITE');
 });
 
-test('la alumna se reconoce por su ficha aunque su fila ya no tenga cuenta; si las dos bloquearon, no admite', () => {
+test('el cliente se reconoce por su ficha aunque su fila ya no tenga cuenta; si las dos bloquearon, no admite', () => {
   const sinCuenta = { ...alumna(AHORA), auth_user_id: null };
   assert.equal(estadoDelHilo({ tipo: 'ALUMNA_INSTRUCTORA', cerradaEn: null, participantes: [sinCuenta, profe()], yo: { socioId: 'so1', authUserId: 'cuenta-nueva' } }), 'BLOQUEADA_POR_MI');
   assert.equal(estadoDelHilo({ tipo: 'ALUMNA_INSTRUCTORA', cerradaEn: null, participantes: [alumna(AHORA), profe(AHORA)], yo: { socioId: 'so1' } }), 'NO_ADMITE');

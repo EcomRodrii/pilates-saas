@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   }
   const socioId = typeof body.socioId === 'string' && body.socioId ? body.socioId : null;
-  if (accion !== 'listar' && !socioId) return NextResponse.json({ error: 'Falta la alumna' }, { status: 400 });
+  if (accion !== 'listar' && !socioId) return NextResponse.json({ error: 'Falta el cliente' }, { status: 400 });
 
   try {
     const sesion = await verificarInstructoraEnEstudio(req, body.slug);
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       const limite = await rateLimit(`portal-instructora-nota:${sesion.instructorId}`, porInstructora);
       if (!limite.allowed) return tooManyRequestsResponse(retryAfterSeconds(limite.resetAt, porInstructora.windowSeconds));
       const r = await guardarNotaDeSesion({ ...suya, socioId: socioId as string, nota: lectura.nota });
-      if (r === 'NO_ES_SUYA') return NextResponse.json({ error: 'No encontramos a esta alumna.' }, { status: 404 });
+      if (r === 'NO_ES_SUYA') return NextResponse.json({ error: 'No encontramos a este cliente.' }, { status: 404 });
       if (r === 'SIN_CONSENTIMIENTO') {
         return NextResponse.json({ error: 'No ha dado su consentimiento para guardar datos de salud, así que no se puede guardar la nota.', code: 'SIN_CONSENTIMIENTO' }, { status: 409 });
       }
@@ -67,12 +67,12 @@ export async function POST(req: NextRequest) {
       const salud = await saludDeAlumna({
         ...suya, socioId: socioId as string, lector: { userId: sesion.userId, nombre: sesion.nombre },
       });
-      if (!salud) return NextResponse.json({ error: 'No encontramos a esta alumna.' }, { status: 404 });
+      if (!salud) return NextResponse.json({ error: 'No encontramos a este cliente.' }, { status: 404 });
       return NextResponse.json(salud, { headers: { 'Cache-Control': 'no-store' } });
     }
 
     const ficha = await fichaDeAlumna({ ...suya, socioId: socioId as string });
-    if (!ficha) return NextResponse.json({ error: 'No encontramos a esta alumna.' }, { status: 404 });
+    if (!ficha) return NextResponse.json({ error: 'No encontramos a este cliente.' }, { status: 404 });
     return NextResponse.json(ficha);
   } catch (err) {
     if (accion === 'nota') {
@@ -80,6 +80,6 @@ export async function POST(req: NextRequest) {
     }
     return accion === 'salud'
       ? errorInterno('portal/instructora/alumnas:salud', err, 'No hemos podido abrir sus avisos de salud. Vuelve a intentarlo.')
-      : errorInterno('portal/instructora/alumnas:POST', err, 'No hemos podido cargar tus alumnas. Vuelve a intentarlo.');
+      : errorInterno('portal/instructora/alumnas:POST', err, 'No hemos podido cargar tus clientes. Vuelve a intentarlo.');
   }
 }

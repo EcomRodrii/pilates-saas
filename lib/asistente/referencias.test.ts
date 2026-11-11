@@ -53,7 +53,7 @@ test('ningún nombre de las fixtures llega a lo que va a Anthropic, ni correos n
 // Revisión de seguridad del 5-oct: el motivo de una recomendación A4 (LLENAR_PLAZAS,
 // sin socioId) nombra a OTRA socia («la primera, Lucía…»). Seudonimizar solo con la
 // socia de la recomendación dejaba ese nombre camino de Anthropic.
-test('el texto de una recomendación sale sin el nombre de ninguna alumna, aunque no sea la suya', () => {
+test('el texto de una recomendación sale sin el nombre de ningún cliente, aunque no sea la suya', () => {
   const t = tablaReferencias();
   const motivo = 'Quedan 3 plazas el jueves — la primera, Lucía, suele venir a esa hora';
   const { texto } = marcarPersonasEnPregunta(motivo, PERSONAS, t);

@@ -87,7 +87,7 @@ export function PuertaAppInstructora({ studioId, slug, nombre }: { studioId: str
             En {nombre} tu trabajo está en la app del estudio
           </h1>
           <p className="text-[13px] text-muted-foreground">
-            Tu agenda, pedir una baja, pasar lista, tus alumnas y los mensajes, desde el móvil.
+            Tu agenda, pedir una baja, pasar lista, tus clientes y los mensajes, desde el móvil.
           </p>
         </div>
         {slug ? (

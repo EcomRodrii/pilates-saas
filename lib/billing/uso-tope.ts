@@ -19,5 +19,5 @@ export interface UsoTope {
 export function usoDelTope(activas: number | null, maxSocios: number): UsoTope | null {
   if (!Number.isFinite(maxSocios)) return null;
   const n = activas === null ? '—' : String(activas);
-  return { texto: `${n} de ${maxSocios} clientas activas`, excedido: activas !== null && activas > maxSocios };
+  return { texto: `${n} de ${maxSocios} clientes activos`, excedido: activas !== null && activas > maxSocios };
 }

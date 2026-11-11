@@ -112,7 +112,7 @@ test.describe('Instructora dada de alta con su correo', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Ana');
   });
 
-  test('como alumna, sigue su alta de alumna diciendo que lo eligió', async ({ page }) => {
+  test('como cliente, sigue su alta de cliente diciendo que lo eligió', async ({ page }) => {
     test.setTimeout(120_000);
     const contador = await montar(page, { pendiente: true, yaUnida: false, celdas: [] });
     await page.goto(`/portal/${SLUG}/acceso/verificar`);
@@ -125,7 +125,7 @@ test.describe('Instructora dada de alta con su correo', () => {
     expect(contador.unirse).toBe(0);
   });
 
-  test('sin nada pendiente, el alta de alumna sigue como siempre y no se pregunta nada', async ({ page }) => {
+  test('sin nada pendiente, el alta de cliente sigue como siempre y no se pregunta nada', async ({ page }) => {
     test.setTimeout(120_000);
     const contador = await montar(page, { pendiente: false, yaUnida: false, celdas: [] });
     await page.goto(`/portal/${SLUG}/acceso/verificar`);

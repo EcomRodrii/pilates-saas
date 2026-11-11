@@ -15,15 +15,15 @@ export default function Contenido() {
     <>
       <AyudaAntesDeEmpezar>
         Tu equipo no trabaja en el panel: trabaja en <strong>la app de tu estudio</strong>, desde el móvil, con la
-        misma marca que ven tus alumnas. Ahí tiene su agenda, pasa lista, dice cuándo puede cubrir y habla con sus
-        alumnas.
+        misma marca que ven tus clientes. Ahí tiene su agenda, pasa lista, dice cuándo puede cubrir y habla con sus
+        clientes.
       </AyudaAntesDeEmpezar>
 
       <h2 style={{ ...h2, marginTop: 4 }}>El enlace para dárselo</h2>
       <p>
         En <strong>Configuración</strong> &gt; <strong>Mi equipo</strong> &gt;{' '}
         <strong>«La app de tus instructoras»</strong>, con un botón para copiarlo. Es el enlace que abren para entrar
-        con su cuenta a su agenda, sus bajas, su disponibilidad y sus alumnas.
+        con su cuenta a su agenda, sus bajas, su disponibilidad y sus clientes.
       </p>
 
       <h2 style={h2}>Cómo entra la primera vez</h2>
@@ -34,10 +34,10 @@ export default function Contenido() {
         directamente a la app de tu estudio.
       </p>
       <p>
-        Si esa persona <strong>también es alumna tuya</strong>, la app le pregunta{' '}
+        Si esa persona <strong>también es cliente tuya</strong>, la app le pregunta{' '}
         <strong>«¿Cómo quieres entrar?»</strong> y elige entre <strong>«Como instructora»</strong> (su agenda, sus
-        alumnas y cuándo puede dar clase) o <strong>«Como alumna»</strong> (reservar clases y ver sus bonos). Si
-        entra como alumna no pierde nada: vuelve a su parte de instructora con el enlace del correo.
+        clientes y cuándo puede dar clase) o <strong>«Como cliente»</strong> (reservar clases y ver sus bonos). Si
+        entra como cliente no pierde nada: vuelve a su parte de instructora con el enlace del correo.
       </p>
       <p>
         Lo primero que le pide es <strong>marcar su disponibilidad</strong>: hasta que no diga al menos una franja en
@@ -51,16 +51,16 @@ export default function Contenido() {
           <strong>Hoy</strong> — cuántas clases da hoy, su semana y los próximos días. Aquí le llegan también las
           ofertas de <Link href="/ayuda/instructores/sustituciones" style={enlace}>sustitución</Link>, con dos
           botones: «La cubro» y «No puedo». Y los atajos a crear una clase suya (si lo permites), su disponibilidad,
-          sus ausencias y sus alumnas. Desde aquí empieza cada clase («Empezar clase») y ficha su jornada si es
+          sus ausencias y sus clientes. Desde aquí empieza cada clase («Empezar clase») y ficha su jornada si es
           contratada: lo explica el{' '}
           <Link href="/ayuda/instructores/control-horario" style={enlace}>control horario</Link>.
         </li>
         <li><strong>Agenda</strong> — sus clases, seguidas, día a día.</li>
         <li>
-          <strong>Alumnas</strong> — las de sus propias clases, del último mes y el mes que viene. En la ficha de
+          <strong>Clientes</strong> — las de sus propias clases, del último mes y el mes que viene. En la ficha de
           cada una ve a cuántas de sus clases ha venido y puede escribirle.
         </li>
-        <li><strong>Mensajes</strong> — sus conversaciones con esas alumnas.</li>
+        <li><strong>Mensajes</strong> — sus conversaciones con esos clientes.</li>
         <li>
           <strong>Perfil</strong> — sus datos y su contraseña, su disponibilidad, sus ausencias, sus valoraciones,
           los avisos de ese móvil y, si trabaja en varias sedes tuyas, cuál tiene abierta.
@@ -73,8 +73,8 @@ export default function Contenido() {
         recepción. La app le dice a partir de qué hora puede hacerlo.
       </p>
       <p>
-        En la ficha de una alumna puede dejar la <strong>nota de la sesión</strong> —qué tal ha ido, qué trabajar la
-        próxima vez—, que es justo cuando se acuerda. Solo si esa alumna tiene el consentimiento de salud vigente: sin
+        En la ficha de un cliente puede dejar la <strong>nota de la sesión</strong> —qué tal ha ido, qué trabajar la
+        próxima vez—, que es justo cuando se acuerda. Solo si ese cliente tiene el consentimiento de salud vigente: sin
         él, la app no le abre esa parte.
       </p>
 
@@ -90,7 +90,7 @@ export default function Contenido() {
         trabajo de mostrador se queda en el mostrador y no lo verá:
       </p>
       <ul style={lista}>
-        <li>Apuntar o quitar alumnas de una clase, y editar o cancelar una clase ya programada.</li>
+        <li>Apuntar o quitar clientes de una clase, y editar o cancelar una clase ya programada.</li>
         <li>Crear una <Link href="/ayuda/reservas/clases-que-se-repiten" style={enlace}>serie</Link> o renovarla.</li>
         <li>La agenda y la ocupación de sus compañeras, y el teléfono o el email de ellas.</li>
         <li>Cobros, caja y cualquier cosa de dinero que no sea su propia tarifa.</li>

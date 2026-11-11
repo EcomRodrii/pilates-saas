@@ -239,7 +239,7 @@ export function HojaVentas({ onCerrar, onCambio }: { onCerrar: () => void; onCam
                           </p>
                           {/* La prueba de que el bono del mostrador es un bono real. */}
                           {l.tipo === 'PLAN' && l.suscripcionId && (
-                            <p className="text-[11.5px] text-success mt-0.5">✓ En la ficha de la clienta</p>
+                            <p className="text-[11.5px] text-success mt-0.5">✓ En la ficha del cliente</p>
                           )}
                         </div>
                         <span className="text-[14px] font-bold text-foreground tabular-nums shrink-0">{formatEuro(l.total)}</span>

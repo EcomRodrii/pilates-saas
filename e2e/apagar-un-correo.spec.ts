@@ -121,7 +121,7 @@ test('apagar la confirmación de reserva escribe `enviar: false` y NO toca `acti
   expect(fila?.studio_id).toBe(STUDIO_ID);
 });
 
-test('apagado, la lista dice qué deja de recibir la clienta', async ({ page }) => {
+test('apagado, la lista dice qué deja de recibir el cliente', async ({ page }) => {
   await seedSesionDeDuena(page);
   await mockBackend(page, [{
     id: 'pl-1', studio_id: STUDIO_ID, tipo: 'reserva',
@@ -136,7 +136,7 @@ test('apagado, la lista dice qué deja de recibir la clienta', async ({ page }) 
   // La consecuencia ocupa el hueco del "cuándo se envía": con el correo
   // apagado, eso es lo que importa.
   await expect(page.getByText('Solo verá la confirmación en pantalla al reservar y en su portal.')).toBeVisible();
-  await expect(page.getByText('Se envía cuando una alumna reserva una clase.')).toHaveCount(0);
+  await expect(page.getByText('Se envía cuando un cliente reserva una clase.')).toHaveCount(0);
 });
 
 test('el interruptor no abre de paso el editor', async ({ page }) => {

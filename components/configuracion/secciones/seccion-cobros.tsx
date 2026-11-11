@@ -57,7 +57,7 @@ export function SeccionCobros({ showToast }: { showToast: (m: string) => void })
         <FilaAjuste id="datos-fiscales" icono={Receipt} valor={fiscales?.valor ?? null} estado={fiscales?.estado} onAbrir={abrir} />
       </GrupoFilas>
 
-      <GrupoFilas titulo="Cobrar a tus alumnas">
+      <GrupoFilas titulo="Cobrar a tus clientes">
         <FilaOtraSeccion
           id="fila-a-integraciones"
           icono={CreditCard}

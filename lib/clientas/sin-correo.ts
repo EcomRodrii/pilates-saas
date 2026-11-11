@@ -70,4 +70,4 @@ export function resumenSinCorreo(
 }
 
 /** «1 alumna» / «12 alumnas». */
-export const alumnas = (n: number) => `${n} ${n === 1 ? 'alumna' : 'alumnas'}`;
+export const alumnas = (n: number) => `${n} ${n === 1 ? 'cliente' : 'clientes'}`;

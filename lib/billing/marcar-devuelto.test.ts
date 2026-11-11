@@ -170,7 +170,7 @@ test('una venta de la caja no se marca devuelta desde Cobros: se devuelve desde 
   assert.equal(m.updates.length + m.seguidos.length, 0);
 });
 
-test('EN_CURSO que no pudo salir en una remesa (el estudio no las hace, o la clienta no tiene domiciliación): 409 y se dice por qué', async () => {
+test('EN_CURSO que no pudo salir en una remesa (el estudio no las hace, o el cliente no tiene domiciliación): 409 y se dice por qué', async () => {
   const sinRemesas = montar({ recibo: { estado: 'EN_CURSO' }, remesa: { estudio: false, mandato: true } });
   assert.deepEqual(await marcarReciboDevuelto(sinRemesas.admin, P, sinRemesas.seguir), { ok: false, http: 409, error: TEXTO_SIN_REMESAS });
   const sinMandato = montar({ recibo: { estado: 'EN_CURSO' }, remesa: { estudio: true, mandato: false } });

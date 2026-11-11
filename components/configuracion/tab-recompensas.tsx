@@ -126,7 +126,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
             ) : (
               <>
                 <p className="text-[12px] text-muted-foreground mt-1 mb-3">
-                  Tus alumnas ya están acumulando {moneda}. Estas tres son un punto de partida —
+                  Tus clientes ya están acumulando {moneda}. Estas tres son un punto de partida —
                   puedes editarlas o borrarlas después.
                 </p>
                 <div className="grid grid-cols-1 @xl/config:grid-cols-3 gap-3">
@@ -163,7 +163,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
                   <p className="text-[13px] font-semibold text-foreground">{item.nombre}</p>
                   <p className="text-[12px] text-muted-foreground">
                     {item.costeCreditos} {moneda}{item.stock != null ? ` · ${item.stock} en stock` : ''}
-                    {item.limitePorSocia != null ? ` · máx. ${item.limitePorSocia} por clienta` : ''}
+                    {item.limitePorSocia != null ? ` · máx. ${item.limitePorSocia} por cliente` : ''}
                     {item.disponibleDesde || item.disponibleHasta
                       ? ` · ${item.disponibleDesde ?? '…'} a ${item.disponibleHasta ?? '…'}`
                       : ''}
@@ -201,7 +201,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
               </Field>
             </div>
             <div>
-              <Field label="Insignia" description="La que verá la alumna en el catálogo de recompensas.">
+              <Field label="Insignia" description="La que verá el cliente en el catálogo de recompensas.">
                 <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
               </Field>
             </div>
@@ -234,8 +234,8 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Field label="Máximo por alumna (vacío = sin límite)"
-                  description="Cuántas veces puede canjearla la MISMA alumna. Sin esto, quien más créditos acumula puede llevarse el stock entero."
+                <Field label="Máximo por cliente (vacío = sin límite)"
+                  description="Cuántas veces puede canjearla el Mismo cliente. Sin esto, quien más créditos acumula puede llevarse el stock entero."
                 >
                   <input
                     type="number" min={1} className={inputCls}
@@ -266,7 +266,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
               </div>
             </div>
             <Field label="Qué pasa al canjearla"
-              description="«Clase gratis» se entrega sola: la alumna recibe una recuperación y puede reservar con ella cuando quiera. El resto se lo das tú en el estudio."
+              description="«Clase gratis» se entrega sola: el cliente recibe una recuperación y puede reservar con ella cuando quiera. El resto se lo das tú en el estudio."
             >
               <select
                 className={inputCls}
@@ -306,7 +306,7 @@ export function TabRecompensas({ showToast }: { showToast: MostrarToast }) {
             <DialogTitle>Eliminar recompensa</DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground">
-            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Las alumnas ya no podrán canjearla.
+            ¿Eliminar <strong className="text-foreground">{confirmDel?.nombre}</strong> del catálogo? Los clientes ya no podrán canjearla.
           </p>
           {(() => {
             // Los canjes ya hechos NO se borran: siguen en «Canjes» con el nombre

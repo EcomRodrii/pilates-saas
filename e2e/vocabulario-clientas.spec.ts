@@ -26,7 +26,7 @@ const STORAGE_KEY = 'sb-example-auth-token';
 // importar plazas fijas, «Una socia tiene plaza fija» en el calendario. Un
 // sinónimo en singular es el mismo sinónimo.
 const SINONIMOS = [
-  /\bAlumnos?\b/i, /\bAlumnas?\b/i, /\bsocias?\b/i, /\bNuevo cliente\b/,
+  /\bAlumnos?\b/i, /\bAlumnas?\b/i, /\bClientas?\b/i, /\bsocias?\b/i,
 ];
 
 function json(route: Route, body: unknown, status = 200) {
@@ -100,7 +100,7 @@ async function textoDe(page: Page, ancla: RegExp): Promise<string> {
   return page.locator('body').innerText();
 }
 
-test.describe('El panel usa una sola palabra: clientas', () => {
+test.describe('El panel usa una sola palabra: clientes', () => {
   test('el dashboard no mezcla alumnos, socias y clientes', async ({ page }) => {
     await montar(page, '/dashboard');
     const texto = await textoDe(page, /Pagos pendientes/);
@@ -109,25 +109,25 @@ test.describe('El panel usa una sola palabra: clientas', () => {
       expect(texto, `sinónimo suelto en el dashboard: ${s}`).not.toMatch(s);
     }
     // Y lo que ella citaba, ya en su idioma y en femenino.
-    await expect(page.getByText('Clientas hoy')).toBeVisible();
-    await expect(page.getByText('Nueva clienta').first()).toBeVisible();
+    await expect(page.getByText('Clientes hoy')).toBeVisible();
+    await expect(page.getByText('Nuevo cliente').first()).toBeVisible();
   });
 
-  test('la libreta habla de clientas, no de socias', async ({ page }) => {
+  test('la libreta habla de clientes, no de socias', async ({ page }) => {
     await montar(page, '/libreta');
-    const texto = await textoDe(page, /Libreta de clientas/);
+    const texto = await textoDe(page, /Libreta de clientes/);
 
     for (const s of SINONIMOS) {
       expect(texto, `sinónimo suelto en la libreta: ${s}`).not.toMatch(s);
     }
-    await expect(page.getByText(/Copia de tus clientas siempre al día/)).toBeVisible();
+    await expect(page.getByText(/Copia de tus clientes siempre al día/)).toBeVisible();
     // ⚠️ La pantalla tiene que llamarse como el sitio desde el que se llega. El
     // menú dice «Libreta de clientas» y el título decía «Libreta del estudio»:
     // es el mismo error que ya costó el «Mi estudio» del menú contra el
     // «Configuración» de la página, dos arriba en este mismo fichero. El título
     // puede AÑADIR («Informes y analítica» para un menú que dice «Informes»),
     // pero no puede cambiar las palabras por las que alguien pulsó.
-    await expect(page.getByRole('heading', { name: 'Libreta de clientas' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Libreta de clientes' })).toBeVisible();
   });
 
   test('el menú lateral dice "Configuración", que es la palabra que se busca', async ({ page }) => {

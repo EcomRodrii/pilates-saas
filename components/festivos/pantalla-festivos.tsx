@@ -460,7 +460,7 @@ function Configuracion({ datos, rol, devuelveSesion }: { datos: ListaDelEstudio;
     },
     { titulo: 'Las clases de ese día se cancelan', texto: 'Al cerrar un festivo nadie puede reservar ese día y las clases que hay se cancelan.', valor: 'Siempre' },
     {
-      titulo: 'Tus alumnas recuperan la sesión del bono',
+      titulo: 'Tus clientes recuperan la sesión del bono',
       texto: 'La de cada reserva cancelada vuelve a su bono.',
       valor: devuelveSesion ? 'Sí' : 'No', tono: devuelveSesion ? 'si' : 'no',
       accion: enlace('si-se-cancela-una-clase'),
@@ -471,7 +471,7 @@ function Configuracion({ datos, rol, devuelveSesion }: { datos: ListaDelEstudio;
       valor: correo === null ? '…' : correo ? 'Encendido' : 'Apagado', tono: correo === null ? undefined : correo ? 'si' : 'no',
       accion: enlace('correos-automaticos'),
     },
-    { titulo: 'Sus bonos y recuperaciones duran un día más', texto: 'A todas tus alumnas, una vez por día cerrado.', valor: 'Siempre' },
+    { titulo: 'Sus bonos y recuperaciones duran un día más', texto: 'A todas tus clientes, una vez por día cerrado.', valor: 'Siempre' },
     { titulo: 'Las clases que se repiten se saltan los festivos', texto: 'Al repetir un mes en el Calendario, los días de tu lista vienen sin marcar.', valor: 'Siempre' },
   ];
   return (

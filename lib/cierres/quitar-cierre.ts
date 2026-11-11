@@ -65,7 +65,7 @@ export function accionCierre(c: Rango, hoy: string): AccionCierre | null {
       momento,
       boton: 'Quitar este cierre',
       titulo: `¿Quitar el cierre del ${rangoDeFechas(c.desde, c.hasta)}?`,
-      descripcion: `Tus alumnas podrán volver a reservar esos días. ${LO_QUE_NO_VUELVE}`,
+      descripcion: `Tus clientes podrán volver a reservar esos días. ${LO_QUE_NO_VUELVE}`,
       textoConfirmar: 'Sí, quitar el cierre',
       hecho: 'Cierre quitado',
     };
@@ -74,7 +74,7 @@ export function accionCierre(c: Rango, hoy: string): AccionCierre | null {
     momento,
     boton: 'Reabrir desde hoy',
     titulo: '¿Reabrir el centro desde hoy?',
-    descripcion: `Tus alumnas podrán volver a reservar desde hoy. ${LO_QUE_NO_VUELVE}`,
+    descripcion: `Tus clientes podrán volver a reservar desde hoy. ${LO_QUE_NO_VUELVE}`,
     textoConfirmar: 'Sí, reabrir',
     hecho: 'Centro abierto de nuevo',
   };

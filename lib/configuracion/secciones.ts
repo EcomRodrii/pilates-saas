@@ -97,7 +97,7 @@ export const SECCIONES = [
     id: 'estudio',
     titulo: 'Mi estudio',
     resumen: 'Datos, horario, salas y sedes',
-    frase: 'Quién eres, dónde estás y cuándo abres: lo que ven tus alumnas y lo que usa la agenda.',
+    frase: 'Quién eres, dónde estás y cuándo abres: lo que ven tus clientes y lo que usa la agenda.',
     roles: SEDE,
     // Cada tarjeta de Mi estudio es una FILA con su valor de hoy, y se cambia en
     // su cajón (15-sep, v2). «Datos y contacto» eran siete campos y un cajón
@@ -105,7 +105,7 @@ export const SECCIONES = [
     // (`#datos-y-contacto`, `#horario-y-cierres`) llevan aquí (destino.ts).
     tarjetas: [
       { id: 'nombre-y-direccion', titulo: 'Nombre y dirección', frase: 'Cómo se llama tu estudio y dónde está: sale en tu página de reservas y en tus correos.', guardado: 'barra', palabras: ['nombre', 'dirección', 'ciudad', 'código postal'] },
-      { id: 'contacto', titulo: 'Contacto', frase: 'Dónde te escriben o te llaman tus alumnas, y tu web.', guardado: 'barra', palabras: ['teléfono', 'email', 'web'] },
+      { id: 'contacto', titulo: 'Contacto', frase: 'Dónde te escriben o te llaman tus clientes, y tu web.', guardado: 'barra', palabras: ['teléfono', 'email', 'web'] },
       { id: 'horario', titulo: 'Horario', frase: 'Cuándo abres cada día: la agenda distingue un día cerrado de uno sin clases.', guardado: 'barra', roles: SEDE, palabras: ['apertura', 'abrir', 'días'] },
       { id: 'cerrar-el-centro', titulo: 'Cerrar el centro', frase: 'Vacaciones, un puente o una reforma: se cancelan sus clases, y aquí ves y quitas los cierres que pusiste.', guardado: 'barra', roles: SEDE, palabras: ['vacaciones', 'festivos', 'cierre'] },
       { id: 'salas', titulo: 'Salas', frase: 'Tus salas y cuántas personas caben: esa cifra es el tope de plazas de cada clase.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'salas', roles: SEDE, palabras: ['aforo', 'capacidad', 'plazas', 'averías', 'máquinas'] },
@@ -130,7 +130,7 @@ export const SECCIONES = [
   },
   {
     id: 'reservas',
-    titulo: 'Cómo reservan mis alumnas',
+    titulo: 'Cómo reservan mis clientes',
     resumen: 'Reservar, cancelar, lista de espera y faltas',
     frase: 'Las reglas del estudio para reservar y cancelar; cada tipo de clase puede cambiar algunas.',
     roles: SOLO_PROPIETARIA,
@@ -142,69 +142,69 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'reservar', titulo: 'Reservar', frase: 'Quién puede reservar, con cuánta antelación y cuántas reservas a la vez.', guardado: 'barra', palabras: ['antelación', 'bono', 'plan', 'aprobar reservas', 'impago'] },
       { id: 'cancelar-y-recuperar', titulo: 'Cancelar y recuperar', frase: 'Hasta cuándo se cancela sin perder la sesión, y si la recupera cuando cancela tarde.', guardado: 'barra', palabras: ['cancelación', 'plazo', 'cancelar tarde'] },
-      { id: 'recuperaciones', titulo: 'Recuperaciones', frase: 'Cuántas recuperaciones sin usar guarda cada alumna, cuándo caducan y si se dan solas al cerrar la semana.', guardado: 'barra', palabras: ['caducidad', 'tope', 'recuperar clase', 'clases pendientes'] },
-      { id: 'si-se-cancela-una-clase', titulo: 'Si se cancela una clase entera', frase: 'Si tus alumnas recuperan la sesión cuando una clase no sale, y cuántas hacen falta para que salga.', guardado: 'barra', palabras: ['mínimo de asistentes', 'clase cancelada'] },
+      { id: 'recuperaciones', titulo: 'Recuperaciones', frase: 'Cuántas recuperaciones sin usar guarda cada cliente, cuándo caducan y si se dan solas al cerrar la semana.', guardado: 'barra', palabras: ['caducidad', 'tope', 'recuperar clase', 'clases pendientes'] },
+      { id: 'si-se-cancela-una-clase', titulo: 'Si se cancela una clase entera', frase: 'Si tus clientes recuperan la sesión cuando una clase no sale, y cuántas hacen falta para que salga.', guardado: 'barra', palabras: ['mínimo de asistentes', 'clase cancelada'] },
       { id: 'lista-de-espera', titulo: 'Lista de espera', frase: 'Si una clase llena admite lista de espera y cuánto tiempo hay para aceptar una plaza que se libera.', guardado: 'barra', palabras: ['plaza libre', 'clase llena'] },
-      { id: 'asistencia', titulo: 'Asistencia y acceso', frase: 'Si pasas lista, si tus alumnas entran con su QR y si pides confirmación a quien suele faltar.', guardado: 'barra', palabras: ['pasar lista', 'check-in', 'qr', 'control de acceso', 'escanear'] },
+      { id: 'asistencia', titulo: 'Asistencia y acceso', frase: 'Si pasas lista, si tus clientes entran con su QR y si pides confirmación a quien suele faltar.', guardado: 'barra', palabras: ['pasar lista', 'check-in', 'qr', 'control de acceso', 'escanear'] },
       { id: 'si-cancela-tarde-o-no-viene', titulo: 'Si cancela tarde o no viene', frase: 'Un cargo fijo a su tarjeta guardada, si tiene una, cuando cancela tarde o no viene sin avisar.', guardado: 'barra', palabras: ['penalización', 'cargo', 'falta sin avisar'] },
       { id: 'si-se-queda-sin-cuota', titulo: 'Si se queda sin cuota', frase: 'Qué pasa con su clase fija cuando su cuota se cancela, se pausa o no se renueva.', guardado: 'barra', palabras: ['clase fija', 'clases fijas', 'plaza fija', 'cuota', 'baja', 'impago', 'pausa'] },
-      { id: 'plaza-fija-desde-la-app', titulo: 'Peticiones desde su app', frase: 'Si tus alumnas pueden pedir una clase fija o una pausa desde su app, y si las apruebas tú o se dan solas.', guardado: 'barra', palabras: ['clase fija', 'plaza fija', 'pausa', 'app', 'autoservicio', 'pedir', 'aprobación automática', 'aprobar'] },
-      { id: 'si-pausa-su-plaza-fija', titulo: 'Si pausa su clase fija', frase: 'Si durante una pausa su sitio queda libre para otra alumna, y qué pasa al terminar.', guardado: 'barra', palabras: ['clase fija', 'plaza fija', 'pausa', 'vacaciones', 'sitio', 'volver'] },
-      { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a las alumnas', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, avisa a sus alumnas por email y en su app.', guardado: 'al-pulsar', palabras: ['sustitución', 'cambio de instructora'] },
+      { id: 'plaza-fija-desde-la-app', titulo: 'Peticiones desde su app', frase: 'Si tus clientes pueden pedir una clase fija o una pausa desde su app, y si las apruebas tú o se dan solas.', guardado: 'barra', palabras: ['clase fija', 'plaza fija', 'pausa', 'app', 'autoservicio', 'pedir', 'aprobación automática', 'aprobar'] },
+      { id: 'si-pausa-su-plaza-fija', titulo: 'Si pausa su clase fija', frase: 'Si durante una pausa su sitio queda libre para otro cliente, y qué pasa al terminar.', guardado: 'barra', palabras: ['clase fija', 'plaza fija', 'pausa', 'vacaciones', 'sitio', 'volver'] },
+      { id: 'ajuste-avisar-alumnas', titulo: 'Avisos a los clientes', frase: 'Si por una baja una clase cambia de instructora, se mueve o se cancela, avisa a sus clientes por email y en su app.', guardado: 'al-pulsar', palabras: ['sustitución', 'cambio de instructora'] },
     ],
   },
   {
     id: 'cobros',
     titulo: 'Cobros y facturas',
     resumen: 'Datos fiscales, facturas, domiciliaciones y devoluciones',
-    frase: 'Cómo te pagan tus alumnas y qué sale en tus facturas.',
+    frase: 'Cómo te pagan tus clientes y qué sale en tus facturas.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'facturacion', titulo: 'Facturación', frase: 'Si Tentare emite una factura en cada cobro, con su registro para Veri*Factu, o si tus facturas las haces fuera.', guardado: 'barra', palabras: ['verifactu', 'aeat', 'justificante', 'gestoría', 'factura'] },
       { id: 'datos-fiscales', titulo: 'Datos fiscales e IVA', frase: 'Razón social, NIF e IVA de tus facturas. Cambiar el IVA solo afecta a las facturas nuevas.', guardado: 'barra', palabras: ['nif', 'cif', 'razón social', 'facturas', 'impuestos'] },
-      { id: 'cuando-se-cobra-la-cuota', titulo: 'Cuándo se cobra la cuota mensual', frase: 'Cada alumna en su aniversario, o todas el día 1 de cada mes.', guardado: 'barra', palabras: ['día 1', 'fecha de cobro', 'aniversario', 'mensual'] },
+      { id: 'cuando-se-cobra-la-cuota', titulo: 'Cuándo se cobra la cuota mensual', frase: 'Cada cliente en su aniversario, o todas el día 1 de cada mes.', guardado: 'barra', palabras: ['día 1', 'fecha de cobro', 'aniversario', 'mensual'] },
       { id: 'domiciliaciones', titulo: 'Domiciliaciones bancarias', frase: 'Los datos que pide tu banco para cobrar recibos domiciliados. Con ellos generas la remesa en Cobros.', guardado: 'barra', palabras: ['sepa', 'banco', 'remesa', 'recibos'] },
-      { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha de la alumna; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
-      { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si la alumna puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },
+      { id: 'devoluciones', titulo: 'Devoluciones', frase: 'Permite devolver un cobro desde la ficha del cliente; el dinero vuelve a su tarjeta.', guardado: 'barra', palabras: ['reembolso', 'devolver'] },
+      { id: 'si-se-cancela-una-cuota', titulo: 'Si se cancela una cuota', frase: 'Qué pasa con su recibo pendiente al cancelarla, y si el cliente puede renovarla sola desde su app.', guardado: 'barra', palabras: ['recibo pendiente', 'deuda', 'anular recibo', 'reintentos', 'impago', 'renovar'] },
       { id: 'congelar-una-cuota', titulo: 'Congelar una cuota o un bono', frase: 'Si se puede congelar una cuota o un bono, y cuántos días como máximo alarga su fecha de fin.', guardado: 'barra', palabras: ['congelar', 'congelación', 'pausar', 'pausa', 'vacaciones', 'baja temporal', 'descongelar'] },
       // Salió de Motivación el 20-oct: un descuento es dinero, no constancia, y no
       // depende del plan de gamificación.
-      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
+      { id: 'codigos-descuento', titulo: 'Códigos de descuento', frase: 'Códigos que tus clientes usan al pagar, o que canjeas tú en el mostrador.', guardado: 'catalogo', herramienta: 'codigos-descuento', palabras: ['descuento', 'promoción', 'cupón', 'oferta'] },
     ],
   },
   {
     id: 'altas',
-    titulo: 'Alta de alumnas',
+    titulo: 'Alta de clientes',
     resumen: 'Contrato, compra, ficha, etiquetas y salud',
-    frase: 'Lo que acepta y rellena una alumna nueva, y qué datos guardas de cada una.',
+    frase: 'Lo que acepta y rellena un cliente nuevo, y qué datos guardas de cada una.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'contrato-y-privacidad', titulo: 'Contrato y privacidad', frase: 'Los textos que acepta cada alumna al darse de alta. Se guarda qué aceptó, cuándo y con qué nombre.', guardado: 'barra', palabras: ['términos', 'condiciones', 'rgpd', 'firma'] },
-      { id: 'compra-desde-tu-enlace', titulo: 'Compra desde tu enlace', frase: 'Si alguien que aún no es alumna compra un bono en tu página: que se registre antes de pagar o que pague directamente.', guardado: 'barra', palabras: ['registro', 'comprar un bono'] },
+      { id: 'contrato-y-privacidad', titulo: 'Contrato y privacidad', frase: 'Los textos que acepta cada cliente al darse de alta. Se guarda qué aceptó, cuándo y con qué nombre.', guardado: 'barra', palabras: ['términos', 'condiciones', 'rgpd', 'firma'] },
+      { id: 'compra-desde-tu-enlace', titulo: 'Compra desde tu enlace', frase: 'Si alguien que aún no es cliente compra un bono en tu página: que se registre antes de pagar o que pague directamente.', guardado: 'barra', palabras: ['registro', 'comprar un bono'] },
       { id: 'datos-extra-de-la-ficha', titulo: 'Datos extra de la ficha', frase: 'Preguntas tuyas, como su objetivo o cómo te conoció. Salen en el alta, en su ficha y, si quieres, en su app.', guardado: 'catalogo', palabras: ['campos', 'preguntas'] },
-      { id: 'preguntas-en-su-app', titulo: 'Preguntar los datos extra en su app', frase: 'Tu alumna contesta tus «Datos extra» en su app antes de reservar o comprar. Las obligatorias no se saltan.', guardado: 'al-pulsar', palabras: ['preguntas', 'obligatorias', 'registro', 'alta', 'formulario'] },
-      { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus alumnas te cuentan qué buscan antes de sus primeras clases.', guardado: 'al-pulsar', palabras: ['objetivos'] },
-      { id: 'cuestionario-de-salud', titulo: 'Cuestionario de salud', frase: 'Preguntas de salud que rellenáis tú o tus instructoras en la ficha de cada alumna; ella no lo rellena.', guardado: 'catalogo', palabras: ['lesiones'] },
-      { id: 'etiquetas', titulo: 'Etiquetas', frase: 'Agrupa a tus alumnas a tu manera, como «Mamás»: las pones en su ficha y filtras por ellas.', guardado: 'catalogo', palabras: ['etiqueta', 'vip', 'grupo', 'grupos', 'agrupar', 'segmento', 'color', 'colores'] },
+      { id: 'preguntas-en-su-app', titulo: 'Preguntar los datos extra en su app', frase: 'Tu cliente contesta tus «Datos extra» en su app antes de reservar o comprar. Las obligatorias no se saltan.', guardado: 'al-pulsar', palabras: ['preguntas', 'obligatorias', 'registro', 'alta', 'formulario'] },
+      { id: 'valoracion-inicial', titulo: 'Valoración inicial', frase: 'Tus clientes te cuentan qué buscan antes de sus primeras clases.', guardado: 'al-pulsar', palabras: ['objetivos'] },
+      { id: 'cuestionario-de-salud', titulo: 'Cuestionario de salud', frase: 'Preguntas de salud que rellenáis tú o tus instructoras en la ficha de cada cliente; ella no lo rellena.', guardado: 'catalogo', palabras: ['lesiones'] },
+      { id: 'etiquetas', titulo: 'Etiquetas', frase: 'Agrupa a tus clientes a tu manera, como «Mamás»: las pones en su ficha y filtras por ellas.', guardado: 'catalogo', palabras: ['etiqueta', 'vip', 'grupo', 'grupos', 'agrupar', 'segmento', 'color', 'colores'] },
     ],
   },
   {
     id: 'comunicacion',
     titulo: 'Cómo me comunico',
-    resumen: 'Correos y avisos a tus alumnas',
-    frase: 'Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.',
+    resumen: 'Correos y avisos a tus clientes',
+    frase: 'Los correos que Tentare envía sola a tus clientes y los canales para escribirles.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
-      { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada alumna el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
-      { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
+      { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada cliente el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
+      { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus clientes como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
     ],
   },
   {
     id: 'motivacion',
     titulo: 'Motivación',
     resumen: 'Créditos, recompensas, logros, niveles y retos',
-    frase: 'Premia la constancia de tus alumnas con créditos, logros y retos que ven en su app.',
+    frase: 'Premia la constancia de tus clientes con créditos, logros y retos que ven en su app.',
     roles: SOLO_PROPIETARIA,
     palabras: ['gamificación', 'puntos', 'fidelidad'],
     // Una sola pantalla (20-oct, el fundador: «muy mal organizado»): antes eran
@@ -213,13 +213,13 @@ export const SECCIONES = [
     // cómo se ganan, en qué se gastan, qué se desbloquea, niveles y retos. Los
     // canjes son trabajo, no ajuste: un aviso con su propia pantalla.
     tarjetas: [
-      { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran y cuántas clases por semana mantienen la racha de una alumna.', guardado: 'barra', palabras: ['racha', 'puntos', 'caducidad'] },
-      { id: 'creditos-por-accion', titulo: 'Créditos por acción', frase: 'Cuántos créditos gana una alumna con cada cosa: asistir, renovar, traer a alguien o comprar.', guardado: 'barra', palabras: ['referidos', 'asistencia', 'compra'] },
-      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus alumnas pueden canjear con sus créditos.', guardado: 'catalogo', palabras: ['premios'] },
-      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus alumnas al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', palabras: ['insignias'] },
+      { id: 'reglas', titulo: 'Cómo funcionan tus créditos', frase: 'Cómo se llaman, cuánto duran y cuántas clases por semana mantienen la racha de un cliente.', guardado: 'barra', palabras: ['racha', 'puntos', 'caducidad'] },
+      { id: 'creditos-por-accion', titulo: 'Créditos por acción', frase: 'Cuántos créditos gana un cliente con cada cosa: asistir, renovar, traer a alguien o comprar.', guardado: 'barra', palabras: ['referidos', 'asistencia', 'compra'] },
+      { id: 'recompensas', titulo: 'Recompensas', frase: 'Lo que tus clientes pueden canjear con sus créditos.', guardado: 'catalogo', palabras: ['premios'] },
+      { id: 'logros', titulo: 'Logros', frase: 'Lo que desbloquean tus clientes al llegar a una cifra que eliges, como 10 clases.', guardado: 'catalogo', palabras: ['insignias'] },
       { id: 'niveles', titulo: 'Niveles', frase: 'El nivel sube con los créditos ganados en total; canjear nunca lo hace bajar.', guardado: 'catalogo' },
       { id: 'retos', titulo: 'Retos', frase: 'Objetivos con fecha de inicio y fin: solo cuenta lo que pasa dentro de ese periodo.', guardado: 'catalogo', palabras: ['desafíos'] },
-      { id: 'canjes', titulo: 'Canjes', frase: 'Las recompensas que han pedido tus alumnas: las que faltan por entregar y su historial.', guardado: 'accion', herramienta: 'canjes', palabras: ['entregar', 'pedidos'] },
+      { id: 'canjes', titulo: 'Canjes', frase: 'Las recompensas que han pedido tus clientes: las que faltan por entregar y su historial.', guardado: 'accion', herramienta: 'canjes', palabras: ['entregar', 'pedidos'] },
     ],
   },
   // «Marca» salió de «Mi app y mi web» el 15-sep (v2): el logo estaba en una
@@ -228,7 +228,7 @@ export const SECCIONES = [
     id: 'marca',
     titulo: 'Marca',
     resumen: 'Logo, color y textos de tu app',
-    frase: 'Cómo te reconocen tus alumnas: tu logo, tu color y cómo te presentas en su app.',
+    frase: 'Cómo te reconocen tus clientes: tu logo, tu color y cómo te presentas en su app.',
     roles: SOLO_PROPIETARIA,
     palabras: ['imagen', 'identidad'],
     // Filas con su valor de hoy (16-sep, v2). Convivían TRES formas de guardar en
@@ -241,34 +241,34 @@ export const SECCIONES = [
     // como mucho seis: se partió en dos por dónde se lee cada frase.
     tarjetas: [
       // Era `marca`, que ahora es el id de la sección: su ancla vieja lleva aquí (destino.ts).
-      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el favicon es tu icono en la pestaña y en la app de tus alumnas; el logo, en tus correos.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
+      { id: 'logo-y-favicon', titulo: 'Logo y favicon', frase: 'Se aplican al momento: el favicon es tu icono en la pestaña y en la app de tus clientes; el logo, en tus correos.', guardado: 'al-pulsar', palabras: ['icono', 'imagen'] },
       // Su id se queda (enlaces de la guía y de correos ya enviados), pero desde el
       // 22-sep es una pantalla propia: el estilo, el color, la tipografía y la
       // portada de la app de la alumna (/configuracion/apariencia).
-      { id: 'color-de-marca', titulo: 'Apariencia de tu app', frase: 'El estilo, tu color, la tipografía y la portada de la app de tus alumnas, probados en un móvil antes de publicar.', guardado: 'accion', palabras: ['colores', 'color', 'tema', 'apariencia', 'estilo', 'tipografía', 'fuente', 'portada'] },
+      { id: 'color-de-marca', titulo: 'Apariencia de tu app', frase: 'El estilo, tu color, la tipografía y la portada de la app de tus clientes, probados en un móvil antes de publicar.', guardado: 'accion', palabras: ['colores', 'color', 'tema', 'apariencia', 'estilo', 'tipografía', 'fuente', 'portada'] },
       // Su ancla y su id se quedan: los llevan enlaces de la guía, de la ayuda y
       // de correos ya enviados.
       { id: 'textos-de-tu-app', titulo: 'Cómo te presentas', frase: 'Tu descripción, tu lema, tu año de apertura y las normas de tu centro.', guardado: 'barra', palabras: ['presentación', 'lema', 'normas', 'textos de tu app'] },
-      { id: 'textos-de-bienvenida', titulo: 'Textos de bienvenida', frase: 'Las frases que lee tu alumna al abrir su app: bajo el saludo, en la portada y a mano.', guardado: 'barra', palabras: ['bienvenida', 'frase a mano', 'portada'] },
+      { id: 'textos-de-bienvenida', titulo: 'Textos de bienvenida', frase: 'Las frases que lee tu cliente al abrir su app: bajo el saludo, en la portada y a mano.', guardado: 'barra', palabras: ['bienvenida', 'frase a mano', 'portada'] },
     ],
   },
   {
     id: 'web',
     titulo: 'Mi app y mi web',
     resumen: 'Enlaces, Network, contenido de tu app y widgets',
-    frase: 'Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.',
+    frase: 'Cómo se ve tu estudio por fuera: la app de tus clientes, tu página de reservas y tu web.',
     roles: SOLO_PROPIETARIA,
     tarjetas: [
-      { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'El enlace de la app de tus alumnas, el de tu página de reservas (para tu web) y el QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'app', 'portal', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
+      { id: 'direccion-y-enlaces', titulo: 'Dirección y enlaces', frase: 'El enlace de la app de tus clientes, el de tu página de reservas (para tu web) y el QR de cada uno para imprimir.', guardado: 'accion', palabras: ['enlace', 'app', 'portal', 'página de reservas', 'url', 'qr', 'código qr', 'cartel', 'escaparate'] },
       // «Mi web» guiada (21-oct-2026, decisión 4 de «Mi app»): la descripción sale en tu página de
       // reservas y en Network, no en la app. El dato es el mismo que el de «Cómo te presentas» de «Mi app».
       { id: 'presentacion-web', titulo: 'Cómo te presentas', frase: 'Dos o tres frases sobre tu estudio. Salen en tu página de reservas y en Tentare Network.', guardado: 'barra', condicion: 'miWebNueva', palabras: ['descripción', 'presentación', 'sobre nosotros'] },
-      { id: 'pagina-publica', titulo: 'Ocultar tu página', frase: 'Mientras la preparas, tu página de reservas y la app de tus alumnas enseñan un aviso en vez de tus clases.', guardado: 'barra', palabras: ['ocultar', 'privada', 'visible', 'esconder', 'clave'] },
+      { id: 'pagina-publica', titulo: 'Ocultar tu página', frase: 'Mientras la preparas, tu página de reservas y la app de tus clientes enseñan un aviso en vez de tus clases.', guardado: 'barra', palabras: ['ocultar', 'privada', 'visible', 'esconder', 'clave'] },
       // El directorio NO mira si la página está oculta (lib/configuracion/pagina-publica.ts):
       // se dice aquí, que es donde las dos filas conviven, y no solo dentro del cajón de ocultarla.
       { id: 'network', titulo: 'Aparecer en Tentare Network', frase: 'Tu estudio sale en el buscador de estudios de Tentare. Aunque ocultes tu página, seguirá saliendo ahí.', guardado: 'al-pulsar', palabras: ['directorio', 'buscador de estudios'] },
       { id: 'contenido-de-tu-app', titulo: 'Contenido de tu app', frase: 'Las tarjetas de «Descubre» de su app; el mensaje destacado y los avisos de aquí se guardan, pero hoy no salen.', guardado: 'catalogo', ancho: 'amplio', herramienta: 'contenido-de-tu-app', palabras: ['descubre', 'tablón', 'mensaje destacado'] },
-      { id: 'widgets', titulo: 'Widgets para tu web', frase: 'Tu horario, tus precios y la cuenta de tus alumnas dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', herramienta: 'widgets', palabras: ['incrustar', 'código', 'visitas'] },
+      { id: 'widgets', titulo: 'Widgets para tu web', frase: 'Tu horario, tus precios y la cuenta de tus clientes dentro de tu propia web, con un código para pegar.', guardado: 'accion', ancho: 'amplio', herramienta: 'widgets', palabras: ['incrustar', 'código', 'visitas'] },
     ],
   },
   {
@@ -287,7 +287,7 @@ export const SECCIONES = [
       // «siempre pueden editar las suyas» dejó de ser verdad al retirarse Tentare
       // Core (14-sep): la instructora solo trabaja en la app, y allí no edita clases.
       { id: 'ajuste-instructoras-crean-clases', titulo: 'Las instructoras crean sus clases', frase: 'Si pueden crear clases suyas desde su app o solo dan las que tú les asignas.', guardado: 'al-pulsar', palabras: ['profesoras', 'nueva clase'] },
-      { id: 'app-de-tus-instructoras', titulo: 'La app de tus instructoras', frase: 'El enlace para que entren con su cuenta a su agenda, sus bajas, su disponibilidad y sus alumnas.', guardado: 'accion', palabras: ['app instructoras', 'profesoras', 'enlace'] },
+      { id: 'app-de-tus-instructoras', titulo: 'La app de tus instructoras', frase: 'El enlace para que entren con su cuenta a su agenda, sus bajas, su disponibilidad y sus clientes.', guardado: 'accion', palabras: ['app instructoras', 'profesoras', 'enlace'] },
     ],
   },
   {
@@ -311,13 +311,13 @@ export const SECCIONES = [
       { id: 'integracion-gmail', titulo: 'Gmail (ya no se usa)', frase: 'Ya no trae contactos. Si lo tenías conectado, desconéctalo desde aquí.', guardado: 'accion', condicion: 'gmailConectado' },
       { id: 'integracion-google_calendar', titulo: 'Google Calendar', frase: 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.', guardado: 'accion', palabras: ['calendario'] },
       { id: 'integracion-zoom', titulo: 'Zoom', frase: 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.', guardado: 'accion', palabras: ['online', 'videollamada'] },
-      { id: 'integracion-kisi', titulo: 'Kisi', frase: 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.', guardado: 'accion', palabras: ['puerta', 'cerradura'] },
-      { id: 'integracion-klaviyo', titulo: 'Klaviyo', frase: 'Lleva a Klaviyo las alumnas que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'listas'] },
-      { id: 'integracion-mailchimp', titulo: 'Mailchimp', frase: 'Lleva a tu audiencia de Mailchimp las alumnas que aceptaron recibir marketing, al pulsar «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'newsletter', 'audiencia'] },
+      { id: 'integracion-kisi', titulo: 'Kisi', frase: 'Abre la puerta de tu estudio sola con cada check-in de tus clientes.', guardado: 'accion', palabras: ['puerta', 'cerradura'] },
+      { id: 'integracion-klaviyo', titulo: 'Klaviyo', frase: 'Lleva a Klaviyo los clientes que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'listas'] },
+      { id: 'integracion-mailchimp', titulo: 'Mailchimp', frase: 'Lleva a tu audiencia de Mailchimp los clientes que aceptaron recibir marketing, al pulsar «Sincronizar ahora».', guardado: 'accion', palabras: ['marketing', 'newsletter', 'audiencia'] },
       { id: 'plataformas-externas', titulo: 'ClassPass, Urban Sports Club y Wellhub', frase: 'Si vendes plazas en estas plataformas, apunta sus reservas en la clase para no vender dos veces el mismo hueco.', guardado: 'accion', palabras: ['classpass', 'urban sports club', 'usc', 'wellhub', 'gympass', 'plataformas', 'agregadores'] },
       { id: 'integracion-zapier', titulo: 'Zapier', frase: 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.', guardado: 'accion', palabras: ['automatizar', 'apps'] },
       { id: 'aplicaciones-con-acceso', titulo: 'Aplicaciones con acceso', frase: 'Apps como Zapier con permiso para ver datos de tu estudio; puedes quitárselo.', guardado: 'accion', palabras: ['zapier', 'permisos'] },
-      { id: 'api-publica', titulo: 'API para tu contabilidad', frase: 'Claves para que tu programa de contabilidad (u otro) lea tus cobros, facturas y alumnas.', guardado: 'accion', palabras: ['api', 'contabilidad', 'gestoría', 'clave', 'integración', 'holded', 'a3', 'sage'] },
+      { id: 'api-publica', titulo: 'API para tu contabilidad', frase: 'Claves para que tu programa de contabilidad (u otro) lea tus cobros, facturas y clientes.', guardado: 'accion', palabras: ['api', 'contabilidad', 'gestoría', 'clave', 'integración', 'holded', 'a3', 'sage'] },
     ],
   },
   {
@@ -329,13 +329,13 @@ export const SECCIONES = [
     tarjetas: [
       // La única forma de llevarte tus datos: «Exportar a Excel» se retiró el
       // 15-sep y su ancla vieja lleva aquí (lib/configuracion/destino.ts).
-      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: alumnas, reservas, suscripciones y bonos, recibos, pagos importados, ficha de salud, notas y consentimientos.', guardado: 'accion', palabras: ['descargar', 'copia', 'csv', 'excel'] },
+      { id: 'exportar', titulo: 'Exportar mis datos', frase: 'Un archivo CSV por tabla, que abre Excel: clientes, reservas, suscripciones y bonos, recibos, pagos importados, ficha de salud, notas y consentimientos.', guardado: 'accion', palabras: ['descargar', 'copia', 'csv', 'excel'] },
       // Contrato de encargo (2-oct-2026): el estudio decide si la IA redacta
       // sola con datos de sus alumnas (lib/decision/redaccion-ia.ts).
       // Verificación en dos pasos (2-oct-2026): cada persona la activa en «Mi
       // perfil»; aquí la propietaria la exige a todo el equipo del panel.
       { id: 'doble-factor-equipo', titulo: 'Verificación en dos pasos para todo el equipo', frase: 'Quien entra al panel la activará con una app de autenticación y, al entrar, escribirá un código del correo o de la app. Actívala antes para ti en «Mi perfil».', guardado: 'al-pulsar', palabras: ['doble factor', '2fa', 'mfa', 'seguridad', 'código', 'contraseña', 'autenticación'] },
-      { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus alumnas a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
+      { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus clientes a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
     ],
   },
   // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie
@@ -345,7 +345,7 @@ export const SECCIONES = [
     id: 'avisos',
     titulo: 'Mis avisos',
     resumen: 'Qué avisos te llegan y por dónde',
-    frase: 'Los avisos que te llegan a ti, no los de tus alumnas.',
+    frase: 'Los avisos que te llegan a ti, no los de tus clientes.',
     roles: SOLO_PROPIETARIA,
     palabras: ['notificaciones', 'alertas'],
     // La sección era el componente de preferencias entero, sin una sola línea
@@ -403,7 +403,7 @@ export interface FilaExterna {
  */
 export const FILAS_EXTERNAS: Readonly<Record<FilaExternaId, FilaExterna>> = {
   // Lo que paga el estudio a Tentare: la cuenta es de la propietaria.
-  plan: { id: 'plan', titulo: 'Plan de Tentare', resumen: 'Lo que pagas tú a Tentare, no tus alumnas', href: '/suscripcion', palabras: ['suscripción', 'prueba gratuita', 'precio'] },
+  plan: { id: 'plan', titulo: 'Plan de Tentare', resumen: 'Lo que pagas tú a Tentare, no tus clientes', href: '/suscripcion', palabras: ['suscripción', 'prueba gratuita', 'precio'] },
   // Su propio perfil: a /mi-perfil llega todo el personal del panel.
   'mi-cuenta': { id: 'mi-cuenta', ...MI_CUENTA, resumen: 'Tu nombre, tu foto y cómo entras', palabras: ['perfil', 'foto'], roles: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
 };
@@ -449,7 +449,7 @@ export interface GrupoConfiguracion {
  */
 export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'lo-basico', titulo: 'Lo básico', secciones: ['estudio', 'clases', 'reservas', 'cobros'] },
-  { id: 'tus-alumnas', titulo: 'Tus alumnas', secciones: ['altas', 'comunicacion', 'motivacion'] },
+  { id: 'tus-alumnas', titulo: 'Tus clientes', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
   { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', secciones: ['conexiones', 'datos'] },
@@ -474,7 +474,7 @@ export interface GrupoPanelNuevo extends GrupoConfiguracion {
 export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'tu-estudio', titulo: 'Tu estudio', frase: 'Datos, horario, salas, tipos de clase y tu equipo.', secciones: ['estudio', 'clases', 'equipo'] },
   { id: 'reservas-y-cobros', titulo: 'Reservas y cobros', frase: 'Las reglas para reservar y cancelar, y cómo cobras y facturas.', secciones: ['reservas', 'cobros'] },
-  { id: 'tus-alumnas', titulo: 'Tus alumnas', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
+  { id: 'tus-alumnas', titulo: 'Tus clientes', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
   { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', frase: 'Todo lo que conectas con otras herramientas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
   { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
@@ -557,7 +557,7 @@ function deTarjeta(id: HerramientaId & TarjetaId, resumen: string): HerramientaC
 export const HERRAMIENTAS: readonly HerramientaConfiguracion[] = [
   deTarjeta('salas', 'Tus salas, su aforo y las máquinas en avería'),
   deTarjeta('tipos-de-clase', 'Nombre, duración, plazas y sus propias reglas'),
-  deTarjeta('codigos-descuento', 'Códigos que usan tus alumnas al pagar'),
+  deTarjeta('codigos-descuento', 'Códigos que usan tus clientes al pagar'),
   deTarjeta('correos-automaticos', 'Apágalos o cambia lo que dicen'),
   deTarjeta('canjes', 'Lo que falta por entregar y el historial'),
   deTarjeta('contenido-de-tu-app', 'Mensaje destacado, tarjetas y avisos del tablón'),
@@ -583,7 +583,7 @@ export function herramientaPorId(id: HerramientaId): HerramientaConfiguracion {
  * llegue a todos, cada una pasa a ser la `frase` de su tarjeta y este mapa se borra.
  */
 export const FRASE_MI_WEB_NUEVA: Partial<Record<HerramientaId, string>> = {
-  'contenido-de-tu-app': 'Lo que tus alumnas ven en el inicio de su app además de sus clases: tarjetas con foto y un mensaje para todas.',
+  'contenido-de-tu-app': 'Lo que tus clientes ven en el inicio de su app además de sus clases: tarjetas con foto y un mensaje para todas.',
 };
 
 /** La herramienta como se enseña en su pantalla, con la frase de la v2 si el estudio la tiene. */

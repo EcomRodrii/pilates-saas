@@ -306,7 +306,7 @@ export async function entregarPlanComprado(
       const { error } = await admin.from('socios').insert({
         id: ids.socioId,
         studio_id: compra.studioId,
-        nombre: partes[0] || 'Clienta',
+        nombre: partes[0] || 'Cliente',
         apellidos: partes.slice(1).join(' ') || '',
         email: compra.email,
         telefono: compra.telefono ?? null,

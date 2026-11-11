@@ -23,7 +23,7 @@ test('legacy: son exactamente los 7 pasos, en ese orden', () => {
     'Añade tu primera instructora',
     'Crea tu primer tipo de clase',
     'Configura tus horarios',
-    'Añade tus primeras clientas',
+    'Añade tus primeras clientes',
     'Activa los métodos de pago',
     'Abre las reservas',
   ]);

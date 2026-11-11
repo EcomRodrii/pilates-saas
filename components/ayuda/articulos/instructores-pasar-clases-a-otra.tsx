@@ -19,7 +19,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={2} titulo="Elige quién las da y entre qué fechas">
         Solo aparecen instructoras activas. Al elegir las fechas te dice, antes de tocar nada, cuántas clases
-        caen en ese periodo y cuántas alumnas hay apuntadas.
+        caen en ese periodo y cuántos clientes hay apuntadas.
       </AyudaPaso>
 
       <AyudaPaso numero={3} titulo="Decide qué hacer si hay choques">
@@ -28,7 +28,7 @@ export default function Contenido() {
         mueve ninguna — no queda a medias.
       </AyudaPaso>
 
-      <h2 style={h2}>Las alumnas se enteran</h2>
+      <h2 style={h2}>Los clientes se enteran</h2>
       <p>
         Si hay gente apuntada, puedes avisarlas con la misma acción: reciben un email y un aviso en su app, uno
         por clase. Va marcado por defecto porque cambiar veinte clases en silencio es peor que no cambiarlas.

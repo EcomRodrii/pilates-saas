@@ -81,7 +81,7 @@ export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'o
             />
           )}
         </Campo>
-        <Campo label="Meses que duran" ayuda="Desde la última vez que gana. Vacío = no caducan. Cambiarlo no toca las fechas que ya tienen sus alumnas: se aplica a cada una la próxima vez que gane. Quitarlo no recupera los créditos que ya hayan caducado.">
+        <Campo label="Meses que duran" ayuda="Desde la última vez que gana. Vacío = no caducan. Cambiarlo no toca las fechas que ya tienen sus clientes: se aplica a cada una la próxima vez que gane. Quitarlo no recupera los créditos que ya hayan caducado.">
           {id => (
             <input
               id={id}
@@ -99,7 +99,7 @@ export function FormReglasCreditos({ onGuardado }: Pick<PropsFormularioCajon, 'o
         {rachaUnica ? (
           <p data-testid="racha-meta-fija" className={CONSECUENCIA}>
             La semana cuenta como completa con una clase asistida y suma a la racha. Cada cuatro semanas
-            completas seguidas, la alumna gana un respiro para una semana que no pueda venir.
+            completas seguidas, el cliente gana un respiro para una semana que no pueda venir.
           </p>
         ) : (
           <Campo label="Clases por semana para mantener la racha" ayuda="La semana en curso nunca rompe la racha: cuenta cuando termina.">
@@ -261,7 +261,7 @@ export function FormCreditosPorAccion({ onGuardado }: Pick<PropsFormularioCajon,
       <>
         <div className="flex flex-col gap-4 pb-6">
           <p className="rounded-[10px] bg-muted px-3 py-2.5 text-[13px] text-muted-foreground text-pretty">
-            Enciende lo que quieras premiar y di cuántos {moneda} suma. Lo que ya ganó una alumna no cambia al tocar esto: vale para lo que pase a partir de ahora.
+            Enciende lo que quieras premiar y di cuántos {moneda} suma. Lo que ya ganó un cliente no cambia al tocar esto: vale para lo que pase a partir de ahora.
           </p>
           {gruposDeCreditos().filter(g => g.defs.length > 0).map(g => (
             <section key={g.titulo} aria-label={g.titulo} className="rounded-[14px] border border-border bg-card px-4 py-3">

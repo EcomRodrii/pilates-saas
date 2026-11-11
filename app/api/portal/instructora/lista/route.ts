@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
   }
   const reservaId = typeof body.reservaId === 'string' ? body.reservaId : null;
-  if (accion !== 'leer' && !reservaId) return NextResponse.json({ error: 'Falta la alumna' }, { status: 400 });
+  if (accion !== 'leer' && !reservaId) return NextResponse.json({ error: 'Falta el cliente' }, { status: 400 });
 
   try {
     const sesion = await verificarInstructoraEnEstudio(req, body.slug);

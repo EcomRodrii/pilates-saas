@@ -158,7 +158,7 @@ for (const vista of VISTAS) {
     // va pegada al borde de abajo del cajón, que tapa la navegación.
     test('4 · la barra de guardar de un cajón queda a la vista, también al ir campo a campo', async ({ page }) => {
       await panel(page);
-      await abrir(page, { id: 'reservas', titulo: 'Cómo reservan mis alumnas' });
+      await abrir(page, { id: 'reservas', titulo: 'Cómo reservan mis clientes' });
 
       await page.locator('#reservar').click();
       const cajon = page.getByRole('dialog');

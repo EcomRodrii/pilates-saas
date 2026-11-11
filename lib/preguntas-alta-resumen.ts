@@ -124,7 +124,7 @@ export function celdaSegura(v: string): string {
  * Separado por `;`, que es lo que abre bien un Excel en español.
  */
 export function csvRespuestas(preguntas: PreguntaAlta[], filas: FilaRespuestas[]): string {
-  const cabecera = ['Alumna', ...preguntas.map((p) => p.etiqueta), 'Estado'];
+  const cabecera = ['Cliente', ...preguntas.map((p) => p.etiqueta), 'Estado'];
   const lineas = filas.map((f) => [
     f.nombre,
     ...preguntas.map((p) => textoRespuesta(p, f.valores[p.id])),

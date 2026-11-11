@@ -53,8 +53,8 @@ export const ETIQUETA_NIVEL: Record<NivelGuia, string> = {
 };
 
 export const EXPLICACION_NIVEL: Record<NivelGuia, string> = {
-  esencial: 'Lo mínimo para que una alumna pueda reservar. Nada más.',
-  recomendado: 'Cobrar, facturar y que tus alumnas tengan su app. No corre prisa el primer día.',
+  esencial: 'Lo mínimo para que un cliente pueda reservar. Nada más.',
+  recomendado: 'Cobrar, facturar y que tus clientes tengan su app. No corre prisa el primer día.',
   avanzado: 'Lo que descubres cuando el estudio ya funciona y quieres que funcione mejor.',
 };
 
@@ -121,23 +121,23 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Qué es Tentare',
-        texto: 'Es el sitio donde vive tu estudio: tu horario, tus alumnas, sus bonos, sus reservas y su dinero. Tú decides las reglas una vez; a partir de ahí tus alumnas reservan solas desde su móvil y tú dejas de llevar la cuenta en una libreta o en un grupo de WhatsApp.',
+        texto: 'Es el sitio donde vive tu estudio: tu horario, tus clientes, sus bonos, sus reservas y su dinero. Tú decides las reglas una vez; a partir de ahí tus clientes reservan solas desde su móvil y tú dejas de llevar la cuenta en una libreta o en un grupo de WhatsApp.',
       },
       {
         titulo: 'Las seis zonas del panel',
-        texto: 'Arriba del todo, tu Inicio y el Centro de Control: lo que hay que mirar hoy; y Automatizaciones, lo que trabaja solo. Operación, lo de cada día: calendario, citas, tus alumnas y la mensajería. Equipo, quién da las clases y quién cubre a quien falta. Negocio, cobros, caja, paquetes, informes y el cierre de año. Estudio, la configuración y tu suscripción. Y el buscador (⌘K) llega a cualquier sitio escribiendo dos palabras, también a un ajuste: escribe «IVA» y te lleva a tus datos fiscales.',
+        texto: 'Arriba del todo, tu Inicio y el Centro de Control: lo que hay que mirar hoy; y Automatizaciones, lo que trabaja solo. Operación, lo de cada día: calendario, citas, tus clientes y la mensajería. Equipo, quién da las clases y quién cubre a quien falta. Negocio, cobros, caja, paquetes, informes y el cierre de año. Estudio, la configuración y tu suscripción. Y el buscador (⌘K) llega a cualquier sitio escribiendo dos palabras, también a un ajuste: escribe «IVA» y te lleva a tus datos fiscales.',
       },
       {
         titulo: 'Empieza por lo que desbloquea el resto',
-        texto: 'El orden de esta guía no es caprichoso: sin salas no puedes decir cuánta gente cabe, sin tipos de clase no puedes programar, y sin clases programadas la app de tus alumnas no tiene nada que enseñar. Los cinco primeros capítulos son ese camino. El resto puede esperar a la semana que viene.',
+        texto: 'El orden de esta guía no es caprichoso: sin salas no puedes decir cuánta gente cabe, sin tipos de clase no puedes programar, y sin clases programadas la app de tus clientes no tiene nada que enseñar. Los cinco primeros capítulos son ese camino. El resto puede esperar a la semana que viene.',
       },
       {
         titulo: 'No necesitas configurarlo todo para empezar',
-        texto: 'Para que una alumna reserve no hace falta ni Stripe ni tu NIF. Puedes abrir hoy cobrando en el mostrador y dejar lo de cobrar por internet para cuando te apetezca.',
+        texto: 'Para que un cliente reserve no hace falta ni Stripe ni tu NIF. Puedes abrir hoy cobrando en el mostrador y dejar lo de cobrar por internet para cuando te apetezca.',
       },
     ],
     acciones: [{ label: 'Ver un tour del panel', tour: true }],
-    consejo: 'Si vienes de otro software, no empieces metiendo datos a mano: en «Traer mis datos» se suben tus alumnas, bonos, horario y reservas de una vez, y se puede deshacer.',
+    consejo: 'Si vienes de otro software, no empieces metiendo datos a mano: en «Traer mis datos» se suben tus clientes, bonos, horario y reservas de una vez, y se puede deshacer.',
     pasos: [],
   },
 
@@ -146,11 +146,11 @@ export const CAPITULOS: CapituloGuia[] = [
     id: 'tu-estudio',
     numero: '02',
     titulo: 'Tu estudio y tus espacios',
-    resumen: 'El nombre que ven tus alumnas, tus horarios de apertura y las salas donde entrenan.',
+    resumen: 'El nombre que ven tus clientes, tus horarios de apertura y las salas donde entrenan.',
     nivel: 'esencial',
     minutos: 6,
     queAprendes: [
-      'Qué textos tuyos ven las alumnas y dónde aparece cada uno',
+      'Qué textos tuyos ven los clientes y dónde aparece cada uno',
       'Por qué el horario del estudio no es lo mismo que tus clases',
       'Cómo la capacidad de una sala limita cada clase',
       'Qué hacer cuando se te avería una máquina',
@@ -158,7 +158,7 @@ export const CAPITULOS: CapituloGuia[] = [
     porQue: 'La capacidad de la sala es el techo de todas tus clases: si está mal, cada clase que programes nacerá mal.',
     apartados: [
       {
-        titulo: 'Lo que leen tus alumnas',
+        titulo: 'Lo que leen tus clientes',
         texto: 'En Configuración → Mi estudio escribes tu nombre, tu teléfono y tu dirección, y en Marca tu logo y los textos que aparecen en su app: cómo te presentas, tu lema, la frase de bienvenida y las normas del centro. No son adornos: son lo primero que lee alguien que todavía no te conoce.',
       },
       {
@@ -175,7 +175,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Cerrar por vacaciones',
-        texto: 'Si cierras unos días, dilo en «Cerrar el centro», dentro de Mi estudio. Tentare cancela las clases de esas fechas, avisa a quien tuviera reserva, devuelve las sesiones de bono y —esto es lo que nadie hace a mano— alarga la caducidad de los bonos y las recuperaciones de todas tus alumnas tantos días como dure el cierre.',
+        texto: 'Si cierras unos días, dilo en «Cerrar el centro», dentro de Mi estudio. Tentare cancela las clases de esas fechas, avisa a quien tuviera reserva, devuelve las sesiones de bono y —esto es lo que nadie hace a mano— alarga la caducidad de los bonos y las recuperaciones de todas tus clientes tantos días como dure el cierre.',
       },
     ],
     acciones: [
@@ -205,7 +205,7 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Los cuatro roles',
-        texto: 'Propietaria lo ve todo. Responsable de sede lleva lo operativo y el equipo, pero no el dinero ni la configuración. Recepción cobra y gestiona alumnas, pero no ve informes ni configuración. La instructora no entra al panel: trabaja desde la app del estudio en su móvil, con sus clases, sus alumnas y su disponibilidad. No es una cuestión de confianza: es que cada una vea lo suyo y no se pierda en lo demás.',
+        texto: 'Propietaria lo ve todo. Responsable de sede lleva lo operativo y el equipo, pero no el dinero ni la configuración. Recepción cobra y gestiona clientes, pero no ve informes ni configuración. La instructora no entra al panel: trabaja desde la app del estudio en su móvil, con sus clases, sus clientes y su disponibilidad. No es una cuestión de confianza: es que cada una vea lo suyo y no se pierda en lo demás.',
       },
       {
         titulo: 'Dar de alta a alguien',
@@ -261,11 +261,11 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'Tipo de clase ≠ clase',
-        texto: '«Reformer» es un tipo de clase: existe una vez, con su duración, su aforo y su color. «Reformer del martes a las 10:00» es una clase: una fecha concreta con su instructora y sus alumnas. Primero se crea el tipo, y luego se programan todas las clases que quieras a partir de él.',
+        texto: '«Reformer» es un tipo de clase: existe una vez, con su duración, su aforo y su color. «Reformer del martes a las 10:00» es una clase: una fecha concreta con su instructora y sus clientes. Primero se crea el tipo, y luego se programan todas las clases que quieras a partir de él.',
       },
       {
         titulo: 'Lo básico',
-        texto: 'Nombre, cuánto dura, a quién va dirigida (nivel), cuántas alumnas caben y de qué color se pinta en el calendario. Si no dices cuántas caben, se usa la capacidad de la sala — que casi siempre es lo que quieres.',
+        texto: 'Nombre, cuánto dura, a quién va dirigida (nivel), cuántos clientes caben y de qué color se pinta en el calendario. Si no dices cuántas caben, se usa la capacidad de la sala — que casi siempre es lo que quieres.',
       },
       {
         titulo: 'Su cara pública',
@@ -273,15 +273,15 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Reglas propias, solo para la excepción',
-        texto: 'Cada tipo puede sobrescribir las reglas de reserva del estudio: hasta cuándo se puede cancelar, si hace falta bono, si hay lista de espera, cuántas alumnas mínimo para que salga. Cuando no lo tocas, hereda lo del estudio y te lo dice en pantalla. Empieza sin tocar nada: personaliza solo la clase que sea de verdad distinta.',
+        texto: 'Cada tipo puede sobrescribir las reglas de reserva del estudio: hasta cuándo se puede cancelar, si hace falta bono, si hay lista de espera, cuántos clientes mínimo para que salga. Cuando no lo tocas, hereda lo del estudio y te lo dice en pantalla. Empieza sin tocar nada: personaliza solo la clase que sea de verdad distinta.',
       },
       {
         titulo: 'Clases con autorización',
-        texto: 'Si tienes una clase a la que no debe apuntarse cualquiera —avanzado, pre y posparto—, puedes marcar que requiere autorización: entonces solo reservan las alumnas a las que se la hayas dado una a una.',
+        texto: 'Si tienes una clase a la que no debe apuntarse cualquiera —avanzado, pre y posparto—, puedes marcar que requiere autorización: entonces solo reservan los clientes a las que se la hayas dado una a una.',
       },
     ],
     acciones: [{ label: 'Crear un tipo de clase', href: '/configuracion?tab=clases&abrir=tipos-de-clase' }],
-    consejo: 'Empieza con dos o tres tipos como mucho. Siempre puedes añadir más; lo difícil es reordenar un catálogo de doce cuando ya tienes alumnas reservando.',
+    consejo: 'Empieza con dos o tres tipos como mucho. Siempre puedes añadir más; lo difícil es reordenar un catálogo de doce cuando ya tienes clientes reservando.',
     pasos: ['clase'],
   },
 
@@ -298,7 +298,7 @@ export const CAPITULOS: CapituloGuia[] = [
       'Cambiar una clase de una serie sin romper el resto',
       'Mover, duplicar y cancelar sin perder a nadie por el camino',
     ],
-    porQue: 'Es el paso donde se queda la mitad de los estudios, y sin él la app de tus alumnas no tiene nada que enseñar.',
+    porQue: 'Es el paso donde se queda la mitad de los estudios, y sin él la app de tus clientes no tiene nada que enseñar.',
     apartados: [
       {
         titulo: 'Créalas en serie, no una a una',
@@ -318,7 +318,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Incidencias',
-        texto: 'Si en una clase pasó algo —se fue la luz, vino la mitad—, puedes dejar una nota en esa sesión. Es para ti y para tu equipo, no la ve la alumna.',
+        texto: 'Si en una clase pasó algo —se fue la luz, vino la mitad—, puedes dejar una nota en esa sesión. Es para ti y para tu equipo, no la ve el cliente.',
       },
     ],
     acciones: [
@@ -335,19 +335,19 @@ export const CAPITULOS: CapituloGuia[] = [
     id: 'abre-reservas',
     numero: '06',
     titulo: 'Abre las reservas',
-    resumen: 'La app de tus alumnas, el enlace que compartes y la primera reserva de verdad.',
+    resumen: 'La app de tus clientes, el enlace que compartes y la primera reserva de verdad.',
     nivel: 'esencial',
     minutos: 4,
     queAprendes: [
-      'Dónde está la app de tus alumnas y cómo se comparte',
-      'Qué ve una alumna que entra por primera vez',
+      'Dónde está la app de tus clientes y cómo se comparte',
+      'Qué ve un cliente que entra por primera vez',
       'Cómo meter el calendario en tu propia web',
     ],
     porQue: 'Es el momento en que Tentare empieza a trabajar para ti en vez de al revés.',
     apartados: [
       {
         titulo: 'Ya tienes app, aunque no lo sepas',
-        texto: 'Tu estudio tiene la app de sus alumnas desde el primer día, con tu nombre y tu color. Ahí se ve tu horario y desde ahí se reserva. No hay que publicarla ni activarla: en cuanto tienes clases programadas, funciona.',
+        texto: 'Tu estudio tiene la app de sus clientes desde el primer día, con tu nombre y tu color. Ahí se ve tu horario y desde ahí se reserva. No hay que publicarla ni activarla: en cuanto tienes clases programadas, funciona.',
       },
       {
         titulo: 'No necesitas Stripe para esto',
@@ -355,18 +355,18 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Comparte el enlace donde ya te buscan',
-        texto: 'En la biografía de Instagram, en tu ficha de Google, en el grupo de WhatsApp de tus alumnas. Entran con su email y un código, sin contraseña y sin descargarse nada. La mayoría de las primeras reservas llegan del sitio donde ya te conocían, no de gente nueva.',
+        texto: 'En la biografía de Instagram, en tu ficha de Google, en el grupo de WhatsApp de tus clientes. Entran con su email y un código, sin contraseña y sin descargarse nada. La mayoría de las primeras reservas llegan del sitio donde ya te conocían, no de gente nueva.',
       },
       {
         titulo: 'Si tienes web propia',
-        texto: 'Para tu web está la página de reservas: puedes incrustar el calendario dentro de ella, con tus colores y tu tipografía, de dos formas: un recuadro que se pega tal cual, o un trozo de código que se integra sin marco. La segunda necesita que autorices tu dominio. No es el enlace que repartes a tus alumnas: ese es el de su app.',
+        texto: 'Para tu web está la página de reservas: puedes incrustar el calendario dentro de ella, con tus colores y tu tipografía, de dos formas: un recuadro que se pega tal cual, o un trozo de código que se integra sin marco. La segunda necesita que autorices tu dominio. No es el enlace que repartes a tus clientes: ese es el de su app.',
       },
     ],
     acciones: [
-      { label: 'Ver el enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
+      { label: 'Ver el enlace de la app de mis clientes', href: '/configuracion?tab=web#direccion-y-enlaces' },
       { label: 'Meter el calendario en mi web', href: '/configuracion?tab=web&abrir=widgets' },
     ],
-    consejo: 'Antes de compartirlo, ábrelo tú desde el móvil y reserva una clase como si fueras una alumna. Es la mejor forma de ver lo que ve ella.',
+    consejo: 'Antes de compartirlo, ábrelo tú desde el móvil y reserva una clase como si fueras un cliente. Es la mejor forma de ver lo que ve ella.',
     pasos: ['reservas', 'primera-reserva'],
   },
 
@@ -392,7 +392,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Recuperaciones',
-        texto: 'Una recuperación es una clase que una alumna se ha ganado y puede usar por encima de su límite semanal. Se gastan solas cuando choca con el tope, sin que nadie tenga que acordarse. Y si lo activas, se conceden solas al cerrar la semana a quien canceló a tiempo y se quedó sin poder recuperar el hueco.',
+        texto: 'Una recuperación es una clase que un cliente se ha ganado y puede usar por encima de su límite semanal. Se gastan solas cuando choca con el tope, sin que nadie tenga que acordarse. Y si lo activas, se conceden solas al cerrar la semana a quien canceló a tiempo y se quedó sin poder recuperar el hueco.',
       },
       {
         titulo: 'Lista de espera',
@@ -404,7 +404,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Mínimo de asistentes',
-        texto: 'Puedes decir que una clase con menos de N apuntadas no sale. Dos horas antes, si no se alcanza, se cancela sola y, como cualquier clase cancelada entera, devuelve la sesión a quien estuviera apuntada salvo que lo hayas desactivado en Configuración → Cómo reservan mis alumnas, en «Si se cancela una clase entera». Nadie se planta en el estudio para encontrárselo cerrado.',
+        texto: 'Puedes decir que una clase con menos de N apuntadas no sale. Dos horas antes, si no se alcanza, se cancela sola y, como cualquier clase cancelada entera, devuelve la sesión a quien estuviera apuntada salvo que lo hayas desactivado en Configuración → Cómo reservan mis clientes, en «Si se cancela una clase entera». Nadie se planta en el estudio para encontrárselo cerrado.',
       },
       {
         titulo: 'Cobrar por no venir',
@@ -416,7 +416,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [{ label: 'Configurar mis reglas de reserva', href: '/configuracion?tab=reservas' }],
-    consejo: 'Empieza con las reglas de fábrica durante un mes. Cambia solo lo que te haya dado un problema real — es mucho más fácil endurecer una regla que relajarla cuando tus alumnas ya se acostumbraron.',
+    consejo: 'Empieza con las reglas de fábrica durante un mes. Cambia solo lo que te haya dado un problema real — es mucho más fácil endurecer una regla que relajarla cuando tus clientes ya se acostumbraron.',
     pasos: [],
   },
 
@@ -433,7 +433,7 @@ export const CAPITULOS: CapituloGuia[] = [
       'Caducidades y límites semanales',
       'La matrícula, y cómo regalarla a las primeras',
     ],
-    porQue: 'Sin nada que vender, cada alumna paga clase a clase y tú llevas las cuentas a mano.',
+    porQue: 'Sin nada que vender, cada cliente paga clase a clase y tú llevas las cuentas a mano.',
     apartados: [
       {
         titulo: 'Los tres tipos',
@@ -457,7 +457,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [{ label: 'Crear un bono o una cuota', href: '/productos' }],
-    consejo: 'Los precios que escribes llevan el IVA incluido. Cambiar el IVA general solo cambia cómo se desglosa en la factura, nunca lo que paga tu alumna.',
+    consejo: 'Los precios que escribes llevan el IVA incluido. Cambiar el IVA general solo cambia cómo se desglosa en la factura, nunca lo que paga tu cliente.',
     pasos: ['bonos'],
   },
 
@@ -481,7 +481,7 @@ export const CAPITULOS: CapituloGuia[] = [
         texto: 'Al conectar Stripe, los cobros entran en tu propia cuenta, no en la de Tentare. No hay que introducir ninguna clave: se hace con un botón y se completa en la web de Stripe con tus datos y tu cuenta bancaria.',
       },
       {
-        titulo: 'Cuando una alumna compra por internet',
+        titulo: 'Cuando un cliente compra por internet',
         texto: 'Paga con tarjeta desde su app o desde tu web. Se le entrega el bono o la cuota al instante, se le genera el recibo y, si tienes la facturación lista, su factura. Tú no tienes que hacer nada.',
       },
       {
@@ -490,11 +490,11 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Quién me debe',
-        texto: 'Es la pantalla que más vas a mirar. Una fila por alumna con lo que debe: le cobras con su tarjeta ya guardada, marcas como cobrado lo que te ha pagado en mano, y preparas los recibos del mes para subirlos a tu banco.',
+        texto: 'Es la pantalla que más vas a mirar. Una fila por cliente con lo que debe: le cobras con su tarjeta ya guardada, marcas como cobrado lo que te ha pagado en mano, y preparas los recibos del mes para subirlos a tu banco.',
       },
       {
         titulo: 'Renovaciones y pagos fallidos',
-        texto: 'Las cuotas generan su recibo solas cada ciclo. Si un cobro falla, se reintenta a los 3 y a los 7 días del vencimiento (tres intentos en total) antes de darlo por fallido, y se avisa a la alumna la primera vez y la última. No hay que estar pendiente.',
+        texto: 'Las cuotas generan su recibo solas cada ciclo. Si un cobro falla, se reintenta a los 3 y a los 7 días del vencimiento (tres intentos en total) antes de darlo por fallido, y se avisa al cliente la primera vez y la última. No hay que estar pendiente.',
       },
     ],
     acciones: [
@@ -509,12 +509,12 @@ export const CAPITULOS: CapituloGuia[] = [
   {
     id: 'tus-alumnas',
     numero: '10',
-    titulo: 'Tus alumnas',
+    titulo: 'Tus clientes',
     resumen: 'Su ficha, su historial y todo lo que Tentare sabe de cada persona que entrena contigo.',
     nivel: 'recomendado',
     minutos: 7,
     queAprendes: [
-      'Traer tus alumnas de otro software en vez de teclearlas',
+      'Traer tus clientes de otro software en vez de teclearlas',
       'Qué hay en una ficha y quién puede ver cada parte',
       'Etiquetas, campos propios y grupos para hablarles',
     ],
@@ -522,15 +522,15 @@ export const CAPITULOS: CapituloGuia[] = [
     apartados: [
       {
         titulo: 'No las teclees: tráelas',
-        texto: 'Si vienes de otro software, «Traer mis datos» sube tus alumnas, sus bonos, tu horario, sus reservas y sus pagos históricos. Te enseña antes qué va a hacer, avisa de lo que no entiende, y se puede deshacer entero después. Teclear doscientas fichas a mano no es un buen primer día.',
+        texto: 'Si vienes de otro software, «Traer mis datos» sube tus clientes, sus bonos, tu horario, sus reservas y sus pagos históricos. Te enseña antes qué va a hacer, avisa de lo que no entiende, y se puede deshacer entero después. Teclear doscientas fichas a mano no es un buen primer día.',
       },
       {
         titulo: 'La ficha',
-        texto: 'Cada alumna tiene su resumen, sus reservas, sus pagos, sus comunicaciones y sus documentos. Si tu estudio lleva ficha clínica, también su historial de molestias y lesiones — esa parte solo la ves tú y tus instructoras, nunca recepción, y solo existe si la alumna dio su consentimiento aparte.',
+        texto: 'Cada cliente tiene su resumen, sus reservas, sus pagos, sus comunicaciones y sus documentos. Si tu estudio lleva ficha clínica, también su historial de molestias y lesiones — esa parte solo la ves tú y tus instructoras, nunca recepción, y solo existe si el cliente dio su consentimiento aparte.',
       },
       {
         titulo: 'Etiquetas y campos propios',
-        texto: 'Puedes marcar a una alumna como VIP, embarazo, lesión o lo que necesites, y añadir campos tuyos que no vienen de serie. Aparecen en el alta y en su ficha.',
+        texto: 'Puedes marcar a un cliente como VIP, embarazo, lesión o lo que necesites, y añadir campos tuyos que no vienen de serie. Aparecen en el alta y en su ficha.',
       },
       {
         titulo: 'Grupos para hablarles',
@@ -542,10 +542,10 @@ export const CAPITULOS: CapituloGuia[] = [
       },
     ],
     acciones: [
-      { label: 'Dar de alta a una alumna', href: '/clientas?nuevo=1' },
+      { label: 'Dar de alta a un cliente', href: '/clientas?nuevo=1' },
       { label: 'Traer mis datos de otro software', href: '/migracion' },
     ],
-    consejo: 'Empieza por las que ya tienes. Las nuevas se dan de alta solas al entrar en la app de tus alumnas, sin que tú toques nada.',
+    consejo: 'Empieza por las que ya tienes. Las nuevas se dan de alta solas al entrar en la app de tus clientes, sin que tú toques nada.',
     pasos: ['clientes'],
   },
 
@@ -553,16 +553,16 @@ export const CAPITULOS: CapituloGuia[] = [
   {
     id: 'la-app-de-tus-alumnas',
     numero: '11',
-    titulo: 'La app de tus alumnas',
+    titulo: 'La app de tus clientes',
     resumen: 'Lo que ven ellas en el móvil, con tu nombre y tus colores.',
     nivel: 'recomendado',
     minutos: 6,
     queAprendes: [
-      'Qué puede hacer una alumna sin escribirte',
+      'Qué puede hacer un cliente sin escribirte',
       'Cómo se instala en su móvil sin pasar por ninguna tienda',
       'Qué puedes personalizar hoy',
     ],
-    porQue: 'Cada cosa que una alumna resuelve sola es un WhatsApp que no tienes que contestar.',
+    porQue: 'Cada cosa que un cliente resuelve sola es un WhatsApp que no tienes que contestar.',
     apartados: [
       {
         titulo: 'Qué puede hacer ella sola',
@@ -574,7 +574,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Con tu cara, no con la nuestra',
-        texto: 'Lleva tu nombre, tu logo y tus colores. Para tus alumnas es la app de tu estudio. Hoy puedes cambiar el logo, el favicon, los colores de marca y los textos que se leen al entrar.',
+        texto: 'Lleva tu nombre, tu logo y tus colores. Para tus clientes es la app de tu estudio. Hoy puedes cambiar el logo, el favicon, los colores de marca y los textos que se leen al entrar.',
       },
       {
         // Decía «pones el mensaje destacado que ven al entrar y los avisos del estudio»:
@@ -591,9 +591,9 @@ export const CAPITULOS: CapituloGuia[] = [
     acciones: [
       { label: 'Publicar una tarjeta', href: '/configuracion?tab=web&abrir=contenido-de-tu-app' },
       { label: 'Mi logo y mi color', href: '/configuracion?tab=marca' },
-      { label: 'El enlace de la app de mis alumnas', href: '/configuracion?tab=web#direccion-y-enlaces' },
+      { label: 'El enlace de la app de mis clientes', href: '/configuracion?tab=web#direccion-y-enlaces' },
     ],
-    consejo: 'Pídele a una alumna de confianza que la instale y te cuente qué no entiende. Vale más que cualquier cosa que puedas mirar tú desde el panel.',
+    consejo: 'Pídele a un cliente de confianza que la instale y te cuente qué no entiende. Vale más que cualquier cosa que puedas mirar tú desde el panel.',
     pasos: ['portal-contenido', 'marca'],
   },
 
@@ -665,7 +665,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Pasar lista',
-        texto: 'Marcar quién vino no es cosmético: la asistencia dispara los créditos, las rachas y los logros de tus alumnas. Puedes marcarlo a mano, escanear su pase, o dejar que se dé por asistido al terminar la clase. Y se puede decidir clase por clase: en un Reformer de seis sí, en un Mat de veinticinco quizá no.',
+        texto: 'Marcar quién vino no es cosmético: la asistencia dispara los créditos, las rachas y los logros de tus clientes. Puedes marcarlo a mano, escanear su pase, o dejar que se dé por asistido al terminar la clase. Y se puede decidir clase por clase: en un Reformer de seis sí, en un Mat de veinticinco quizá no.',
       },
       {
         titulo: 'Una baja de última hora',
@@ -673,7 +673,7 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Rellenar un hueco',
-        texto: 'Si una clase de mañana va vacía, puedes avisar a las alumnas que encajan con esa franja, por WhatsApp o por email. Solo llega a quien aceptó recibir ese tipo de avisos.',
+        texto: 'Si una clase de mañana va vacía, puedes avisar a los clientes que encajan con esa franja, por WhatsApp o por email. Solo llega a quien aceptó recibir ese tipo de avisos.',
       },
       {
         titulo: 'Cuando el equipo crece',
@@ -699,7 +699,7 @@ export const CAPITULOS: CapituloGuia[] = [
     queAprendes: [
       'Qué hace Tentare solo y qué dos automatizaciones merecen la pena desde el principio',
       'Cómo se conecta WhatsApp',
-      'Qué correos ven tus alumnas y cómo cambiarlos',
+      'Qué correos ven tus clientes y cómo cambiarlos',
     ],
     porQue: 'Cada aviso automático es una tarea que dejas de hacer todas las tardes.',
     apartados: [
@@ -709,11 +709,11 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Recuperar a quien no viene',
-        texto: 'Pregunta cómo está quien lleva días sin aparecer, antes de que se convierta en una baja. Recuperar a una alumna cuesta mucho menos que conseguir una nueva.',
+        texto: 'Pregunta cómo está quien lleva días sin aparecer, antes de que se convierta en una baja. Recuperar a un cliente cuesta mucho menos que conseguir una nueva.',
       },
       {
         titulo: 'Acompañar a las nuevas',
-        texto: 'Anima a reservar a quien se acaba de dar de alta y todavía no ha venido. La primera clase es el momento en que una alumna decide si se queda.',
+        texto: 'Anima a reservar a quien se acaba de dar de alta y todavía no ha venido. La primera clase es el momento en que un cliente decide si se queda.',
       },
       {
         titulo: 'WhatsApp',
@@ -758,11 +758,11 @@ export const CAPITULOS: CapituloGuia[] = [
       },
       {
         titulo: 'Tu equipo',
-        texto: 'Puedes ver retención y conversión por instructora, y si demasiadas alumnas dependen de una sola persona. Con pocos datos no inventa un número: dice que no lo sabe.',
+        texto: 'Puedes ver retención y conversión por instructora, y si demasiadas clientes dependen de una sola persona. Con pocos datos no inventa un número: dice que no lo sabe.',
       },
       {
         titulo: 'Tus datos son tuyos',
-        texto: 'En Configuración → Datos y seguridad te llevas tus datos cuando quieras: un archivo por tabla que abre Excel. Y la Libreta imprime tu estudio entero —cada alumna con su plan, sus sesiones y su plaza— en papel. Está ahí para que nunca te sientas atrapada.',
+        texto: 'En Configuración → Datos y seguridad te llevas tus datos cuando quieras: un archivo por tabla que abre Excel. Y la Libreta imprime tu estudio entero —cada cliente con su plan, sus sesiones y su plaza— en papel. Está ahí para que nunca te sientas atrapada.',
       },
     ],
     acciones: [

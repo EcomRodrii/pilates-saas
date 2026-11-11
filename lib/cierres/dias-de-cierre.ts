@@ -59,7 +59,7 @@ export function consecuenciasDelCierre(p: {
   const sesion = p.devuelveSesion ? ', que recupera la sesión del bono' : ', sin devolverle la sesión';
   const dias = p.dias === 1 ? '1 día' : `${p.dias} días`;
   return `${p.cuando} nadie podrá reservar. Se cancelan ${clases} avisando a quien tenía reserva${sesion}, y los bonos y `
-    + `recuperaciones de todas tus alumnas duran ${dias} más.`
+    + `recuperaciones de todas tus clientes duran ${dias} más.`
     + (p.notaSolapes ? ' Si alguno de esos días ya lo habías cerrado antes, no se suma dos veces.' : '');
 }
 

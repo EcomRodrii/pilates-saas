@@ -165,8 +165,8 @@ test('cero y null no dicen lo mismo, y ninguno se enseña como "0"', () => {
   assert.equal(resumenPlazoEspera(0), 'se le asigna al instante');
   assert.equal(resumenPlazoEspera(30), '30 minutos para aceptar');
   assert.equal(resumenMinimoAsistentes(0), 'sin mínimo, la clase sale siempre');
-  assert.equal(resumenMinimoAsistentes(1), '1 alumna');
-  assert.equal(resumenMinimoAsistentes(3), '3 alumnas');
+  assert.equal(resumenMinimoAsistentes(1), '1 cliente');
+  assert.equal(resumenMinimoAsistentes(3), '3 clientes');
   assert.equal(resumenPenalizacion(null), 'no se cobra nada');
   assert.equal(resumenPenalizacion(0), 'no se cobra nada');
   assert.equal(resumenPenalizacion(12.5), '12,50 €');

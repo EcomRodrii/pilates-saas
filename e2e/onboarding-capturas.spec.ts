@@ -35,7 +35,7 @@ async function appReal(page: Page) {
 async function foto(page: Page, nombre: string) {
   // La app real tarda en cargar en dev: se espera a que el pie diga que ya está.
   if (await page.locator('[data-testid="app-alumna-real"]:visible').count() > 0) {
-    await page.getByText('Así verán tus alumnas tu app').locator('visible=true').first().waitFor({ timeout: 60_000 }).catch(() => {});
+    await page.getByText('Así verán tus clientes tu app').locator('visible=true').first().waitFor({ timeout: 60_000 }).catch(() => {});
   }
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${DESTINO}/onboarding-${nombre}-${page.viewportSize()!.width}.png`, fullPage: false });

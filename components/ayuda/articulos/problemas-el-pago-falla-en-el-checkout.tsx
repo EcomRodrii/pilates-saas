@@ -6,7 +6,7 @@ export default function Contenido() {
   return (
     <>
       <QueEstaPasando>
-        Una alumna intenta pagar un plan o bono y algo falla en el checkout: la tarjeta se rechaza, el formulario no
+        Un cliente intenta pagar un plan o bono y algo falla en el checkout: la tarjeta se rechaza, el formulario no
         avanza, o se queda colgado en &ldquo;Procesando el pago…&rdquo;.
       </QueEstaPasando>
 
@@ -23,7 +23,7 @@ export default function Contenido() {
       </ComoSolucionarlo>
 
       <AyudaResultado>
-        Un pago que falla nunca deja a la alumna con un plan activo a medias — si el cobro no se confirma, no se
+        Un pago que falla nunca deja al cliente con un plan activo a medias — si el cobro no se confirma, no se
         activa nada. Relacionado:{' '}
         <Link href="/ayuda/pagos/cobros-fallidos" style={{ color: 'inherit', textDecoration: 'underline' }}>cobros fallidos</Link>.
       </AyudaResultado>

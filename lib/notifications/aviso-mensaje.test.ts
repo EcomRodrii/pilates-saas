@@ -11,7 +11,7 @@ import { previsualizacionParaAviso } from '../mensajeria/presentacion.ts';
 const SOCIA = plantillaDe(EVENTOS.MENSAJE_RECIBIDO, 'SOCIA')!;
 const RESUMEN = plantillaDe(EVENTOS.MENSAJE_DIGEST_NO_LEIDO, 'SOCIA')!;
 
-test('tocar el aviso de un mensaje abre ese hilo en la app de la alumna', () => {
+test('tocar el aviso de un mensaje abre ese hilo en la app del cliente', () => {
   assert.equal(SOCIA.deepLink?.({ slug: 'pilates-luz', conversacionId: 'conv-1' }), '/portal/pilates-luz/mensajes/conv-1');
 });
 
@@ -37,7 +37,7 @@ test('el aviso no lleva el texto y, en el hilo con el estudio, le escribe el est
   const conEstudio = render(SOCIA.body, datos('ALUMNA_MOSTRADOR', 'Marta López', 'Pilates Luz'));
   assert.equal(conEstudio, 'Pilates Luz te ha escrito.');
   assert.ok(!conEstudio.includes('rodilla'));
-  assert.ok(!conEstudio.includes('Marta'), 'a la alumna le escribe el estudio, no quien está en recepción');
+  assert.ok(!conEstudio.includes('Marta'), 'al cliente le escribe el estudio, no quien está en recepción');
 
   assert.equal(render(SOCIA.body, datos('ALUMNA_INSTRUCTORA', 'Laura', null)), 'Laura te ha escrito.');
 
@@ -47,7 +47,7 @@ test('el aviso no lleva el texto y, en el hilo con el estudio, le escribe el est
   assert.equal(render(SOCIA.body, datos('ALUMNA_MOSTRADOR', 'Marta López', null)), 'Tu estudio te ha escrito.');
 });
 
-test('al equipo y a la instructora tampoco les llega el texto de un hilo con alumna', () => {
+test('al equipo y a la instructora tampoco les llega el texto de un hilo con cliente', () => {
   for (const rol of ['PROPIETARIO', 'RECEPCION', 'INSTRUCTOR'] as const) {
     const p = plantillaDe(EVENTOS.MENSAJE_RECIBIDO, rol)!;
     // Sin `previsualizacion` en los datos (hilo con alumna), la frase acaba en el nombre.

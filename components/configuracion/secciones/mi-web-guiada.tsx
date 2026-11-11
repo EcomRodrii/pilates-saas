@@ -154,7 +154,7 @@ function VistaMiWeb({ datos: base, acciones, network, showToast, slug, widgets, 
           <section aria-labelledby="mi-web-otra-cosa" className="rounded-2xl border border-dashed border-border p-5">
             <h3 id="mi-web-otra-cosa" className="text-[15px] font-semibold text-foreground">¿Buscas otra cosa?</h3>
             <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">
-              El <strong className="font-semibold text-foreground">enlace y el QR de la app de tus alumnas</strong> están en{' '}
+              El <strong className="font-semibold text-foreground">enlace y el QR de la app de tus clientes</strong> están en{' '}
               <Link href="/configuracion/apariencia?paso=instalar" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app → Compártela</Link>.
               Tu <strong className="font-semibold text-foreground">logo, tu color y tu lema</strong> también están en{' '}
               <Link href="/configuracion?tab=marca" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app</Link>: tu página de reservas los toma de allí.

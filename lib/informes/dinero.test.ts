@@ -57,7 +57,7 @@ test('cuadra al céntimo con «Lo que he cobrado»: mes cerrado, a medias, bisie
   comprobar('SEMANA', tramo('SEMANA', '2028-02-29'));
 });
 
-test('el desglose por motivo y el ingreso medio por clienta que pagó', () => {
+test('el desglose por motivo y el ingreso medio por cliente que pagó', () => {
   const t = { desde: '2026-10-01', hasta: '2026-10-31' };
   const lista = [
     r('2026-10-01', 89, { socioId: 'a', suscripcionId: 'sus-m' }),

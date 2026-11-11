@@ -68,7 +68,7 @@ const RECIEN: DatosAltaNueva = {
 
 test('alta nueva: cinco tareas en el orden del valor, con los textos de la maqueta', () => {
   assert.deepEqual(TAREAS_ALTA_NUEVA.map(t => t.titulo), [
-    'Crea tu cuenta', 'Crea tu primera clase', 'Comparte el enlace de tu app', 'Trae a tus alumnas', 'Recibe tu primera reserva',
+    'Crea tu cuenta', 'Crea tu primera clase', 'Comparte el enlace de tu app', 'Trae a tus clientes', 'Recibe tu primera reserva',
   ]);
   // La primera clase va a «Tu primera clase» del PR-4, no a Configuración.
   const clase = TAREAS_ALTA_NUEVA.find(t => t.id === 'primera-clase')!;
@@ -102,7 +102,7 @@ test('alta nueva: la primera clase es la RESERVABLE, nunca «tiene un tipo de cl
 });
 
 test('alta nueva: con clase que aún no se puede reservar, se dice qué falta y se lleva a arreglarlo', () => {
-  const aviso = { texto: 'Una alumna nueva todavía no puede reservar desde tu página: pides bono…', href: '/configuracion?tab=conexiones#integracion-stripe' };
+  const aviso = { texto: 'Un cliente nuevo todavía no puede reservar desde tu página: pides bono…', href: '/configuracion?tab=conexiones#integracion-stripe' };
   const t = primerosPasosAltaNueva({ ...RECIEN, avisoClase: aviso }).tareas[1];
   assert.equal(t.para, aviso.texto);
   assert.deepEqual(t.accion, { label: 'Ver qué falta', href: aviso.href });

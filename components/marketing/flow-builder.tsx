@@ -20,12 +20,12 @@ import { Mail, Bell, Zap, X, ArrowRight, Loader2 } from 'lucide-react'
 const inputCls = 'w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10'
 
 const TRIGGERS: { value: TriggerAutomatizacion; label: string; desc: string }[] = [
-  { value: 'NUEVA_ALTA', label: 'Nueva clienta registrada', desc: 'Cuando se registra una nueva clienta' },
-  { value: 'CUMPLEANOS', label: 'Cumpleaños de clienta', desc: 'El día del cumpleaños' },
+  { value: 'NUEVA_ALTA', label: 'Nuevo cliente registrado', desc: 'Cuando se registra un nuevo cliente' },
+  { value: 'CUMPLEANOS', label: 'Cumpleaños de cliente', desc: 'El día del cumpleaños' },
   { value: 'PRIMERA_CLASE', label: 'Primera clase', desc: 'Tras completar la primera clase' },
   { value: 'SUSCRIPCION_EXPIRA_7D', label: 'Suscripción expira en 7 días', desc: 'Aviso de renovación' },
   { value: 'SUSCRIPCION_CANCELADA', label: 'Suscripción cancelada', desc: 'Cuando se cancela una suscripción' },
-  { value: 'INACTIVIDAD_30D', label: 'Sin actividad 30 días', desc: 'Reactivación de clientas inactivas' },
+  { value: 'INACTIVIDAD_30D', label: 'Sin actividad 30 días', desc: 'Reactivación de clientes inactivos' },
   { value: 'BONO_AGOTADO', label: 'Bono agotado', desc: 'Cuando se agota el bono' },
 ]
 
@@ -126,7 +126,7 @@ export function FlowBuilder({
           <div className="p-5 space-y-4 lg:border-r border-border">
             <div className="space-y-1.5">
               <label htmlFor={`${uid}-1`} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Nombre del flujo</label>
-              <input id={`${uid}-1`} className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevas clientas" autoFocus />
+              <input id={`${uid}-1`} className={inputCls} value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej. Bienvenida a nuevos clientes" autoFocus />
             </div>
 
             {/* Desencadenante */}

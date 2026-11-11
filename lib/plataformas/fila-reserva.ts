@@ -29,7 +29,7 @@ export function filaReserva(
   const plataforma = esPlataforma(r.origen) ? r.origen : null;
   if (plataforma || !r.socioId) {
     return {
-      nombre: r.nombreExterno?.trim() || (plataforma ? `Clienta de ${NOMBRE_PLATAFORMA[plataforma]}` : 'Clienta'),
+      nombre: r.nombreExterno?.trim() || (plataforma ? `Cliente de ${NOMBRE_PLATAFORMA[plataforma]}` : 'Cliente'),
       enlaceFicha: null,
       plataforma,
       siglaPlataforma: plataforma ? SIGLA_PLATAFORMA[plataforma] : null,

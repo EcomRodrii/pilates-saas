@@ -66,9 +66,9 @@ export function DialogoPausaPlazaFija({ plaza, nombre, onClose, onHecho }: {
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-1">
           {conSitioLibre
-            ? `${nombre}. Está en pausa y su sitio está libre para otra clienta. Una semana antes de acabar, ${alVolver}.`
+            ? `${nombre}. Está en pausa y su sitio está libre para otro cliente. Una semana antes de acabar, ${alVolver}.`
             : liberaSitio
-              ? `${nombre}. Entre estas fechas no se le reserva la clase y, si la pausa dura más de una semana, su sitio queda libre para otra clienta. Una semana antes de acabar, ${alVolver}.`
+              ? `${nombre}. Entre estas fechas no se le reserva la clase y, si la pausa dura más de una semana, su sitio queda libre para otro cliente. Una semana antes de acabar, ${alVolver}.`
               : `${nombre}. Entre estas fechas no se le reserva la clase, pero no pierde la plaza ni su sitio, y al acabar vuelve sola.`}
         </p>
 

@@ -123,7 +123,7 @@ test('la ventana flotante se arrastra y se queda donde la dejas, también en otr
   expect(Math.round(movida.x - inicial.x)).toBe(-600);
   expect(Math.round(movida.y - inicial.y)).toBe(220);
 
-  await menu(page).getByRole('link', { name: 'Clientas' }).first().click();
+  await menu(page).getByRole('link', { name: 'Clientes' }).first().click();
   await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
   await expect(ventana(page)).toBeInViewport({ ratio: 1 });
   const enClientas = (await ventana(page).boundingBox())!;
@@ -164,7 +164,7 @@ test('soltarla fuera de la pantalla la devuelve entera, y plegada ocupa solo la 
 test('desde otra pantalla, pulsar una clase de la ventana abre esa clase en el Calendario', async ({ page }) => {
   await calendario(page);
   await page.getByRole('button', { name: 'Abrir en una ventana flotante' }).click();
-  await menu(page).getByRole('link', { name: 'Clientas' }).first().click();
+  await menu(page).getByRole('link', { name: 'Clientes' }).first().click();
   await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
 
   await ventana(page).getByRole('listitem').first().getByRole('button').click();

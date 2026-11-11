@@ -25,7 +25,7 @@ export default function Contenido() {
         gerencia ni recepción pueden tocarlo, porque apaga la entrada de dinero del estudio.
       </p>
       <p>
-        Eliges entre <strong>«Visible»</strong> —cualquiera con tu enlace reserva y tus alumnas entran en su app— y{' '}
+        Eliges entre <strong>«Visible»</strong> —cualquiera con tu enlace reserva y tus clientes entran en su app— y{' '}
         <strong>«Oculta»</strong>.
       </p>
 
@@ -33,7 +33,7 @@ export default function Contenido() {
       <ul style={lista}>
         <li><strong>Nadie reserva, compra ni se da de alta desde fuera.</strong></li>
         <li>
-          <strong>Tus alumnas también ven el aviso</strong> al abrir su app, aunque ya tengan cuenta. No es solo para
+          <strong>Tus clientes también ven el aviso</strong> al abrir su app, aunque ya tengan cuenta. No es solo para
           los de fuera.
         </li>
         <li>
@@ -54,7 +54,7 @@ export default function Contenido() {
       <h2 style={h2}>La clave, para dejar entrar a quien tú quieras</h2>
       <p>
         Puedes poner una <strong>clave</strong> (mínimo 6 caracteres) y dársela a quien quieras que entre: tus
-        primeras alumnas, una amiga que te ayuda a probarlo. Quien la tenga reserva con normalidad; el resto, no.{' '}
+        primeras clientes, una amiga que te ayuda a probarlo. Quien la tenga reserva con normalidad; el resto, no.{' '}
         <strong>Sin clave no entra nadie</strong>, que es lo que querrás si de verdad estás cerrado.
       </p>
       <p>

@@ -94,7 +94,7 @@ export interface ConfirmacionPaginaPublica {
   textoConfirmar: string;
 }
 
-const AVISO = 'Tu página y la app de tus alumnas dirán «Estamos preparando esta página».';
+const AVISO = 'Tu página y la app de tus clientes dirán «Estamos preparando esta página».';
 
 /**
  * Lo que se pregunta antes de guardar: cambia lo que ven personas de fuera, así
@@ -114,7 +114,7 @@ export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaP
   if (!c.oculta && s.oculta) {
     return {
       titulo: '¿Volver a enseñar tu página?',
-      descripcion: 'Cualquiera con tu enlace podrá reservar y tus alumnas volverán a entrar en su app.',
+      descripcion: 'Cualquiera con tu enlace podrá reservar y tus clientes volverán a entrar en su app.',
       textoConfirmar: 'Enseñarla',
     };
   }
@@ -130,7 +130,7 @@ export function confirmacionPaginaPublica(f: FormPaginaPublica, s: EstadoPaginaP
       titulo: s.tieneClave ? '¿Cambiar la clave?' : '¿Poner esta clave?',
       descripcion: s.tieneClave
         ? 'La anterior deja de servir, y quien ya había entrado tendrá que pedirte la nueva.'
-        : 'Quien la tenga podrá entrar y reservar en tu página y en la app de tus alumnas.',
+        : 'Quien la tenga podrá entrar y reservar en tu página y en la app de tus clientes.',
       textoConfirmar: s.tieneClave ? 'Cambiar la clave' : 'Poner la clave',
     };
   }

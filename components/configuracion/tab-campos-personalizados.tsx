@@ -110,7 +110,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: MostrarToast
         <div className="text-sm text-foreground">
           <p className="font-semibold">No uses estos campos para datos de salud</p>
           <p className="text-pretty text-muted-foreground">
-            Los ve todo tu equipo. Lesiones o embarazo van en la pestaña Salud de cada alumna.
+            Los ve todo tu equipo. Lesiones o embarazo van en la pestaña Salud de cada cliente.
           </p>
         </div>
       </div>
@@ -210,7 +210,7 @@ export function TabCamposPersonalizados({ showToast }: { showToast: MostrarToast
         open={confirmDel !== null}
         onOpenChange={o => { if (!o) setConfirmDel(null); }}
         titulo="¿Eliminar este dato?"
-        descripcion="Deja de pedirse en las altas y en las fichas. Lo que ya respondieron tus alumnas no se ve, pero no se borra."
+        descripcion="Deja de pedirse en las altas y en las fichas. Lo que ya respondieron tus clientes no se ve, pero no se borra."
         textoConfirmar="Eliminar"
         destructivo
         onConfirm={async () => {

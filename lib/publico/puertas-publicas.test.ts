@@ -124,7 +124,7 @@ test('reservar las próximas N clases: RESERVAR pasa por el gate antes de recorr
   assert.ok(f.includes('if (cerrada) return cerrada'));
 });
 
-test('lista de espera: aceptar la plaza (widget y app de la alumna) pasa por el gate', () => {
+test('lista de espera: aceptar la plaza (widget y app del cliente) pasa por el gate', () => {
   gateAntesDe('app/api/public/aceptar-oferta-espera/route.ts', ['aceptarOfertaListaEspera(']);
   gateAntesDe('app/api/reservas/aceptar-oferta-espera/route.ts', ['aceptarOfertaListaEspera(']);
 });
@@ -171,7 +171,7 @@ test('checkout de Stripe: la compra de PLAN pasa por el gate; pagar un recibo qu
   ], { despuesDe: ['if (body.reciboId)', 'else if (body.planId)'] });
 });
 
-test('alta de alumna: registrar pasa por el gate antes de crear la ficha; actualizar no', () => {
+test('alta de cliente: registrar pasa por el gate antes de crear la ficha; actualizar no', () => {
   gateAntesDe('app/api/public/socio/route.ts', ['registrarSociaPublica(', 'registrarAceptacionContrato(', "body.accion === 'actualizar'"], {
     despuesDe: ["body.accion === 'registrar'"],
   });

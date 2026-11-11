@@ -123,7 +123,7 @@ test('una lectura que falla no es «le toca a ella»: ok false (o contexto null)
   assert.equal(ctx, null);
 });
 
-test('un recibo de otro estudio o sin alumna: no se sabe, ok false', async () => {
+test('un recibo de otro estudio o sin cliente: no se sabe, ok false', async () => {
   const otro = clienteFalso({ recibos: { filas: [{ ...RECIBO, studio_id: 'est-2' }] }, studios: { filas: [ESTUDIO_SIN_REMESAS] } });
   assert.deepEqual(await cobroDeReciboEnServidor(otro.admin, { studioId: 'est-1', reciboId: RECIBO.id, hoy: HOY }), { ok: false });
   const sinSocia = clienteFalso({ recibos: { filas: [{ ...RECIBO, socio_id: null }] }, studios: { filas: [ESTUDIO_SIN_REMESAS] } });

@@ -341,7 +341,7 @@ export default function SuscripcionPage() {
                       <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
-                      {p === 'BASE' ? 'Sin límite de alumnas ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
+                      {p === 'BASE' ? 'Sin límite de clientes ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
                     </span>
                   </button>
                 ))}
@@ -477,7 +477,7 @@ export default function SuscripcionPage() {
             </section>
 
             <p className="mt-6 text-center text-[12.5px] text-muted-foreground">
-              Los pagos de tus alumnas van directos a tu cuenta de Stripe — Tentare no cobra comisión sobre ellos.
+              Los pagos de tus clientes van directos a tu cuenta de Stripe — Tentare no cobra comisión sobre ellos.
             </p>
           </>
         )}

@@ -284,7 +284,7 @@ export function cifras(m: MiembroCompleto, rolViewer: Rol, ahora: Date): CifrasT
     valoracionTexto: !gestiona(rolViewer)
       ? ''
       : m.valoracion && m.valoracion.total > 0
-        ? `${valoracionMedia(m.valoracion.media)} de ${m.valoracion.total} clientas`
+        ? `${valoracionMedia(m.valoracion.media)} de ${m.valoracion.total} clientes`
         : 'sin valoraciones aún',
     conValoracion: gestiona(rolViewer) && !!(m.valoracion && m.valoracion.total > 0),
     frecuenciaTexto: frecuencia == null ? null : `≈${HASTA_UN_DECIMAL.format(frecuencia)} clase${frecuencia === 1 ? '' : 's'}/mes`,

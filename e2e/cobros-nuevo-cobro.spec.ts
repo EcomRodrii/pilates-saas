@@ -76,8 +76,8 @@ async function abrirDesdeCobros(page: Page) {
   await ir(page, 'cobros');
   await page.getByRole('button', { name: 'Nuevo cobro' }).first().click({ timeout: 30_000 });
   await expect(dialogo(page)).toBeVisible();
-  await dialogo(page).getByLabel('Clienta').click();
-  await dialogo(page).getByLabel('Clienta').fill('María');
+  await dialogo(page).getByLabel('Cliente').click();
+  await dialogo(page).getByLabel('Cliente').fill('María');
   await dialogo(page).getByRole('button', { name: /María García Fernández/ }).click();
   await rellenar(page);
 }
@@ -201,12 +201,12 @@ test.describe('Cobros · Nuevo cobro · ya te lo ha pagado', () => {
   });
 });
 
-test.describe('Ficha de la clienta · Nuevo cobro', () => {
+test.describe('Ficha del cliente · Nuevo cobro', () => {
   test('el mismo diálogo, con ella ya elegida: sin marcar no renueva', async ({ page }) => {
     const { recibos } = await montarPanel(page);
     await abrirDesdeLaFicha(page);
 
-    await expect(dialogo(page).getByLabel('Clienta')).toHaveCount(0);
+    await expect(dialogo(page).getByLabel('Cliente')).toHaveCount(0);
     await expect(casilla(page)).not.toBeChecked();
     await dialogo(page).getByRole('button', { name: 'Lo paga después' }).click();
     await dialogo(page).getByRole('button', { name: 'Crear el cobro' }).click();

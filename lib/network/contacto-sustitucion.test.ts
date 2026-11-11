@@ -18,7 +18,7 @@ test('sin tipo de clase ni fecha no se inventa nada', () => {
   assert.doesNotMatch(mensajeCoberturaSustitucion({ tipoClase: '  ', inicioISO: 'no-es-fecha' }), /Invalid|NaN|undefined/);
 });
 
-test('el mensaje nunca lleva el motivo de la baja ni nombres de alumnas o de la instructora', () => {
+test('el mensaje nunca lleva el motivo de la baja ni nombres de clientes o de la instructora', () => {
   // Aunque quien llama pase la sustitución entera por descuido, solo se leen
   // el tipo de clase y el inicio.
   const sustitucionEntera = {

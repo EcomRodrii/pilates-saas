@@ -80,7 +80,7 @@ export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: 
   return (
     <>
       <div className="flex flex-col gap-5 pb-6">
-        {ver.descripcion && <Campo label="Cómo te presentas" ayuda="Sale en tu página de reservas, debajo del nombre del estudio, y en Tentare Network. No sale en la app de tus alumnas.">
+        {ver.descripcion && <Campo label="Cómo te presentas" ayuda="Sale en tu página de reservas, debajo del nombre del estudio, y en Tentare Network. No sale en la app de tus clientes.">
           {id => (
             <textarea
               id={id}
@@ -92,7 +92,7 @@ export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: 
             />
           )}
         </Campo>}
-        {ver.lema && <Campo label="Tu lema" ayuda="Una línea corta bajo el nombre del estudio, en la app de tus alumnas, si no tienes la ciudad puesta (con ciudad, sale la ciudad). Va en mayúsculas.">
+        {ver.lema && <Campo label="Tu lema" ayuda="Una línea corta bajo el nombre del estudio, en la app de tus clientes, si no tienes la ciudad puesta (con ciudad, sale la ciudad). Va en mayúsculas.">
           {id => (
             <input
               id={id}
@@ -104,7 +104,7 @@ export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: 
             />
           )}
         </Campo>}
-        {ver.resto && <><Campo label="Normas del centro" ayuda="Una norma por línea. Las ven tus alumnas en la app, en «Mi centro».">
+        {ver.resto && <><Campo label="Normas del centro" ayuda="Una norma por línea. Las ven tus clientes en la app, en «Mi centro».">
           {id => (
             <textarea
               id={id}
@@ -201,7 +201,7 @@ export function DetalleTextosBienvenida({ showToast, onGuardado, soloFraseAMano 
         </Campo></>}
         <Campo
           label="Tu frase, a mano"
-          ayuda="Se escribe con letra manuscrita al final de la pantalla de inicio de tus alumnas. Una frase corta, tuya."
+          ayuda="Se escribe con letra manuscrita al final de la pantalla de inicio de tus clientes. Una frase corta, tuya."
         >
           {id => (
             <input

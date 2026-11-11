@@ -49,12 +49,12 @@ test('captura: las tarjetas nuevas de Configuración', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1000 });
   await ir(page, 'configuracion');
 
-  await page.getByText('Cómo reservan mis alumnas').first().click({ timeout: 30_000 });
+  await page.getByText('Cómo reservan mis clientes').first().click({ timeout: 30_000 });
   await page.getByText('Clases fijas', { exact: true }).first().waitFor({ timeout: 30_000 });
   await page.screenshot({ path: 'test-results/pf-configuracion-filas.png', fullPage: true });
 
   await page.getByText('Si pausa su clase fija').first().click();
-  await page.getByText(/su sitio queda libre para otra alumna/i).first().waitFor({ timeout: 15_000 });
+  await page.getByText(/su sitio queda libre para otro cliente/i).first().waitFor({ timeout: 15_000 });
   // El cajón entra con transición: sin esperarla, la foto sale a medio abrir.
   await page.waitForTimeout(800);
   await page.screenshot({ path: 'test-results/pf-configuracion-cajon-pausa.png' });
@@ -76,7 +76,7 @@ async function montarAlumna(page: Page) {
   await page.route('**/api/public/plaza-fija', (r) => json(r, { ok: true, solicitudId: 'spf-1' }));
 }
 
-test('captura: la alumna pide una pausa desde su app', async ({ page }) => {
+test('captura: el cliente pide una pausa desde su app', async ({ page }) => {
   await montarAlumna(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/portal/${SLUG}/bonos`);

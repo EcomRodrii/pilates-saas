@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MemoriaVistas, personaDeSesionGuardada } from './memoria-vistas.ts';
 
-test('memoria de vistas: lo de una alumna NUNCA se le enseña a otra en el mismo dispositivo', () => {
+test('memoria de vistas: lo de un cliente NUNCA se le enseña a otra en el mismo dispositivo', () => {
   const m = new MemoriaVistas();
   assert.equal(m.guardar('alumna:alma:mis-clases', 'ana', 'ana', ['reserva de Ana']), true);
   assert.deepEqual(m.leer('alumna:alma:mis-clases', 'ana'), ['reserva de Ana']);

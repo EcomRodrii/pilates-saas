@@ -92,7 +92,7 @@ test('compra por enlace público: se cancela, pero NO se borra la ficha', () => 
   assert.equal(r.posible, true);
   assert.equal(r.objetivo?.sesionesRestantes, 0);
   assert.equal(r.objetivo?.estado, 'CANCELADA');
-  assert.match(r.avisos.join(' '), /ficha de la clienta NO se borra/i);
+  assert.match(r.avisos.join(' '), /ficha del cliente NO se borra/i);
 });
 
 // ── La congelación ──────────────────────────────────────────────────────────

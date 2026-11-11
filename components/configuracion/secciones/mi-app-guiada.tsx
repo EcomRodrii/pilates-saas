@@ -63,7 +63,7 @@ export function MiAppGuiada({ datos, acciones, slug, hrefPresentacion }: {
           )}
           {compartir?.tipo === 'enlace' && (
             <Link href={compartir.href} className="inline-flex h-11 items-center rounded-xl bg-foreground px-4 text-sm font-semibold text-background hover:bg-foreground/90 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-              Compartir con mis alumnas
+              Compartir con mis clientes
             </Link>
           )}
         </div>
@@ -93,7 +93,7 @@ export function MiAppGuiada({ datos, acciones, slug, hrefPresentacion }: {
                   <span className="text-muted-foreground">Lo demás se aplica al momento.</span>
                 </>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Check size={14} className="text-success" aria-hidden />Lo que ven tus alumnas es lo que tienes aquí: no hay nada pendiente de publicar.</span>
+                <span className="inline-flex items-center gap-1.5 text-muted-foreground"><Check size={14} className="text-success" aria-hidden />Lo que ven tus clientes es lo que tienes aquí: no hay nada pendiente de publicar.</span>
               )}
             </div>
           </section>
@@ -113,15 +113,15 @@ export function MiAppGuiada({ datos, acciones, slug, hrefPresentacion }: {
           <aside className="rounded-2xl border border-dashed border-border px-5 py-4 text-sm leading-relaxed text-muted-foreground">
             <p className="font-semibold text-foreground">¿Buscas «Cómo te presentas»?</p>
             <p className="mt-1 text-pretty">
-              Tu descripción sale en tu página de reservas y en Tentare Network, no en la app de tus alumnas.{' '}
+              Tu descripción sale en tu página de reservas y en Tentare Network, no en la app de tus clientes.{' '}
               <Link href={hrefPresentacion} className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Editar tu descripción</Link>
             </p>
           </aside>
         </div>
 
         {urlApp && (
-          <aside aria-label="Así la ven tus alumnas" className="hidden flex-[1_1_300px] flex-col items-center gap-3 lg:sticky lg:top-24 lg:flex">
-            <p className="text-sm font-semibold text-foreground">Así la ven tus alumnas</p>
+          <aside aria-label="Así la ven tus clientes" className="hidden flex-[1_1_300px] flex-col items-center gap-3 lg:sticky lg:top-24 lg:flex">
+            <p className="text-sm font-semibold text-foreground">Así la ven tus clientes</p>
             <VistaApp url={urlApp} ruta={(mirando && RUTA_DEL_PASO[mirando]) ?? ''} />
             <p className="max-w-[300px] text-center text-xs leading-relaxed text-muted-foreground">
               Es tu app publicada, no un dibujo. Al pasar por un paso, el móvil va a la pantalla donde sale.
@@ -199,7 +199,7 @@ function VistaApp({ url, ruta }: { url: string; ruta: string }) {
       <iframe
         key={ruta}
         ref={ref}
-        title="Vista previa de la app de tus alumnas"
+        title="Vista previa de la app de tus clientes"
         src={`${url}${ruta}`}
         onLoad={alCargar}
         className="bg-white transition-opacity duration-300"

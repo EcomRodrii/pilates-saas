@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     }>((d, h) => admin.from('socios')
       .select('nombre, apellidos, email, telefono, fecha_alta, activo')
       .eq('studio_id', studioId).is('borrado_en', null).range(d, h));
-    if (error) return NextResponse.json({ error: 'No se pudo leer clientas' }, { status: 500 });
+    if (error) return NextResponse.json({ error: 'No se pudo leer clientes' }, { status: 500 });
     return csvResponse('clientas.csv', ['Nombre', 'Apellidos', 'Email', 'Teléfono', 'Fecha de alta', 'Activa'],
       (data ?? []).map(s => [s.nombre, s.apellidos, s.email, s.telefono ?? '', s.fecha_alta ?? '', s.activo ? 'Sí' : 'No']));
   }

@@ -37,7 +37,7 @@ const DIAS_TIRA = 14;
 // La franja y la sala que ella dejó puestas, en ESTE móvil: una comodidad suya, nunca algo que decida qué se puede
 // reservar. Se leen con `useSyncExternalStore` (la CADENA guardada: una primitiva estable; un objeto nuevo en cada
 // lectura entraría en bucle) y se parsean fuera. `localStorage` puede lanzar o venir vacío: todo con try/catch.
-const claveFiltros = (slug: string) => `alumna:${slug}:horario-filtros`;
+const claveFiltros = (slug: string) => `cliente:${slug}:horario-filtros`;
 const EVENTO_FILTROS = 'alumna:horario-filtros';
 function suscribirFiltros(aviso: () => void) {
   window.addEventListener('storage', aviso);
@@ -120,7 +120,7 @@ export default function HorarioPage() {
     return { clases, reservas, bonos, instructoras, favoritos };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:horario`);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `cliente:${estudio.slug}:horario`);
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.

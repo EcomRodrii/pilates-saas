@@ -114,7 +114,7 @@ export async function resumenDelEstudio(_input: unknown, ctx: ContextoHerramient
       tipo: 'metricas',
       titulo: 'Tu estudio hoy',
       metricas: [
-        { etiqueta: 'Alumnas activas', valor: String(porEstado.ACTIVA), tipo: 'n', href: '/clientas?estado=ACTIVA' },
+        { etiqueta: 'Clientes activos', valor: String(porEstado.ACTIVA), tipo: 'n', href: '/clientas?estado=ACTIVA' },
         { etiqueta: 'De prueba', valor: String(porEstado.DE_PRUEBA), tipo: 'n', href: '/clientas?estado=DE_PRUEBA' },
         { etiqueta: 'Sin venir 30d', valor: String(sinVenir), tipo: 'n', href: '/clientas?mas=sin_venir_30d' },
         { etiqueta: 'Clases hoy', valor: String(dia.clases), tipo: 'n', href: '/calendario' },

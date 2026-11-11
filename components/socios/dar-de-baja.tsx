@@ -270,7 +270,7 @@ export function DialogoBorrarDatos({ socio, abierto, borrando, error, onCerrar, 
       <DialogContent className="max-w-md">
         <DialogTitle className="text-base font-semibold text-foreground">Borrar los datos de {nombre}</DialogTitle>
         <DialogDescription className="text-[13px] text-muted-foreground">
-          Para cuando una clienta te pide que borres sus datos (RGPD).
+          Para cuando un cliente te pide que borres sus datos (RGPD).
         </DialogDescription>
         <div className="flex gap-2.5 rounded-xl border border-destructive/30 bg-destructive/[0.06] p-3.5 text-[13px] text-foreground">
           <AlertTriangle size={17} className="mt-0.5 shrink-0 text-destructive" aria-hidden />

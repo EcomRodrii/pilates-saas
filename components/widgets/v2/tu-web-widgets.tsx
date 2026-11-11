@@ -49,7 +49,7 @@ export function TuWebWidgets({ showToast }: { showToast: (m: string) => void }) 
         tono="azul"
         Icono={Link2}
         titulo="Primero, la dirección de tu página"
-        texto="Los widgets enseñan tu horario, tus precios y la cuenta de tus alumnas dentro de tu web, y necesitan la dirección de tu página de reservas para funcionar."
+        texto="Los widgets enseñan tu horario, tus precios y la cuenta de tus clientes dentro de tu web, y necesitan la dirección de tu página de reservas para funcionar."
         accion={{ label: 'Poner mi dirección', href: '/configuracion?tab=web#direccion-y-enlaces' }}
       />
     ) : null;

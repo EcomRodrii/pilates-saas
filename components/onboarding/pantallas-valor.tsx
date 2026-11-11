@@ -56,8 +56,8 @@ const PANTALLAS: Pantalla[] = [
   {
     id: 'reservas',
     problema: '«Me escriben a las once de la noche para apuntarse»',
-    titular: 'Tus alumnas reservan solas, a cualquier hora',
-    apoyo: 'Tienes la app de tus alumnas, con tu nombre y tu color. Se apuntan ellas, y Tentare respeta tu aforo y tus normas de cancelación.',
+    titular: 'Tus clientes reservan solas, a cualquier hora',
+    apoyo: 'Tienes la app de tus clientes, con tu nombre y tu color. Se apuntan ellas, y Tentare respeta tu aforo y tus normas de cancelación.',
     puntos: ['Aforo por sala', 'Lista de espera', 'Cancelan según tus normas'],
     Escena: EscenaReservas,
   },
@@ -73,8 +73,8 @@ const PANTALLAS: Pantalla[] = [
     id: 'sustituciones',
     problema: '«Si una instructora se cae, se me va la mañana en llamadas»',
     titular: 'Cuando una instructora no puede, buscamos sustituta',
-    apoyo: 'Tentare avisa a las que encajan con esa clase, de una en una, hasta que alguna acepta. Y avisa a las alumnas.',
-    puntos: ['Por orden de encaje', 'Avisa a las alumnas', 'Sin llamar a nadie'],
+    apoyo: 'Tentare avisa a las que encajan con esa clase, de una en una, hasta que alguna acepta. Y avisa a los clientes.',
+    puntos: ['Por orden de encaje', 'Avisa a los clientes', 'Sin llamar a nadie'],
     Escena: EscenaSustituciones,
   },
   {
@@ -89,7 +89,7 @@ const PANTALLAS: Pantalla[] = [
     // La única que PIDE algo en vez de enseñar. Va la última a propósito: se
     // pide después de haber demostrado, no antes.
     id: 'logo',
-    problema: '«Quiero que mis alumnas vean mi estudio, no una plantilla»',
+    problema: '«Quiero que mis clientes vean mi estudio, no una plantilla»',
     titular: 'Ponle tu logo y ya es tuyo',
     // ⚠️ Prometía «colores, textos, tu página — lo afinas cuando quieras» con
     // el editor de marca cerrado por mantenimiento (decisión del 7-sep). Hoy
@@ -97,7 +97,7 @@ const PANTALLAS: Pantalla[] = [
     // mismo color que ve el portal) y los textos (Configuración → Estudio);
     // la portada no. Se promete solo lo que hay.
     apoyo: 'Es lo único que te pedimos ahora. Tu color y tus textos los cambias cuando quieras desde Configuración.',
-    puntos: ['Tu página de reservas', 'La app de tus alumnas', 'Sus correos'],
+    puntos: ['Tu página de reservas', 'La app de tus clientes', 'Sus correos'],
     Escena: null,
   },
 ];

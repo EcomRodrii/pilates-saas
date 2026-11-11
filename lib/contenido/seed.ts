@@ -61,7 +61,7 @@ const TITULOS_PROGRAMADAS = [
   'Reto de movilidad — Día 1',
   'Receta post-entreno en 5 min',
   'Tour por nuestras instalaciones',
-  'Testimonio real de una clienta',
+  'Testimonio real de un cliente',
   'Tips para dormir mejor',
 ];
 const TITULOS_BORRADOR = [

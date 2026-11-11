@@ -56,8 +56,8 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   await expect(plan).toContainText('Tú eres la prioridad. Si tu estudio crece, crecemos contigo.');
 
   const uso = page.getByRole('region', { name: 'Lo que usas' });
-  await expect(uso.getByRole('meter', { name: 'Alumnas activas' })).toHaveAttribute('aria-valuenow', '42');
-  await expect(uso.getByRole('meter', { name: 'Alumnas activas' })).toHaveAttribute('aria-valuemax', '150');
+  await expect(uso.getByRole('meter', { name: 'Clientes activos' })).toHaveAttribute('aria-valuenow', '42');
+  await expect(uso.getByRole('meter', { name: 'Clientes activos' })).toHaveAttribute('aria-valuemax', '150');
   await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuenow', '96');
   await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '250');
   await expect(uso).toContainText('Te corresponde Founding Studio: gratis');
@@ -74,7 +74,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await montar(page, 'MARGEN', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Te quedan 12 días en Founding Studio', { timeout: 30_000 });
-  await expect(aviso).toContainText('150 alumnas activas y 250 reservas al mes');
+  await expect(aviso).toContainText('150 clientes activos y 250 reservas al mes');
   await expect(aviso).toContainText('hasta el 20 de noviembre');
   await expect(aviso).toContainText('Si antes vuelves a estar por debajo, no tienes que hacer nada');
   // Pase el límite que pase, lo que toca es Founding Studio de pago (fundador, 15-oct-2026):
@@ -95,11 +95,11 @@ test('pasado solo de reservas: toca Founding Studio de pago a 29 €, y es lo qu
   await expect(page.getByRole('button', { name: /Pasarme a Founding Studio · 29 €\/mes/ })).toBeVisible();
 });
 
-test('margen agotado: dice que la app de las alumnas sigue funcionando', async ({ page }) => {
+test('margen agotado: dice que la app de los clientes sigue funcionando', async ({ page }) => {
   await montar(page, 'CERRADO', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
-  await expect(aviso).toContainText('La app de tus alumnas sigue funcionando');
+  await expect(aviso).toContainText('La app de tus clientes sigue funcionando');
 });
 
 test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no', async ({ page }) => {
@@ -138,7 +138,7 @@ test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un 
   const felicidades = page.getByTestId('felicidades-crecimiento');
   await expect(felicidades).toBeVisible({ timeout: 30_000 });
   await expect(felicidades).toContainText('¡Felicidades!');
-  await expect(felicidades).toContainText('150 alumnas activas y 250 reservas al mes');
+  await expect(felicidades).toContainText('150 clientes activos y 250 reservas al mes');
   await expect(felicidades).toContainText('29 €');
   await expect(felicidades).toContainText('hasta el 20 de noviembre');
 

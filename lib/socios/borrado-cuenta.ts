@@ -29,7 +29,7 @@ export const VINCULOS_CUENTA: readonly VinculoCuenta[] = [
   { clave: 'duena_estudio', tabla: 'studios', columna: 'owner_auth_user_id', descripcion: 'dueña de un estudio' },
   { clave: 'duena_cadena', tabla: 'cadenas', columna: 'owner_auth_user_id', descripcion: 'dueña de una cadena' },
   { clave: 'perfil_network', tabla: 'red_perfiles', columna: 'auth_user_id', descripcion: 'perfil de Network' },
-  { clave: 'perfil_network_alumna', tabla: 'red_perfiles_alumna', columna: 'auth_user_id', descripcion: 'perfil de Network (alumna)' },
+  { clave: 'perfil_network_alumna', tabla: 'red_perfiles_alumna', columna: 'auth_user_id', descripcion: 'perfil de Network (cliente)' },
   { clave: 'admin_plataforma', tabla: 'plataforma_admin', columna: 'auth_user_id', descripcion: 'admin de la plataforma' },
   { clave: 'permiso_plataforma', tabla: 'plataforma_permiso', columna: 'auth_user_id', descripcion: 'permiso de plataforma' },
   // Actividad de Network: las FK hacia auth.users son NO ACTION a propósito (una reseña, una solicitud o un mensaje

@@ -100,8 +100,8 @@ const PASOS: { id: PasoAsistente; corto: string; titulo: string; sub: string }[]
   { id: 'color', corto: 'Colores', titulo: 'Tus colores', sub: 'Empieza con una paleta y afina el color a tu gusto. Sale en los botones, los avisos y la tarjeta de la próxima clase.' },
   { id: 'letra', corto: 'Tipografía', titulo: 'La tipografía', sub: 'Una letra para los títulos y otra para el texto, pensadas para ir juntas.' },
   { id: 'entrada', corto: 'Entrada', titulo: 'Pantalla de entrada', sub: 'La primera impresión al entrar: tu foto de portada y la frase que escribes tú.' },
-  { id: 'fotos', corto: 'Fotos', titulo: 'Tus fotos', sub: 'Se guardan al subirlas, sin esperar a publicar: tus alumnas las ven al momento.' },
-  { id: 'instalar', corto: 'Tu app', titulo: 'Tu app en el móvil de tus alumnas', sub: 'Cómo la instalan y cómo se la haces llegar.' },
+  { id: 'fotos', corto: 'Fotos', titulo: 'Tus fotos', sub: 'Se guardan al subirlas, sin esperar a publicar: tus clientes las ven al momento.' },
+  { id: 'instalar', corto: 'Tu app', titulo: 'Tu app en el móvil de tus clientes', sub: 'Cómo la instalan y cómo se la haces llegar.' },
 ];
 
 // Las paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas)
@@ -217,7 +217,7 @@ function AvisoPaginaOculta() {
     <div role="note" data-testid="aviso-pagina-oculta-apariencia" className="mb-3 flex max-w-[332px] items-start gap-2.5 rounded-xl border border-warning/40 bg-warning/10 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-foreground">
       <EyeOff size={15} className="mt-0.5 shrink-0 text-warning" aria-hidden />
       <p className="text-pretty">
-        <strong className="font-semibold">Tu página está oculta</strong>, así que aquí (y a tus alumnas) se ve «Estamos preparando esta página» en vez de tu app. Lo que publiques se verá en cuanto la hagas visible.{' '}
+        <strong className="font-semibold">Tu página está oculta</strong>, así que aquí (y a tus clientes) se ve «Estamos preparando esta página» en vez de tu app. Lo que publiques se verá en cuanto la hagas visible.{' '}
         <Link href={hrefDeTarjeta('pagina-publica')} className="inline-flex items-center gap-0.5 font-medium underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
           Cambiarlo<ArrowUpRight size={12} aria-hidden />
         </Link>
@@ -255,7 +255,7 @@ function VistaPrevia({ slug, css, recarga, pantalla, onPantalla, paginaOculta = 
         <iframe
           key={`${recarga}-${pantalla}`}
           ref={ref}
-          title="Vista previa de la app de tus alumnas"
+          title="Vista previa de la app de tus clientes"
           src={`/portal/${encodeURIComponent(slug)}${ruta}`}
           onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); }}
           className="bg-white transition-opacity duration-300"
@@ -379,7 +379,7 @@ export function EditorAparienciaApp() {
       // Repinta el panel (el color de marca también es el suyo) y la app de la vista previa.
       window.dispatchEvent(new CustomEvent('tentare-theme-changed'));
       setRecarga(n => n + 1);
-      setAviso({ tipo: 'ok', texto: 'Publicado. Tus alumnas ya ven tu app así.' });
+      setAviso({ tipo: 'ok', texto: 'Publicado. Tus clientes ya ven tu app así.' });
       // ⚠️ Publicar no cambia NADA en pantalla —la vista previa ya enseñaba el
       // borrador—, así que sin esto se lee como que no ha pasado nada. Pasó:
       // «le doy a publicar y no se publica» con el cambio ya guardado.
@@ -405,7 +405,7 @@ export function EditorAparienciaApp() {
     const res = await updateStudio({ imagenBienvenidaUrl: url });
     setSubiendo(false);
     setAviso(res.ok // toast-no-es-error: el aviso lleva `tipo` y el error se pinta como alert en rojo
-      ? { tipo: 'ok', texto: url ? 'Portada cambiada. Ya la ven tus alumnas.' : 'Portada quitada: vuelve la foto por defecto.' }
+      ? { tipo: 'ok', texto: url ? 'Portada cambiada. Ya la ven tus clientes.' : 'Portada quitada: vuelve la foto por defecto.' }
       : { tipo: 'error', texto: res.error });
     if (res.ok) setRecarga(n => n + 1);
   }
@@ -422,7 +422,7 @@ export function EditorAparienciaApp() {
           </p>
         ) : (<>
         <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-          Cómo ven tus alumnas su app: el estilo, tu color, la tipografía y tus fotos. Pruébalo aquí y mira el
+          Cómo ven tus clientes su app: el estilo, tu color, la tipografía y tus fotos. Pruébalo aquí y mira el
           resultado en el móvil de la derecha; nadie lo ve hasta que publiques.
         </p>
         {/* Desde el 27-sep-2026 /reservar toma este mismo estilo (lib/reservar/tema-app.ts),
@@ -595,7 +595,7 @@ export function EditorAparienciaApp() {
 
           {(!panelNuevo || paso === 'entrada') && <Seccion enAsistente={panelNuevo}
             titulo="La entrada" orden={3}
-            detalle="La primera pantalla, donde tus alumnas entran o se registran. La foto es la de portada; el titular lo escribes tú."
+            detalle="La primera pantalla, donde tus clientes entran o se registran. La foto es la de portada; el titular lo escribes tú."
           >
             <div className="flex flex-col gap-3">
               <label htmlFor="titulo-acceso" className="text-[13px] font-medium text-foreground">
@@ -640,7 +640,7 @@ export function EditorAparienciaApp() {
           {(!panelNuevo || paso === 'fotos') && <Seccion enAsistente={panelNuevo}
             titulo="Fotos"
             orden={4}
-            detalle="Las fotos se guardan al subirlas, sin esperar a «Publicar»: tus alumnas las ven al momento."
+            detalle="Las fotos se guardan al subirlas, sin esperar a «Publicar»: tus clientes las ven al momento."
           >
             <div className="flex flex-col gap-5">
               <div>
@@ -701,7 +701,7 @@ export function EditorAparienciaApp() {
               enAsistente={panelNuevo}
               titulo="Instalar en el móvil"
               orden={5}
-              detalle="Cómo se instala la app de tu estudio y cómo hacérselo llegar a tus alumnas."
+              detalle="Cómo se instala la app de tu estudio y cómo hacérselo llegar a tus clientes."
             >
               <AppEnElMovil
                 nombre={studio.nombre}

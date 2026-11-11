@@ -79,7 +79,7 @@ test('sin sesión: el email y el código la meten, y la saluda con sus estudios'
   expect(intentos).toEqual(['111111', '482913']);
   expect(n.pedidas).toBeGreaterThan(0);
   await expect(page.locator('[data-estudio]')).toHaveCount(2);
-  await expect(page.getByText('Alumna e instructora')).toBeVisible();
+  await expect(page.getByText('Cliente e instructora')).toBeVisible();
 });
 
 test('con la verificación en dos pasos sin pasar: pide el código, no la manda a entrar otra vez', async ({ page }) => {

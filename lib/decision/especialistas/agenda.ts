@@ -333,8 +333,8 @@ function reglaA4(
     ? ` Probabilidad de que se llene: ${nivelPrediccion(prediccion.probabilidad).toLowerCase()} (${prediccion.base}).`
     : '';
   const fraseCandidatas = candidatas.length > 0
-    ? ` Tengo ${candidatas.length} ${candidatas.length === 1 ? 'alumna compatible' : 'alumnas compatibles'} a las que ofrecérsela — la primera, ${candidatas[0].nombre}, ${candidatas[0].motivo}.`
-    : ' No encuentro alumnas compatibles con plan en vigor a las que ofrecérsela, así que aquí toca promoción, no avisos.';
+    ? ` Tengo ${candidatas.length} ${candidatas.length === 1 ? 'cliente compatible' : 'clientes compatibles'} a las que ofrecérsela — la primera, ${candidatas[0].nombre}, ${candidatas[0].motivo}.`
+    : ' No encuentro clientes compatibles con plan en vigor a las que ofrecérsela, así que aquí toca promoción, no avisos.';
 
   const motivoMotor = `Lleva ${p.reservasAhora} de ${p.aforo} plazas a ${dias} ${dias === 1 ? 'día' : 'días'} vista, cuando a estas alturas suele llevar ${redondear1(p.referenciaHabitual)}. Al ritmo normal acabaría sobre ${redondear1(p.ocupacionPrevista)}, así que se quedarían ${plazasLibresPrevistas} plazas sin vender.${frasePronostico}${fraseCandidatas}`;
 
@@ -431,7 +431,7 @@ function reglaA5(s: SnapshotEstudio, idx: IndicesSenal, now: Date): Candidata[] 
     const reservas = idx.ocupadasPorSesion.get(se.id) ?? 0;
 
     const motivoMotor = bloqueo
-      ? `${nombre} tiene marcado que no está disponible el ${diaSemana} ${dia}, y esa clase sigue asignada a ella. ${reservas === 0 ? 'Todavía no hay nadie apuntado' : reservas === 1 ? 'Ya hay 1 alumna apuntada' : `Ya hay ${reservas} alumnas apuntadas`}. Si marcas la baja en Sustituciones, Tentare prepara a quién pedírselo por orden de encaje.`
+      ? `${nombre} tiene marcado que no está disponible el ${diaSemana} ${dia}, y esa clase sigue asignada a ella. ${reservas === 0 ? 'Todavía no hay nadie apuntado' : reservas === 1 ? 'Ya hay 1 cliente apuntado' : `Ya hay ${reservas} clientes apuntados`}. Si marcas la baja en Sustituciones, Tentare prepara a quién pedírselo por orden de encaje.`
       : `${nombre} está asignada a dos clases que se pisan el ${diaSemana} a las ${hora}. Una de las dos se va a quedar sin quien la dé.`;
 
     candidatas.push({

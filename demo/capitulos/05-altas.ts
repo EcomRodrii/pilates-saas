@@ -3,15 +3,15 @@ import { abrirCajon, abrirSeccion, cajon, cerrarCajon, interruptor } from './ayu
 
 export const altas: Capitulo = {
   id: 'altas',
-  titulo: 'Alta de alumnas',
-  frase: 'Lo que acepta y rellena una alumna nueva, y qué datos guardas de cada una.',
+  titulo: 'Alta de clientes',
+  frase: 'Lo que acepta y rellena un cliente nuevo, y qué datos guardas de cada una.',
   async guion(g, pos) {
     const { page } = g;
-    await abrirSeccion(g, pos, 'altas', 'Alta de alumnas', 'Lo que acepta y rellena una alumna nueva.',
-      'Quinto capítulo: el alta de alumnas. Qué acepta y qué rellena una alumna nueva, y qué datos guardas de cada una.');
+    await abrirSeccion(g, pos, 'altas', 'Alta de clientes', 'Lo que acepta y rellena un cliente nuevo.',
+      'Quinto capítulo: el alta de clientes. Qué acepta y qué rellena un cliente nuevo, y qué datos guardas de cada una.');
 
     g.momento('contrato-y-privacidad');
-    await g.mientras('Contrato y privacidad. Son los textos que acepta cada alumna al darse de alta. Se guarda qué aceptó, cuándo y con qué nombre. Vienen con los textos de Tentare, que cubren lo habitual.', async () => {
+    await g.mientras('Contrato y privacidad. Son los textos que acepta cada cliente al darse de alta. Se guarda qué aceptó, cuándo y con qué nombre. Vienen con los textos de Tentare, que cubren lo habitual.', async () => {
       await abrirCajon(g, 'contrato-y-privacidad');
       await g.ir(cajon(page).getByLabel('Política de privacidad'));
     });
@@ -21,7 +21,7 @@ export const altas: Capitulo = {
     });
 
     g.momento('compra-desde-tu-enlace');
-    await g.mientras('Compra desde tu enlace. Si alguien que aún no es alumna compra un bono en tu página: ¿que se registre antes de pagar, o que pague directamente? Si se registra antes, acepta tus condiciones; si paga primero, se le piden después.', async () => {
+    await g.mientras('Compra desde tu enlace. Si alguien que aún no es cliente compra un bono en tu página: ¿que se registre antes de pagar, o que pague directamente? Si se registra antes, acepta tus condiciones; si paga primero, se le piden después.', async () => {
       await abrirCajon(g, 'compra-desde-tu-enlace');
       await g.ir(cajon(page).getByRole('radio', { name: /Que se registre antes de pagar/ }));
     });
@@ -44,23 +44,23 @@ export const altas: Capitulo = {
     });
 
     g.momento('preguntas-en-su-app');
-    await g.mientras('Preguntar los datos extra en su app. Si lo enciendes, la alumna contesta tus preguntas en su app antes de reservar o comprar. Las obligatorias no se saltan. Se guarda al tocarlo.', async () => {
+    await g.mientras('Preguntar los datos extra en su app. Si lo enciendes, el cliente contesta tus preguntas en su app antes de reservar o comprar. Las obligatorias no se saltan. Se guarda al tocarlo.', async () => {
       await g.clic(interruptor(page, /Preguntar los datos extra/));
     });
 
     g.momento('valoracion-inicial');
-    await g.mientras('Valoración inicial. Tus alumnas te cuentan qué buscan antes de sus primeras clases, y así llegas a la primera sesión sabiendo para qué vienen. También se guarda al tocarlo.', async () => {
+    await g.mientras('Valoración inicial. Tus clientes te cuentan qué buscan antes de sus primeras clases, y así llegas a la primera sesión sabiendo para qué vienen. También se guarda al tocarlo.', async () => {
       await g.clic(interruptor(page, /Valoración inicial/));
     });
 
     g.momento('cuestionario-de-salud');
-    await g.mientras('Cuestionario de salud. Son preguntas de salud, como lesiones, que rellenáis tú o tus instructoras en la ficha de cada alumna. Ella no lo rellena. Añadimos una pregunta.', async () => {
+    await g.mientras('Cuestionario de salud. Son preguntas de salud, como lesiones, que rellenáis tú o tus instructoras en la ficha de cada cliente. Ella no lo rellena. Añadimos una pregunta.', async () => {
       await abrirCajon(g, 'cuestionario-de-salud');
       await g.escribe(cajon(page).getByRole('textbox', { name: 'Pregunta', exact: true }), '¿Tienes alguna lesión o molestia?');
       await g.clic(cajon(page).getByRole('button', { name: 'Añadir pregunta' }));
       await g.pausa(700);
     });
-    await g.mientras('Ya forma parte del cuestionario de todas tus alumnas. Cerramos.', async () => {
+    await g.mientras('Ya forma parte del cuestionario de todas tus clientes. Cerramos.', async () => {
       await cerrarCajon(g);
     });
   },

@@ -16,7 +16,7 @@ test('una tarifa en borrador (el asistente de alta las deja inactivas y a 0 €)
   assert.equal(d.tarifaActiva, false);
 });
 
-test('el caso de Alya: cuatro tarifas activas con precio y una clienta sin plan', () => {
+test('el caso de Alya: cuatro tarifas activas con precio y un cliente sin plan', () => {
   const d = datosHecho({
     ...vacio,
     planesTarifa: [20, 35, 60, 90].map(precio => ({ activo: true, precio })),

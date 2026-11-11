@@ -55,7 +55,7 @@ export const RETENCION_RASTRO_MESES = 18;
 export const TEXTO_MOTIVO: Record<MotivoVinculo, string> = {
   stripe: 'La misma cuenta de Stripe',
   nif: 'El mismo NIF',
-  alumnas: 'Comparten la mayoría de sus alumnas',
+  alumnas: 'Comparten la mayoría de sus clientes',
   dispositivo: 'Se dio de alta desde el mismo navegador',
   ip: 'Se dio de alta desde la misma conexión',
 };

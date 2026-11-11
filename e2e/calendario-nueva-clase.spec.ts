@@ -168,7 +168,7 @@ test.describe('Nueva clase: lo que se lee es lo que pasa', () => {
     const { cajon } = await montar(page, { studio: { permite_lista_espera: false } });
 
     const alLlenarse = cajon.getByTestId('al-llenarse');
-    await expect(alLlenarse).toHaveText('Al llenarse, tus alumnas ya no pueden reservarla: tu estudio no tiene lista de espera.');
+    await expect(alLlenarse).toHaveText('Al llenarse, tus clientes ya no pueden reservarla: tu estudio no tiene lista de espera.');
     await expect(alLlenarse).not.toContainText('entran en lista de espera');
     // Las plazas, las del tipo de clase y con la sala al lado.
     await expect(cajon.getByRole('spinbutton', { name: 'Plazas' })).toHaveValue('8');
@@ -180,7 +180,7 @@ test.describe('Nueva clase: lo que se lee es lo que pasa', () => {
 
     await expect(cajon.getByTestId('al-llenarse')).toContainText('entran en lista de espera');
     await cajon.getByRole('combobox', { name: 'Tipo de clase' }).selectOption('tc-2');
-    await expect(cajon.getByTestId('al-llenarse')).toHaveText('Al llenarse, tus alumnas ya no pueden reservarla: «Mat» no tiene lista de espera.');
+    await expect(cajon.getByTestId('al-llenarse')).toHaveText('Al llenarse, tus clientes ya no pueden reservarla: «Mat» no tiene lista de espera.');
 
     const reglas = cajon.locator('details').filter({ hasText: 'Cómo se reserva esta clase' });
     await expect(reglas).toContainText('Reglas propias de Mat');

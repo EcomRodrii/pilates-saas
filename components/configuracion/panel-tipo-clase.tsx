@@ -328,7 +328,7 @@ function Previsualizacion({ form, fotoUrl, logoUrl, onEditarImagenes, esNueva }:
   if (plazas) partes.push(plazas);
   return (
     <div className="rounded-xl border border-border bg-muted/40 p-3">
-      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Así la verá tu alumna</p>
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Así la verá tu cliente</p>
       {/* La FILA del horario: es donde va el logo, no el banner. Antes esta
           previsualización recortaba el banner a 48×48 y lo llamaba «así la
           verá tu alumna» — pero en la fila no salía ninguna imagen, y el
@@ -492,7 +492,7 @@ export function PanelTipoClase({
   const duracionInvalida = !form.duracionMinutos.trim() || !Number.isFinite(duracion) || duracion < 5;
   const ventanaImposible = hayVentanaImposible(form);
 
-  const errorNombre = intentado && nombreVacio ? 'Ponle un nombre a la clase — es lo primero que ve tu alumna.' : null;
+  const errorNombre = intentado && nombreVacio ? 'Ponle un nombre a la clase — es lo primero que ve tu cliente.' : null;
   const errorDuracion = intentado && duracionInvalida ? 'Dinos cuánto dura: al menos 5 minutos.' : null;
 
   function intentarGuardar() {
@@ -527,7 +527,7 @@ export function PanelTipoClase({
             {modo === 'nueva' ? 'Nuevo tipo de clase' : 'Editar tipo de clase'}
           </h2>
           <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-            Define cómo es esta clase y cómo la verán tus alumnas. Lo demás lo hereda de tu estudio.
+            Define cómo es esta clase y cómo la verán tus clientes. Lo demás lo hereda de tu estudio.
           </p>
         </div>
         <button
@@ -559,7 +559,7 @@ export function PanelTipoClase({
         <div className="space-y-5 py-5">
           <Campo
             label="Nombre"
-            ayuda="Como se llama en tu horario. Es lo primero que lee tu alumna."
+            ayuda="Como se llama en tu horario. Es lo primero que lee tu cliente."
             error={errorNombre}
           >
             <input
@@ -609,7 +609,7 @@ export function PanelTipoClase({
             )}
           </Campo>
 
-          <Campo label="¿A quién va dirigida?" ayuda="Orienta a tu alumna sobre si le encaja. No le impide reservar.">
+          <Campo label="¿A quién va dirigida?" ayuda="Orienta a tu cliente sobre si le encaja. No le impide reservar.">
             <Segmentado
               etiquetaGrupo="Nivel de la clase"
               disposicion="grid"
@@ -623,7 +623,7 @@ export function PanelTipoClase({
           </Campo>
 
           <Campo
-            label="¿Cuántas alumnas caben?"
+            label="¿Cuántos clientes caben?"
             ayuda="Las plazas con las que sale cada sesión. Si lo dejas vacío se usan las de la sala donde la programes."
           >
             <div className="flex items-center gap-2">
@@ -663,7 +663,7 @@ export function PanelTipoClase({
 
         {/* NIVEL 2 — cómo la encuentran */}
         <Seccion
-          titulo="Imágenes y cómo la encuentran tus alumnas"
+          titulo="Imágenes y cómo la encuentran tus clientes"
           ayuda="Lo que ve quien entra en tu página de reservas sin conocer todavía tu estudio."
           abierta={seccionImagenes}
           onAbrir={setSeccionImagenes}
@@ -692,7 +692,7 @@ export function PanelTipoClase({
             <>
               <Campo
                 label="Logo"
-                ayuda="El icono cuadrado que acompaña a esta clase en el horario de tus alumnas. Si no pones ninguno, la fila se queda sin icono — mejor eso que el mismo dibujo repetido en todas."
+                ayuda="El icono cuadrado que acompaña a esta clase en el horario de tus clientes. Si no pones ninguno, la fila se queda sin icono — mejor eso que el mismo dibujo repetido en todas."
               >
                 <CampoImagen
                   etiqueta={`logo de ${form.nombre || 'la clase'}`}
@@ -779,7 +779,7 @@ export function PanelTipoClase({
         {/* NIVEL 3 — reservas */}
         <Seccion
           titulo="Reservas"
-          ayuda="Cuándo y cómo puede tu alumna coger sitio en esta clase. Sin tocar nada, valen las reglas de tu estudio."
+          ayuda="Cuándo y cómo puede tu cliente coger sitio en esta clase. Sin tocar nada, valen las reglas de tu estudio."
           resumen={resumenSeccionReservas(form, studio)}
         >
           {reglasDeDinero ? (
@@ -893,7 +893,7 @@ export function PanelTipoClase({
                 className="w-4 h-4 mt-0.5 rounded accent-brand shrink-0"
               />
               <span>
-                <span className="text-[13px] font-semibold text-foreground block">Solo para alumnas autorizadas</span>
+                <span className="text-[13px] font-semibold text-foreground block">Solo para clientes autorizados</span>
                 <span className="text-[12px] text-muted-foreground block mt-0.5">
                   Para clases con nivel o requisitos. Nadie puede reservarla salvo que se la abras
                   desde su ficha, una a una. Si lo dejas apagado, la reserva cualquiera con plan.
@@ -954,11 +954,11 @@ export function PanelTipoClase({
           )}
 
           <CampoHeredado
-            label="¿Cuántas alumnas hacen falta para que la clase salga?"
+            label="¿Cuántos clientes hacen falta para que la clase salga?"
             ayuda={(studio?.cancelacionClaseDevuelveBono ?? true)
               ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola y se les devuelve la sesión.'
               : reglasDeDinero
-                ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Configuración → Cómo reservan mis alumnas.'
+                ? 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: lo tienes así en Configuración → Cómo reservan mis clientes.'
                 : 'Si a 2 horas del inicio no se llega, la clase se cancela sola, sin devolverles la sesión: así lo tiene puesto el estudio.'}
             heredado={form.minimoAsistentesPorClase.trim() === ''}
             onHeredar={() => setForm(f => ({ ...f, minimoAsistentesPorClase: '' }))}
@@ -977,7 +977,7 @@ export function PanelTipoClase({
                 onChange={e => setForm(f => ({ ...f, minimoAsistentesPorClase: e.target.value }))}
                 aria-label="Mínimo de asistentes para mantener la clase"
               />
-              <span className="text-[12.5px] text-muted-foreground">alumnas · 0 = sin mínimo</span>
+              <span className="text-[12.5px] text-muted-foreground">clientes · 0 = sin mínimo</span>
             </div>
           </CampoHeredado>
 
@@ -991,7 +991,7 @@ export function PanelTipoClase({
               créditos igual. */}
           <CampoHeredado
             label="¿Hay que pasar lista en esta clase?"
-            ayuda="Si la pasas, alguien tiene que confirmar quién vino: leyendo su pase (QR o código) o marcándola en Asistentes. Si no, toda alumna con reserva confirmada cuenta como asistida en cuanto termina la clase."
+            ayuda="Si la pasas, alguien tiene que confirmar quién vino: leyendo su pase (QR o código) o marcándola en Asistentes. Si no, todo cliente con reserva confirmada cuenta como asistida en cuanto termina la clase."
             heredado={form.requiereCheckinQr === 'hereda'}
             onHeredar={() => setForm(f => ({ ...f, requiereCheckinQr: 'hereda' }))}
             onPersonalizar={() =>
@@ -1009,7 +1009,7 @@ export function PanelTipoClase({
               />
               {form.requiereCheckinQr === 'no' && (
                 <p className="text-[12px] text-muted-foreground">
-                  Sus alumnas recibirán créditos, racha y logros solas, sin que nadie escanee nada.
+                  Sus clientes recibirán créditos, racha y logros solas, sin que nadie escanee nada.
                 </p>
               )}
               {/* El mismo aviso que ya da el ajuste del estudio, porque aquí se
@@ -1028,7 +1028,7 @@ export function PanelTipoClase({
         {/* NIVEL 3 — cancelaciones */}
         <Seccion
           titulo="Si cancelan o no vienen"
-          ayuda="Qué pasa cuando una alumna avisa tarde, o directamente no aparece."
+          ayuda="Qué pasa cuando un cliente avisa tarde, o directamente no aparece."
           resumen={resumenSeccionCancelaciones(form, studio)}
         >
           {reglasDeDinero ? (
@@ -1076,7 +1076,7 @@ export function PanelTipoClase({
             hint={
               <InfoTip label="Qué decides aquí">
                 El importe, a qué se aplica (cancelar tarde, no venir sin avisar, o ambos) y si se cobra solo o
-                espera tu aprobación se deciden en Configuración → Cómo reservan mis alumnas. Aquí solo eliges si en
+                espera tu aprobación se deciden en Configuración → Cómo reservan mis clientes. Aquí solo eliges si en
                 esta clase se aplica o no.
               </InfoTip>
             }
@@ -1091,7 +1091,7 @@ export function PanelTipoClase({
               // De antes: un importe propio que nunca se ha cobrado. Se dice y se ofrece dejarlo claro.
               <div className="space-y-1.5">
                 <p className="text-[12.5px] text-foreground text-pretty">
-                  Tiene un importe propio ({form.penalizacionImporteEur} €) que no se cobra: tus alumnas solo aceptaron el del estudio.
+                  Tiene un importe propio ({form.penalizacionImporteEur} €) que no se cobra: tus clientes solo aceptaron el del estudio.
                 </p>
                 <button
                   type="button"
@@ -1109,7 +1109,7 @@ export function PanelTipoClase({
               cambiarlos: a la gerencia le sobra un matiz que no puede accionar. */}
           {reglasDeDinero && (form.ventanaCancelacionHoras.trim() !== '' || form.penalizacionImporteEur.trim() !== '') && (
             <p className="text-[12px] text-muted-foreground">
-              Solo se cobra lo que recoge el contrato que aceptan tus alumnas, que usa el plazo y el importe del
+              Solo se cobra lo que recoge el contrato que aceptan tus clientes, que usa el plazo y el importe del
               estudio: con otro importe aquí, o una cancelación tardía solo por el plazo de esta clase, no se cobra.
             </p>
           )}

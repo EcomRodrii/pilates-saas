@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeBorrarDatosClienta(sesion.rol)) {
-    return NextResponse.json({ error: 'Solo la propietaria del estudio puede borrar los datos de una clienta.' }, { status: 403 });
+    return NextResponse.json({ error: 'Solo la propietaria del estudio puede borrar los datos de un cliente.' }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => null)) as { socioId?: unknown } | null;

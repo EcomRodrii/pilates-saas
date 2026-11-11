@@ -75,7 +75,7 @@ export function DialogoOcultar({ nombre, Icono, color, texto, guardando, error, 
 
         <div className="space-y-4">
           <Bloque Icono={EyeOff} titulo="Deja de verse" lineas={texto.dejaDeVerse} tono="var(--muted-foreground)" />
-          <Bloque Icono={Smartphone} titulo="En la app de tus alumnas" lineas={[texto.enLaApp]} tono="var(--t-text-link)" />
+          <Bloque Icono={Smartphone} titulo="En la app de tus clientes" lineas={[texto.enLaApp]} tono="var(--t-text-link)" />
           <Bloque Icono={Check} titulo="Sigue igual" lineas={texto.sigueIgual} tono="var(--success)" />
         </div>
 

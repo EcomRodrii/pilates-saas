@@ -22,7 +22,7 @@ const ESTUDIOS = [
   fila({ id: 'est-bien', slug: 'va-bien', nombre: 'Va Bien Pilates', dePago: true, estadoSuscripcion: 'active', salud: salud('bien', [], {}, 1) }),
   fila({
     id: 'est-pago', slug: 'luna', nombre: 'Estudio Luna', dePago: true, estadoSuscripcion: 'active',
-    salud: salud('atencion', ['Ninguna reserva en los últimos 7 días', '1 cobro fallido a sus alumnas (30 días)'], { reservas7d: 0, cobrosFallidos30d: 1 }, 2),
+    salud: salud('atencion', ['Ninguna reserva en los últimos 7 días', '1 cobro fallido a sus clientes (30 días)'], { reservas7d: 0, cobrosFallidos30d: 1 }, 2),
   }),
 ];
 
@@ -67,7 +67,7 @@ test('los clientes de pago salen arriba, los que peor van primero, con lo que ha
   // «Atención» antes que «Bien».
   await expect(tarjetas.first()).toContainText('Estudio Luna');
   await expect(tarjetas.first()).toContainText('Atención');
-  await expect(tarjetas.first()).toContainText('1 cobro fallido a sus alumnas (30 días)');
+  await expect(tarjetas.first()).toContainText('1 cobro fallido a sus clientes (30 días)');
   await expect(tarjetas.first().getByRole('link', { name: /Sus errores en Sentry/ })).toHaveAttribute('href', /studio_id%3Aest-pago/);
   await expect(tarjetas.last()).toContainText('Bien');
 

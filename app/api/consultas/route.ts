@@ -39,9 +39,9 @@ export async function POST(req: NextRequest) {
     if (email) {
       const { data: yaEs, error: errYa } = await admin.from('socios')
         .select('id').eq('studio_id', sesion.studioId).ilike('email', escaparLike(email)).is('borrado_en', null).limit(1);
-      if (errYa) return errorInterno('consultas:ya-es', errYa, 'No se ha podido comprobar si ya es clienta. Vuelve a intentarlo.');
+      if (errYa) return errorInterno('consultas:ya-es', errYa, 'No se ha podido comprobar si ya es cliente. Vuelve a intentarlo.');
       if (yaEs && yaEs.length > 0) {
-        return NextResponse.json({ error: 'Ya es clienta: tiene ficha con ese email.', socioId: yaEs[0].id }, { status: 409 });
+        return NextResponse.json({ error: 'Ya es cliente: tiene ficha con ese email.', socioId: yaEs[0].id }, { status: 409 });
       }
     }
 

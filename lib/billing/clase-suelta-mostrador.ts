@@ -90,7 +90,7 @@ export async function prepararVentaClaseSuelta(admin: SupabaseClient, p: {
     const { data: previa } = await admin.from('suscripciones').select('socio_id, plan_id')
       .eq('id', suscripcionId).eq('studio_id', p.studioId).maybeSingle();
     if (!previa || previa.socio_id !== p.socioId) {
-      return { ok: false, status: 409, error: 'Esta reserva ya tiene otra clase suelta apuntada. Revísala en la ficha de la clienta.', queda: 'nada' };
+      return { ok: false, status: 409, error: 'Esta reserva ya tiene otra clase suelta apuntada. Revísala en la ficha del cliente.', queda: 'nada' };
     }
   }
 

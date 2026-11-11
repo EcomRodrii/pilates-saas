@@ -59,7 +59,7 @@ import { cn } from '@/lib/utils';
  */
 const GRUPOS: Record<string, { frase: string; Icono: ElementType; texto: string; tinte: string }> = {
   Principal: { frase: 'Tu día, lo que merece tu atención y lo que Tentare hace solo', Icono: Star, texto: 'var(--t-text-accent)', tinte: 'var(--t-magenta-500)' },
-  'Operación': { frase: 'Clases, citas, alumnas y lo que os escribís', Icono: CalendarDays, texto: 'var(--t-text-link)', tinte: 'var(--t-blue-500)' },
+  'Operación': { frase: 'Clases, citas, clientes y lo que os escribís', Icono: CalendarDays, texto: 'var(--t-text-link)', tinte: 'var(--t-blue-500)' },
   Equipo: { frase: 'Quién da las clases y cómo se cubren las bajas', Icono: Users, texto: 'var(--cat-2)', tinte: 'var(--cat-2)' },
   Negocio: { frase: 'Lo que vendes, lo que cobras y cómo va', Icono: TrendingUp, texto: 'var(--cat-5)', tinte: 'var(--cat-5)' },
   Estudio: { frase: 'Cómo está montado tu estudio y lo que te traes de antes', Icono: Building2, texto: 'var(--cat-9)', tinte: 'var(--cat-9)' },

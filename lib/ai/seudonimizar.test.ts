@@ -7,7 +7,7 @@ import { restaurar, seudonimizar } from './seudonimizar.ts';
 const alumna = { marca: 'ALUMNA', nombre: 'María José', apellidos: 'Álvarez de la Torre' };
 const equipo = [{ marca: 'EQUIPO1', nombre: 'Marta Ruiz' }, { marca: 'EQUIPO2', nombre: 'Lucía' }];
 
-test('quita nombre y apellidos de la alumna y del equipo, sin tildes ni mayúsculas que valgan', () => {
+test('quita nombre y apellidos del cliente y del equipo, sin tildes ni mayúsculas que valgan', () => {
   const { texto } = seudonimizar('maria jose vino con la rodilla mejor. Alvarez dice que Marta le corrigió la postura.', [alumna, ...equipo]);
   assert.ok(!/mar[ií]a|jos[eé]|[aá]lvarez|marta/i.test(texto), texto);
   assert.match(texto, /\[ALUMNA_1\] \[ALUMNA_2\] vino con la rodilla mejor/);
@@ -30,7 +30,7 @@ test('restaurar deshace las marcas, también en lo que escribe la IA', () => {
   assert.equal(restaurar(null, s.tabla), null);
 });
 
-test('una palabra que comparten la alumna y el equipo se queda como de la alumna', () => {
+test('una palabra que comparten el cliente y el equipo se queda como del cliente', () => {
   const s = seudonimizar('Ruiz', [{ marca: 'ALUMNA', nombre: 'Ana', apellidos: 'Ruiz' }, { marca: 'EQUIPO1', nombre: 'Marta Ruiz' }]);
   assert.equal(s.texto, '[ALUMNA_2]');
 });

@@ -175,7 +175,7 @@ function Cabecera({ plan, cifras, moneda }: {
 }) {
   const v = cifras.estado === 'ok' ? cifras.valor : undefined;
   const datos: { etiqueta: string; valor: number | undefined }[] = [
-    { etiqueta: `Alumnas con ${moneda}`, valor: v?.alumnasConCreditos },
+    { etiqueta: `Clientes con ${moneda}`, valor: v?.alumnasConCreditos },
     { etiqueta: 'Logros este mes', valor: v?.logrosEsteMes },
     { etiqueta: 'Canjes por entregar', valor: v?.canjesPorEntregar },
   ];

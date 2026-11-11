@@ -75,7 +75,7 @@ const PESTANAS: { id: PestanaInforme; nombre: string }[] = [
   { id: 'resumen', nombre: 'Resumen' },
   { id: 'dinero', nombre: 'Dinero' },
   { id: 'clases', nombre: 'Clases' },
-  { id: 'clientas', nombre: 'Clientas' },
+  { id: 'clientas', nombre: 'Clientes' },
   { id: 'bonos', nombre: 'Bonos' },
 ];
 
@@ -304,7 +304,7 @@ export default function Informes() {
   const tiposPorId = new Map(tiposClase.map(t => [t.id, t.nombre]));
   const instructorasPorId = new Map(instructores.map(i => [i.id, i.nombre]));
   const planesPorId = new Map(planesTarifa.map(p => [p.id, p.nombre]));
-  const nombreCompleto = (id: string) => { const s = sociosPorId.get(id); return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Clienta'; };
+  const nombreCompleto = (id: string) => { const s = sociosPorId.get(id); return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Cliente'; };
   const descarga = descargas.fase(visible);
 
   function elegirPeriodo(p: PeriodoInforme) { setPeriodo(p); setReferencia(null); }
@@ -355,10 +355,10 @@ export default function Informes() {
         href={null}
         valor={clases.actual.sinPasarLista ? '—' : String(clientas.actual.vinieron)}
         arriba={clases.actual.sinPasarLista || difVinieron == null ? undefined : <span className={tonoDiferencia(difVinieron)}>{conSigno(difVinieron)}</span>}
-        abajo={clases.actual.sinPasarLista ? 'Sin pasar lista no sabemos quién vino' : difVinieron == null ? 'clientas distintas' : frente}
+        abajo={clases.actual.sinPasarLista ? 'Sin pasar lista no sabemos quién vino' : difVinieron == null ? 'clientes distintas' : frente}
       />
       <TarjetaCifra
-        etiqueta="Nuevas clientas"
+        etiqueta="Nuevos clientes"
         tono="indigo"
         Icono={UserPlus}
         href={null}
@@ -393,7 +393,7 @@ export default function Informes() {
       />
       <Hecho
         testId="informe-vinieron"
-        titulo="Clientas que vinieron"
+        titulo="Clientes que vinieron"
         valor={clases.actual.sinPasarLista ? '—' : clientas.actual.vinieron}
         comparacion={clases.actual.sinPasarLista || difVinieron == null ? null : { texto: conSigno(difVinieron), tono: tonoDiferencia(difVinieron), frente }}
         nota={clases.actual.sinPasarLista ? 'No se ha pasado lista: no sabemos quién vino.' : 'Distintas, a alguna clase del periodo.'}
@@ -418,7 +418,7 @@ export default function Informes() {
           textoPeriodo={textoPeriodoEnFrase(periodo, ref, hoy)}
           datosIncompletos={datosIncompletos.some(t => ['recibos', 'sesiones', 'reservas', 'suscripciones'].includes(t))}
           importado={importadoDelTramo?.actual ?? null}
-          nombres={{ tipo: id => tiposPorId.get(id), socia: id => { const s = sociosPorId.get(id); return s ? s.nombre : 'una alumna'; } }}
+          nombres={{ tipo: id => tiposPorId.get(id), socia: id => { const s = sociosPorId.get(id); return s ? s.nombre : 'un cliente'; } }}
           onIrA={(p, r) => { setPeriodo(p); setReferencia(r); }}
         />
       )}

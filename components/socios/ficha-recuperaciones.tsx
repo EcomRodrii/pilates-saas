@@ -128,7 +128,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Dar recuperación</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Le concedes una clase a recuperar. Si no pones fecha, caduca según la política del estudio (Configuración → Cómo reservan mis alumnas).</p>
+            <p className="text-xs text-muted-foreground">Le concedes una clase a recuperar. Si no pones fecha, caduca según la política del estudio (Configuración → Cómo reservan mis clientes).</p>
             <div>
               <label htmlFor="recup-motivo" className={labelCls}>Motivo (opcional)</label>
               <input id="recup-motivo" className={inputCls} value={motivo} onChange={e => setMotivo(e.target.value)} placeholder="Ej: avisó que el martes no podía" />
@@ -163,7 +163,7 @@ export function FichaRecuperaciones({ socioId, onToast }: { socioId: string; onT
         open={anulando !== null}
         onOpenChange={abierto => { if (!abierto) setAnulando(null); }}
         titulo="¿Anular esta recuperación?"
-        descripcion="La alumna la perderá y no se puede recuperar. Si fue un error al concederla, puedes volver a dársela."
+        descripcion="El cliente la perderá y no se puede recuperar. Si fue un error al concederla, puedes volver a dársela."
         textoConfirmar="Sí, anularla"
         destructivo
         onConfirm={async () => {

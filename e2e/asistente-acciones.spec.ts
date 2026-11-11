@@ -29,7 +29,7 @@ for (const tipo of TIPOS) {
     // Las marcas se pintan con el nombre que llegó aparte; el texto de la respuesta, igual.
     await expect(tarjeta).not.toContainText(/\[(EQUIPO|ALUMNA)_\d\]/);
     if (tipo === 'CREAR_CLASE' || tipo === 'CREAR_CITA') await expect(tarjeta).toContainText('Marta Ruiz');
-    if (p.efecto) await expect(tarjeta).toContainText('se avisa a todas las alumnas');
+    if (p.efecto) await expect(tarjeta).toContainText('se avisa a todos los clientes');
     expect(n.acc.confirmar, 'proponer no confirma nada').toBe(0);
     await expect(tarjeta.getByRole('button', { name: 'Confirmar' })).toBeVisible();
 

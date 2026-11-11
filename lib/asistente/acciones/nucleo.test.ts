@@ -79,13 +79,13 @@ test('sala: valida y no repite nombre; el color sale de la paleta', () => {
   assert.equal(zSala.safeParse({ nombre: 'x', capacidad: 8, extra: 1 }).success, false);
 });
 
-test('evento: avisa a las alumnas, no publica nombres de alumnas y sí el del equipo', () => {
+test('evento: avisa a los clientes, no publica nombres de clientes y sí el del equipo', () => {
   const nombres = (m: string) => (m === 'EQUIPO_1' ? 'Marta' : null);
   const r = prepararEvento({ texto: 'Taller con [EQUIPO_1] de respiración', fecha: '2026-10-10', hora: '11:00', aforo: 12, lugar: '' }, AHORA, HOY, nombres);
   assert.ok(r.ok);
   assert.equal(r.payload.texto, 'Taller con Marta de respiración');
   assert.equal(r.payload.aforo, 12);
-  assert.match(r.efecto ?? '', /avisa a todas las alumnas/);
+  assert.match(r.efecto ?? '', /avisa a todos los clientes/);
   const mal = prepararEvento({ texto: 'Taller para [ALUMNA_1]', fecha: '2026-10-10', hora: '11:00', aforo: 0, lugar: '' }, AHORA, HOY, nombres);
   assert.ok(!mal.ok);
   assert.match((prepararEvento({ texto: 'Hola', fecha: '2026-10-10', hora: '11:00', aforo: 0, lugar: '' }, AHORA, HOY, nombres) as { error: string }).error, /Falta el texto/);
@@ -111,7 +111,7 @@ test('cita: caso feliz sin precio; el modelo solo ve marcas; la persona es un id
   assert.match(r.avisos.join(' '), /sin precio ni cobro/);
 });
 
-test('cita: alumna ambigua o desconocida, instructora ocupada o ausente', () => {
+test('cita: cliente ambigua o desconocida, instructora ocupada o ausente', () => {
   assert.match((prepararCita(cita, citaCat({ socia: 'ambigua' }), AHORA, HOY) as { error: string }).error, /varias/);
   assert.match((prepararCita(cita, citaCat({ socia: null }), AHORA, HOY) as { error: string }).error, /No encuentro/);
   assert.match((prepararCita(cita, citaCat({ instructora: null }), AHORA, HOY) as { error: string }).error, /Falta la instructora/);

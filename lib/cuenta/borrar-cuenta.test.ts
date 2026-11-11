@@ -20,7 +20,7 @@ test('la palabra: BORRAR, con o sin mayúsculas y espacios; nada más', () => {
   }
 });
 
-test('solo alumna: se puede borrar, tenga una ficha o varias', () => {
+test('solo cliente: se puede borrar, tenga una ficha o varias', () => {
   assert.deepEqual(decidirAutoborrado(ceros()), { borrar: true });
   assert.deepEqual(decidirAutoborrado({ ...ceros(), otras_fichas_socia: 3 }), { borrar: true });
 });
@@ -120,7 +120,7 @@ function adminFalso(o: Falso = {}) {
   return { admin: admin as never, pasos };
 }
 
-test('alumna: quita sus avisos, desvincula sus fichas, borra la cuenta y lo confirma — solo la suya', async () => {
+test('cliente: quita sus avisos, desvincula sus fichas, borra la cuenta y lo confirma — solo la suya', async () => {
   const { admin, pasos } = adminFalso({ vinculos: { otras_fichas_socia: 2 } });
   assert.deepEqual(await borrarMiCuenta(admin, 'uid-1', { esperaBaseMs: 0 }), { ok: true });
   assert.deepEqual(pasos, [

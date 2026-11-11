@@ -313,7 +313,7 @@ export function WidgetAuthRetornoCliente({ slug, destino, nonce, abiertoEn }: {
         <div role="alert" style={{ display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center', textAlign: 'center', maxWidth: 340 }}>
           <h1 style={{ fontSize: 20, margin: 0 }}>{MENSAJE_CUENTA_DE_EQUIPO}</h1>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5, color: '#555' }}>
-            Desde la web de un estudio solo pueden entrar sus alumnas.
+            Desde la web de un estudio solo pueden entrar sus clientes.
             {enlaceReservar && <> Para reservar, <a href={enlaceReservar} style={{ color: '#1a1a1a' }}>entra desde la página de reservas del estudio</a>.</>}
           </p>
           <button type="button" onClick={() => window.close()} style={estiloBotonSecundario}>Cerrar</button>

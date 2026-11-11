@@ -5,7 +5,7 @@ export default function Contenido() {
   return (
     <>
       <p>
-        En Configuración pones los datos que verán tus alumnas y los que necesitas para facturar correctamente: el
+        En Configuración pones los datos que verán tus clientes y los que necesitas para facturar correctamente: el
         nombre y la dirección en Mi estudio, el NIF en Cobros y facturas, y el color y el logo de tu marca en Marca.
       </p>
 
@@ -20,7 +20,7 @@ export default function Contenido() {
       <p>
         El logo y el color están en Configuración &gt; Marca: el logo lo subes en «Logo y favicon», que se guarda al
         elegir el archivo, y el color lo pruebas en «El color de tu marca» antes de pulsar «Guardar».
-        Los dos los ven tus alumnas en tu página de reservas y en su app — es lo
+        Los dos los ven tus clientes en tu página de reservas y en su app — es lo
         primero que distingue tu estudio del de cualquier otra propietaria de Tentare.
       </p>
 

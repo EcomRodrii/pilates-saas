@@ -28,7 +28,7 @@ const entrada = (plazasFijas: PlazaFija[], suscripciones: Suscripcion[]) => ({
   plazasFijas, sesiones: SESIONES, suscripciones, planes: [CUOTA], nombreDe: (id: string) => NOMBRES[id] ?? id, ahoraMs: AHORA,
 });
 
-test('una alumna por fila, por nombre, con sus clases fijas por día (lunes primero) y sin las de baja', () => {
+test('un cliente por fila, por nombre, con sus clases fijas por día (lunes primero) y sin las de baja', () => {
   const r = clasesFijasPorAlumna(entrada([
     plaza({ id: 'p1', socioId: 'carmen', diaSemana: 3, horaInicio: '18:00:00' }),
     plaza({ id: 'p2', socioId: 'carmen', diaSemana: 1 }),

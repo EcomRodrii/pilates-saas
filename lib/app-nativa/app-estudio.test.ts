@@ -42,7 +42,7 @@ test('app de cadena: sus sedes vienen validadas, y una sola sede no es «de cade
   assert.equal(sedesDeLaApp({ ...base, sedes: [sede('norte'), sede('sur')] })?.length, 2);
 });
 
-test('app de cadena: a qué sede entra la alumna', async () => {
+test('app de cadena: a qué sede entra el cliente', async () => {
   const { entradaEnCadena } = await import('./app-estudio.ts');
   const sedes = ['norte', 'sur', 'centro'].map((slug) => ({ slug, nombre: slug, icono: '', color: null }));
   const sin = { ultimo: null, pideLista: false, enlace: null };

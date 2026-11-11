@@ -11,7 +11,7 @@ export const PUNTOS = {
 export type Punto = keyof typeof PUNTOS;
 
 export const OBJETIVOS = {
-  PRIMERAS_CLIENTAS: 'Conseguir mis primeras clientas',
+  PRIMERAS_CLIENTAS: 'Conseguir mis primeras clientes',
   FUNDADORAS: 'Vender plazas fundadoras',
   LISTA_ESPERA: 'Crear una lista de espera',
   LLENAR_HORARIOS: 'Llenar mis primeros horarios',

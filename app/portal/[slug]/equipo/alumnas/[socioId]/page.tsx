@@ -293,7 +293,7 @@ export default function FichaAlumnaInstructoraPage() {
   if (estado === 'loading') {
     return (
       <StudentShell modo="instructora">
-        <PageHeader back titulo="Alumna" />
+        <PageHeader back titulo="Cliente" />
         <div className="px" style={{ marginTop: 14 }}><ListSkeleton n={3} h={64} /></div>
       </StudentShell>
     );
@@ -302,14 +302,14 @@ export default function FichaAlumnaInstructoraPage() {
   if (estado === 'error' || estado === 'empty' || !data) {
     return (
       <StudentShell modo="instructora">
-        <PageHeader back titulo="Alumna" />
+        <PageHeader back titulo="Cliente" />
         <div className="px" style={{ paddingTop: 12 }}>
           {estado === 'offline'
-            ? <OfflineState cuerpo="Para ver a tus alumnas necesitas conexión." />
+            ? <OfflineState cuerpo="Para ver a tus clientes necesitas conexión." />
             : (
               <ErrorState
-                titulo="No encontramos a esta alumna"
-                cuerpo="Solo puedes ver a las alumnas de tus clases de los últimos 30 días o de los próximos 30."
+                titulo="No encontramos a este cliente"
+                cuerpo="Solo puedes ver a los clientes de tus clases de los últimos 30 días o de los próximos 30."
                 onRetry={reintentar}
               />
             )}
@@ -345,7 +345,7 @@ export default function FichaAlumnaInstructoraPage() {
 
   return (
     <StudentShell modo="instructora">
-      <PageHeader back titulo="Alumna" />
+      <PageHeader back titulo="Cliente" />
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 14, paddingBottom: 24 }}>
         {/* Quién es y cómo le va contigo, en el verde noche de «Pasar lista». */}
         <section

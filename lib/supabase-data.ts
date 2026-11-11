@@ -2048,12 +2048,12 @@ export async function dbDeleteSocio(id: string): Promise<{ error: string | null 
       // Un «no» con motivo (403: solo la propietaria) lo enseña la ventana que
       // lo pidió; el aviso global es para lo que falla sin explicación.
       if (res.status >= 500) reportDbError('[dbDeleteSocio]', cuerpo);
-      return { error: (cuerpo as { error?: string }).error || 'No se han podido borrar los datos de la clienta.' };
+      return { error: (cuerpo as { error?: string }).error || 'No se han podido borrar los datos del cliente.' };
     }
     return { error: null };
   } catch (e) {
     reportDbError('[dbDeleteSocio]', e);
-    return { error: 'No se han podido borrar los datos de la clienta. Revisa tu conexión.' };
+    return { error: 'No se han podido borrar los datos del cliente. Revisa tu conexión.' };
   }
 }
 
@@ -6700,7 +6700,7 @@ export async function dbListarDevolucionesPendientes(): Promise<DevolucionPendie
     const sus = d.suscripcion_id ? susPorId.get(d.suscripcion_id) : undefined;
     return {
       id: d.id,
-      socioNombre: (d.socio_id && nombrePorSocio.get(d.socio_id)) || 'Una clienta',
+      socioNombre: (d.socio_id && nombrePorSocio.get(d.socio_id)) || 'Un cliente',
       origen: d.origen as DevolucionPendiente['origen'],
       importeCobrado: d.importe_cobrado,
       importeDevuelto: d.importe_devuelto,

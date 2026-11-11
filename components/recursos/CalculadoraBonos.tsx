@@ -81,7 +81,7 @@ export function CalculadoraBonos() {
       </div>
       {r.bonoCanibalizaCuota && (
         <p style={{ margin: '12px 0 0', fontSize: 13.5, lineHeight: 1.5, color: '#7A3B2A' }}>
-          El bono de 10 sale más barato por sesión que la cuota de una clase semanal: así empujas a tus alumnas fuera de la cuota. Sube un poco el bono o rebaja la cuota.
+          El bono de 10 sale más barato por sesión que la cuota de una clase semanal: así empujas a tus clientes fuera de la cuota. Sube un poco el bono o rebaja la cuota.
         </p>
       )}
       <p style={{ margin: '12px 0 0', fontSize: 12, color: '#6B6B63', lineHeight: 1.5 }}>

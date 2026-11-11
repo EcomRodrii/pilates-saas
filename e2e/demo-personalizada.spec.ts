@@ -51,7 +51,7 @@ async function mockear(page: Page, opts: {
       status: 200,
       body: c.tenti === 1
         ? { turno: { tipo: 'pregunta', texto: '¿Avisa con más de 12 horas de antelación?', opciones: ['Sí', 'No'] } }
-        : { turno: { tipo: 'demo', escenario: 'caducidad_bono', parametros: {}, resumen: 'Quieres ver qué pasa con un bono cuando la alumna avisa de que no va.', aclaracion: 'En Tentare cada bono caduca en su fecha de fin, no un día fijo de la semana.', demo: demo('caducidad_bono') } },
+        : { turno: { tipo: 'demo', escenario: 'caducidad_bono', parametros: {}, resumen: 'Quieres ver qué pasa con un bono cuando el cliente avisa de que no va.', aclaracion: 'En Tentare cada bono caduca en su fecha de fin, no un día fijo de la semana.', demo: demo('caducidad_bono') } },
     };
     return json(route, r.body, r.status);
   });
@@ -213,7 +213,7 @@ test.describe('pantalla de la demo', () => {
     await expect(page).toHaveURL(/\/configuracion/);
     const guia = page.locator('#tentare-demo-guia');
     await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
-    await expect(page.getByText('Cómo reservan mis alumnas').first()).toBeVisible();
+    await expect(page.getByText('Cómo reservan mis clientes').first()).toBeVisible();
     await expect(guia.getByRole('button', { name: 'Paso anterior' })).toBeDisabled();
 
     // Paso 2: la ficha REAL de la clienta, UNA vez (la historia de varios pasos sobre ella va en la barra), con SU bono.
@@ -362,8 +362,8 @@ test.describe('pantalla de la demo', () => {
   test('si el proveedor de IA falla, Tenti ofrece demos del catálogo y se puede ver una', async ({ page }) => {
     const c = await mockear(page, {
       tenti: () => ({ status: 200, body: { turno: { tipo: 'degradado', motivo: 'proveedor', texto: 'Ahora mismo no consigo entender bien tu caso. Mientras tanto, estas son las demos que puedo enseñarte:', alternativas: [
-        { id: 'ausencia_recuperacion', titulo: 'Ausencia avisada y recuperación semanal', descripcion: 'Si una alumna con límite semanal gana una recuperación.' },
-        { id: 'caducidad_bono', titulo: 'Caducidad de un bono y ausencia de la alumna', descripcion: 'Qué pasa con las sesiones de un bono.' },
+        { id: 'ausencia_recuperacion', titulo: 'Ausencia avisada y recuperación semanal', descripcion: 'Si un cliente con límite semanal gana una recuperación.' },
+        { id: 'caducidad_bono', titulo: 'Caducidad de un bono y ausencia del cliente', descripcion: 'Qué pasa con las sesiones de un bono.' },
       ] } } }),
     });
     await hastaTenti(page);

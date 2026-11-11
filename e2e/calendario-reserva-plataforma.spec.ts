@@ -151,7 +151,7 @@ async function montarCalendario(
 
 async function abrirAnadir(page: Page) {
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Añadir clienta a la clase' }).click();
+  await page.getByRole('button', { name: 'Añadir cliente a la clase' }).click();
 }
 
 test.describe('Recepción apunta una reserva de ClassPass desde la clase', () => {
@@ -207,7 +207,7 @@ test.describe('Recepción apunta una reserva de ClassPass desde la clase', () =>
   test('sin plataformas activas no aparece la opción', async ({ page }) => {
     await montarCalendario(page, { status: 200, body: {} }, []);
     await abrirAnadir(page);
-    await expect(page.getByRole('textbox', { name: 'Buscar clienta' })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Buscar cliente' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'ClassPass' })).toHaveCount(0);
   });
 

@@ -4,11 +4,11 @@ import { abrirCajon, abrirSeccion, cajon, esperarCajonCerrado, guardarYCerrar, v
 export const estudio: Capitulo = {
   id: 'estudio',
   titulo: 'Mi estudio',
-  frase: 'Quién eres, dónde estás y cuándo abres: lo que ven tus alumnas y lo que usa la agenda.',
+  frase: 'Quién eres, dónde estás y cuándo abres: lo que ven tus clientes y lo que usa la agenda.',
   async guion(g, pos) {
     const { page } = g;
     await abrirSeccion(g, pos, 'estudio', 'Mi estudio', 'Quién eres, dónde estás y cuándo abres.',
-      'Empezamos por Mi estudio. Aquí decides quién eres, dónde estás y cuándo abres: es lo que ven tus alumnas y lo que usa la agenda. Lo vamos a configurar entero con un estudio de ejemplo, el Estudio Aurora.');
+      'Empezamos por Mi estudio. Aquí decides quién eres, dónde estás y cuándo abres: es lo que ven tus clientes y lo que usa la agenda. Lo vamos a configurar entero con un estudio de ejemplo, el Estudio Aurora.');
 
     await g.dice('Cada ajuste es una fila que te dice cómo está ahora mismo. Al tocarla se abre un cajón a la derecha con sus campos, y no se guarda nada hasta que pulsas Guardar.');
 
@@ -29,7 +29,7 @@ export const estudio: Capitulo = {
 
     // ── Contacto ──
     g.momento('contacto');
-    await g.mientras('Ahora el contacto: dónde te escriben o te llaman tus alumnas, y tu web. Ponemos un teléfono y la dirección de la web del estudio.', async () => {
+    await g.mientras('Ahora el contacto: dónde te escriben o te llaman tus clientes, y tu web. Ponemos un teléfono y la dirección de la web del estudio.', async () => {
       await abrirCajon(g, 'contacto');
       await g.escribe(cajon(page).getByLabel('Teléfono'), '600 000 000');
       await g.escribe(cajon(page).getByLabel('Web'), 'https://estudioaurora.example.com');
@@ -61,7 +61,7 @@ export const estudio: Capitulo = {
       await g.escribe(cajon(page).getByLabel(/Hasta/), '2026-12-26');
       await g.escribe(cajon(page).getByLabel(/Motivo/), 'Navidad');
     });
-    await g.mientras('Fíjate en el resumen: nadie podrá reservar esos días, se cancelan las clases avisando a quien tenía reserva, y los bonos de todas tus alumnas duran esos días más. Al guardar te pide confirmar, porque no se deshace solo.', async () => {
+    await g.mientras('Fíjate en el resumen: nadie podrá reservar esos días, se cancelan las clases avisando a quien tenía reserva, y los bonos de todas tus clientes duran esos días más. Al guardar te pide confirmar, porque no se deshace solo.', async () => {
       await g.guarda();
       await g.pausa(1200);
     });

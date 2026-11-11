@@ -51,7 +51,7 @@ test('tiposConVida: la clase que empieza justo ahora ya no cuenta como «por dar
   assert.deepEqual(tiposConVida(tipos, [ahoraMismo], AHORA).map(t => t.id), ['tc-reformer', 'tc-mat']);
 });
 
-test('impactoDeArchivar cuenta clases futuras, alumnas distintas, series y la última fecha', () => {
+test('impactoDeArchivar cuenta clases futuras, clientes distintas, series y la última fecha', () => {
   const sesiones = [
     ses('f1', 'tc-mat', '2026-10-02T18:00:00+02:00', { serieId: 'serie-a' }),
     ses('f2', 'tc-mat', '2026-10-09T18:00:00+02:00', { serieId: 'serie-a' }),
@@ -99,13 +99,13 @@ test('frasesImpactoArchivar: con cifras, fecha en hora de Madrid y en singular/p
   const f = frasesImpactoArchivar({
     clasesFuturas: 3, ultimaClase: '2026-10-20T23:30:00+02:00', alumnas: 1, series: 2, planesSoloDeEste: ['Bono Mat'],
   });
-  assert.equal(f[0], 'Tiene 3 clases programadas, la última el 20 de octubre, con 1 alumna apuntada. Se quedan como están y se pueden seguir reservando.');
+  assert.equal(f[0], 'Tiene 3 clases programadas, la última el 20 de octubre, con 1 cliente apuntado. Se quedan como están y se pueden seguir reservando.');
   assert.match(f[1], /^Sus 2 clases que se repiten dejan de renovarse/);
   assert.match(f[2], /^«Bono Mat» solo sirve para este tipo/);
   assert.match(f[2], /desactívalo en Paquetes\.$/);
 
   const una = frasesImpactoArchivar({ clasesFuturas: 1, ultimaClase: '2026-10-02T18:00:00+02:00', alumnas: 0, series: 1, planesSoloDeEste: ['A', 'B'] });
-  assert.match(una[0], /^Tiene 1 clase programada, el 2 de octubre, sin alumnas apuntadas todavía\./);
+  assert.match(una[0], /^Tiene 1 clase programada, el 2 de octubre, sin clientes apuntados todavía\./);
   assert.match(una[1], /^Su clase que se repite deja de renovarse/);
   assert.match(una[2], /^«A» y «B» solo sirven para este tipo/);
 });

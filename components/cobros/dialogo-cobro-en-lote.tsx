@@ -55,7 +55,7 @@ export function DialogoCobroEnLote({ ids, metodo, abierto, onCerrar, avisos }: {
       const guardados = desenlaces.filter(d => d.resultado === 'aplicada').length;
       const sinRenovar = desenlaces.filter(d => d.resultado === 'aplicada' && d.renovacionFallida).length;
       if (sinRenovar > 0) {
-        avisos.error(`${sinRenovar} ${sinRenovar === 1 ? 'cobro registrado' : 'cobros registrados'}, pero sin poder renovar el plan: renuévalo a mano desde la ficha de la clienta.`);
+        avisos.error(`${sinRenovar} ${sinRenovar === 1 ? 'cobro registrado' : 'cobros registrados'}, pero sin poder renovar el plan: renuévalo a mano desde la ficha del cliente.`);
       }
       const anuladas = desenlaces.filter(d => d.resultado === 'penalizacion_anulada').length;
       setResultado({ guardados, yaEstaban, fallidos, sinConfirmar, anuladas });

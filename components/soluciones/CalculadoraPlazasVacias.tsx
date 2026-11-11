@@ -17,7 +17,7 @@ const CAMPOS: { clave: keyof EntradaPlazasVacias; etiqueta: string; ayuda: strin
   { clave: 'reformers', etiqueta: 'Reformers por clase', ayuda: 'Plazas de cada clase', paso: 1, sufijo: '' },
   { clave: 'clasesPorSemana', etiqueta: 'Clases a la semana', ayuda: 'De todas las salas de reformer', paso: 1, sufijo: '' },
   { clave: 'ocupacionPct', etiqueta: 'Ocupación media', ayuda: 'Plazas llenas de cada 100', paso: 1, sufijo: '%' },
-  { clave: 'ingresoPorPlaza', etiqueta: 'Precio medio por plaza', ayuda: 'Lo que paga de media una alumna por clase', paso: 0.01, sufijo: '€' },
+  { clave: 'ingresoPorPlaza', etiqueta: 'Precio medio por plaza', ayuda: 'Lo que paga de media un cliente por clase', paso: 0.01, sufijo: '€' },
 ];
 
 const euros = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`;
@@ -59,7 +59,7 @@ export function CalculadoraPlazasVacias() {
         <p className="lp-mono sol-calc-titulo sol-calc-titulo-claro">Lo que se queda sin vender</p>
         <p className="sol-calc-cifra">{euros(r.ingresoNoVendidoMes)}<span> al mes</span></p>
         <p className="sol-calc-sub">{entero(r.plazasVaciasMes)} plazas vacías de {entero(r.plazasOfertadasMes)} al mes · {euros(r.ingresoNoVendidoAno)} al año</p>
-        <p className="sol-calc-nota">Cálculo orientativo con 52 semanas al año. Es el valor de las plazas que salen y no se reservan; cuántas recuperas depende de tu horario y de tus alumnas.</p>
+        <p className="sol-calc-nota">Cálculo orientativo con 52 semanas al año. Es el valor de las plazas que salen y no se reservan; cuántas recuperas depende de tu horario y de tus clientes.</p>
       </div>
     </div>
   );

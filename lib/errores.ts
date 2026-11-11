@@ -165,7 +165,7 @@ export function mensajeDeFalloAlGuardar(error: unknown): string {
     // Mismo criterio y casi mismas palabras que el alta de equipo, que ya lo
     // resolvía bien (app/api/equipo/route.ts).
     if (/uq_socios_studio_email/i.test(msg)) {
-      return 'Ya tienes una clienta con ese email. Si se dio de baja y vuelve, reactiva su ficha en vez de crear otra: así conserva su historial.';
+      return 'Ya tienes un cliente con ese email. Si se dio de baja y vuelve, reactiva su ficha en vez de crear otra: así conserva su historial.';
     }
     return 'Ya existe algo con esos mismos datos. Cámbialos y vuelve a intentarlo.';
   }

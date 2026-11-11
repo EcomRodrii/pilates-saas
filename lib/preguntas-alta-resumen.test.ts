@@ -52,7 +52,7 @@ test('las respuestas se leen en castellano', () => {
   for (const nada of [null, undefined, '', '  ']) assert.equal(textoRespuesta(COMO, nada), '—');
 });
 
-test('el CSV no deja que Excel ejecute lo que escribió una alumna', () => {
+test('el CSV no deja que Excel ejecute lo que escribió un cliente', () => {
   for (const peligro of ['=HYPERLINK("x")', '+1', '-2+3', '@SUM(A1)', '\tx']) {
     assert.ok(celdaSegura(peligro).replace(/^"/, '').startsWith("'"), peligro);
   }
@@ -64,7 +64,7 @@ test('el CSV no deja que Excel ejecute lo que escribió una alumna', () => {
 test('el CSV lleva nombre, respuestas y estado, sin email ni teléfono', () => {
   const csv = csvRespuestas(PREGUNTAS, filasRespuestas(PREGUNTAS, SOCIAS.slice(0, 2)));
   const [cab, ana, bea] = csv.split('\r\n');
-  assert.equal(cab, 'Alumna;objetivo;practico;nota;como;Estado');
+  assert.equal(cab, 'Cliente;objetivo;practico;nota;como;Estado');
   assert.equal(ana, 'Ana Gil;Fuerza;No;8;—;Completa');
   assert.equal(bea, 'Bea Ruiz;Fuerza;Sí;6,5;—;Le falta 1');
 });

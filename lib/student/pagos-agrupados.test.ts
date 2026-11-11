@@ -22,7 +22,7 @@ test('«devuelto por el banco» SÍ cuenta: el importe sigue debiéndose', () =>
   assert.equal(totalPendiente([pago('a', '2026-09-01', 89, 'failed')]), 89);
 });
 
-test('un adeudo en curso no se le pide a la alumna otra vez', () => {
+test('un adeudo en curso no se le pide al cliente otra vez', () => {
   assert.equal(totalPendiente([pago('a', '2026-09-01', 89, 'processing')]), 0);
 });
 

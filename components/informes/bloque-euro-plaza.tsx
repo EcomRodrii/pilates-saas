@@ -190,8 +190,8 @@ function Mapa({ mapa, textoPeriodo, importado, nombres }: {
     { signo: '−', etiqueta: 'Caja (TPV)', detalle: 'Un ticket puede llevar un bono dentro y no se sabe qué parte.', valor: euros(cuadre.caja) },
     { signo: '−', etiqueta: 'Sesiones privadas', valor: euros(cuadre.sesionesPrivadas) },
     { signo: '−', etiqueta: 'Otros', detalle: 'Matrículas, penalizaciones y cobros sin plan.', valor: euros(cuadre.otros) },
-    { signo: '−', etiqueta: 'Cobros sin clienta', valor: euros(cuadre.sinClienta) },
-    { signo: '−', etiqueta: 'De alumnas que no ocuparon ninguna plaza', detalle: 'Pagaron en el periodo y no tenían clase en él.', valor: euros(cuadre.deNoVinieron) },
+    { signo: '−', etiqueta: 'Cobros sin cliente', valor: euros(cuadre.sinClienta) },
+    { signo: '−', etiqueta: 'De clientes que no ocuparon ninguna plaza', detalle: 'Pagaron en el periodo y no tenían clase en él.', valor: euros(cuadre.deNoVinieron) },
   ];
   const cifras = [cuadre.caja, cuadre.sesionesPrivadas, cuadre.otros, cuadre.sinClienta, cuadre.deNoVinieron];
 
@@ -220,7 +220,7 @@ function Mapa({ mapa, textoPeriodo, importado, nombres }: {
               ]}
               nota={(
                 <>
-                  No es el «Ingreso» de la tabla Clases: ese se estima con la tarifa de cada alumna; este sale de lo cobrado de verdad.
+                  No es el «Ingreso» de la tabla Clases: ese se estima con la tarifa de cada cliente; este sale de lo cobrado de verdad.
                   Bruto, con IVA y antes de comisiones.
                   {importado && importado.n > 0 && (
                     <> De tu software anterior hay {euros(importado.total)} en {plural(importado.n, 'pago importado', 'pagos importados')}: no se reparten (no son recibos), así que en esas semanas el mapa se queda corto.</>
@@ -398,7 +398,7 @@ function Detalle({ ref, celda: c, textoPeriodo, nombres, onCerrar }: {
             { etiqueta: 'Plazas a la venta', valor: c.plazas },
             {
               etiqueta: `Plazas ocupadas (${c.pct ?? 0} %)`,
-              detalle: c.externas > 0 ? `${alumnas} de alumnas y ${c.externas} de ClassPass, Wellhub o USC, que cuentan 0 €.` : undefined,
+              detalle: c.externas > 0 ? `${alumnas} de clientes y ${c.externas} de ClassPass, Wellhub o USC, que cuentan 0 €.` : undefined,
               valor: c.ocupadas,
             },
             ...(c.sinCobro > 0 ? [{
@@ -407,7 +407,7 @@ function Detalle({ ref, celda: c, textoPeriodo, nombres, onCerrar }: {
               valor: c.sinCobro,
             }] : []),
             // Sin `resultado`: no es la suma de las líneas de arriba (clases, plazas, ocupadas).
-            { etiqueta: 'Repartido a estas clases', detalle: 'Lo que pagaron sus alumnas en el periodo, repartido entre todas las clases a las que vinieron en él.', valor: euros(c.repartido) },
+            { etiqueta: 'Repartido a estas clases', detalle: 'Lo que pagaron sus clientes en el periodo, repartido entre todas las clases a las que vinieron en él.', valor: euros(c.repartido) },
             { signo: '÷', etiqueta: 'Plazas a la venta', valor: c.plazas },
             {
               signo: '=', etiqueta: '€ por plaza', resultado: true,

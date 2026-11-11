@@ -131,7 +131,7 @@ test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el 
   await montarClaseConAdaptaciones(page, async route => {
     intentos++;
     await suelta;
-    return json(route, { resumen: 'Clase con una alumna con el hombro lesionado.', evitar: ['Saltos'], variantes: [] });
+    return json(route, { resumen: 'Clase con un cliente con el hombro lesionado.', evitar: ['Saltos'], variantes: [] });
   });
 
   const boton = page.getByRole('button', { name: 'Preparar clase con IA', exact: true });
@@ -157,7 +157,7 @@ test('Tenti espera quieto, piensa solo con la petición en vuelo y se va con el 
   expect(await sonidos.cuantos()).toBe(0);
 
   soltar();
-  await expect(page.getByText('Clase con una alumna con el hombro lesionado.')).toBeVisible();
+  await expect(page.getByText('Clase con un cliente con el hombro lesionado.')).toBeVisible();
   // Terminar con resultado, tampoco.
   await page.waitForTimeout(1_000);
   expect(await sonidos.cuantos(), 'Tenti no suena al terminar').toBe(0);

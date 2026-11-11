@@ -29,13 +29,13 @@ export default function Contenido() {
       </p>
       <p>
         Las apruebas o las rechazas desde Resumen, en &ldquo;Lo que espera tu visto bueno&rdquo;, sin tener que
-        buscarlas clase a clase; o desde la propia clase en el calendario, en su lista de clientas. Una reserva que
-        sigue pendiente cuando la clase empieza se cancela sola y se avisa a la alumna.
+        buscarlas clase a clase; o desde la propia clase en el calendario, en su lista de clientes. Una reserva que
+        sigue pendiente cuando la clase empieza se cancela sola y se avisa al cliente.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Dónde se configuran</h2>
       <p>
-        Los valores del estudio están en Configuración &gt; Cómo reservan mis alumnas, una fila por regla:
+        Los valores del estudio están en Configuración &gt; Cómo reservan mis clientes, una fila por regla:
         &ldquo;Reservar&rdquo; (plan o bono y antelación) y &ldquo;Lista de espera&rdquo;; la aprobación a mano también
         está en &ldquo;Reservar&rdquo;. Si algún tipo de clase la cambia, su fila lo dice (&ldquo;2 tipos lo cambian&rdquo;). Los de un tipo de clase concreto, al editar ese tipo en Configuración &gt; Mis
         clases y citas. Mientras un tipo de clase muestra &ldquo;Ajuste del estudio&rdquo;, usa el del estudio; pulsa

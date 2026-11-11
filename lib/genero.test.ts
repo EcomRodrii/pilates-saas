@@ -4,32 +4,32 @@ import { ETIQUETA_GENERO, GENEROS, esGenero, etiquetaFija, generoDe, mayuscula, 
 
 test('sin indicar se habla en femenino, como siempre: activar esto no cambia ni una palabra', () => {
   for (const sinDato of [null, undefined] as const) {
-    assert.equal(etiquetaFija(sinDato), 'Clienta fija');
-    assert.equal(trato(sinDato).clienta, 'clienta');
-    assert.equal(trato(sinDato).alumna, 'alumna');
+    assert.equal(etiquetaFija(sinDato), 'Cliente fija');
+    assert.equal(trato(sinDato).clienta, 'cliente');
+    assert.equal(trato(sinDato).alumna, 'cliente');
   }
-  assert.equal(etiquetaFija('MUJER'), 'Clienta fija');
+  assert.equal(etiquetaFija('MUJER'), 'Cliente fija');
 });
 
-test('un hombre: cliente fijo, alumno, socio', () => {
+test('un hombre: cliente fijo, socio', () => {
   assert.equal(etiquetaFija('HOMBRE'), 'Cliente fijo');
   const t = trato('HOMBRE');
-  assert.deepEqual([t.clienta, t.alumna, t.socia, t.fija], ['cliente', 'alumno', 'socio', 'fijo']);
+  assert.deepEqual([t.clienta, t.alumna, t.socia, t.fija], ['cliente', 'cliente', 'socio', 'fijo']);
 });
 
 test('los determinantes cambian con el género, y sin «a el» ni «de el»', () => {
   const f = trato('MUJER');
   const m = trato('HOMBRE');
-  assert.equal(`${f.esta} ${f.clienta}`, 'esta clienta');
+  assert.equal(`${f.esta} ${f.clienta}`, 'esta cliente');
   assert.equal(`${m.esta} ${m.clienta}`, 'este cliente');
-  assert.equal(`${f.alA} ${f.clienta}`, 'a la clienta');
+  assert.equal(`${f.alA} ${f.clienta}`, 'a la cliente');
   assert.equal(`${m.alA} ${m.clienta}`, 'al cliente');
-  assert.equal(`${f.deLa} ${f.clienta}`, 'de la clienta');
+  assert.equal(`${f.deLa} ${f.clienta}`, 'de la cliente');
   assert.equal(`${m.deLa} ${m.clienta}`, 'del cliente');
   assert.equal(`${mayuscula(m.la)} ${m.clienta} no tiene email`, 'El cliente no tiene email');
-  assert.equal(`${f.una} ${f.clienta}`, 'una clienta');
+  assert.equal(`${f.una} ${f.clienta}`, 'una cliente');
   assert.equal(`${m.una} ${m.clienta}`, 'un cliente');
-  assert.equal(`${mayuscula(f.clienta)} actualizad${f.fin}`, 'Clienta actualizada');
+  assert.equal(`${mayuscula(f.clienta)} actualizad${f.fin}`, 'Cliente actualizada');
   assert.equal(`${mayuscula(m.clienta)} actualizad${m.fin}`, 'Cliente actualizado');
 });
 

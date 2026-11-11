@@ -97,7 +97,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c1.1', ruta: '/dashboard', selector: 'menu-principal', tipo: 'mira',
         titulo: 'Tu menú',
-        texto: 'Todo el panel cuelga de aquí. «Operación» es lo de cada día: calendario, citas, clientas. «Equipo», «Negocio» y «Estudio» son lo que tocas de vez en cuando.',
+        texto: 'Todo el panel cuelga de aquí. «Operación» es lo de cada día: calendario, citas, clientes. «Equipo», «Negocio» y «Estudio» son lo que tocas de vez en cuando.',
         accion: 'Mira el menú de la izquierda. En el móvil, la barra de abajo; lo que no cabe está en «Más».',
       },
       {
@@ -109,7 +109,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c1.3', ruta: '/dashboard', selector: 'buscador', tipo: 'mira', soloEscritorio: true,
         titulo: 'El buscador',
-        texto: 'Cuando no sepas dónde está algo, empieza por aquí. Escribe dos palabras —«IVA», «bono», el nombre de una clienta— y te lleva directa.',
+        texto: 'Cuando no sepas dónde está algo, empieza por aquí. Escribe dos palabras —«IVA», «bono», el nombre de un cliente— y te lleva directa.',
         accion: 'Mira la barra de arriba: ahí escribes lo que buscas. El atajo es ⌘K (Ctrl+K en Windows).',
       },
     ],
@@ -124,7 +124,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c2.1', ruta: '/configuracion', selector: 'configuracion-vista', tipo: 'mira',
         titulo: 'Configuración, por preguntas',
-        texto: 'Aquí decides cómo funciona tu estudio, una vez, y se aplica en todo lo demás. Cada sección responde a una pregunta: «Mi estudio», «Cómo reservan mis alumnas», «Cobros y facturas»…',
+        texto: 'Aquí decides cómo funciona tu estudio, una vez, y se aplica en todo lo demás. Cada sección responde a una pregunta: «Mi estudio», «Cómo reservan mis clientes», «Cobros y facturas»…',
         accion: 'Mira las secciones de la izquierda. Las tarifas no están aquí: viven en «Paquetes».',
       },
       {
@@ -152,7 +152,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   {
     id: 'c3',
     titulo: 'Tu horario',
-    paraQue: 'Para que tus alumnas tengan clases a las que apuntarse: sin clases, la app de tus alumnas no tiene nada que enseñar.',
+    paraQue: 'Para que tus clientes tengan clases a las que apuntarse: sin clases, la app de tus clientes no tiene nada que enseñar.',
     minutos: 6,
     aprendido: ['cómo programar una clase o una serie', 'qué se puede hacer desde la ficha de una clase', 'cómo mover una clase arrastrándola'],
     pasos: [
@@ -165,7 +165,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c3.2', ruta: '/calendario', selector: 'calendario-nueva-clase', tipo: 'hacer', hecho: 'sesiones',
         titulo: 'Programa tus clases',
-        texto: 'Una alumna solo puede reservar lo que está en el calendario. Si la clase se repite cada semana, márcalo y se crean todas de golpe, sin repetir el trabajo.',
+        texto: 'Un cliente solo puede reservar lo que está en el calendario. Si la clase se repite cada semana, márcalo y se crean todas de golpe, sin repetir el trabajo.',
         accion: 'Pulsa «Crear clase» → «Clase» y elige tipo, sala, día y hora.',
         accionSiYaLoTienes: 'Ya tienes clases programadas. Para crear más, usa «Crear clase».',
       },
@@ -191,28 +191,28 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   },
   {
     id: 'c4',
-    titulo: 'Tus clientas',
-    paraQue: 'Para tener a quién venderle una tarifa: sin clientas no hay nada que asignar.',
+    titulo: 'Tus clientes',
+    paraQue: 'Para tener a quién venderle una tarifa: sin clientes no hay nada que asignar.',
     minutos: 5,
-    aprendido: ['qué significa cada estado de una clienta', 'cómo dar de alta una clienta o traer las de otro programa', 'qué hay en su ficha'],
+    aprendido: ['qué significa cada estado de un cliente', 'cómo dar de alta un cliente o traer las de otro programa', 'qué hay en su ficha'],
     pasos: [
       {
         id: 'c4.1', ruta: '/clientas', selector: 'clientas-lista', tipo: 'mira',
-        titulo: 'Todas tus clientas',
+        titulo: 'Todas tus clientes',
         texto: 'Cada una con su estado: «Activa» es la que tiene un plan en marcha. Aquí buscas, filtras y les escribes. Quien solo ha preguntado no es una ficha: vive en tus consultas.',
         accion: 'Mira la lista y los filtros de arriba.',
       },
       {
         id: 'c4.2', ruta: '/clientas', selector: 'clientas-nueva', tipo: 'hacer', hecho: 'socios',
-        titulo: 'Añade una clienta de verdad',
-        texto: 'Nombre y email bastan. Mejor una clienta real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
-        accion: 'Pulsa «Nueva clienta» y rellena su nombre y su email.',
-        accionSiYaLoTienes: 'Ya tienes clientas. Para añadir otra, usa «Nueva clienta».',
+        titulo: 'Añade un cliente de verdad',
+        texto: 'Nombre y email bastan. Mejor un cliente real que una de prueba: así ves tu estudio como lo verás en serio. ¿Vienes de otro programa? «Traer mis datos», en el menú «Estudio», sube todas de una vez.',
+        accion: 'Pulsa «Nuevo cliente» y rellena su nombre y su email.',
+        accionSiYaLoTienes: 'Ya tienes clientes. Para añadir otra, usa «Nuevo cliente».',
       },
       {
         id: 'c4.3', ruta: '/clientas/*', selector: 'ficha-clienta', tipo: 'mira', requiere: 'socios',
         titulo: 'Su ficha',
-        texto: 'Su plan, su asistencia, sus cobros y sus notas, todo en un solo sitio. Cuando una alumna te escriba con una duda, esta es la pantalla que abres.',
+        texto: 'Su plan, su asistencia, sus cobros y sus notas, todo en un solo sitio. Cuando un cliente te escriba con una duda, esta es la pantalla que abres.',
         accion: 'Fíjate en la tarjeta «Plan»: es la que usarás en el capítulo siguiente.',
       },
     ],
@@ -220,9 +220,9 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   {
     id: 'c5',
     titulo: 'Tarifas: qué vendes, a quién y para qué clases',
-    paraQue: 'Para vender: qué tarifas ofreces, qué clases cubre cada una y cómo se la das a una clienta. Es lo que más cuesta al principio, y lo vemos paso a paso.',
+    paraQue: 'Para vender: qué tarifas ofreces, qué clases cubre cada una y cómo se la das a un cliente. Es lo que más cuesta al principio, y lo vemos paso a paso.',
     minutos: 7,
-    aprendido: ['por qué una tarifa en borrador no existe para tus clientas', 'qué clases cubre cada tarifa', 'cómo asignarle una tarifa a una clienta'],
+    aprendido: ['por qué una tarifa en borrador no existe para tus clientes', 'qué clases cubre cada tarifa', 'cómo asignarle una tarifa a un cliente'],
     pasos: [
       {
         id: 'c5.1', ruta: '/productos', selector: 'paquetes-vista', tipo: 'mira',
@@ -232,7 +232,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       },
       {
         id: 'c5.2', ruta: '/productos', selector: 'paquetes-vista', tipo: 'hacer', hecho: 'tarifaActiva',
-        titulo: 'Una tarifa en borrador no existe para tus clientas',
+        titulo: 'Una tarifa en borrador no existe para tus clientes',
         texto: 'Hasta que no tenga precio y esté activa, nadie puede comprarla ni tú asignársela. Si el asistente de alta te dejó tarifas a 0 €, son borradores: ábrelas y termínalas.',
         accion: 'Abre una tarifa (o pulsa «Crear»), ponle precio y márcala como activa.',
         accionSiYaLoTienes: 'Ya tienes tarifas activas. Para crear otra, usa «Crear».',
@@ -245,8 +245,8 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       },
       {
         id: 'c5.4', ruta: '/clientas/*', selector: 'ficha-plan', tipo: 'hacer', hecho: 'planAsignado', requiere: 'socios',
-        titulo: 'Asígnale una tarifa a una clienta',
-        texto: 'Es lo que une todo: la clienta, la tarifa y las clases. Desde que tiene plan puede reservar lo que esa tarifa cubre.',
+        titulo: 'Asígnale una tarifa a un cliente',
+        texto: 'Es lo que une todo: el cliente, la tarifa y las clases. Desde que tiene plan puede reservar lo que esa tarifa cubre.',
         accion: 'En la tarjeta «Plan», pulsa «Asignar plan» y elige la tarifa.',
         accionSiYaLoTienes: 'Ya has asignado alguna tarifa. Para asignar otra, usa «Asignar plan» en la tarjeta «Plan».',
       },
@@ -259,7 +259,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c5.6', ruta: '/configuracion', href: '/configuracion?tab=reservas', selector: '#reservar', tipo: 'mira',
         titulo: 'Lo que lo une todo',
-        texto: 'Aquí decides quién puede reservar. Si exiges plan, una clienta solo reserva las clases que cubre su tarifa. Si alguna no puede reservar, mira primero su plan y sus «Clases incluidas».',
+        texto: 'Aquí decides quién puede reservar. Si exiges plan, un cliente solo reserva las clases que cubre su tarifa. Si alguna no puede reservar, mira primero su plan y sus «Clases incluidas».',
         accion: 'Mira la fila «Reservar»: ahí decides quién puede reservar.',
       },
     ],
@@ -267,15 +267,15 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   {
     id: 'c6',
     titulo: 'Reservas y cobros',
-    paraQue: 'Para que tus alumnas reserven y tú cobres sin líos: tu enlace, tus reglas y tu forma de cobrar.',
+    paraQue: 'Para que tus clientes reserven y tú cobres sin líos: tu enlace, tus reglas y tu forma de cobrar.',
     minutos: 8,
-    aprendido: ['dónde está el enlace de la app de tus alumnas', 'qué reglas puedes poner a las reservas', 'cómo cobrar en el mostrador y con tarjeta'],
+    aprendido: ['dónde está el enlace de la app de tus clientes', 'qué reglas puedes poner a las reservas', 'cómo cobrar en el mostrador y con tarjeta'],
     pasos: [
       {
         id: 'c6.1', ruta: '/configuracion', href: '/configuracion?tab=web', selector: '#direccion-y-enlaces', tipo: 'mira',
-        titulo: 'La app de tus alumnas',
-        texto: 'Es por donde entrarán y reservarán tus alumnas, con su email. Tienes un enlace y un QR: ponlos en tu Instagram, en WhatsApp o en la puerta del estudio. (La página de reservas es otra cosa: la que se integra en tu web.)',
-        accion: 'Mira la fila «Dirección y enlaces»: ahí está el enlace de la app de tus alumnas.',
+        titulo: 'La app de tus clientes',
+        texto: 'Es por donde entrarán y reservarán tus clientes, con su email. Tienes un enlace y un QR: ponlos en tu Instagram, en WhatsApp o en la puerta del estudio. (La página de reservas es otra cosa: la que se integra en tu web.)',
+        accion: 'Mira la fila «Dirección y enlaces»: ahí está el enlace de la app de tus clientes.',
       },
       {
         id: 'c6.2', ruta: '/configuracion', href: '/configuracion?tab=reservas', selector: '#cancelar-y-recuperar', tipo: 'mira',
@@ -349,7 +349,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
     titulo: 'Que el estudio trabaje solo',
     paraQue: 'Para que Tentare se ocupe de lo repetitivo y tú, de lo importante.',
     minutos: 6,
-    aprendido: ['qué se hace solo y qué decides tú', 'dónde hablas con tus alumnas', 'dónde se preparan campañas'],
+    aprendido: ['qué se hace solo y qué decides tú', 'dónde hablas con tus clientes', 'dónde se preparan campañas'],
     pasos: [
       {
         id: 'c8.1', ruta: '/automatizaciones', selector: 'automatizaciones-vista', tipo: 'mira',
@@ -366,7 +366,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c8.3', ruta: '/mensajeria', selector: 'mensajeria-vista', tipo: 'mira',
         titulo: 'Mensajería',
-        texto: 'Hablas con tus alumnas y publicas en el tablón de tu comunidad. Lo que escribas aquí les llega a su app.',
+        texto: 'Hablas con tus clientes y publicas en el tablón de tu comunidad. Lo que escribas aquí les llega a su app.',
         accion: 'Mira las conversaciones y el tablón.',
       },
       {
@@ -380,21 +380,21 @@ export const CAPITULOS: readonly CapituloVisita[] = [
   {
     id: 'c9',
     titulo: 'Tu marca y tu app',
-    paraQue: 'Para que todo lo que ven tus alumnas lleve tu marca, no la nuestra.',
+    paraQue: 'Para que todo lo que ven tus clientes lleve tu marca, no la nuestra.',
     minutos: 5,
-    aprendido: ['cómo ponerle tu logo y tu color a todo', 'cómo se ve la app de tus alumnas', 'qué correos salen solos y cómo apagarlos'],
+    aprendido: ['cómo ponerle tu logo y tu color a todo', 'cómo se ve la app de tus clientes', 'qué correos salen solos y cómo apagarlos'],
     pasos: [
       {
         id: 'c9.1', ruta: '/configuracion', href: '/configuracion?tab=marca', selector: '#logo-y-favicon', tipo: 'hacer', hecho: 'logo',
         titulo: 'Tu logo y tu color',
-        texto: 'Es lo primero que ve una alumna: su app y tu página de reservas llevan tu marca. Se aplica al momento.',
+        texto: 'Es lo primero que ve un cliente: su app y tu página de reservas llevan tu marca. Se aplica al momento.',
         accion: 'Pulsa «Logo y favicon» y sube tu logo.',
         accionSiYaLoTienes: 'Ya tienes tu logo. Para cambiarlo, esta es la fila «Logo y favicon».',
       },
       {
         id: 'c9.2', ruta: '/configuracion', href: '/configuracion?tab=marca', selector: '#color-de-marca', tipo: 'mira',
-        titulo: 'La app de tus alumnas',
-        texto: 'El estilo, la tipografía y la portada de la app que instalan tus alumnas desde tu enlace. Lo ves en un móvil antes de publicar.',
+        titulo: 'La app de tus clientes',
+        texto: 'El estilo, la tipografía y la portada de la app que instalan tus clientes desde tu enlace. Lo ves en un móvil antes de publicar.',
         accion: 'Mira la fila «Apariencia de tu app»: ahí eliges estilo, color y portada.',
       },
       {
@@ -406,7 +406,7 @@ export const CAPITULOS: readonly CapituloVisita[] = [
       {
         id: 'c9.4', ruta: '/configuracion', href: '/configuracion?tab=motivacion', selector: 'configuracion-vista', tipo: 'mira',
         titulo: 'Créditos, logros y retos',
-        texto: 'Premian la constancia de tus alumnas con créditos, logros y retos. Es opcional: déjalo para cuando el estudio ya ruede.',
+        texto: 'Premian la constancia de tus clientes con créditos, logros y retos. Es opcional: déjalo para cuando el estudio ya ruede.',
         accion: 'Mira los cinco pasos: cómo se ganan, recompensas, logros, niveles y retos.',
       },
     ],

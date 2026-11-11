@@ -41,7 +41,7 @@ const TABS: Tab[] = [
 const TABS_INSTRUCTORA: Tab[] = [
   { ruta: '/equipo', label: 'Hoy', icono: 'inicio' },
   { ruta: '/equipo/agenda', label: 'Agenda', icono: 'calendario' },
-  { ruta: '/equipo/alumnas', label: 'Alumnas', icono: 'instructoras' },
+  { ruta: '/equipo/alumnas', label: 'Clientes', icono: 'instructoras' },
   { ruta: '/equipo/mensajes', label: 'Mensajes', icono: 'comentario' },
   { ruta: '/equipo/perfil', label: 'Perfil', icono: 'perfil' },
 ];

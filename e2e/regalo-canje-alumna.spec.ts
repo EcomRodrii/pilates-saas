@@ -14,7 +14,7 @@ async function montar(page: Page, tarjetas: unknown[] = []) {
   await page.route('**/api/public/regalo/mis-tarjetas**', (r) => r.fulfill(json({ tarjetas })));
 }
 
-test.describe('Tarjeta regalo · canje de la alumna', () => {
+test.describe('Tarjeta regalo · canje del cliente', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 } });
 

@@ -60,14 +60,14 @@ test('unas comillas que abren una celda y no cierran se avisan', () => {
   assert.equal(leerPegado('Nombre\tEmail\n"Ana la del martes\tana@example.com\nLucía\tlucia@example.com')!.comillasSinCerrar, true);
 });
 
-test('un «\\r» suelto es un salto de línea: nunca dos clientas en una', () => {
+test('un «\\r» suelto es un salto de línea: nunca dos clientes en una', () => {
   const t = tablaPegada(leerPegado('Nombre\tEmail\rAna\tana@example.com\rBea\tbea@example.com\r')!, true);
   assert.deepEqual(t.rows, [['Ana', 'ana@example.com'], ['Bea', 'bea@example.com']]);
 });
 
 test('sin títulos: «Columna 1…N», la primera fila no se pierde aunque sea más corta, y la propuesta sale del contenido', () => {
   const p = leerPegado('Ana García\tana@example.com\nBea Ruiz\tbea@example.com\t611654321\nCris Sanz\tcris@example.com\t622333444\n')!;
-  assert.equal(p.cabeceraAdivinada, false, 'la primera fila trae un correo: es una clienta');
+  assert.equal(p.cabeceraAdivinada, false, 'la primera fila trae un correo: es un cliente');
   const t = tablaPegada(p, false);
   assert.deepEqual(t.headers, ['Columna 1', 'Columna 2', 'Columna 3']);
   assert.equal(t.rows.length, 3, 'Ana, más corta, sigue ahí');
@@ -101,8 +101,8 @@ test('cambiar la casilla conserva lo que se relacionó a mano', () => {
 
 test('adivinar los títulos', () => {
   assert.equal(pareceCabecera(['Nombre', 'Correo']), true, 'nombran campos tal cual');
-  assert.equal(pareceCabecera(['Ana', 'ana@example.com']), false, 'un correo: es una clienta');
-  assert.equal(pareceCabecera(['Ana', '600123456']), false, 'un teléfono: es una clienta');
+  assert.equal(pareceCabecera(['Ana', 'ana@example.com']), false, 'un correo: es un cliente');
+  assert.equal(pareceCabecera(['Ana', '600123456']), false, 'un teléfono: es un cliente');
   assert.equal(pareceCabecera(['Calle Mayor 3']), false, 'solo una coincidencia exacta cuenta: «calle» no basta');
   assert.equal(pareceCabecera(['Nom', 'Correu'], [['Ana', 'ana@example.com']]), true,
     'títulos que no conocemos, con correos debajo (una fila sin correo no se podría importar igualmente)');
@@ -142,7 +142,7 @@ test('si alguien relaciona a mano una columna de salud, se sabe (y la pantalla n
   assert.deepEqual(camposConSalud(mapeoPegado(t, true), salud), []);
 });
 
-test('lo que no se relaciona no viaja: las filas validadas solo llevan campos de la clienta', () => {
+test('lo que no se relaciona no viaja: las filas validadas solo llevan campos del cliente', () => {
   const t = tablaPegada(leerPegado(EXCEL_WIN)!, true);
   const v = validarFilas(t.rows, mapeoPegado(t, true));
   assert.doesNotMatch(JSON.stringify(v.map((f) => f.datos)), /Hernia/);

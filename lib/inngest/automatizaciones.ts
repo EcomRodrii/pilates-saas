@@ -265,7 +265,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
     log = { ...base, resultado: 'EJECUTADO' as ResultadoLog, detalle: `[DRY RUN] ${c.titulo} → ${destino}`, mensajeCliente: c.mensajeCliente ?? null };
   } else if (c.accion === 'ENVIAR_WHATSAPP') {
     if (!c.mensajeCliente) {
-      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
+      log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para el cliente', mensajeCliente: null };
     } else if (!c.socio.telefono || !whatsapp) {
       // Sin teléfono o sin la integración de Meta conectada no hay forma de
       // mandarlo por WhatsApp. El motor solo elige este canal cuando SÍ hay
@@ -301,7 +301,7 @@ export async function procesarCandidato(c: AutomationCandidato, opts: ProcesarOp
   } else if (!c.mensajeCliente) {
     // ENVIAR_EMAIL sin mensajeCliente sería exactamente el patrón del bug si
     // se intentara enviar otra cosa por defecto — mejor fallar explícito.
-    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para la clienta', mensajeCliente: null };
+    log = { ...base, resultado: 'FALLIDO' as ResultadoLog, detalle: 'Falta el mensaje para el cliente', mensajeCliente: null };
   } else if (c.comercial && opts.emailsRotos?.has(normalizarEmail(c.socio.email))) {
     log = { ...base, resultado: 'FALLIDO' as ResultadoLog, mensajeCliente: c.mensajeCliente ?? null,
       detalle: `${c.socio.nombre} tiene el correo marcado como roto (rebote, queja o baja del proveedor): no se le escribe. Corrígelo en su ficha.` };

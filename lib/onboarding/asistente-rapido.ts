@@ -38,7 +38,7 @@ export const OPCIONES_SOFTWARE = [
 export const OPCIONES_CENTROS = ['1 estudio', '2-3 estudios', '4-10 estudios', 'Más de 10'] as const;
 export const OPCIONES_ALUMNOS = ['Menos de 50', '50-150', '150-300', '300-600', 'Más de 600'] as const;
 export const OPCIONES_FOCO = [
-  'Conseguir más alumnas', 'Gestionar reservas', 'Cobros', 'Sustituciones de instructoras',
+  'Conseguir más clientes', 'Gestionar reservas', 'Cobros', 'Sustituciones de instructoras',
   'Automatizar tareas', 'Marketing', 'Otro',
 ] as const;
 

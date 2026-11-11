@@ -120,16 +120,16 @@ test.describe('paso 3: la semana es el Calendario de verdad', () => {
   });
 });
 
-test.describe('paso 5: la app de la alumna se toca y no escribe', () => {
-  test('se navega por sus pestañas sin sesión de alumna, y lo que escribiría no sale', async ({ page }) => {
+test.describe('paso 5: la app del cliente se toca y no escribe', () => {
+  test('se navega por sus pestañas sin sesión de cliente, y lo que escribiría no sale', async ({ page }) => {
     // Varias pantallas de la app dentro del marco: con el `next dev` compilando, 30 s se quedan cortos.
     test.setTimeout(90_000);
     const { red } = await montar(page, { pantalla: 'marca', portalReal: true });
     await expect(page.getByRole('heading', { name: 'Que se vea tu estudio' })).toBeVisible({ timeout: 30_000 });
-    const marco = page.getByRole('complementary', { name: 'Así lo verá tu alumna' }).getByTestId('app-en-vivo').locator('iframe');
+    const marco = page.getByRole('complementary', { name: 'Así lo verá tu cliente' }).getByTestId('app-en-vivo').locator('iframe');
     await expect(marco).toHaveAttribute('name', 'tentare-solo-mirar');
     await expect(marco).not.toHaveAttribute('inert', /.*/);
-    const app = page.frameLocator('[aria-label="Así lo verá tu alumna"] iframe[name="tentare-solo-mirar"]');
+    const app = page.frameLocator('[aria-label="Así lo verá tu cliente"] iframe[name="tentare-solo-mirar"]');
 
     // Inicio, como una recién llegada; y las pestañas abren su pantalla, no «Entra».
     await expect(app.getByRole('heading', { name: 'Hola' })).toBeVisible({ timeout: 30_000 });
@@ -176,7 +176,7 @@ test.describe('tras el paso 5: «Tus primeros pasos», y la primera clase en el 
     await expect(pasos.nth(0)).toContainText('Crea tu primera clase');
     await expect(pasos.nth(0)).toContainText('quién la da, en qué sala');
     await expect(pasos.nth(1)).toContainText('Comparte el enlace de tu app');
-    await expect(pasos.nth(2)).toContainText('Trae a tus alumnas');
+    await expect(pasos.nth(2)).toContainText('Trae a tus clientes');
     await expect(pasos.nth(3)).toContainText('Recibe tu primera reserva');
     // Los cinco del alta, hechos.
     const linea = page.getByTestId('linea-de-pasos');

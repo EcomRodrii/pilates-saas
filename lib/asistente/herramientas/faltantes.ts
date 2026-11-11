@@ -11,7 +11,7 @@ const PISTAS: Record<string, string> = {
   sala: 'Falta la sala: pregunta en cuál.',
   fecha: 'Falta la fecha: pregunta qué día.',
   hora: 'Falta la hora: pregunta a qué hora.',
-  alumna: 'Falta la alumna: pregunta quién.',
+  alumna: 'Falta el cliente: pregunta quién.',
   instructora: 'Falta la instructora: pregunta quién.',
   texto: 'Falta el anuncio: pregunta qué quiere contar.',
   duracion_min: 'La duración, si no la dijo, se omite.',

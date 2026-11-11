@@ -15,12 +15,12 @@ const MINDBODY = [
   '10023,Elena,Castro Ruiz,elena@test.com,612345003,1990-11-25,10 Class Pack Reformer,2,2026-10-15,2026-08-28',
 ].join('\n');
 
-test('un export tipo Mindbody trae clientas Y sus bonos con el saldo', () => {
+test('un export tipo Mindbody trae clientes Y sus bonos con el saldo', () => {
   const plan = analizarDeterminista([{ nombre: 'clients.csv', contenido: MINDBODY }]);
   const clientas = plan.archivos.find(a => a.entidad === 'socias');
   const bonos = plan.archivos.find(a => a.entidad === 'membresias');
 
-  assert.ok(clientas, 'tiene que seguir importando las clientas');
+  assert.ok(clientas, 'tiene que seguir importando los clientes');
   assert.equal(clientas.ok, 3);
   assert.ok(bonos, 'el bono de la misma fila tiene que salir como bloque propio');
   assert.equal(bonos.ok, 3);

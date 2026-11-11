@@ -75,7 +75,7 @@ const BOTON_CABEZA = 'flex size-9 items-center justify-center rounded-lg text-mu
 function Contenido(p: FichaClaseProps) {
   const panelNuevo = usePanelNuevo();
   const pestanas: { id: PestanaFicha; texto: string }[] = [
-    { id: 'clientas', texto: 'Clientas' },
+    { id: 'clientas', texto: 'Clientes' },
     ...(p.conPlazas ? [{ id: 'plazas' as const, texto: 'Plazas' }] : []),
     { id: 'historial', texto: 'Sustituciones' },
   ];

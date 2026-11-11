@@ -26,25 +26,25 @@ export default function Contenido() {
       <p>
         En Configuración &gt; Marca cada fila dice cómo lo tienes y, al tocarla, se abre para cambiarlo. «Logo y
         favicon» es la única que se guarda al momento: el archivo se sube en cuanto lo eliges, así que no hay nada que
-        confirmar después. El favicon es tu icono: el de la pestaña, el que sale junto a tu nombre en la app de tus alumnas y el de su móvil. El nombre de tu estudio está
+        confirmar después. El favicon es tu icono: el de la pestaña, el que sale junto a tu nombre en la app de tus clientes y el de su móvil. El nombre de tu estudio está
         en Configuración &gt; Mi estudio, en «Nombre y dirección».
       </p>
 
       <p>
         El color está en «Apariencia de tu app», en esa misma sección, junto al estilo, la tipografía y la foto de
-        portada de la app de tus alumnas. Lo pruebas en un móvil con tu app de verdad y lo dejas puesto con
+        portada de la app de tus clientes. Lo pruebas en un móvil con tu app de verdad y lo dejas puesto con
         «Publicar». Tu color sale también en tu panel y en tu página de reservas.
       </p>
 
       <p>
-        Los textos que leen tus alumnas están en dos filas: «Cómo te presentas» (tu descripción, tu lema, tu año de
+        Los textos que leen tus clientes están en dos filas: «Cómo te presentas» (tu descripción, tu lema, tu año de
         apertura y las normas del centro) y «Textos de bienvenida» (las tres frases del inicio de su app). Lo que dejes
         vacío no se muestra.
       </p>
 
       <AyudaResultado>
         Paso a paso, en{' '}
-        <Link href="/ayuda/portal/personalizar-tu-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>cambiar cómo se ve la app de tus alumnas</Link>.
+        <Link href="/ayuda/portal/personalizar-tu-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>cambiar cómo se ve la app de tus clientes</Link>.
       </AyudaResultado>
     </>
   );

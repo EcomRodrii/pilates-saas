@@ -22,7 +22,7 @@ export default function Contenido() {
         <li><strong>Tus precios</strong> y <strong>Bonos y packs</strong> — tus cuotas y bonos, con pago seguro.</li>
         <li><strong>Tu clase de prueba</strong> y <strong>Un formulario de contacto</strong> — para quien todavía no te conoce.</li>
         <li><strong>Citas</strong> — para servicios con hora concreta (valoraciones, sesiones 1 a 1…).</li>
-        <li><strong>La cuenta de tus alumnas</strong> — sus reservas, sus bonos y su perfil, sin descargar nada.</li>
+        <li><strong>La cuenta de tus clientes</strong> — sus reservas, sus bonos y su perfil, sin descargar nada.</li>
         <li><strong>Una clase concreta</strong> — directo a ella, para un post, una story o un newsletter.</li>
         <li><strong>Tu estudio</strong> y <strong>Tu equipo</strong> — para tu página «Sobre nosotras».</li>
       </ul>
@@ -33,7 +33,7 @@ export default function Contenido() {
         <li><strong>Un botón que se abre encima</strong> — se abre encima de tu web, sin cambiar de página.</li>
         <li><strong>Un botón que lleva a tu página de reservas</strong> — no necesita ningún script. En WordPress, Wix, Squarespace y Webflow lo haces con el botón de tu propia web y tu enlace.</li>
         <li><strong>Un enlace</strong> — la dirección tal cual, para la bio de Instagram, un newsletter o WhatsApp.</li>
-        <li><strong>Sin marco</strong> (solo el horario, para quien te hace la web) — toma el espacio de tu web como si fuera suyo. Requiere autorizar tu web primero. Si tu alumna no ha
+        <li><strong>Sin marco</strong> (solo el horario, para quien te hace la web) — toma el espacio de tu web como si fuera suyo. Requiere autorizar tu web primero. Si tu cliente no ha
           iniciado sesión, al tocar una clase sigue la reserva en tu página de Tentare.</li>
       </ul>
       <p>

@@ -9,7 +9,7 @@ import {
 import { EVENTOS, plantillaDe, render } from '../notifications/catalog.ts';
 import { noContraQuienMira } from './denuncias.ts';
 
-test('a Tentare cuando el estudio es parte: su hilo con la alumna, o algo escrito por una propietaria', () => {
+test('a Tentare cuando el estudio es parte: su hilo con el cliente, o algo escrito por una propietaria', () => {
   assert.equal(destinoDeDenuncia({ ambito: 'CHAT_ESTUDIO', autorEsPropietaria: false }), 'TENTARE');
   assert.equal(destinoDeDenuncia({ ambito: 'CHAT_INSTRUCTORA', autorEsPropietaria: true }), 'TENTARE');
   assert.equal(destinoDeDenuncia({ ambito: 'TABLON', autorEsPropietaria: true }), 'TENTARE');

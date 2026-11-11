@@ -74,7 +74,7 @@ async function rellenarTusDatos(page: Page) {
   await page.getByRole('button', { name: 'Entrar', exact: true }).click();
 }
 
-test.describe('Alta de alumna con el código del correo', () => {
+test.describe('Alta de cliente con el código del correo', () => {
   test.describe.configure({ timeout: 120_000 });
 
   test('pide el código, escribe sus datos y queda dada de alta en el estudio', async ({ page }) => {

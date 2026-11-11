@@ -149,12 +149,12 @@ const desenlaces = {
 };
 
 const SIN_CONSENTIMIENTO: Record<MotivoSinConsentimiento, string> = {
-  texto_distinto: 'No se ha cobrado: esta alumna no ha aceptado las condiciones vigentes de tu estudio, así que el contrato no recoge este cargo.',
+  texto_distinto: 'No se ha cobrado: este cliente no ha aceptado las condiciones vigentes de tu estudio, así que el contrato no recoge este cargo.',
   terminos_propios: 'No se ha cobrado: tu estudio usa sus propias condiciones y no podemos comprobar que recojan este cargo.',
-  estudio_sin_penalizacion: 'No se ha cobrado: el contrato que aceptó esta alumna no recoge ningún cargo por cancelar tarde o no venir.',
-  importe_distinto: 'No se ha cobrado: el contrato que aceptó esta alumna no recoge este importe, solo el del estudio.',
-  ventana_distinta: 'No se ha cobrado: según el plazo del contrato que aceptó esta alumna, esta cancelación no fue tardía.',
-  sin_datos: 'No se ha cobrado: no hemos podido comprobar que el contrato que aceptó esta alumna recoja este cargo.',
+  estudio_sin_penalizacion: 'No se ha cobrado: el contrato que aceptó este cliente no recoge ningún cargo por cancelar tarde o no venir.',
+  importe_distinto: 'No se ha cobrado: el contrato que aceptó este cliente no recoge este importe, solo el del estudio.',
+  ventana_distinta: 'No se ha cobrado: según el plazo del contrato que aceptó este cliente, esta cancelación no fue tardía.',
+  sin_datos: 'No se ha cobrado: no hemos podido comprobar que el contrato que aceptó este cliente recoja este cargo.',
 };
 
 /** Lo que dice la tarjeta cuando el contrato no cubre el cargo. */
@@ -769,21 +769,21 @@ const NO_DESDE_AQUI = 'Esta penalización no se puede cobrar desde aquí:';
 
 const POR_QUE_NO_A_MANO: Partial<Record<EstadoPenalizacion, string>> = {
   DETECTADA: 'todavía se está comprobando si se puede cobrar.',
-  PENDIENTE_APROBACION: 'está esperando a que la apruebes en Resumen, en «penalizaciones pendientes de aprobar», que comprueba antes si el contrato de la alumna recoge el cargo.',
-  OMITIDA_SIN_TARJETA: 'se dejó sin cobrar porque la alumna no tenía un método de pago guardado.',
-  OMITIDA_SIN_CONSENTIMIENTO: 'se dejó sin cobrar porque el contrato que aceptó la alumna no recoge este cargo.',
-  OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación a la alumna.',
+  PENDIENTE_APROBACION: 'está esperando a que la apruebes en Resumen, en «penalizaciones pendientes de aprobar», que comprueba antes si el contrato del cliente recoge el cargo.',
+  OMITIDA_SIN_TARJETA: 'se dejó sin cobrar porque el cliente no tenía un método de pago guardado.',
+  OMITIDA_SIN_CONSENTIMIENTO: 'se dejó sin cobrar porque el contrato que aceptó el cliente no recoge este cargo.',
+  OMITIDA_COMPENSADA: 'se dejó sin cobrar porque esa reserva ya dio una recuperación al cliente.',
   OMITIDA_REVERTIDA: 'se anuló al corregir la asistencia.',
   OMITIDA_SIN_CUOTA: 'se dejó sin cobrar porque era una clase que tenía por su clase fija y ya no tenía cuota, como elegiste en Configuración.',
-  OMITIDA_FRANQUICIA: 'se dejó sin cobrar porque era de las primeras faltas de la alumna: tu regla en Configuración cobra a partir de una posterior.',
+  OMITIDA_FRANQUICIA: 'se dejó sin cobrar porque era de las primeras faltas del cliente: tu regla en Configuración cobra a partir de una posterior.',
   COBRADA: 'ya consta como cobrada.',
   // No se vuelve a cobrar con la tarjeta: tras agotar los reintentos sería un cargo
   // nuevo mientras la alumna puede estar pagándola. Marcar el recibo cobrado sí es
   // un camino real (Cobros → «Marcar cobrado»), y el barrido del cron pasa entonces
   // la penalización a COBRADA. ⚠️ No decir «que la pague desde su app»: el checkout
   // la acepta, pero la app de la alumna no tiene hoy ningún botón para pagar un recibo.
-  FALLIDA: 'quedó como no cobrada y no se vuelve a cobrar con su tarjeta. Si la alumna te la paga, marca su recibo como cobrado en Cobros y la penalización se pondrá al día sola.',
-  REEMBOLSADA: 'se devolvió a la alumna.',
+  FALLIDA: 'quedó como no cobrada y no se vuelve a cobrar con su tarjeta. Si el cliente te la paga, marca su recibo como cobrado en Cobros y la penalización se pondrá al día sola.',
+  REEMBOLSADA: 'se devolvió al cliente.',
 };
 
 /**

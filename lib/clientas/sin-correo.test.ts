@@ -50,6 +50,6 @@ test('el caso real de octubre: 24 de 25 sin correo avisa', () => {
 });
 
 test('el singular y el plural', () => {
-  assert.equal(alumnas(1), '1 alumna');
-  assert.equal(alumnas(12), '12 alumnas');
+  assert.equal(alumnas(1), '1 cliente');
+  assert.equal(alumnas(12), '12 clientes');
 });

@@ -36,9 +36,9 @@ export async function GET(req: NextRequest) {
   const c = await contexto(req);
   if ('res' in c) return c.res;
   const socioId = new URL(req.url).searchParams.get('socioId');
-  if (!socioId) return errorPeticion('Falta la alumna', 400);
+  if (!socioId) return errorPeticion('Falta el cliente', 400);
   try {
-    if (!(await esSuya(c.admin, c.sesion.studioId, socioId))) return errorPeticion('No encontramos a esta alumna.', 404);
+    if (!(await esSuya(c.admin, c.sesion.studioId, socioId))) return errorPeticion('No encontramos a este cliente.', 404);
     const [{ data: est }, { data: fila }] = await Promise.all([
       c.admin.from('studios').select('control_acceso_qr').eq('id', c.sesion.studioId).single(),
       c.admin.from('socios_qr_acceso').select('creado_en').eq('studio_id', c.sesion.studioId).eq('socio_id', socioId).is('revocado_en', null).maybeSingle(),
@@ -56,9 +56,9 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
   const body = (await req.json().catch(() => null)) as { socioId?: unknown } | null;
   const socioId = typeof body?.socioId === 'string' ? body.socioId : null;
-  if (!socioId) return errorPeticion('Falta la alumna', 400);
+  if (!socioId) return errorPeticion('Falta el cliente', 400);
   try {
-    if (!(await esSuya(c.admin, c.sesion.studioId, socioId))) return errorPeticion('No encontramos a esta alumna.', 404);
+    if (!(await esSuya(c.admin, c.sesion.studioId, socioId))) return errorPeticion('No encontramos a este cliente.', 404);
     const { data: est } = await c.admin.from('studios').select('control_acceso_qr').eq('id', c.sesion.studioId).single();
     if (est?.control_acceso_qr === false) return errorPeticion('El control de acceso con QR está desactivado en este estudio.', 409);
     const qr = await regenerarQr(c.admin, { studioId: c.sesion.studioId, socioId }, 'ESTUDIO');

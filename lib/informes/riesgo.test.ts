@@ -42,7 +42,7 @@ test('sin renovar es el estado del chip; activas sin venir, ACTIVA y más de 30 
   assert.ok(!r.activasSinVenir.some(c => c.socioId === 'inactiva' || c.socioId === 'baja'));
 });
 
-test('una activa que nunca ha venido cuenta desde su alta, como en Clientas', () => {
+test('una activa que nunca ha venido cuenta desde su alta, como en Clientes', () => {
   const r = clientasEnRiesgo(
     [{ id: 'nunca', fechaAlta: '2026-08-01' }, { id: 'recien', fechaAlta: '2026-10-10' }],
     new Map([['nunca', est('ACTIVA')], ['recien', est('ACTIVA')]]),
@@ -52,7 +52,7 @@ test('una activa que nunca ha venido cuenta desde su alta, como en Clientas', ()
   assert.deepEqual(r.activasSinVenir.map(c => c.socioId), ['nunca']);
 });
 
-test('los enlaces llevan a los filtros que Clientas sabe leer de la URL', () => {
+test('los enlaces llevan a los filtros que Clientes sabe leer de la URL', () => {
   const pagina = readFileSync(new URL('../../app/(dashboard)/clientas/page.tsx', import.meta.url), 'utf8');
   assert.match(pagina, /p\.get\('estado'\)/);
   assert.match(pagina, /const mas = p\.get\('mas'\)/);

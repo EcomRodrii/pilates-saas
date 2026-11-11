@@ -30,7 +30,7 @@ test('soloNuevas: rechaza a una socia ya existente', () => {
   const c = codigo({ codigo: 'BIENVENIDA', soloNuevas: true });
   const r = resolverDescuentoCheckout([c], 'BIENVENIDA', { hoyISO: HOY, subtotal: 50, esNueva: false, codigosYaUsados: SIN_USOS });
   assert.equal(r.ok, false);
-  if (!r.ok) assert.match(r.motivo, /nuevas/i);
+  if (!r.ok) assert.match(r.motivo, /nuevos/i);
 });
 
 test('soloNuevas: acepta a una invitada nueva', () => {

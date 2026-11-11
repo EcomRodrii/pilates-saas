@@ -48,7 +48,7 @@ const HECHO_EN_PASADO: Readonly<Record<string, string>> = {
   'primera-reserva': 'Ya tienes tu primera reserva.',
   bonos: 'Tu primera tarifa está creada.',
   stripe: 'Stripe está conectado.',
-  clientes: 'Ya tienes tus primeras clientas.',
+  clientes: 'Ya tienes tus primeras clientes.',
 };
 
 export function fraseDeHecho(paso: Pick<PasoOnboarding, 'id' | 'label'>): string {

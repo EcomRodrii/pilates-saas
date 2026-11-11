@@ -132,7 +132,7 @@ export function TabLogros({ showToast }: { showToast: MostrarToast }) {
               </Field>
             </div>
             <div>
-              <Field label="Insignia" description="La que verá la alumna en su app al conseguirlo.">
+              <Field label="Insignia" description="La que verá el cliente en su app al conseguirlo.">
                 <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
               </Field>
             </div>

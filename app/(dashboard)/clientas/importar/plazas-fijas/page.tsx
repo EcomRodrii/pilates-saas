@@ -112,14 +112,14 @@ export default function ImportarPlazasFijasPage() {
   return (
     <div className="space-y-6 min-h-dvh" style={{ backgroundColor: 'var(--background)' }}>
       <PageHeader
-        back={{ href: '/clientas/importar', label: 'Volver a importar clientas' }}
+        back={{ href: '/clientas/importar', label: 'Volver a importar clientes' }}
         title="Importar clases fijas"
-        description="Trae las clases fijas (el hueco semanal de cada clienta) desde un CSV."
+        description="Trae las clases fijas (el hueco semanal de cada cliente) desde un CSV."
       />
 
       <div className="flex items-start gap-2 text-[12.5px] rounded-xl px-4 py-3 border max-w-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--primary) 6%, transparent)', borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
         <Info size={15} className="shrink-0 mt-0.5 text-primary" />
-        <span>Antes de importar, las <strong className="text-foreground">clientas</strong> (por email) y las <strong className="text-foreground">salas</strong> (por nombre) deben existir ya. Cada plaza generará reservas automáticamente en el cron nocturno.</span>
+        <span>Antes de importar, las <strong className="text-foreground">clientes</strong> (por email) y las <strong className="text-foreground">salas</strong> (por nombre) deben existir ya. Cada plaza generará reservas automáticamente en el cron nocturno.</span>
       </div>
 
       <div className="flex items-center gap-2 text-[12px] font-medium">
@@ -299,7 +299,7 @@ export default function ImportarPlazasFijasPage() {
 
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/clientas')} className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-all shadow-sm">
-              <CalendarClock size={14} /> Ver mis clientas
+              <CalendarClock size={14} /> Ver mis clientes
             </button>
             <button onClick={reiniciar} className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors">Importar otro archivo</button>
           </div>

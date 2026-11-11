@@ -162,7 +162,7 @@ export async function abrirHiloConAlumna(
   const admin = adminOLanza();
   const filas = await filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora);
   // `null` = no se pudo comprobar: nunca se lee como «sí».
-  if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
+  if (filas === null) throw new Error('No se ha podido comprobar si es su cliente');
   if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return null;
   // Una ficha borrada responde como su ficha: no existe.
   const { data: socio, error: eSocio } = await admin.from('socios').select('id')

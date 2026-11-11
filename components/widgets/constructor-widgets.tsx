@@ -99,9 +99,9 @@ function pasosDe(plataforma: PlataformaWeb | null): readonly { id: Exclude<Paso,
 }
 /** Panel nuevo: el título-objetivo y la frase de cada paso (Bonsai B1). */
 const TITULO_PASO: Record<'que' | 'como' | 'ponlo', (p: PlataformaWeb | null) => { titulo: string; sub: string }> = {
-  que: () => ({ titulo: 'Elige qué enseñas y dónde', sub: 'Una pieza de tu estudio dentro de tu web: tu horario, tus precios o la cuenta de tus alumnas.' }),
+  que: () => ({ titulo: 'Elige qué enseñas y dónde', sub: 'Una pieza de tu estudio dentro de tu web: tu horario, tus precios o la cuenta de tus clientes.' }),
   // «a la derecha» no era verdad en el móvil, donde la vista previa va encima.
-  como: () => ({ titulo: 'Cómo se ve', sub: 'Míralo en la vista previa, tal como lo verá tu alumna. El estilo es el mismo para todos tus widgets.' }),
+  como: () => ({ titulo: 'Cómo se ve', sub: 'Míralo en la vista previa, tal como lo verá tu cliente. El estilo es el mismo para todos tus widgets.' }),
   ponlo: p => (p === 'sinweb'
     ? { titulo: 'Compártelo', sub: 'Copia el enlace y ponlo donde quieras: Instagram, WhatsApp o tu newsletter.' }
     : { titulo: 'Ponlo en tu web', sub: 'Copia el código y pégalo en tu web, o mándaselo a quien te la lleva.' }),

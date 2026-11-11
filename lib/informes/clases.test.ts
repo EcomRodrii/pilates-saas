@@ -72,7 +72,7 @@ test('diferencia de ocupación en puntos', () => {
   assert.equal(puntosDeDiferencia({ nClases: 1, aforo: 10, ocupadas: 7, pct: 70 }, { nClases: 0, aforo: 0, ocupadas: 0, pct: null }), null);
 });
 
-test('clientas: las que vinieron y las que más vienen cuentan solo lo ASISTIDO', () => {
+test('clientes: las que vinieron y las que más vienen cuentan solo lo ASISTIDO', () => {
   const sesiones = [ses('s1', '2026-10-06T16:00:00Z'), ses('s2', '2026-10-08T16:00:00Z'), ses('futura', '2026-10-20T16:00:00Z')];
   const reservas = [
     res('s1', 'ana', 'ASISTIDA'), res('s2', 'ana', 'ASISTIDA'), res('futura', 'ana', 'CONFIRMADA'),

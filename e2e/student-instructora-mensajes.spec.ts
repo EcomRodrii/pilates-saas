@@ -85,8 +85,8 @@ async function montar(page: Page, o: { abrirSinClase?: boolean; enviarFalla?: bo
   return contador;
 }
 
-test.describe('Mensajes de la instructora con sus alumnas', () => {
-  test('desde la ficha de una alumna le escribe y el mensaje se envía', async ({ page }) => {
+test.describe('Mensajes de la instructora con sus clientes', () => {
+  test('desde la ficha de un cliente le escribe y el mensaje se envía', async ({ page }) => {
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-aina`);
     await page.getByRole('button', { name: 'Escribir', exact: true }).click({ timeout: 30_000 });
@@ -103,7 +103,7 @@ test.describe('Mensajes de la instructora con sus alumnas', () => {
     expect(contador.enviados).toEqual(['Sí, y trae calcetines antideslizantes']);
   });
 
-  test('la bandeja enseña sus conversaciones con el nombre corto de la alumna', async ({ page }) => {
+  test('la bandeja enseña sus conversaciones con el nombre corto del cliente', async ({ page }) => {
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/mensajes`);
 
@@ -159,7 +159,7 @@ test.describe('Mensajes de la instructora con sus alumnas', () => {
 // también si la pantalla no hubiera mandado nada.
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('La instructora denuncia y bloquea', () => {
-  test('denunciar un mensaje de la alumna: se manda y da las gracias', async ({ page }) => {
+  test('denunciar un mensaje del cliente: se manda y da las gracias', async ({ page }) => {
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/mensajes/conv-1`);
     await page.getByRole('button', { name: 'Opciones del mensaje' }).click({ timeout: 30_000 });

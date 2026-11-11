@@ -76,7 +76,7 @@ export default function InicioPage() {
 
   // Con `clave`: al volver a Inicio desde otra pestaña se ve al momento lo de
   // antes y se refresca por detrás (ver `useAsync`).
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:inicio`);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `cliente:${estudio.slug}:inicio`);
   // Aforo en vivo: si alguien reserva, cancela o el estudio quita a una
   // alumna, esta pantalla se entera sola. Sin sondeo: si nadie toca nada,
   // no se pide nada.

@@ -67,14 +67,14 @@ for (const vista of VISTAS) test.describe(`Recorrido completo de la visita guiad
   for (const paso of TODOS_LOS_PASOS) {
     if (paso.ruta.endsWith('/*')) {
       if (!NECESITAN_CLIENTA.has(paso.id)) continue;
-      test(`${paso.id} · ${paso.titulo}: sin clientas, dice que hace falta una`, async ({ page }) => {
+      test(`${paso.id} · ${paso.titulo}: sin clientes, dice que hace falta una`, async ({ page }) => {
         test.slow();
         await page.setViewportSize({ width: vista.ancho, height: vista.alto });
         await montar(page, progresoAntesDe(paso, vista.saltan));
         const tarjeta = page.getByRole('region', { name: `Visita guiada: ${paso.titulo}` });
         await expect(tarjeta).toBeVisible({ timeout: 60_000 });
-        await expect(tarjeta).toContainText('hace falta al menos una clienta');
-        await expect(tarjeta.getByRole('button', { name: 'Añadir una clienta' })).toBeVisible();
+        await expect(tarjeta).toContainText('hace falta al menos un cliente');
+        await expect(tarjeta.getByRole('button', { name: 'Añadir un cliente' })).toBeVisible();
       });
       continue;
     }

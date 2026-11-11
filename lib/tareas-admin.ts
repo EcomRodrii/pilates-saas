@@ -12,7 +12,7 @@ export async function crearTareaAdmin(
   if (params.socioId) {
     const { data: socio } = await admin
       .from('socios').select('id').eq('id', params.socioId).eq('studio_id', params.studioId).maybeSingle();
-    if (!socio) return { error: 'Clienta no encontrada' };
+    if (!socio) return { error: 'Cliente no encontrada' };
   }
 
   const id = `tarea-${uid()}`;

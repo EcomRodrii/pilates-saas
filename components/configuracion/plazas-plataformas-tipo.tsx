@@ -75,8 +75,8 @@ export function PlazasPlataformasTipo({
     <div className="space-y-3" data-testid="plazas-plataformas">
       <p className="text-[11.5px] leading-relaxed text-muted-foreground">
         Pon la misma cifra que tienes publicada en la plataforma. En blanco, sin límite (manda el aforo de la clase).
-        {apartan.length > 0 && ` Las de ${apartan.map(p => NOMBRE_PLATAFORMA[p]).join(' y ')} quedan apartadas: tus alumnas no pueden reservarlas mientras no las venda (se liberan cuando digas en Conexiones).`}
-        {techo.length > 0 && ` Las de ${techo.map(p => NOMBRE_PLATAFORMA[p]).join(' y ')} son un máximo: si no las vende, tus alumnas pueden ocuparlas.`}
+        {apartan.length > 0 && ` Las de ${apartan.map(p => NOMBRE_PLATAFORMA[p]).join(' y ')} quedan apartadas: tus clientes no pueden reservarlas mientras no las venda (se liberan cuando digas en Conexiones).`}
+        {techo.length > 0 && ` Las de ${techo.map(p => NOMBRE_PLATAFORMA[p]).join(' y ')} son un máximo: si no las vende, tus clientes pueden ocuparlas.`}
       </p>
       {activas.map(p => (
         <label key={p} className="flex items-center justify-between gap-3">

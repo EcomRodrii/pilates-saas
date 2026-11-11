@@ -380,7 +380,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
           <div className="space-y-3 mt-2">
             <Field
               label="Nombre de la sala"
-              description="Como la llamáis en el estudio. La verá la alumna al reservar."
+              description="Como la llamáis en el estudio. La verá el cliente al reservar."
             >
               <input
                 className={inputCls}
@@ -421,7 +421,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
             </Field>
             <Field
               label="Imagen de la sala"
-              description="La app de tus alumnas la usa como foto de las clases de esta sala cuyo tipo de clase no tenga foto propia (la del tipo de clase manda)."
+              description="La app de tus clientes la usa como foto de las clases de esta sala cuyo tipo de clase no tenga foto propia (la del tipo de clase manda)."
             >
               <input
                 className={inputCls}

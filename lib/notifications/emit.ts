@@ -57,7 +57,7 @@ export async function emitirReserva(
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Un cliente';
     const base = { ...ctx, socioId: p.socioId, socia };
     const dedup = `reserva:${p.sesionId}:${p.socioId}:${p.estado}`;
 
@@ -226,7 +226,7 @@ export async function emitirPeticionPlazaFija(
   try {
     const { data: socio } = await admin.from('socios').select('nombre, apellidos')
       .eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle();
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Un cliente';
     await publish({
       type: EVENTOS.PLAZA_FIJA_PETICION, studioId: p.studioId,
       data: { socioId: p.socioId, socia, peticion: p.peticion, solicitudId: p.solicitudId },
@@ -320,7 +320,7 @@ export async function emitirReservaPendienteAprobacion(
   try {
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Un cliente';
     await publish({
       type: EVENTOS.RESERVA_PENDIENTE_APROBACION, studioId: p.studioId,
       data: { ...ctx, socioId: p.socioId, socia },
@@ -350,7 +350,7 @@ export async function emitirReservaPagadaSinPlaza(
     const { texto } = SITUACION_PAGADA_SIN_PLAZA[situacion];
     const ctx = await ctxSesion(admin, p.studioId, p.sesionId);
     const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle();
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Un cliente';
     await publish({
       type: EVENTOS.RESERVA_PAGADA_SIN_PLAZA, studioId: p.studioId,
       // `cerrada`/`aLaFicha` deciden el deepLink de la plantilla: cuando el pago
@@ -427,7 +427,7 @@ export async function emitirPagoFallido(
       type: EVENTOS.PAGO_FALLIDO, studioId: p.studioId,
       data: {
         concepto: recibo.concepto ?? 'una cuota', importe: recibo.importe,
-        socia: `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta',
+        socia: `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'un cliente',
         socioId: recibo.socio_id, slug: (studio?.slug as string | null) ?? '',
       },
       resource: { type: 'recibo', id: p.reciboId },
@@ -531,7 +531,7 @@ export async function emitirDevolucion(
     const { data: socio } = p.socioId
       ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
       : { data: null };
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'un cliente';
     const esChargeback = p.origen === 'CHARGEBACK';
     await publish({
       type: esChargeback ? EVENTOS.PAGO_CHARGEBACK_PERDIDO : EVENTOS.PAGO_DEVUELTO,
@@ -589,7 +589,7 @@ export async function emitirDevolucionFallida(
     const { data: socio } = p.socioId
       ? await admin.from('socios').select('nombre, apellidos').eq('id', p.socioId).maybeSingle()
       : { data: null };
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'un cliente';
     await publish({
       type: EVENTOS.PAGO_DEVOLUCION_FALLIDA,
       studioId: p.studioId,
@@ -622,7 +622,7 @@ export async function emitirPagoDisputado(
       type: EVENTOS.PAGO_DISPUTADO, studioId: p.studioId,
       data: {
         concepto: recibo.concepto ?? 'una cuota', importe: recibo.importe,
-        socia: `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'una clienta',
+        socia: `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'un cliente',
         socioId: recibo.socio_id, plazo,
       },
       resource: { type: 'recibo', id: p.reciboId },
@@ -781,7 +781,7 @@ export async function emitirPagoRealizado(
     // catálogo (VENTA_REGISTRADA) sobre por qué no es la misma regla que la de
     // arriba.
     const { data: socio } = await admin.from('socios').select('nombre, apellidos').eq('id', recibo.socio_id).maybeSingle();
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Un cliente';
     await publish({
       type: EVENTOS.VENTA_REGISTRADA, studioId: p.studioId,
       data: { concepto: recibo.concepto ?? 'una compra', importe: recibo.importe, socia },
@@ -1638,7 +1638,7 @@ export async function emitirSolicitudDerechos(
   try {
     const { data: socio } = await admin.from('socios').select('nombre, apellidos')
       .eq('id', p.socioId).eq('studio_id', p.studioId).maybeSingle();
-    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Una clienta';
+    const socia = `${socio?.nombre ?? ''} ${socio?.apellidos ?? ''}`.trim() || 'Un cliente';
     const accion = p.tipo === 'supresion'
       ? 'eliminar sus datos personales'
       : p.tipo === 'limitacion' ? 'limitar el uso de sus datos' : 'oponerse al uso de sus datos';
@@ -1750,7 +1750,7 @@ export async function emitirDenunciaNueva(
   if (p.recipients.length === 0) return;
   try {
     const que = p.motivo === 'BLOQUEO'
-      ? (p.ambito === 'TABLON' ? 'Una alumna ha bloqueado a otra en el tablón.' : 'Han bloqueado a alguien en un chat con su instructora.')
+      ? (p.ambito === 'TABLON' ? 'Un cliente ha bloqueado a otra en el tablón.' : 'Han bloqueado a alguien en un chat con su instructora.')
       : (p.ambito === 'TABLON' ? 'Han denunciado un comentario del tablón.' : 'Han denunciado un mensaje del chat con una instructora.');
     await publish({
       type: EVENTOS.DENUNCIA_NUEVA, studioId: p.studioId,

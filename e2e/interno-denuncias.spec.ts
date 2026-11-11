@@ -13,13 +13,13 @@ const STORAGE_KEY = 'sb-example-auth-token';
 const CONTRA_EL_ESTUDIO = {
   id: 'den-1', ambito: 'CHAT_ESTUDIO', motivo: 'DENUNCIA', creadaEn: '2026-10-05T08:00:00Z',
   detalle: 'Me escribe fuera de horario', contenido: 'Texto denunciado contra el estudio', contenidoRetirado: false,
-  autor: 'El estudio', denunciante: 'Una alumna', estudio: { id: 'studio-e2e', nombre: 'Estudio de prueba' },
+  autor: 'El estudio', denunciante: 'Un cliente', estudio: { id: 'studio-e2e', nombre: 'Estudio de prueba' },
   porQue: 'CONTRA_EL_ESTUDIO', acciones: ['MANTENER', 'OCULTAR'],
 };
 const SIN_REVISAR = {
   id: 'den-2', ambito: 'CHAT_INSTRUCTORA', motivo: 'DENUNCIA', creadaEn: '2026-10-03T08:00:00Z',
   detalle: null, contenido: 'Mensaje de una instructora', contenidoRetirado: false,
-  autor: 'Ana (equipo)', denunciante: 'Otra alumna', estudio: { id: 'studio-e2e-2', nombre: 'Otro estudio' },
+  autor: 'Ana (equipo)', denunciante: 'Otro cliente', estudio: { id: 'studio-e2e-2', nombre: 'Otro estudio' },
   porQue: 'SIN_REVISAR_POR_EL_ESTUDIO', acciones: ['MANTENER', 'OCULTAR', 'CERRAR_CONVERSACION'],
 };
 

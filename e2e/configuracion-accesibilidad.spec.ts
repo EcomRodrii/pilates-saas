@@ -46,7 +46,7 @@ test.describe('En el móvil: inicio, sección y vuelta', () => {
     const historial = await page.evaluate(() => history.length);
 
     await fila.click();
-    await expect(titulo(page, 'Cómo reservan mis alumnas')).toBeFocused({ timeout: 30_000 });
+    await expect(titulo(page, 'Cómo reservan mis clientes')).toBeFocused({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/configuracion\?tab=reservas$/);
     // `push`: el gesto de atrás del teléfono tiene que poder volver al inicio.
     expect(await page.evaluate(() => history.length)).toBe(historial + 1);
@@ -79,7 +79,7 @@ test.describe('En el móvil: inicio, sección y vuelta', () => {
   test('llegando por un enlace, la flecha lleva al inicio sin salir de Configuración', async ({ page }) => {
     await panel(page);
     await ir(page, 'configuracion?tab=altas');
-    await expect(titulo(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(titulo(page, 'Alta de clientes')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Volver a Configuración' }).click();
     await expect(page.locator('#inicio-seccion-altas')).toBeVisible();
@@ -111,7 +111,7 @@ test.describe('En pantalla ancha', () => {
     // reescribía `?tab=altas`. La sección cambiaba y la barra no.
     await panel(page);
     await ir(page, 'configuracion?tab=altas');
-    await expect(titulo(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(titulo(page, 'Alta de clientes')).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('navigation', { name: 'Secciones de Configuración' })
       .getByRole('link', { name: 'Cobros y facturas', exact: true }).click();
