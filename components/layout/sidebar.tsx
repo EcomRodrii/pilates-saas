@@ -13,6 +13,7 @@ import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
+import { NavItemConHijos } from './nav-item-con-hijos';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
@@ -245,6 +246,32 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
             )}
             {section.items.map(item => {
               const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              // Con desplegable: el nombre como rótulo y sus páginas debajo, sin un toque extra para abrirlo.
+              if (item.hijos) {
+                return (
+                  <div key={item.href} className="mb-1">
+                    <p className="flex items-center gap-3.5 px-4 pt-3 pb-1.5 text-[13px] font-semibold text-white/50">
+                      <item.icon size={18} strokeWidth={2} />{item.label}
+                    </p>
+                    {item.hijos.map(h => {
+                      const activoHijo = pathname === h.href || (h.href !== item.href && pathname.startsWith(`${h.href}/`));
+                      return (
+                        <Link
+                          key={h.href}
+                          href={h.href}
+                          onClick={() => onClose()}
+                          className={cn(
+                            'flex items-center pl-14 pr-4 py-3 rounded-full text-[15px] font-medium transition-all mb-0.5',
+                            activoHijo ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5',
+                          )}
+                        >
+                          {h.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                );
+              }
               return (
                 <Link
                   key={item.href}
@@ -574,7 +601,13 @@ export function Sidebar() {
             <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
           )}
           {section.items.map(item => {
-            const fila = (
+            const fila = item.hijos ? (
+              <NavItemConHijos
+                key={item.href} href={item.href} label={item.label} Icon={item.icon} hijos={item.hijos}
+                horizontal={horizontal} collapsed={horizontal ? false : collapsed}
+                nuevo={conNovedad.has(item.href)}
+              />
+            ) : (
             <NavItem
               key={item.href} href={item.href} label={item.label} Icon={item.icon}
               horizontal={horizontal}

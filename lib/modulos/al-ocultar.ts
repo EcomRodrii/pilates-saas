@@ -133,6 +133,10 @@ export const LO_PROPIO: Record<string, (d: DatosAlOcultar) => Propio> = {
     enLaApp: NO_CAMBIA,
     sigue: ['Lo que ya trajiste se queda donde está.'],
   }),
+  '/apps': () => ({
+    enLaApp: NO_CAMBIA,
+    sigue: ['Las integraciones que tengas conectadas y las claves de tu API siguen funcionando.'],
+  }),
   '/libreta': () => ({ enLaApp: NO_CAMBIA }),
   '/actualizaciones': () => ({ enLaApp: NO_CAMBIA }),
 };

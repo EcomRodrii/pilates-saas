@@ -43,9 +43,12 @@ const CAJONES = [
   'integracion-mailchimp', 'integracion-zapier', 'aplicaciones-con-acceso', 'plataformas-externas', 'api-publica',
 ] as const satisfies readonly TarjetaId[];
 
-export function SeccionConexiones({ showToast }: { showToast: (m: string) => void }) {
-  const rol = useRol();
-  const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+/**
+ * Todo lo que hay detrás de las conexiones: cada una con su estado. Lo comparten
+ * Configuración › Integraciones (filas con cajón) y «Apps e integraciones »
+ * (una pestaña por conexión), para que haya UNA sola lectura de cada estado.
+ */
+export function useConexiones(showToast: (m: string) => void) {
   const stripe = useCobroConTarjeta(showToast);
   // El datáfono pregunta a su proveedor (Stripe o SumUp) si está encendido. Se
   // pregunta siempre: un estudio sin Stripe puede tener (o conectar) un SumUp Solo.
@@ -79,6 +82,20 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
       window.history.replaceState({}, '', seccion);
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return {
+    stripe, datafono, datafonoConectado, conectandoDatafono, setConectandoDatafono, whatsapp, gmail,
+    google, zoom, klaviyo, kisi, mailchimp, apps, zapier, api,
+  };
+}
+
+export function SeccionConexiones({ showToast }: { showToast: (m: string) => void }) {
+  const rol = useRol();
+  const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  const {
+    stripe, datafono, datafonoConectado, conectandoDatafono, setConectandoDatafono, whatsapp, gmail,
+    google, zoom, klaviyo, kisi, mailchimp, apps, zapier, api,
+  } = useConexiones(showToast);
 
   function guardado(texto: string) {
     cerrar();

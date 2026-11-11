@@ -633,6 +633,8 @@ nextjs-portal { display: none !important; }
 .reservar-boton:active { transform: scale(.97); }
 
 /* El menú «Más secciones»: sale de su botón (arriba a la derecha). */
+/* El desplegable de «Apps e integraciones» (menú lateral): sale desde el menú, 4 px. */
+@keyframes desplegable-entra { from { opacity: 0; transform: translateX(-4px); } to { opacity: 1; transform: none; } }
 @keyframes reservar-menu-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
 .reservar-menu { animation: reservar-menu-in .16s cubic-bezier(.16, 1, .3, 1) both; transform-origin: top right; }
 .reservar-menu-item { background: transparent; transition: background-color .15s ease; }
