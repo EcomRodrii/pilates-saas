@@ -123,18 +123,18 @@ test.describe('Ordenar los tipos de clase', () => {
     // Sin ninguno colocado: por nombre, como siempre, y sin prometer que la
     // alumna los vea así.
     await expect.poll(() => ordenEnPantalla(page)).toEqual(['Barre', 'Mat', 'Reformer']);
-    await expect(page.getByText('Arrástralos por el asa para decidir en qué orden los ve tu alumna al reservar.')).toBeVisible();
+    await expect(page.getByText('Arrástralos por el asa para decidir en qué orden los ve tu cliente al reservar.')).toBeVisible();
 
     await subirConTeclado(page, 'Reformer', 2);
 
-    await expect(page.getByText('Orden guardado: así lo verán tus alumnas')).toBeVisible();
+    await expect(page.getByText('Orden guardado: así lo verán tus clientes')).toBeVisible();
     await expect.poll(() => ordenEnPantalla(page)).toEqual(['Reformer', 'Barre', 'Mat']);
     expect(patches.map(p => [p.id, p.body]).sort()).toEqual([
       ['tc-barre', { orden: 1 }],
       ['tc-mat', { orden: 2 }],
       ['tc-reformer', { orden: 0 }],
     ]);
-    await expect(page.getByText('En este orden los ve tu alumna al reservar. Arrástralos por el asa para cambiarlo.')).toBeVisible();
+    await expect(page.getByText('En este orden los ve tu cliente al reservar. Arrástralos por el asa para cambiarlo.')).toBeVisible();
   });
 
   test('ya ordenados: solo se escriben las filas que cambian de sitio', async ({ page }) => {
@@ -150,7 +150,7 @@ test.describe('Ordenar los tipos de clase', () => {
 
     await subirConTeclado(page, 'Circuito', 1);
 
-    await expect(page.getByText('Orden guardado: así lo verán tus alumnas')).toBeVisible();
+    await expect(page.getByText('Orden guardado: así lo verán tus clientes')).toBeVisible();
     await expect.poll(() => ordenEnPantalla(page)).toEqual(['Aéreo', 'Circuito', 'Barre', 'Duo']);
     expect(patches).toHaveLength(2);
     expect(patches.map(p => [p.id, p.body]).sort()).toEqual([['b', { orden: 2 }], ['c', { orden: 1 }]]);
@@ -193,6 +193,6 @@ test.describe('Ordenar los tipos de clase', () => {
     await expect(page.getByText(/^El orden no se ha guardado\./)).toBeVisible();
     expect(patches.length, 'tiene que haberlo intentado').toBeGreaterThan(0);
     await expect.poll(() => ordenEnPantalla(page)).toEqual(['Aéreo', 'Barre', 'Circuito']);
-    await expect(page.getByText('Orden guardado: así lo verán tus alumnas')).toHaveCount(0);
+    await expect(page.getByText('Orden guardado: así lo verán tus clientes')).toHaveCount(0);
   });
 });

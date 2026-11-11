@@ -29,16 +29,16 @@ async function vacio(page: Page, o: { nuevo?: boolean } = {}) {
 
 const vacia = (page: Page) => page.locator('section').filter({ has: page.getByText('Ejemplos', { exact: true }) });
 
-test('Libreta: sin clientas activas, enseña qué llevará y lleva a dar de alta a la primera', async ({ page }) => {
+test('Libreta: sin clientes activos, enseña qué llevará y lleva a dar de alta a la primera', async ({ page }) => {
   await vacio(page);
   await ir(page, 'libreta');
   const v = vacia(page);
   await expect(v.getByRole('heading', { name: 'Tu libreta, por si cae internet' })).toBeVisible({ timeout: 60_000 });
   await expect(v.getByRole('listitem')).toHaveCount(3);
-  await expect(v.getByRole('link', { name: 'Dar de alta a mi primera clienta' })).toHaveAttribute('href', '/clientas?nuevo=1');
+  await expect(v.getByRole('link', { name: 'Dar de alta a mi primer cliente' })).toHaveAttribute('href', '/clientas?nuevo=1');
   await expect(v.getByRole('link', { name: 'Tráelas de tu programa anterior' })).toHaveAttribute('href', '/migracion');
   // La hoja vacía no se pinta (no hay nada que imprimir).
-  await expect(page.getByText('No hay clientas activas todavía.')).toHaveCount(0);
+  await expect(page.getByText('No hay clientes activos todavía.')).toHaveCount(0);
 });
 
 test('Paquetes › Productos de la caja: sin productos, los ejemplos y «Añadir mi primer producto» abre el alta', async ({ page }) => {
@@ -66,7 +66,7 @@ test('Equipo › Actividad: sin movimientos, dice qué se apunta aquí (sin bot�
 test('sin el panel nuevo, los vacíos de siempre', async ({ page }) => {
   await vacio(page, { nuevo: false });
   await ir(page, 'libreta');
-  await expect(page.getByText('No hay clientas activas todavía.')).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText('No hay clientes activos todavía.')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole('heading', { name: 'Tu libreta, por si cae internet' })).toHaveCount(0);
 });
 

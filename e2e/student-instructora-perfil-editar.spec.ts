@@ -95,7 +95,7 @@ test.describe('La instructora cambia sus datos desde la app', () => {
     expect(contador.guardar).toBe(0);
   });
 
-  test('cambia la contraseña desde su parte: la guardia de la alumna no la echa', async ({ page }) => {
+  test('cambia la contraseña desde su parte: la guardia del cliente no la echa', async ({ page }) => {
     await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/perfil/seguridad`);
 

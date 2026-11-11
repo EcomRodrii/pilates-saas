@@ -210,9 +210,9 @@ test('con plazo para aceptar la plaza, el del tipo pisa al del estudio', () => {
 
 test('SIN lista de espera ya no promete que entran en ella, y dice quién lo decide', () => {
   assert.equal(fraseAlLlenarse({ ...estudio, permiteListaEspera: false }, tipo()),
-    'Al llenarse, tus alumnas ya no pueden reservarla: tu estudio no tiene lista de espera.');
+    'Al llenarse, tus clientes ya no pueden reservarla: tu estudio no tiene lista de espera.');
   assert.equal(fraseAlLlenarse(estudio, tipo({ permiteListaEspera: false })),
-    'Al llenarse, tus alumnas ya no pueden reservarla: «HIIT Reformer» no tiene lista de espera.');
+    'Al llenarse, tus clientes ya no pueden reservarla: «HIIT Reformer» no tiene lista de espera.');
   // El tipo puede tener la lista de espera que el estudio no tiene.
   assert.match(fraseAlLlenarse({ ...estudio, permiteListaEspera: false }, tipo({ permiteListaEspera: true })), /entran en lista de espera/);
 });

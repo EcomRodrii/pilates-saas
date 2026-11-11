@@ -114,7 +114,7 @@ test('quien paga NUNCA sale de ACTIVO_PAGO ni tiene nada limitado: Stripe, a man
   assert.ok(pagan > 1000, 'la matriz no ha probado casi ningún estudio que paga');
 });
 
-test('un contrato vivo en Stripe (unpaid) no se suspende, ni pausa cobros, ni toca a las alumnas', () => {
+test('un contrato vivo en Stripe (unpaid) no se suspende, ni pausa cobros, ni toca a los clientes', () => {
   for (const e of combinaciones()) {
     const unpaid = e.subscriptionStatus === 'unpaid' || (e.tieneCadena && e.cadena?.subscriptionStatus === 'unpaid');
     if (!unpaid || pagaElEstudio(e) || e.purgado || e.contratoTerminado || e.supresionPedida) continue;
@@ -145,7 +145,7 @@ test('las demos no se mueven por falta de uso', () => {
   }
 });
 
-test('pasarse del gratis limita la gestión, nunca a las alumnas; y gana a la falta de uso', () => {
+test('pasarse del gratis limita la gestión, nunca a los clientes; y gana a la falta de uso', () => {
   for (const e of combinaciones()) {
     const s = situacionDerivada(e);
     if (s.motivo === 'limite_gratis' || s.variante === 'funciona') {

@@ -5,7 +5,7 @@ export default function Contenido() {
   return (
     <>
       <p>
-        Tus alumnas no instalan ninguna app de tienda de aplicaciones: entran desde el navegador a{' '}
+        Tus clientes no instalan ninguna app de tienda de aplicaciones: entran desde el navegador a{' '}
         <Link href="/ayuda/portal/que-es-el-portal" style={{ color: 'inherit', textDecoration: 'underline' }}>su portal</Link>, pensado para móvil desde el primer diseño, y pueden añadirlo a su pantalla de inicio como si fuera una app.
       </p>
 

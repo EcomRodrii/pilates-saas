@@ -19,7 +19,7 @@ import { sembrarSociaCompleta, SLUG } from './socia-completa';
 
 const TOPE = 9;
 
-test('una pantalla de la alumna no descarga las fuentes de los temas', async ({ page }) => {
+test('una pantalla del cliente no descarga las fuentes de los temas', async ({ page }) => {
   test.setTimeout(120_000);
   // `sinReloj`: `page.clock.install()` vacía la Performance API.
   await sembrarSociaCompleta(page, { bono: 5, sinReloj: true });

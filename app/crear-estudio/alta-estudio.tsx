@@ -519,7 +519,7 @@ export function AltaEstudio({ foundingGratis }: { foundingGratis: boolean }) {
             // enlace para mandárselo a sus alumnas, así que sale del mismo
             // helper que el resto del panel y no se escribe a mano.
             <div className="mt-4 rounded-xl bg-muted px-4 py-3 text-[13px] text-muted-foreground">
-              <p>La app de tus alumnas será</p>
+              <p>La app de tus clientes será</p>
               <p
                 data-testid="enlace-app-alta"
                 className="mt-1 select-all break-all font-semibold text-foreground"
@@ -635,7 +635,7 @@ export function AltaEstudio({ foundingGratis }: { foundingGratis: boolean }) {
               placeholder="Ej. Estudio Tentare"
               autoFocus
               autoComplete="organization"
-              ayuda="Es el nombre que verán tus alumnas."
+              ayuda="Es el nombre que verán tus clientes."
             />
             <Campo
               id={`${uid}-ciudad`}

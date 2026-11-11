@@ -75,7 +75,7 @@ test('Citas, Informes, Centro de Control y Sustituciones', async ({ page }) => {
 test('Mensajería y Automatizaciones', async ({ page }) => {
   await abrirPanel(page, 'mensajeria');
   const mensajeria = await controlesCortos([
-    ['«Ver alumnas»', page.getByRole('link', { name: 'Ver alumnas' })],
+    ['«Ver clientes»', page.getByRole('link', { name: 'Ver clientes' })],
     ['«Marcar todas leídas»', page.getByRole('button', { name: 'Marcar todas leídas' })],
     ['«Ver más»', page.getByRole('link', { name: 'Ver más' }).first()],
     // El buscador (23 px de alto) va dentro de una etiqueta: la zona es la caja entera.

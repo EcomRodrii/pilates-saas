@@ -98,7 +98,7 @@ export async function actividadDelPeriodo(input: EntradaActividad, ctx: Contexto
             ...(anterior && p.frente ? { comparacion: { texto: String(anterior.nClases), tono: actual.nClases > anterior.nClases ? 'sube' : actual.nClases < anterior.nClases ? 'baja' : 'igual', frente: p.frente } } : {}) },
           { etiqueta: 'Ocupación', valor: pct(actual.pct), tipo: 'pct', href: '/informes',
             ...(textoPuntos && p.frente ? { comparacion: { texto: textoPuntos, tono: puntos! > 0 ? 'sube' : puntos! < 0 ? 'baja' : 'igual', frente: p.frente } } : {}) },
-          { etiqueta: 'Alumnas que vinieron', valor: String(clientas.vinieron), tipo: 'n', href: '/informes',
+          { etiqueta: 'Clientes que vinieron', valor: String(clientas.vinieron), tipo: 'n', href: '/informes',
             ...(clientasAntes && p.frente ? { comparacion: { texto: String(clientasAntes.vinieron), tono: clientas.vinieron > clientasAntes.vinieron ? 'sube' : clientas.vinieron < clientasAntes.vinieron ? 'baja' : 'igual', frente: p.frente } } : {}) },
         ],
       },

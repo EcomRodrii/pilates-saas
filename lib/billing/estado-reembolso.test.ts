@@ -34,7 +34,7 @@ test('un minuto antes del umbral todavía es normal', () => {
   assert.equal(estadoReembolso({ estado: 'COBRADO', reembolsoSolicitadoEn: casi }, AHORA)?.fase, 'EN_CAMINO');
 });
 
-test('devuelta: avisa de que el dinero AÚN no está en el banco de la clienta', () => {
+test('devuelta: avisa de que el dinero AÚN no está en el banco del cliente', () => {
   // "Devuelto" a secas hace pensar que la socia ya lo tiene, y escribe
   // preguntando dónde está su dinero.
   const e = estadoReembolso({ estado: 'DEVUELTO', fechaDevolucion: '2026-08-11T11:00:00Z' }, AHORA);
@@ -91,7 +91,7 @@ test('D-8: si un reintento triunfó (DEVUELTO otra vez), DEVUELTA gana a la marc
 });
 
 // Un DEVUELTO no siempre es «dinero camino del banco de la clienta».
-test('devuelto por el BANCO (nada devuelto a la clienta): nada que contar de reembolsos, sigue debiéndolo', () => {
+test('devuelto por el BANCO (nada devuelto al cliente): nada que contar de reembolsos, sigue debiéndolo', () => {
   assert.equal(estadoReembolso({ estado: 'DEVUELTO', importe: 45, importeDevuelto: 0, stripePaymentIntentId: null }, new Date()), null);
 });
 

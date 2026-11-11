@@ -197,7 +197,7 @@ export interface Sugerencia { texto: string; dinero: boolean }
 
 /** Cada una se responde con UNA herramienta (una consulta). Las de dinero, solo a quien lo ve. */
 export const SUGERENCIAS: readonly Sugerencia[] = [
-  { texto: '¿Cuántas alumnas activas tengo?', dinero: false },
+  { texto: '¿Cuántos clientes activos tengo?', dinero: false },
   { texto: '¿Qué clases hay mañana?', dinero: false },
   { texto: '¿Cuánto he facturado este mes?', dinero: true },
   { texto: '¿Qué debería revisar hoy?', dinero: false },

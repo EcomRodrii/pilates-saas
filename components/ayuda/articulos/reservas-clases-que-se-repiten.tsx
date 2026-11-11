@@ -57,7 +57,7 @@ export default function Contenido() {
         <li><strong>Una semana antes, y si termina sin renovar</strong>: aviso a la app y por email.</li>
       </ul>
       <p>
-        En Resumen las ves juntas, con el nombre de cada clase, cuándo termina y cuántas alumnas tienen clase fija
+        En Resumen las ves juntas, con el nombre de cada clase, cuándo termina y cuántos clientes tienen clase fija
         ahí. Dos botones: <strong>«Revisar y renovar»</strong> o <strong>«No renovar»</strong>. Si dices que no, deja
         de recordártelo —y si cambias de idea, la renuevas desde la clase en el calendario—.
       </p>
@@ -77,7 +77,7 @@ export default function Contenido() {
       <ul style={lista}>
         <li>Las fechas que <strong>no</strong> se crean, con su motivo: la sala está ocupada a esa hora, ya hay una clase igual, o el centro está cerrado ese día.</li>
         <li>Las clases que quedarían <strong>sin instructora</strong>, porque la de siempre ya tiene otra clase a esa hora o porque ya no está en el equipo.</li>
-        <li>Que las <strong>clases fijas de ese hueco siguen</strong>: a esas alumnas se les reserva cada semana como hasta ahora, sin que tengas que hacer nada.</li>
+        <li>Que las <strong>clases fijas de ese hueco siguen</strong>: a esos clientes se les reserva cada semana como hasta ahora, sin que tengas que hacer nada.</li>
       </ul>
 
       <h2 style={h2}>Que se renueve sola</h2>

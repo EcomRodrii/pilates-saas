@@ -13,7 +13,7 @@ import { json, montarAlta } from './onboarding-andamio';
 // y lo que la pantalla corta antes de llamar exige CERO.
 
 const CORS = { 'access-control-allow-origin': '*' };
-const AVISO_VENTA_SIN_STRIPE = 'Una alumna nueva todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
+const AVISO_VENTA_SIN_STRIPE = 'Un cliente nuevo todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online. Conecta Stripe o véndeselo tú en el mostrador.';
 
 type Respuesta = { status: number; body: unknown; espera?: number };
 const EXITO_SI: Respuesta = {
@@ -111,7 +111,7 @@ test.describe('la primera clase del alta nueva', () => {
     expect(red.publicar).toHaveLength(0);
 
     await page.getByLabel('Esta clase es gratis').check();
-    await expect(page.getByTestId('mensaje-precio')).toContainText('tus alumnas la reservan sin pagar nada');
+    await expect(page.getByTestId('mensaje-precio')).toContainText('tus clientes la reservan sin pagar nada');
     await expect(page.getByTestId('resumen-primera-clase')).toContainText('Sin tarifa: la clase es gratis');
     await publicar(page);
     await expect.poll(() => red.publicar.length).toBe(1);
@@ -134,7 +134,7 @@ test.describe('la primera clase del alta nueva', () => {
     await expect(page.getByTestId('aviso-online-sin-stripe')).toHaveCount(0);
     await page.getByRole('radio', { name: /Online, con tarjeta/ }).click();
     await expect(page.getByTestId('aviso-online-sin-stripe')).toHaveText(
-      'Hasta que conectes Stripe, una alumna nueva no podrá pagar online ni reservar. Te pide tus datos y una cuenta bancaria; puedes hacerlo justo después de publicar.',
+      'Hasta que conectes Stripe, un cliente nuevo no podrá pagar online ni reservar. Te pide tus datos y una cuenta bancaria; puedes hacerlo justo después de publicar.',
     );
     await page.getByRole('radio', { name: /En el estudio/ }).click();
     await expect(page.getByTestId('aviso-online-sin-stripe')).toHaveCount(0);
@@ -190,8 +190,8 @@ test.describe('la primera clase del alta nueva', () => {
     await rellenar(page);
     await publicar(page);
     await expect(page.getByRole('heading', { name: '¡Listo! Tu clase «Reformer» ya está publicada' })).toBeVisible();
-    await expect(page.getByTestId('comprobado-reservar')).toHaveText('Comprobado: una alumna nueva puede reservar');
-    await expect(page.getByText('Tus alumnas entran con su email, sin descargarse nada, y la reservan desde el móvil. Mándales el enlace de tu app: así llega tu primera reserva.')).toBeVisible();
+    await expect(page.getByTestId('comprobado-reservar')).toHaveText('Comprobado: un cliente nuevo puede reservar');
+    await expect(page.getByText('Tus clientes entran con su email, sin descargarse nada, y la reservan desde el móvil. Mándales el enlace de tu app: así llega tu primera reserva.')).toBeVisible();
     // El enlace es el de la APP (no el de la página de reservas, que es para su web) y su vista previa, la app de verdad en el marco de solo mirar.
     await expect(page.getByText(/\/portal\/studio-carmen$/).first()).toBeVisible();
     await expect(page.getByText('/reservar/studio-carmen')).toHaveCount(0);
@@ -199,7 +199,7 @@ test.describe('la primera clase del alta nueva', () => {
     await expect(marco).toHaveAttribute('src', '/portal/studio-carmen');
     await expect(page.getByTestId('aviso-correo-reservas')).toHaveText('Te lo mandamos también por correo, con el QR, para tenerlo a mano.');
     await page.getByRole('button', { name: 'Código QR' }).click();
-    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus clientes' })).toBeVisible();
     await page.keyboard.press('Escape');
     expect(red.puedeReservar).toBe(0);
 

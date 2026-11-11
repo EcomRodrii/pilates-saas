@@ -187,7 +187,7 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
     <TarjetaAjuste id="niveles" marco={false}>
       <div className="space-y-4" data-testid="editor-niveles">
         <p className="text-[12.5px] text-muted-foreground">
-          El nivel sale del total de {moneda} que ha ganado cada alumna (no de su saldo: canjear no la baja).
+          El nivel sale del total de {moneda} que ha ganado cada cliente (no de su saldo: canjear no la baja).
           {porClase
             ? ` En tu estudio una clase da unos ${Math.round(porClase)} ${moneda}: lo de «Asistir a clase» más «Completar una semana» repartido entre ${CLASES_POR_SEMANA_SUPUESTAS} clases a la semana (lo suponemos). Las compras, las amigas y el objetivo del mes lo adelantan.`
             : ` Tu estudio no da ${moneda} por venir a clase, así que los niveles no se pueden contar en clases: enciende «Asistir a clase» en Créditos por acción, o fija los niveles en ${moneda}.`}
@@ -236,7 +236,7 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
                     {/* Sin insignia elegida (los niveles nacían con un número) se ve la que pinta la app: estrella, y corona el último. */}
                     <button type="button" aria-label={`Insignia de ${etiqueta}`} aria-expanded={eligiendo === f.clave}
                       onClick={() => setEligiendo((e) => (e === f.clave ? null : f.clave))}
-                      className={cn(inputCls, 'flex w-14 items-center justify-center')} title="Lo que ve la alumna junto al nombre">
+                      className={cn(inputCls, 'flex w-14 items-center justify-center')} title="Lo que ve el cliente junto al nombre">
                       <MiniaturaInsignia icono={insigniaDeNivel(f.icono, f.activo && pos === activas.length - 1).clave} tamano={24} />
                     </button>
                     <input aria-label={pos >= 0 ? `Nombre del nivel ${pos + 1}` : `Nombre de ${etiqueta}`} value={f.nombre} maxLength={60}
@@ -269,7 +269,7 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
                       Activo
                     </label>
                     <span className="ml-auto text-[12.5px] tabular-nums text-muted-foreground">
-                      {f.activo && n !== undefined ? plural(n, 'alumna', 'alumnas') : ''}
+                      {f.activo && n !== undefined ? plural(n, 'cliente', 'clientes') : ''}
                     </span>
                     <button type="button" aria-label={`Quitar ${etiqueta}`} onClick={() => { setError(null); setFilas((fs) => fs.filter((x) => x.clave !== f.clave)); }}
                       className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -300,16 +300,16 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
         )}
 
         <div className={cn(cardCls, 'p-4 text-[12.5px]')} data-testid="vista-previa-niveles">
-          <p className="font-semibold text-foreground">Así quedarían las alumnas con {moneda}</p>
+          <p className="font-semibold text-foreground">Así quedarían los clientes con {moneda}</p>
           {datos.estado === 'cargando' && <p className="mt-1 text-muted-foreground">Calculando…</p>}
-          {datos.estado === 'error' && <p role="alert" className="mt-1 font-medium text-destructive">No se han podido leer los {moneda} de tus alumnas, así que ahora no se puede guardar. Vuelve a intentarlo en un rato.</p>}
+          {datos.estado === 'error' && <p role="alert" className="mt-1 font-medium text-destructive">No se han podido leer los {moneda} de tus clientes, así que ahora no se puede guardar. Vuelve a intentarlo en un rato.</p>}
           {reparto && (
             <p className="mt-1 text-muted-foreground">
               {[...activas].sort((a, b) => a.umbral - b.umbral).map((f) => `${f.nombre || 'Sin nombre'}: ${reparto.porNivel.get(f.id ?? f.clave) ?? 0}`).join(' · ')}
               {reparto.sinNivel > 0 && ` · Sin nivel todavía: ${reparto.sinNivel}`}
             </p>
           )}
-          <p className="mt-2 text-muted-foreground">Cambiar la escala no baja a nadie que ya haya ganado algo: si un cambio dejara a alguna alumna en un nivel más bajo del que tiene, no se guarda.</p>
+          <p className="mt-2 text-muted-foreground">Cambiar la escala no baja a nadie que ya haya ganado algo: si un cambio dejara a algún cliente en un nivel más bajo del que tiene, no se guarda.</p>
         </div>
 
         {nota && <p className="text-[12.5px] text-muted-foreground" role="status">{nota}</p>}
@@ -322,7 +322,7 @@ export function EditorNiveles({ showToast }: { showToast: MostrarToast }) {
           <p role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">
             <AlertTriangle size={15} className="mt-0.5 shrink-0" aria-hidden />
             <span>
-              Con estos cambios bajarían de nivel: {[...bajadas.entries()].map(([id, c]) => `${plural(c, 'alumna', 'alumnas')} de «${nombreDeNivel(id)}»`).join(', ')}.
+              Con estos cambios bajarían de nivel: {[...bajadas.entries()].map(([id, c]) => `${plural(c, 'cliente', 'clientes')} de «${nombreDeNivel(id)}»`).join(', ')}.
               {' '}Lo que ya tienen no se toca: baja ese umbral o deja ese nivel para poder guardar.
             </span>
           </p>

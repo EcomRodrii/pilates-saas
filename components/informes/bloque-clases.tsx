@@ -181,7 +181,7 @@ function DetalleSesiones({ sesiones, margenes, nombres }: { sesiones: SesionDelI
           <th className="py-1 text-right font-medium">Ingreso</th>
           <th className="py-1 text-right font-medium">Coste</th>
           <th className="py-1 text-right font-medium">Margen</th>
-          <th className="py-1 text-right font-medium" title="Cuántas alumnas tienen que venir para que la clase no dé pérdidas">Equilibrio</th>
+          <th className="py-1 text-right font-medium" title="Cuántos clientes tienen que venir para que la clase no dé pérdidas">Equilibrio</th>
         </tr>
       </thead>
       <tbody>

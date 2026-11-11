@@ -41,7 +41,7 @@ async function abrirMenu(page: Page) {
   return page.getByRole('menu', { name: 'Más acciones' });
 }
 
-test.describe('Clientas · dar de baja', () => {
+test.describe('Clientes · dar de baja', () => {
   test('la ventana cuenta qué pasa con su cuota y sus reservas, y solo pinta lo que el servidor confirma', async ({ page }) => {
     await montar(page);
     await reciboPendienteSinReintento(page);
@@ -83,7 +83,7 @@ test.describe('Clientas · dar de baja', () => {
     await expect((await abrirMenu(page)).getByRole('menuitem', { name: 'Volver a darla de alta' })).toBeVisible();
   });
 
-  test('si el servidor dice que no, la ventana lo cuenta y la clienta sigue de alta', async ({ page }) => {
+  test('si el servidor dice que no, la ventana lo cuenta y el cliente sigue de alta', async ({ page }) => {
     await montar(page);
     await reciboPendienteSinReintento(page);
     let intentos = 0;
@@ -117,13 +117,13 @@ test.describe('Clientas · dar de baja', () => {
   });
 });
 
-test.describe('Clientas · borrar sus datos (RGPD)', () => {
+test.describe('Clientes · borrar sus datos (RGPD)', () => {
   test('hay que escribir su nombre, y si el servidor lo rechaza se dice por qué', async ({ page }) => {
     await montar(page);
     let intentos = 0;
     await page.route((u) => u.pathname === '/api/socios/eliminar', (r) => {
       intentos++;
-      return json(r, { error: 'Solo la propietaria del estudio puede borrar los datos de una clienta.' }, 403);
+      return json(r, { error: 'Solo la propietaria del estudio puede borrar los datos de un cliente.' }, 403);
     });
 
     await abrirFichaDeLaura(page);
@@ -139,8 +139,8 @@ test.describe('Clientas · borrar sus datos (RGPD)', () => {
     await borrar.click();
 
     // Dentro de la ventana, y una sola vez (no también en el aviso global).
-    await expect(ventana.getByRole('alert')).toHaveText('Solo la propietaria del estudio puede borrar los datos de una clienta.');
-    await expect(page.getByText('Solo la propietaria del estudio puede borrar los datos de una clienta.')).toHaveCount(1);
+    await expect(ventana.getByRole('alert')).toHaveText('Solo la propietaria del estudio puede borrar los datos de un cliente.');
+    await expect(page.getByText('Solo la propietaria del estudio puede borrar los datos de un cliente.')).toHaveCount(1);
     expect(intentos).toBeGreaterThan(0);
   });
 
@@ -163,7 +163,7 @@ test.describe('Clientas · borrar sus datos (RGPD)', () => {
   });
 });
 
-test.describe('Clientas · acciones en bloque', () => {
+test.describe('Clientes · acciones en bloque', () => {
   test('«Enviar acceso a la app» dice a quién le llega y cuenta lo que ha salido de verdad', async ({ page }) => {
     await montar(page);
     const envios: unknown[] = [];
@@ -186,7 +186,7 @@ test.describe('Clientas · acciones en bloque', () => {
     expect(envios[0]).toMatchObject({ tipo: 'bienvenida', socioId: 'soc-1' });
   });
 
-  test('una acción en bloque no cae sobre clientas que el filtro ha dejado fuera', async ({ page }) => {
+  test('una acción en bloque no cae sobre clientes que el filtro ha dejado fuera', async ({ page }) => {
     await montar(page);
     await ir(page, 'clientas');
     await page.getByRole('row', { name: /María García Fernández/ }).getByRole('checkbox').check();

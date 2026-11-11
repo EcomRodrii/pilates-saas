@@ -93,7 +93,7 @@ test('como Bonsai: cabecera con activos y total, buscador, grupos con su frase y
   await expect(tarjeta(page, '/explorar-funciones')).toHaveCount(0);
 
   // Los grupos, con su frase.
-  for (const [grupo, frase] of [['Operación', 'Clases, citas, alumnas'], ['Negocio', 'Lo que vendes, lo que cobras']]) {
+  for (const [grupo, frase] of [['Operación', 'Clases, citas, clientes'], ['Negocio', 'Lo que vendes, lo que cobras']]) {
     const g = page.getByRole('region', { name: grupo });
     await expect(g).toBeVisible();
     await expect(g.getByText(new RegExp(frase))).toBeVisible();
@@ -130,14 +130,14 @@ test('activar un módulo oculto guarda al momento: solo `ocultos`, y la tarjeta 
   await expect(page.getByRole('status').filter({ hasText: 'Informes vuelve a estar en tu menú' })).toBeVisible();
 });
 
-test('ocultar pregunta antes: qué deja de verse, qué notan las alumnas y qué sigue igual; «Cancelar» no escribe nada', async ({ page }) => {
+test('ocultar pregunta antes: qué deja de verse, qué notan los clientes y qué sigue igual; «Cancelar» no escribe nada', async ({ page }) => {
   const cuenta = await abrir(page);
   await tarjeta(page, '/calendario').getByRole('switch', { name: 'Calendario en el menú' }).click();
   const dialogo = page.getByRole('dialog', { name: '¿Ocultar Calendario?' });
   await expect(dialogo).toBeVisible();
   await expect(dialogo.getByRole('region', { name: 'Deja de verse' })).toContainText('«Calendario» en el menú, para ti y para tu equipo.');
   await expect(dialogo.getByRole('region', { name: 'Deja de verse' })).toContainText('Su botón en la barra de abajo del móvil.');
-  await expect(dialogo.getByRole('region', { name: 'En la app de tus alumnas' })).toContainText('siguen viendo tus clases y reservando');
+  await expect(dialogo.getByRole('region', { name: 'En la app de tus clientes' })).toContainText('siguen viendo tus clases y reservando');
   await expect(dialogo.getByRole('region', { name: 'Sigue igual' })).toContainText('No se borra nada');
   // Hay reservas por delante en el estudio sembrado: el aviso las cuenta.
   await expect(dialogo.getByTestId('aviso-ocultar')).toContainText(/Hay \d+ reservas? en tus próximas clases/);
@@ -148,12 +148,12 @@ test('ocultar pregunta antes: qué deja de verse, qué notan las alumnas y qué 
   await expect(tarjeta(page, '/calendario').getByRole('switch')).toHaveAttribute('aria-checked', 'true');
 });
 
-test('con automatizaciones encendidas, ocultarlas avisa de que seguirán escribiendo a las alumnas', async ({ page }) => {
+test('con automatizaciones encendidas, ocultarlas avisa de que seguirán escribiendo a los clientes', async ({ page }) => {
   await abrir(page, { automatizaciones: 2, activados: ['/automatizaciones'] });
   await tarjeta(page, '/automatizaciones').getByRole('switch').click();
   const dialogo = page.getByRole('dialog', { name: '¿Ocultar Automatizaciones?' });
-  await expect(dialogo.getByTestId('aviso-ocultar')).toContainText('Tienes 2 automatizaciones encendidas: seguirán escribiendo a tus alumnas.');
-  await expect(dialogo.getByRole('region', { name: 'En la app de tus alumnas' })).toContainText('Les siguen llegando los mensajes');
+  await expect(dialogo.getByTestId('aviso-ocultar')).toContainText('Tienes 2 automatizaciones encendidas: seguirán escribiendo a tus clientes.');
+  await expect(dialogo.getByRole('region', { name: 'En la app de tus clientes' })).toContainText('Les siguen llegando los mensajes');
 });
 
 test('confirmar ocultar manda solo `ocultos`; la tarjeta, el contador y el menú cambian, y «Deshacer» lo devuelve', async ({ page }) => {

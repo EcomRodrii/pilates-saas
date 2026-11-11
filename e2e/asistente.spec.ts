@@ -58,12 +58,12 @@ test('propietaria: la barra del Centro de Control lleva al chat; una pregunta tr
   expect(n.cuerpos[0]).toEqual({ pregunta: '¿Qué clases hay mañana?' });
   await expect(chat(page).getByTestId('chat-pregunta')).toHaveText('¿Qué clases hay mañana?');
   const respuesta = chat(page).getByTestId('chat-respuesta');
-  await expect(respuesta).toContainText('Mañana tienes 5 clases con 30 alumnas apuntadas.');
+  await expect(respuesta).toContainText('Mañana tienes 5 clases con 30 clientes apuntados.');
   // El nombre llegó aparte y se pinta donde iba la marca.
   await expect(respuesta).toContainText('con Marta Ruiz: está llena');
   await expect(respuesta).not.toContainText('[EQUIPO_1]');
   const metricas = chat(page).locator('[data-bloque="metricas"]');
-  await expect(metricas.locator('[data-metrica="Alumnas apuntadas"]')).toContainText('30');
+  await expect(metricas.locator('[data-metrica="Clientes apuntados"]')).toContainText('30');
   await expect(metricas.locator('[data-metrica="Cobrado este mes"]')).toContainText('frente a septiembre');
   const clases = chat(page).locator('[data-bloque="clases"]');
   await expect(clases.locator('[data-clase]')).toHaveCount(5);
@@ -91,7 +91,7 @@ test('propietaria: la barra del Centro de Control lleva al chat; una pregunta tr
 test('sin saldo: el texto exacto, y Tenti en fallo', async ({ page }) => {
   const n = await conAsistente(page, { responder: (r) => json(r, { error: 'Sin consultas disponibles', codigo: 'SIN_SALDO', disponibles: 0 }, 429) });
   await abrirDesdeLaBarra(page);
-  await sugerencia(page, '¿Cuántas alumnas activas tengo?').click();
+  await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByRole('alert')).toHaveText('Has usado las consultas de este mes. Vuelven el 1 de noviembre.');
   expect(n.preguntas).toBeGreaterThan(0);
   await expect(tenti(page)).toHaveAttribute('data-momento', 'fallo');
@@ -144,7 +144,7 @@ test('servidor apagado para el estudio: ni barra, ni fila en ⌘K, ni ⌘J; /asi
   await page.keyboard.press('Control+k');
   const buscador = page.getByRole('dialog', { name: 'Buscar' });
   await expect(buscador).toBeVisible({ timeout: 30_000 });
-  await buscador.getByRole('textbox').fill('¿cuántas alumnas activas tengo?');
+  await buscador.getByRole('textbox').fill('¿cuántos clientes activos tengo?');
   await page.waitForTimeout(400);
   await expect(page.getByTestId('buscador-preguntar')).toHaveCount(0);
   await page.keyboard.press('Escape');
@@ -163,9 +163,9 @@ test('gerente: ⌘K con una pregunta pone «Preguntar a Tentare» la primera y l
   const buscador = page.getByRole('dialog', { name: 'Buscar' });
   await expect(buscador).toBeVisible({ timeout: 30_000 });
   // Con la caja vacía, tres de ejemplo y ninguna de dinero.
-  await expect(buscador.getByRole('button', { name: '¿Cuántas alumnas activas tengo?' })).toBeVisible({ timeout: 15_000 });
+  await expect(buscador.getByRole('button', { name: '¿Cuántos clientes activos tengo?' })).toBeVisible({ timeout: 15_000 });
   await expect(buscador.getByRole('button', { name: /facturado|pagos/ })).toHaveCount(0);
-  await buscador.getByRole('textbox').fill('¿cuántas alumnas activas tengo?');
+  await buscador.getByRole('textbox').fill('¿cuántos clientes activos tengo?');
   const fila = page.getByTestId('buscador-preguntar');
   await expect(fila).toBeVisible();
   // La primera de todas las filas del buscador.
@@ -173,8 +173,8 @@ test('gerente: ⌘K con una pregunta pone «Preguntar a Tentare» la primera y l
   await fila.click();
   await expect(page).toHaveURL(/\/asistente$/, { timeout: 30_000 });
   await expect.poll(() => n.preguntas, { timeout: 60_000 }).toBe(1);
-  expect(n.cuerpos[0]).toEqual({ pregunta: '¿cuántas alumnas activas tengo?' });
-  await expect(chat(page).getByTestId('chat-pregunta')).toHaveText('¿cuántas alumnas activas tengo?');
+  expect(n.cuerpos[0]).toEqual({ pregunta: '¿cuántos clientes activos tengo?' });
+  await expect(chat(page).getByTestId('chat-pregunta')).toHaveText('¿cuántos clientes activos tengo?');
   // La pregunta no viaja en la URL (puede llevar el nombre de una alumna).
   expect(page.url()).not.toContain('alumnas');
   // Una búsqueda que no es pregunta deja la fila al final (no le roba la navegación).
@@ -190,7 +190,7 @@ test('recepción: ni barra ni fila, y nunca pregunta al servidor', async ({ page
   await page.keyboard.press('Control+k');
   const buscador = page.getByRole('dialog', { name: 'Buscar' });
   await expect(buscador).toBeVisible({ timeout: 30_000 });
-  await buscador.getByRole('textbox').fill('¿cuántas alumnas activas tengo?');
+  await buscador.getByRole('textbox').fill('¿cuántos clientes activos tengo?');
   await page.waitForTimeout(400);
   await expect(page.getByTestId('buscador-preguntar')).toHaveCount(0);
   expect(n.disponible).toBe(0);
@@ -262,7 +262,7 @@ for (const tema of ['claro', 'oscuro'] as const) {
       // Un stream que se queda a medias (page.route no entrega por partes): el
       // fetch de POST /api/asistente se sustituye en la página por uno que
       // empuja medio turno y no cierra.
-      const parcial = ndjson([...RESPUESTA.slice(0, 5), { t: 'texto', delta: 'Mañana tienes 5 clases con 30 alumnas apuntadas. La que pide atención es la de las 19:00 con [EQUIPO_1]' }]);
+      const parcial = ndjson([...RESPUESTA.slice(0, 5), { t: 'texto', delta: 'Mañana tienes 5 clases con 30 clientes apuntados. La que pide atención es la de las 19:00 con [EQUIPO_1]' }]);
       await page.addInitScript((cuerpo) => {
         const original = window.fetch.bind(window);
         window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {

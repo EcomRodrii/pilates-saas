@@ -31,7 +31,7 @@ export interface CategoriaFunciones {
 // el nombre sale del menú y la frase, de la ficha de su pantalla.
 const CATEGORIAS_BASE: { id: string; label: string; hrefs: string[] }[] = [
   { id: 'reservas', label: 'Reservas y calendario', hrefs: ['/calendario', '/citas', '/sustituciones'] },
-  { id: 'clientas', label: 'Clientas', hrefs: ['/clientas', '/mensajeria', '/libreta'] },
+  { id: 'clientas', label: 'Clientes', hrefs: ['/clientas', '/mensajeria', '/libreta'] },
   { id: 'cobros', label: 'Cobros y pagos', hrefs: ['/cobros', '/productos', '/cierre'] },
   { id: 'equipo', label: 'Equipo', hrefs: ['/equipo'] },
   { id: 'automatizaciones', label: 'Automatizaciones', hrefs: ['/automatizaciones'] },

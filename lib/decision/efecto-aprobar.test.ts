@@ -34,7 +34,7 @@ const CASOS: Array<{ caso: string; r: RecomendacionParaEfecto; canales?: Canales
     efecto: 'ENVIAR_EMAIL', rotulo: 'Enviar email',
   },
   {
-    caso: 'ENVIAR_EMAIL a una clienta sin email (o sin email configurado) no lo promete',
+    caso: 'ENVIAR_EMAIL a un cliente sin email (o sin email configurado) no lo promete',
     r: rec({ tipo: 'ENVIAR_REACTIVACION', accion: { tipo: 'ENVIAR_EMAIL' } }),
     canales: SIN_CANAL,
     efecto: 'MARCAR', rotulo: 'Hecho',

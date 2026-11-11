@@ -81,7 +81,7 @@ test.describe('Student PWA · pagos', () => {
     await expect(page.getByText('Mensual ilimitado')).toBeVisible({ timeout: 30_000 });
     const texto = await page.locator('body').innerText();
     expect(texto).toContain('Domiciliación bancaria');
-    expect(texto, 'jerga del esquema europeo de adeudos en la pantalla de una alumna').not.toContain('SEPA');
+    expect(texto, 'jerga del esquema europeo de adeudos en la pantalla de un cliente').not.toContain('SEPA');
   });
 
   test('la referencia es el número de FACTURA, no el id interno del recibo', async ({ page }) => {

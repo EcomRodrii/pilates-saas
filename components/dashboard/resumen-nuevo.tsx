@@ -167,11 +167,11 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
               href={props.puedeIr('/calendario') ? '/calendario' : null}
               valor={String(ocupacionHoy.clases)}
               arriba={`${ocupacionHoy.ocupadas}`}
-              abajo={ocupacionHoy.ocupadas === 1 ? 'alumna apuntada' : 'alumnas apuntadas'}
+              abajo={ocupacionHoy.ocupadas === 1 ? 'cliente apuntado' : 'clientes apuntados'}
             />
           )}
           <TarjetaCifra
-            etiqueta="Clientas activas"
+            etiqueta="Clientes activos"
             tono="magenta"
             Icono={Users}
             href={props.puedeIr('/clientas') ? (props.sinVenir30d ? '/clientas?mas=sin_venir_30d' : '/clientas') : null}
@@ -229,7 +229,7 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
 /** Lo que va al lado de las clientas activas: con cero clientas no hay «todas han venido». */
 function ladoClientas(activas: number | null, sinVenir: number | null): { arriba?: ReactNode; abajo: ReactNode } {
   if (activas === null || sinVenir === null) return { abajo: 'Contando…' };
-  if (activas === 0 && sinVenir === 0) return { abajo: 'Aún no tienes clientas activas' };
+  if (activas === 0 && sinVenir === 0) return { abajo: 'Aún no tienes clientes activos' };
   if (sinVenir === 0) return { arriba: 'Todas', abajo: 'han venido en 30 días' };
   return { arriba: <span style={{ color: 'var(--warning)' }}>{sinVenir} sin venir</span>, abajo: 'en 30 días' };
 }
@@ -240,7 +240,7 @@ function AccesosRapidos(props: ResumenNuevoProps & { slug: string | null }) {
   // Un atajo a una puerta cerrada es peor que no tener atajo: cada uno, con el
   // mismo permiso que pide su pantalla. Cada uno con su color, como en Bonsai.
   const accesos: { href: string; label: string; Icono: React.ElementType; tono: Tono; externo?: boolean }[] = [
-    ...(props.gestionaClientas ? [{ href: '/clientas?nuevo=1', label: 'Nueva clienta', Icono: UserPlus, tono: 'magenta' as Tono }] : []),
+    ...(props.gestionaClientas ? [{ href: '/clientas?nuevo=1', label: 'Nuevo cliente', Icono: UserPlus, tono: 'magenta' as Tono }] : []),
     ...(props.gestionaCalendario ? [{ href: '/calendario?nueva=1', label: 'Crear clase', Icono: CalendarPlus, tono: 'azul' as Tono }] : []),
     ...(props.mueveDinero ? [{ href: '/cobros?nuevo=cobro', label: 'Cobrar', Icono: CreditCard, tono: 'verde' as Tono }] : []),
     ...(props.puedeIr('/mensajeria') ? [{ href: '/mensajeria', label: 'Mensajes', Icono: MessageCircle, tono: 'indigo' as Tono }] : []),
@@ -303,7 +303,7 @@ function GraficaReservas({ reservas, hoy, href }: { reservas: ReturnType<typeof 
         puntos={ultimos.map(d => ({ eje: diaCorto(d.clave), nombre: diaLargo(d.clave), valor: d.valor }))}
         formato={n => `${n} reserva${n === 1 ? '' : 's'}`}
         enteros
-        vacio="Cada reserva que hagan tus alumnas, desde tu página o en el mostrador, sumará aquí."
+        vacio="Cada reserva que hagan tus clientes, desde tu página o en el mostrador, sumará aquí."
       />
     </TarjetaGrafica>
   );

@@ -4,14 +4,14 @@ import { abrirCajon, abrirSeccion, cajon, cerrarCajon, volverDeHerramienta } fro
 export const web: Capitulo = {
   id: 'web',
   titulo: 'Mi app y mi web',
-  frase: 'Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.',
+  frase: 'Cómo se ve tu estudio por fuera: la app de tus clientes, tu página de reservas y tu web.',
   async guion(g, pos) {
     const { page } = g;
     await abrirSeccion(g, pos, 'web', 'Mi app y mi web', 'Cómo se ve tu estudio por fuera.',
-      'Noveno capítulo: mi app y mi web. Cómo se ve tu estudio por fuera: la app de tus alumnas, tu página de reservas y tu web.');
+      'Noveno capítulo: mi app y mi web. Cómo se ve tu estudio por fuera: la app de tus clientes, tu página de reservas y tu web.');
 
     g.momento('direccion-y-enlaces');
-    await g.mientras('Dirección y enlaces. Aquí está el enlace de la app de tus alumnas, el que compartes con ellas, y la dirección de tu página de reservas, la que va en tu web, con el código QR de cada uno, para imprimir y poner en el escaparate o en la recepción.', async () => {
+    await g.mientras('Dirección y enlaces. Aquí está el enlace de la app de tus clientes, el que compartes con ellas, y la dirección de tu página de reservas, la que va en tu web, con el código QR de cada uno, para imprimir y poner en el escaparate o en la recepción.', async () => {
       await abrirCajon(g, 'direccion-y-enlaces');
     });
     await g.mientras('La dirección se forma con el nombre corto de tu estudio. Si la cambias, la anterior sigue funcionando: lo que ya hayas repartido no se pierde. Con un botón copias el enlace; con otro, abres el código QR.', async () => {
@@ -27,7 +27,7 @@ export const web: Capitulo = {
     });
 
     g.momento('pagina-publica');
-    await g.mientras('Ocultar tu página. Mientras la estás preparando, puedes hacer que tu página de reservas y la app de tus alumnas enseñen un aviso en vez de tus clases. Se puede proteger con una clave, para dejar pasar solo a quien tú quieras.', async () => {
+    await g.mientras('Ocultar tu página. Mientras la estás preparando, puedes hacer que tu página de reservas y la app de tus clientes enseñen un aviso en vez de tus clases. Se puede proteger con una clave, para dejar pasar solo a quien tú quieras.', async () => {
       await abrirCajon(g, 'pagina-publica');
       await g.pausa(800);
     });
@@ -36,11 +36,11 @@ export const web: Capitulo = {
     });
 
     g.momento('contenido-de-tu-app');
-    await g.mientras('Contenido de tu app. Las tarjetas de Descubre, un mensaje destacado y los avisos del tablón, en el inicio de la app de tus alumnas. Entramos.', async () => {
+    await g.mientras('Contenido de tu app. Las tarjetas de Descubre, un mensaje destacado y los avisos del tablón, en el inicio de la app de tus clientes. Entramos.', async () => {
       await g.clic(page.locator('#fila-herramienta-contenido-de-tu-app'));
       await page.getByRole('heading', { name: 'Contenido de tu app', exact: true }).waitFor();
     });
-    await g.mientras('El mensaje destacado es una frase que tus alumnas ven al abrir la app. Escribimos una novedad y la guardamos.', async () => {
+    await g.mientras('El mensaje destacado es una frase que tus clientes ven al abrir la app. Escribimos una novedad y la guardamos.', async () => {
       await g.escribe(page.getByPlaceholder(/estrenamos horario/), 'Este mes estrenamos clases de Reformer los sábados por la mañana.');
       await g.clic(page.getByRole('button', { name: 'Guardar mensaje' }));
       await g.pausa(900);
@@ -52,7 +52,7 @@ export const web: Capitulo = {
     await volverDeHerramienta(g, 'Mi app y mi web');
 
     g.momento('widgets');
-    await g.mientras('Widgets para tu web. Tu horario, tus precios y la cuenta de tus alumnas dentro de tu propia web, con un código para pegar. Entramos al constructor.', async () => {
+    await g.mientras('Widgets para tu web. Tu horario, tus precios y la cuenta de tus clientes dentro de tu propia web, con un código para pegar. Entramos al constructor.', async () => {
       await g.clic(page.locator('#fila-herramienta-widgets'));
       await page.getByRole('heading', { name: 'Widgets para tu web', exact: true }).first().waitFor();
     });

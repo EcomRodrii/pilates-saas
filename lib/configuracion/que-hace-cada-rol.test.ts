@@ -40,7 +40,7 @@ test('propietaria: todo, cobros incluidos, única en Informes y Automatizaciones
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
 });
 
-test('responsable de sede: agenda, alumnas, sustituciones y equipo, y en Configuración su horario, sus salas y sus clases; ni cobros ni informes', () => {
+test('responsable de sede: agenda, clientes, sustituciones y equipo, y en Configuración su horario, sus salas y sus clases; ni cobros ni informes', () => {
   for (const ruta of ['/calendario', '/clientas', '/sustituciones', '/equipo']) assert.equal(puedeVer('MANAGER', ruta), true, ruta);
   assert.equal(puedeGestionarClientas('MANAGER'), true);
   assert.equal(puedeGestionarEquipo('MANAGER'), true);
@@ -62,7 +62,7 @@ test('responsable de sede: agenda, alumnas, sustituciones y equipo, y en Configu
   }
 });
 
-test('recepción: agenda, alumnas y cobros; de la salud solo el semáforo; ni Equipo, ni Informes, ni Configuración', () => {
+test('recepción: agenda, clientes y cobros; de la salud solo el semáforo; ni Equipo, ni Informes, ni Configuración', () => {
   for (const ruta of ['/calendario', '/clientas', '/cobros']) assert.equal(puedeVer('RECEPCION', ruta), true, ruta);
   assert.equal(puedeGestionarClientas('RECEPCION'), true);
   assert.equal(puedeMoverDinero('RECEPCION'), true);
@@ -82,7 +82,7 @@ test('instructora: ninguna pantalla del panel, y lo que dice de su app existe', 
   assert.ok(existsSync(join(RAIZ, 'lib/student/baja-instructora.ts')), 'sus bajas en la app');
 });
 
-test('corto, y dice «alumna» e «instructora»', () => {
+test('corto, y dice «cliente» e «instructora»', () => {
   for (const r of QUE_HACE_CADA_ROL) {
     assert.ok(r.detalle.length <= 200, `${r.rol}: ${r.detalle.length} caracteres`);
     assert.ok(r.detalle.endsWith('.'), r.rol);

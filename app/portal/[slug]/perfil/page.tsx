@@ -53,7 +53,7 @@ export default function PerfilPage() {
     ]);
     return { alumna, huella, reservas, clases, bonos, plazaFija, gamificacion, metodoPago, pagos, renovacion };
   }, [estudio.slug]);
-  const { data, estado, reintentar } = useAsync(cargar, (d) => !d.alumna, `alumna:${estudio.slug}:perfil`);
+  const { data, estado, reintentar } = useAsync(cargar, (d) => !d.alumna, `cliente:${estudio.slug}:perfil`);
   const socia = data?.alumna ?? null;
   const hoy = hoyISO();
   const ahoraMs = useAhoraMs();

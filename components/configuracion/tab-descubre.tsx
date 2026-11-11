@@ -37,7 +37,7 @@ export function TabDescubre() {
   if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
     return (
       <p className="text-[13px] text-muted-foreground">
-        Solo la propietaria y gerencia pueden publicar contenido en la app de las alumnas.
+        Solo la propietaria y gerencia pueden publicar contenido en la app de los clientes.
       </p>
     );
   }

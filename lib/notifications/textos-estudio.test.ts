@@ -7,8 +7,8 @@ import {
 
 const EVENTOS = TIPOS_CON_TEXTO_EDITABLE.flatMap(g => g.tipos.map(t => t.evento));
 
-test('todo aviso de la alumna tiene texto de fábrica que editar', () => {
-  for (const e of EVENTOS) assert.ok(esTextoEditable(e), `${e} sin plantilla de alumna`);
+test('todo aviso del cliente tiene texto de fábrica que editar', () => {
+  for (const e of EVENTOS) assert.ok(esTextoEditable(e), `${e} sin plantilla de cliente`);
 });
 
 test('cada variable que puede usar el estudio tiene nombre en el panel y ejemplo en la vista previa', () => {

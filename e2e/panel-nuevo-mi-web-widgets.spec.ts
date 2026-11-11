@@ -95,7 +95,7 @@ test('panel nuevo: la web ya contestada abre «Qué y dónde» con su línea de 
   await expect(pasos.getByRole('button', { name: 'Qué y dónde' })).toHaveAttribute('aria-current', 'step');
   await expect(page.getByRole('heading', { name: 'Elige qué enseñas y dónde' })).toBeVisible();
   // El widget real sigue ahí: «Así lo verá tu alumna» y el cambio de dispositivo.
-  await expect(page.getByRole('heading', { name: 'Así lo verá tu alumna' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Así lo verá tu cliente' })).toBeVisible();
   await expect(page.getByRole('group', { name: 'Dispositivo de la vista previa' }).getByRole('button')).toHaveText(['Ordenador', 'Móvil']);
   // «Primeros pasos» flota abajo a la derecha y taparía la vista previa: mientras se ve, se esconde.
   await expect(page.locator('[data-primeros-pasos]:visible')).toHaveCount(0);

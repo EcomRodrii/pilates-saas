@@ -134,7 +134,7 @@ test('1b · cada evento que emite el servidor está en PROPS_PERMITIDAS', () => 
 
 // Nombres que delatan un dato de una persona. Contiene, no igual: `email_socia`
 // también cae.
-const PARECE_DATO_PERSONAL = /email|correo|telefono|phone|movil|nombre|name|apellido|dni|nif|nie\b|iban|direccion|address|socio|socia|alumna|cliente|usuario|user|salud|nacimiento|ip$/i;
+const PARECE_DATO_PERSONAL = /email|correo|telefono|phone|movil|nombre|name|apellido|dni|nif|nie\b|iban|direccion|address|socio|socia|cliente|cliente|usuario|user|salud|nacimiento|ip$/i;
 
 test('2 · ninguna prop de ningún catálogo se llama como un dato personal', () => {
   const props = [
@@ -163,11 +163,11 @@ const DE_LA_ALUMNA = [
   'components/student', 'components/reservar', 'components/widget',
 ];
 
-test('4 · nada de lo que ve la alumna importa la analítica del navegador', () => {
+test('4 · nada de lo que ve el cliente importa la analítica del navegador', () => {
   const fuera = DE_LA_ALUMNA.flatMap(d => ficheros(join(raiz, d)))
     .filter(f => /posthog-cliente|analytics-navegador|['"]posthog-js['"]/.test(readFileSync(f, 'utf8')))
     .map(rel);
-  assert.deepEqual(fuera, [], `Analítica importada en una pantalla de la alumna:\n${fuera.join('\n')}`);
+  assert.deepEqual(fuera, [], `Analítica importada en una pantalla del cliente:\n${fuera.join('\n')}`);
   // Y que la lista no se haya quedado mirando carpetas que ya no existen.
   assert.ok(ficheros(join(raiz, 'app/portal')).length > 0, 'app/portal no tiene ficheros: revisa DE_LA_ALUMNA');
 });

@@ -338,7 +338,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
               {!cargando && resumen.clases > 0 && (
                 <>
                   {' · '}{resumen.clases} clase{resumen.clases === 1 ? '' : 's'}
-                  {' · '}{resumen.alumnas} alumna{resumen.alumnas === 1 ? '' : 's'}
+                  {' · '}{resumen.alumnas} cliente{resumen.alumnas === 1 ? '' : 's'}
                 </>
               )}
             </p>
@@ -485,7 +485,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
         {!cargando && resumen.clases > 0 && (
           <p className="text-[11px] text-muted-foreground">
             {resumen.clases} clase{resumen.clases === 1 ? '' : 's'}
-            {' · '}{resumen.alumnas} alumna{resumen.alumnas === 1 ? '' : 's'}
+            {' · '}{resumen.alumnas} cliente{resumen.alumnas === 1 ? '' : 's'}
             {resumen.huecos > 0 && <> · {resumen.huecos} hueco{resumen.huecos === 1 ? '' : 's'}</>}
             {resumen.pendientes > 0 && <> · {resumen.pendientes} pendiente{resumen.pendientes === 1 ? '' : 's'}</>}
           </p>
@@ -556,7 +556,7 @@ export function HoyEnElEstudio({ nueva = false }: { nueva?: boolean } = {}) {
 
         {!cargando && !fallo && clases.length > 0 && resumen.problemas === 0 && resumen.pendientes === 0 && (
           <p className="border-t border-muted px-5 py-3 text-[12px] text-muted-foreground">
-            Todo preparado{esHoy ? ' para hoy' : ''} · {resumen.clases} clase{resumen.clases === 1 ? '' : 's'} · {resumen.alumnas} alumna{resumen.alumnas === 1 ? '' : 's'}
+            Todo preparado{esHoy ? ' para hoy' : ''} · {resumen.clases} clase{resumen.clases === 1 ? '' : 's'} · {resumen.alumnas} cliente{resumen.alumnas === 1 ? '' : 's'}
           </p>
         )}
       </div>

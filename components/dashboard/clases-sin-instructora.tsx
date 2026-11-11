@@ -109,7 +109,7 @@ export function ClasesSinInstructora({ onToast }: { onToast: MostrarToast }) {
                         <input type="checkbox" checked={!fuera.has(s.id)}
                           onChange={(e) => setFuera(prev => { const x = new Set(prev); if (e.target.checked) x.delete(s.id); else x.add(s.id); return x; })} />
                         <span className="truncate">{cuando(s.inicio)} · {tipo}{s.serieId ? ' · se repite' : ''}</span>
-                        <span className="ml-auto shrink-0 text-muted-foreground">{n === 0 ? 'sin alumnas' : `${n} alumna${n === 1 ? '' : 's'}`}</span>
+                        <span className="ml-auto shrink-0 text-muted-foreground">{n === 0 ? 'sin clientes' : `${n} cliente${n === 1 ? '' : 's'}`}</span>
                       </label>
                     </li>
                   );

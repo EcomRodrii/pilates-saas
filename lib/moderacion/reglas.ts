@@ -37,7 +37,7 @@ export const HORAS_REVISION_ESTUDIO = 24;
  * Opción prudente mientras no haya dictamen sobre menores (duda abierta,
  * 5-oct-2026): con una alumna menor de 14 no se abre un chat con instructora.
  */
-export const TEXTO_MENOR_CHAT = 'Con alumnas menores de 14 años, los mensajes van por el estudio.';
+export const TEXTO_MENOR_CHAT = 'Con clientes menores de 14 años, los mensajes van por el estudio.';
 
 // ── Mensajes ─────────────────────────────────────────────────────────────────
 

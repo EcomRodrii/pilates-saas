@@ -471,8 +471,8 @@ export function pasosDeHoy(estudios: readonly FilaEmbudo[]): PasoVista[] {
     de: medibles.length === 0 ? null : medibles.length,
   });
   return [
-    paso('alumnas_cargadas', `${ALUMNAS_CARGADAS_MINIMO}+ alumnas cargadas`, e => e.alumnasCargadas >= ALUMNAS_CARGADAS_MINIMO),
-    paso('alumnas_en_app', 'Alguna alumna con cuenta en la app', e => e.alumnasConCuenta > 0),
+    paso('alumnas_cargadas', `${ALUMNAS_CARGADAS_MINIMO}+ clientes cargados`, e => e.alumnasCargadas >= ALUMNAS_CARGADAS_MINIMO),
+    paso('alumnas_en_app', 'Algún cliente con cuenta en la app', e => e.alumnasConCuenta > 0),
     paso('stripe_conectado', 'Stripe conectado', e => e.conStripe),
   ];
 }

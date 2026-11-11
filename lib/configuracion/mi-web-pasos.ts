@@ -90,7 +90,7 @@ export function pasosMiWeb(d: DatosMiWeb): PasoMiWeb[] {
   return [
     {
       id: 'direccion', orden: 1, titulo: 'Tu dirección y tus enlaces', peso: 'imprescindible',
-      porque: 'Es la dirección de tu estudio en Tentare: la app de tus alumnas (lo que compartes en Instagram o en la puerta), tu página de reservas (la que se integra en tu web) y tus widgets cuelgan de ella. Aquí tienes también el enlace y el QR de tu web.',
+      porque: 'Es la dirección de tu estudio en Tentare: la app de tus clientes (lo que compartes en Instagram o en la puerta), tu página de reservas (la que se integra en tu web) y tus widgets cuelgan de ella. Aquí tienes también el enlace y el QR de tu web.',
       donde: 'La barra del navegador, el QR impreso y cada enlace que compartes o pegas en tu web',
       cuando: 'Al guardar. La de antes sigue llevando aquí',
       estado: d.direccion ? d.direccion : 'Tu estudio aún no tiene dirección de reservas',
@@ -106,7 +106,7 @@ export function pasosMiWeb(d: DatosMiWeb): PasoMiWeb[] {
       estado: d.descripcion ? 'Ya te presentas' : 'Falta: aún no te has presentado',
       tono: d.descripcion ? 'hecho' : 'falta',
       hecho: d.descripcion,
-      nota: 'No sale en la app de tus alumnas. Tu lema sigue en Mi app.',
+      nota: 'No sale en la app de tus clientes. Tu lema sigue en Mi app.',
     },
     {
       id: 'widgets', orden: 3, titulo: 'Ponla en tu web: tus widgets', peso: 'recomendado',
@@ -119,7 +119,7 @@ export function pasosMiWeb(d: DatosMiWeb): PasoMiWeb[] {
     {
       id: 'quien-la-ve', orden: 4, titulo: 'Quién ve tu página', peso: 'opcional',
       porque: 'Solo si aún la estás preparando: la escondes y enseña «Estamos preparando esta página». Nadie reserva, compra ni se da de alta desde fuera; con una clave, entra quien tú quieras.',
-      donde: 'Tu página, la app de tus alumnas y los widgets que ya tienes pegados',
+      donde: 'Tu página, la app de tus clientes y los widgets que ya tienes pegados',
       cuando: 'Al momento, al guardar, también en lo que ya tienes pegado en tu web',
       ...pagina,
       // Visible es lo normal: no hay nada que hacer.

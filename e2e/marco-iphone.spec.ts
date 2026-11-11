@@ -103,12 +103,12 @@ test('«Apariencia de tu app»: la app real va dentro del iPhone, a 402 × 874, 
 
   const marco = page.getByTestId('iphone-pantalla').first();
   await expect(marco.getByTestId('iphone-isla')).toBeVisible();
-  const iframe = page.locator('iframe[title="Vista previa de la app de tus alumnas"]');
+  const iframe = page.locator('iframe[title="Vista previa de la app de tus clientes"]');
   const medida = await iframe.evaluate((el) => ({ w: (el as HTMLIFrameElement).offsetWidth, h: (el as HTMLIFrameElement).offsetHeight }));
   expect(medida).toEqual({ w: 402, h: 874 });
 
   // La app lee el margen de un iPhone de `--safe-top`: sin él, su cabecera quedaría bajo la isla.
-  const app = page.frameLocator('iframe[title="Vista previa de la app de tus alumnas"]').locator('.student-app').first();
+  const app = page.frameLocator('iframe[title="Vista previa de la app de tus clientes"]').locator('.student-app').first();
   await app.waitFor({ timeout: 90_000 });
   await expect.poll(() => app.evaluate((el) => getComputedStyle(el).getPropertyValue('--safe-top').trim())).toBe('62px');
   await expect.poll(() => app.evaluate((el) => getComputedStyle(el).getPropertyValue('--safe-bottom').trim())).toBe('34px');

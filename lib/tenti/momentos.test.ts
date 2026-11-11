@@ -114,9 +114,9 @@ test('fraseDeHoy: primero quien viene por primera vez, luego lo encontrado, el r
   assert.deepEqual(fraseDeHoy({ resumen: { problemas: 0, alumnas: 12 }, clases, primerasVeces: 0, record: false, estado: 'reposo' }),
     { texto: 'Tentare ha encontrado 1 clase con hueco que puedes llenar.', soloHuecos: true });
   assert.equal(fraseDeHoy({ resumen: { problemas: 0, alumnas: 12 }, clases, primerasVeces: 2, record: true, estado: 'reposo' })?.texto,
-    '2 alumnas vienen hoy por primera vez. Tentare ha encontrado 1 clase con hueco que puedes llenar. Hoy es el día con más alumnas desde que usas Tentare (12).');
+    '2 clientes vienen hoy por primera vez. Tentare ha encontrado 1 clase con hueco que puedes llenar. Hoy es el día con más clientes desde que usas Tentare (12).');
   assert.equal(fraseDeHoy({ resumen: { problemas: 0, alumnas: 0 }, clases: [], primerasVeces: 1, record: false, estado: 'dormido' })?.texto,
-    `Una alumna ha venido hoy por primera vez. ${FRASE_DORMIDO.sinClases}`);
+    `Un cliente ha venido hoy por primera vez. ${FRASE_DORMIDO.sinClases}`);
   assert.equal(fraseDeHoy({ resumen: { problemas: 0, alumnas: 0 }, clases: [{ finalizada: false, estado: 'OK', huecos: 0 }] as never, primerasVeces: 0, record: false, estado: 'reposo' }), null);
   const conProblema = fraseDeHoy({
     resumen: { problemas: 1, alumnas: 5 }, clases: [{ finalizada: false, estado: 'SIN_INSTRUCTORA', huecos: 2 }] as never,
@@ -132,7 +132,7 @@ test('emocionDeHoy: amor > orgullo > guiño, y nada si no hay qué contar', () =
   assert.equal(emocionDeHoy({ primerasVeces: 0, record: false, soloHuecos: false }), null);
 });
 
-test('esRecordDelDia: con 55 días de historia, no; empatar el máximo, no; 9 alumnas, no', () => {
+test('esRecordDelDia: con 55 días de historia, no; empatar el máximo, no; 9 clientes, no', () => {
   assert.equal(esRecordDelDia({ alumnasHoy: 20, maxPrevio: 12, diasDeHistoria: 56 }), true);
   assert.equal(esRecordDelDia({ alumnasHoy: 20, maxPrevio: 12, diasDeHistoria: 55 }), false);
   assert.equal(esRecordDelDia({ alumnasHoy: 12, maxPrevio: 12, diasDeHistoria: 90 }), false);

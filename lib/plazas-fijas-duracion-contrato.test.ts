@@ -73,7 +73,7 @@ test('la bandeja del estudio dice cuánto durará una petición suelta', () => {
   assert.match(SERVIDOR, /f\.tipo === 'CREAR' && f\.duracion_meses \? ` · \$\{etiquetaDuracion\(f\.duracion_meses\)\}` : ''/);
 });
 
-test('⚠️ la app de la alumna pasa «hoy» a la ficha y al horario: una plaza vencida no la deja con «Ya es tu clase fija»', () => {
+test('⚠️ la app del cliente pasa «hoy» a la ficha y al horario: una plaza vencida no la deja con «Ya es tu clase fija»', () => {
   assert.match(leer('lib/student/mapeo.ts'), /plazaFijaEnClaseDe\(clase, sesiones, [^)]*, tieneCuota, hoyEnEstudio\(\)\)/);
   const cf = leer('lib/student/clases-fijas.ts');
   assert.match(cf.slice(cf.indexOf('plazaFijaEnFranja(\n')), /^plazaFijaEnFranja\(\n\s+f, socia\?\.plazasFijas[\s\S]*?\n\s+hoy,\n\s+\),/);

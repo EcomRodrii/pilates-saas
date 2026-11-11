@@ -391,7 +391,7 @@ function EditorTarjeta({ banner, hoy, onVolver, onAvisar }: {
         open={borrar}
         onOpenChange={setBorrar}
         titulo="¿Eliminar esta tarjeta?"
-        descripcion="Se quita de la app de tus alumnas. No se puede deshacer. Si solo quieres quitarla un tiempo, apaga «Que la vean en su app»."
+        descripcion="Se quita de la app de tus clientes. No se puede deshacer. Si solo quieres quitarla un tiempo, apaga «Que la vean en su app»."
         textoConfirmar="Eliminar"
         destructivo
         onConfirm={() => void eliminar()}
@@ -526,7 +526,7 @@ function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQu
   return (
     <div className="space-y-5" data-testid="editor-mensaje">
       <div>
-        <h3 className="text-[20px] font-semibold tracking-tight text-foreground">Un mensaje para todas tus alumnas</h3>
+        <h3 className="text-[20px] font-semibold tracking-tight text-foreground">Un mensaje para todas tus clientes</h3>
         <p className="max-w-[56ch] text-[13.5px] text-muted-foreground">
           Sale arriba en el inicio de su app, justo debajo de su próxima clase, mientras tenga texto. Para algo puntual: un cierre, un cambio de horario, una bienvenida.
         </p>
@@ -584,7 +584,7 @@ function EditorMensaje({ guardado, borrador, onBorrador, estado, onGuardar, onQu
         <section className="space-y-3 rounded-2xl border border-border bg-muted/40 p-4" aria-labelledby="avisos-de-antes">
           <h4 id="avisos-de-antes" className="text-[14px] font-semibold text-foreground">Avisos que escribiste antes</h4>
           <p className="text-[12.5px] text-muted-foreground">
-            Tus alumnas no los ven: su app ya no tiene ese apartado. Si quieres que uno les llegue, pásalo a mensaje destacado. No se borra ninguno.
+            Tus clientes no los ven: su app ya no tiene ese apartado. Si quieres que uno les llegue, pásalo a mensaje destacado. No se borra ninguno.
           </p>
           <ul className="space-y-2">
             {avisos.map(a => (
@@ -703,7 +703,7 @@ export function ContenidoDeTuApp() {
   // Misma puerta que la RLS de las dos tablas (PROPIETARIO/MANAGER): la UI no es el
   // límite, pero no se enseña un editor que el servidor va a rechazar.
   if (rol !== 'PROPIETARIO' && rol !== 'MANAGER') {
-    return <p className="text-[13px] text-muted-foreground">Solo la propietaria y gerencia pueden publicar contenido en la app de las alumnas.</p>;
+    return <p className="text-[13px] text-muted-foreground">Solo la propietaria y gerencia pueden publicar contenido en la app de los clientes.</p>;
   }
 
   const enVista: TarjetaEnVista[] = hoy ? tarjetas.flatMap(t => {
@@ -725,7 +725,7 @@ export function ContenidoDeTuApp() {
       style={FONDO_VISTA_MOVIL}
     >
       <div className="flex w-full items-center justify-between gap-2">
-        <span className="rounded-full bg-black/35 px-3 py-1 text-[13.5px] font-semibold text-white">Así lo ven tus alumnas</span>
+        <span className="rounded-full bg-black/35 px-3 py-1 text-[13.5px] font-semibold text-white">Así lo ven tus clientes</span>
         {cerrar ? (
           <button type="button" onClick={cerrar} aria-label="Cerrar"
             className="zona-tactil flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-white hover:bg-black/45">
@@ -817,7 +817,7 @@ export function ContenidoDeTuApp() {
       <DashboardSheet
         open={hoja}
         onClose={() => setHoja(false)}
-        label="Así lo ven tus alumnas"
+        label="Así lo ven tus clientes"
         sheetClassName="w-full max-w-md rounded-[30px]"
       >
         {panelVista(() => setHoja(false))}

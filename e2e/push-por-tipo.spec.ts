@@ -34,7 +34,7 @@ async function mockPreferencias(page: Page, prefs: Record<string, unknown>, esta
 
 const interruptor = (page: Page, nombre: string) => page.getByRole('switch', { name: nombre, exact: true });
 
-test.describe('Alumna · push por tipo de aviso', () => {
+test.describe('Cliente · push por tipo de aviso', () => {
   async function montar(page: Page, estadoPut = 200) {
     await sembrarSociaLista(page);
     await page.route((u) => u.pathname === '/api/notifications', (r) => json(r, { items: [] }));

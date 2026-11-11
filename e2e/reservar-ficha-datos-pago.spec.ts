@@ -367,7 +367,7 @@ test('escritorio (1280×800): la clase a la izquierda y los datos a la derecha',
 
 test('móvil: el pago empieza justo debajo de la foto', async ({ page }) => {
   await abrirDatos(page, 'tentare', MOVIL);
-  await page.getByPlaceholder('Nombre y apellido').fill('Nueva Alumna');
+  await page.getByPlaceholder('Nombre y apellido').fill('Nuevo Cliente');
   await page.getByPlaceholder('Email').fill('nueva@example.com');
   await page.getByPlaceholder('Móvil').fill('+34 600 123 456');
   await page.getByRole('checkbox', { name: /política de privacidad/i }).check();

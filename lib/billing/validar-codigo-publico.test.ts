@@ -81,7 +81,7 @@ test('con sesión: responde con el historial de la socia de la sesión, nunca co
 test('con sesión: su propio historial y «solo nuevas» siguen aplicándose', async () => {
   const { deps } = montar({ token: 'user-otra', fichas: { 'user-otra': 'socia-otra' } });
   assert.deepEqual((await pedir('BIENVENIDA', true, deps)).cuerpo, { ok: false, motivo: 'Ya has usado este código antes' });
-  assert.deepEqual((await pedir('SOLONUEVAS', true, deps)).cuerpo, { ok: false, motivo: 'Ese código es solo para clientas nuevas' });
+  assert.deepEqual((await pedir('SOLONUEVAS', true, deps)).cuerpo, { ok: false, motivo: 'Ese código es solo para clientes nuevos' });
 });
 
 test('sin socia (pagar y reservar sin cuenta): comprobación permisiva de siempre, sin mirar sesión', async () => {

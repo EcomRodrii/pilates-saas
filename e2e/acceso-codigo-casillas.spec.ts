@@ -85,7 +85,7 @@ test.describe('Entrar en el estudio con el código del correo', () => {
   test.describe.configure({ timeout: 240_000 });
   test.use({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
 
-  test('código mal: lo dice con los intentos que quedan; con el bueno, la alumna conocida entra sin más', async ({ page }) => {
+  test('código mal: lo dice con los intentos que quedan; con el bueno, el cliente conocido entra sin más', async ({ page }) => {
     const c = await montar(page, { conocida: true });
     await expect(page.getByRole('heading', { name: 'Mira tu correo' })).toHaveCount(0);
     const primera = await pedirCodigo(page);
@@ -113,7 +113,7 @@ test.describe('Entrar en el estudio con el código del correo', () => {
     await page.getByTestId('codigo-correo').fill(CODIGO_BUENO);
     await expect(page).not.toHaveURL(/\/acceso\//, { timeout: 120_000 });
     expect(c.intentos).toEqual(['000000', CODIGO_BUENO]);
-    expect(c.fichas, 'ya era alumna: no se le da de alta otra vez').toHaveLength(0);
+    expect(c.fichas, 'ya era cliente: no se le da de alta otra vez').toHaveLength(0);
   });
 
   test('nueva en el estudio: después del código, «Tus datos» con la privacidad DEL ESTUDIO, y la da de alta', async ({ page }) => {

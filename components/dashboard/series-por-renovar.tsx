@@ -87,7 +87,7 @@ export function SeriesPorRenovar({ onToast }: { onToast: MostrarToast }) {
                 <p className="truncate text-[13px] text-foreground">{n}</p>
                 <p className={s.terminada ? 'text-[11px] font-medium text-destructive' : 'text-[11px] text-muted-foreground'}>
                   {textoFinSerie(s.ultimaFecha, hoy)}
-                  {s.plazasFijas > 0 && ` · ${s.plazasFijas === 1 ? '1 alumna con clase fija' : `${s.plazasFijas} alumnas con clase fija`}`}
+                  {s.plazasFijas > 0 && ` · ${s.plazasFijas === 1 ? '1 cliente con clase fija' : `${s.plazasFijas} clientes con clase fija`}`}
                   {s.renovacionAutomatica && ' · se renueva sola'}
                 </p>
               </div>

@@ -4,11 +4,11 @@ import { abrirCajon, abrirSeccion, cajon, cerrarCajon, fila, guardarYCerrar, vol
 export const cobros: Capitulo = {
   id: 'cobros',
   titulo: 'Cobros y facturas',
-  frase: 'Cómo te pagan tus alumnas y qué sale en tus facturas.',
+  frase: 'Cómo te pagan tus clientes y qué sale en tus facturas.',
   async guion(g, pos) {
     const { page } = g;
-    await abrirSeccion(g, pos, 'cobros', 'Cobros y facturas', 'Cómo te pagan tus alumnas y qué sale en tus facturas.',
-      'Cuarto capítulo: cobros y facturas. Aquí decides cómo te pagan tus alumnas y qué sale en tus facturas. Es la parte donde hay dinero de verdad, así que en este vídeo vamos a explicar lo que mueve dinero sin ejecutarlo.');
+    await abrirSeccion(g, pos, 'cobros', 'Cobros y facturas', 'Cómo te pagan tus clientes y qué sale en tus facturas.',
+      'Cuarto capítulo: cobros y facturas. Aquí decides cómo te pagan tus clientes y qué sale en tus facturas. Es la parte donde hay dinero de verdad, así que en este vídeo vamos a explicar lo que mueve dinero sin ejecutarlo.');
 
     // ── Datos fiscales ──
     g.momento('datos-fiscales');
@@ -19,7 +19,7 @@ export const cobros: Capitulo = {
     await g.mientras('El NIF o CIF. Tentare comprueba que sea válido: si no lo es, tus cobros se quedan sin factura, y la fila te avisa con una etiqueta. Aquí ponemos uno de ejemplo.', async () => {
       await g.escribe(cajon(page).getByLabel('NIF / CIF'), 'B40000002');
     });
-    await g.mientras('El IVA general es el veintiuno por ciento. Tus precios llevan el IVA incluido, así que cambiarlo cambia el desglose de la factura, no lo que paga la alumna. Y solo afecta a las facturas nuevas. Guardamos.', async () => {
+    await g.mientras('El IVA general es el veintiuno por ciento. Tus precios llevan el IVA incluido, así que cambiarlo cambia el desglose de la factura, no lo que paga el cliente. Y solo afecta a las facturas nuevas. Guardamos.', async () => {
       await g.ir(cajon(page).getByLabel('IVA general'));
       await guardarYCerrar(g);
     });
@@ -47,7 +47,7 @@ export const cobros: Capitulo = {
 
     // ── Cuándo se cobra la cuota ──
     g.momento('cuando-se-cobra-la-cuota');
-    await g.mientras('Cuándo se cobra la cuota mensual. Cada alumna puede pagar en su aniversario, el mismo día del mes en que contrató; o todas el día uno de cada mes, y entonces cada cuota se realinea sola en su próxima renovación.', async () => {
+    await g.mientras('Cuándo se cobra la cuota mensual. Cada cliente puede pagar en su aniversario, el mismo día del mes en que contrató; o todas el día uno de cada mes, y entonces cada cuota se realinea sola en su próxima renovación.', async () => {
       await abrirCajon(g, 'cuando-se-cobra-la-cuota');
       await g.ir(cajon(page).getByRole('radio', { name: /Todas el día 1/ }));
     });
@@ -69,7 +69,7 @@ export const cobros: Capitulo = {
 
     // ── Devoluciones ──
     g.momento('devoluciones');
-    await g.mientras('Devoluciones. Si lo activas, puedes devolver un cobro desde la ficha de la alumna, y el dinero vuelve a su tarjeta. Si está apagado, las devoluciones las haces desde Stripe. Depende del cobro con tarjeta, así que aquí la dejamos apagada.', async () => {
+    await g.mientras('Devoluciones. Si lo activas, puedes devolver un cobro desde la ficha del cliente, y el dinero vuelve a su tarjeta. Si está apagado, las devoluciones las haces desde Stripe. Depende del cobro con tarjeta, así que aquí la dejamos apagada.', async () => {
       await abrirCajon(g, 'devoluciones');
       await g.ir(cajon(page).getByRole('switch', { name: /Permitir devolver/ }));
     });
@@ -83,14 +83,14 @@ export const cobros: Capitulo = {
       await abrirCajon(g, 'si-se-cancela-una-cuota');
       await g.ir(cajon(page).getByRole('radio', { name: /Se anula/ }));
     });
-    await g.mientras('Y si la alumna puede renovar su cuota ella sola desde su app. Lo dejamos como viene y cerramos.', async () => {
+    await g.mientras('Y si el cliente puede renovar su cuota ella sola desde su app. Lo dejamos como viene y cerramos.', async () => {
       await g.ir(cajon(page).getByRole('switch', { name: /renueve ella/ }));
       await cerrarCajon(g);
     });
 
     // ── Códigos de descuento ──
     g.momento('codigos-descuento');
-    await g.mientras('Códigos de descuento, en Promociones. Códigos que tus alumnas usan al pagar, o que canjeas tú en el mostrador. Entramos y creamos uno de bienvenida.', async () => {
+    await g.mientras('Códigos de descuento, en Promociones. Códigos que tus clientes usan al pagar, o que canjeas tú en el mostrador. Entramos y creamos uno de bienvenida.', async () => {
       await g.clic(page.locator('#fila-herramienta-codigos-descuento'));
       await page.getByRole('heading', { name: 'Códigos de descuento', exact: true }).first().waitFor();
       await g.clic(page.getByRole('button', { name: 'Nuevo código' }));

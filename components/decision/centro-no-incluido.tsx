@@ -34,7 +34,7 @@ export function CentroNoIncluido({ pruebaVencida, complemento = false }: { prueb
         <p className="text-[14.5px] leading-relaxed text-muted-foreground text-pretty">
           {pruebaVencida
             ? 'Elige un plan para volver a entrar. Tus datos siguen guardados tal como los dejaste.'
-            : 'Cada día te dice lo único que merece tu atención —un impago, una clase que no se llena, una alumna que se te va— y, si quieres, hace solo lo que ya has aprobado muchas veces.'}
+            : 'Cada día te dice lo único que merece tu atención —un impago, una clase que no se llena, un cliente que se te va— y, si quieres, hace solo lo que ya has aprobado muchas veces.'}
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">

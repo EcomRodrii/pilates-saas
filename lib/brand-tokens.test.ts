@@ -180,7 +180,7 @@ test('ninguna clase usa una utilidad de lado que el espacio `t-` vuelve ambigua'
   assert.deepEqual(usos, [], `clases ambiguas (${ambiguas.join(', ')}) en: ${usos.join(', ')}`);
 });
 
-test('una utilidad global de la marca no se cuela en la app de la alumna', () => {
+test('una utilidad global de la marca no se cuela en la app del cliente', () => {
   // La app de la alumna tiene sus propias `.t-*` (marca blanca, fase 16). Si la marca
   // define una con el mismo nombre, la regla de la alumna gana por especificidad,
   // pero SOLO en lo que declara: lo que no declare, se hereda de la global.

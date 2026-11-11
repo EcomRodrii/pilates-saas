@@ -114,7 +114,7 @@ export function FelicidadesCrecimiento() {
             <p className="text-[15px] font-bold text-foreground tabular-nums">{precio} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></p>
           </div>
           <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground text-pretty">
-            Todo igual que ahora, sin límite de alumnas ni de reservas. Tienes hasta el {fechaLarga(cierraEl)} para dar el paso; mientras tanto, nada cambia.
+            Todo igual que ahora, sin límite de clientes ni de reservas. Tienes hasta el {fechaLarga(cierraEl)} para dar el paso; mientras tanto, nada cambia.
           </p>
         </div>
 

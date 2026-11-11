@@ -149,7 +149,7 @@ function formatHora(iso: string) {
 
 // Las notas de sesión son dato de salud: la RLS de `notas_progreso` y la ruta de
 // IA exigen el consentimiento de salud vigente de la socia.
-const SIN_CONSENTIMIENTO_SALUD = 'Registra primero el consentimiento de salud de esta clienta.';
+const SIN_CONSENTIMIENTO_SALUD = 'Registra primero el consentimiento de salud de este cliente.';
 
 const inputCls = "w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground focus:outline-none focus:border-foreground transition-colors";
 
@@ -610,9 +610,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   if (!socio) {
     return (
       <div className="text-center py-20">
-        <p className="font-medium text-muted-foreground">Clienta no encontrada.</p>
+        <p className="font-medium text-muted-foreground">Cliente no encontrada.</p>
         <Link href="/clientas" className="text-sm mt-3 inline-block font-semibold text-brand-secondary">
-          ← Volver a clientas
+          ← Volver a clientes
         </Link>
       </div>
     );
@@ -736,8 +736,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
       const r = await volverADarDeAlta(id);
       if (!r.ok) { setToastError(r.error); return; }
       setToast(r.cuotasSinRenovar > 0
-        ? `${socio?.nombre ?? 'La clienta'} vuelve a estar de alta. Su cuota sigue sin renovarse: si quieres que siga, quita la baja programada en su plan.`
-        : `${socio?.nombre ?? 'La clienta'} vuelve a estar de alta.`);
+        ? `${socio?.nombre ?? 'El cliente'} vuelve a estar de alta. Su cuota sigue sin renovarse: si quieres que siga, quita la baja programada en su plan.`
+        : `${socio?.nombre ?? 'El cliente'} vuelve a estar de alta.`);
     } finally {
       setDandoDeAlta(false);
     }
@@ -1298,7 +1298,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
         {modo === 'pagina' && (
           <Link href="/clientas" onClick={volverALista} className="zona-tactil inline-flex min-h-10 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
             <ArrowLeft size={16} aria-hidden />
-            Clientas
+            Clientes
           </Link>
         )}
 
@@ -2660,7 +2660,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               </select>
             </FF>
             <p className="-mt-2 text-[11px] text-muted-foreground">
-              Solo cambia cómo se escribe en el panel («clienta»/«cliente», «alumna»/«alumno»). Sin indicar, en femenino.
+              Solo cambia cómo se escribe en el panel («cliente»/«cliente», «cliente»/«alumno»). Sin indicar, en femenino.
             </p>
             <div className="grid grid-cols-2 gap-4">
               <FF label="Teléfono">
@@ -2878,7 +2878,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
           {ventaPorAsignar && (
             <div className="space-y-3 mt-2">
               <p className="text-sm text-muted-foreground">
-                «{ventaPorAsignar.nombrePlan}» se cobró en el mostrador sin clienta y está por asignar.
+                «{ventaPorAsignar.nombrePlan}» se cobró en el mostrador sin cliente y está por asignar.
                 Si es de {socio.nombre}, asígnale esa venta: se le entrega el plan sin cobrarlo otra vez.
               </p>
               <ul className="space-y-2">

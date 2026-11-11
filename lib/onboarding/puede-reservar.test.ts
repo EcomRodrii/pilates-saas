@@ -110,7 +110,7 @@ test('(11) con 7 días de antelación y la clase a 17, dice cuándo se abre: el 
   assert.deepEqual(conTipo, { estado: 'SI' });
 });
 
-test('(12) apertura suave: las clases de antes del día de apertura no son para una alumna nueva', () => {
+test('(12) apertura suave: las clases de antes del día de apertura no son para un cliente nuevo', () => {
   const r = evaluar(datos({ estudio: { aperturaSuave: true, fechaApertura: '2026-10-15' } }));
   assert.deepEqual(r, { estado: 'NO', motivo: 'APERTURA_SUAVE', abreEl: inicioDelDiaEstudio('2026-10-15') });
   // Las de después de abrir, sí: la regla es por fecha, igual que en el servidor.
@@ -199,7 +199,7 @@ test('un cierre del centro tapa la clase: reservar_plaza la rechaza ese día', (
   );
 });
 
-test('«solo para alumnas autorizadas»: una alumna nueva no puede', () => {
+test('«solo para clientes autorizados»: un cliente nuevo no puede', () => {
   const r = evaluar(datos({
     tipos: [{ id: 'tc-1', reservaExigirPlan: null, reservaVentanaMinimaMinutos: null, reservaAntelacionMaximaDias: null, requiereAutorizacion: true }],
   }));

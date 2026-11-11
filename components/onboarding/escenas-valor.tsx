@@ -206,7 +206,7 @@ export function EscenaSustituciones({ activa }: PropsEscena) {
       </>}
       despues={<>
         <Resuelto texto="Carmen da la clase" meta="Aceptó" />
-        <Resuelto texto="Las 8 alumnas, avisadas" meta="Hecho" />
+        <Resuelto texto="Los 8 clientes, avisadas" meta="Hecho" />
         <Resuelto texto="Tú te enteras al acabar" meta="0 llamadas" />
       </>}
     />

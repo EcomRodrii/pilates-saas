@@ -28,7 +28,7 @@ const HILO_EQUIPO = {
   solo_lectura: true,
 };
 
-test('la propietaria lee los hilos de su equipo con alumnas sin poder escribir en ellos', async ({ page }) => {
+test('la propietaria lee los hilos de su equipo con clientes sin poder escribir en ellos', async ({ page }) => {
   await montar(page);
   const ambitos: string[] = [];
   const cuenta = { mensajesCargados: 0, envios: 0, leidos: 0 };
@@ -51,7 +51,7 @@ test('la propietaria lee los hilos de su equipo con alumnas sin poder escribir e
   await ir(page, 'mensajeria');
   // `/mensajeria` abre en otra pestaña: primero «Conversaciones», luego el ámbito.
   await page.getByRole('button', { name: 'Conversaciones', exact: true }).click({ timeout: 30_000 });
-  await page.getByRole('tab', { name: 'Equipo con alumnas' }).click({ timeout: 30_000 });
+  await page.getByRole('tab', { name: 'Equipo con clientes' }).click({ timeout: 30_000 });
   await page.getByRole('listitem').filter({ hasText: PREGUNTA }).click({ timeout: 30_000 });
 
   const aviso = page.getByTestId('aviso-hilo');

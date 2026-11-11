@@ -182,7 +182,7 @@ export function FichaValoracionSalud({ historial }: { historial: Historial }) {
           como un historial médico, y no lo es — lo escribió la alumna sobre sí
           misma, sin que nadie la explorara. */}
       <p className="mt-4 border-t pt-3 text-xs text-muted-foreground">
-        Lo declaró la propia alumna. No es un diagnóstico ni sustituye a uno.
+        Lo declaró el propio cliente. No es un diagnóstico ni sustituye a uno.
       </p>
     </section>
   );

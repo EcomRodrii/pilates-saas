@@ -33,13 +33,13 @@ export const RESPUESTA = [
     tipo: 'metricas', titulo: 'Mañana, miércoles 7 de octubre',
     metricas: [
       { etiqueta: 'Clases', valor: '5', tipo: 'n', href: '/calendario' },
-      { etiqueta: 'Alumnas apuntadas', valor: '30', tipo: 'n', comparacion: { texto: '+4', tono: 'sube', frente: 'el miércoles pasado' } },
+      { etiqueta: 'Clientes apuntados', valor: '30', tipo: 'n', comparacion: { texto: '+4', tono: 'sube', frente: 'el miércoles pasado' } },
       { etiqueta: 'Huecos libres', valor: '12', tipo: 'n' },
       { etiqueta: 'Cobrado este mes', valor: '4.215,00 €', tipo: 'eur', href: '/cobros', comparacion: { texto: '+12 %', tono: 'sube', frente: 'septiembre' } },
     ],
   } },
   { t: 'bloque', id: 'tu_1-1', bloque: { tipo: 'clases', titulo: 'Clases del miércoles 7 de octubre', href: '/calendario', total: 5, clases: CLASES } },
-  ...['Mañana tienes 5 clases con 30 alumnas apuntadas. ', 'La que pide atención es la de las 19:00 con [EQUIPO_1]: ', 'está llena y tiene 3 en espera. ', 'A la de las 18:00 le falta instructora.'].map(delta => ({ t: 'texto', delta })),
+  ...['Mañana tienes 5 clases con 30 clientes apuntados. ', 'La que pide atención es la de las 19:00 con [EQUIPO_1]: ', 'está llena y tiene 3 en espera. ', 'A la de las 18:00 le falta instructora.'].map(delta => ({ t: 'texto', delta })),
   { t: 'fin', unidades: 1, disponibles: 181, motivo: 'OK' },
 ];
 
@@ -110,7 +110,7 @@ export const SEGUNDA = [
     { reciboId: 'r2', alumna: 'ALUMNA_2', importe: '79,00 €', situacion: 'POR_COBRAR', vence: 'lunes 5 de octubre' },
     { reciboId: 'r3', alumna: 'ALUMNA_3', importe: '79,00 €', situacion: 'EN_CURSO', vence: 'martes 6 de octubre' },
   ] } },
-  ...['Tienes 168,00 € pendientes de cobro entre 2 alumnas. ', 'El que más urge es el de [ALUMNA_1]: **89,00 €** impagados desde el jueves 1 de octubre. ', 'El de [ALUMNA_3] ya está en el banco y todavía no es deuda.'].map(delta => ({ t: 'texto', delta })),
+  ...['Tienes 168,00 € pendientes de cobro entre 2 clientes. ', 'El que más urge es el de [ALUMNA_1]: **89,00 €** impagados desde el jueves 1 de octubre. ', 'El de [ALUMNA_3] ya está en el banco y todavía no es deuda.'].map(delta => ({ t: 'texto', delta })),
   { t: 'fin', unidades: 1, disponibles: 180, motivo: 'OK' },
 ];
 
@@ -144,12 +144,12 @@ export const PROPUESTAS = {
     texto: 'Propongo publicar el taller de respiración el sábado 10 de octubre a las 11:00, con 12 plazas. Pulsa Confirmar para publicarlo.',
     titulo: 'Publicar un evento', href: '/comunidad', ver: 'Ver en Comunidad',
     lineas: [['Anuncio', 'Taller de respiración con Marta'], ['Día', 'sábado 10 de octubre'], ['Hora', '11:00'], ['Lugar', 'Terraza'], ['Plazas', '12']],
-    avisos: [], efecto: 'Se publica en la Comunidad de la app y se avisa a todas las alumnas con una notificación.',
+    avisos: [], efecto: 'Se publica en la Comunidad de la app y se avisa a todos los clientes con una notificación.',
   },
   CREAR_CITA: {
     texto: 'Propongo una valoración de [ALUMNA_1] con [EQUIPO_1] el jueves 8 de octubre de 10:00 a 11:00. Pulsa Confirmar para crearla.',
     titulo: 'Crear una cita', href: '/citas', ver: 'Ver en Citas',
-    lineas: [['Alumna', '[ALUMNA_1]'], ['Con', '[EQUIPO_1]'], ['Tipo', 'Valoración'], ['Día', 'jueves 8 de octubre'], ['Hora', '10:00–11:00']],
+    lineas: [['Cliente', '[ALUMNA_1]'], ['Con', '[EQUIPO_1]'], ['Tipo', 'Valoración'], ['Día', 'jueves 8 de octubre'], ['Hora', '10:00–11:00']],
     avisos: ['La cita se crea sin precio ni cobro.'], efecto: null,
   },
 } as const;

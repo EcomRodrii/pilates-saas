@@ -67,7 +67,7 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
   // Los enlaces que de verdad hay repartidos por correos, notificaciones y la
   // guía, con la sección y la tarjeta en la que tienen que caer.
   const ENLACES_VIEJOS: [string, string, string][] = [
-    ['/configuracion?tab=estudio&sub=legal', 'Alta de alumnas', '#contrato-y-privacidad'],
+    ['/configuracion?tab=estudio&sub=legal', 'Alta de clientes', '#contrato-y-privacidad'],
     ['/configuracion?tab=estudio&sub=general#datos-fiscales', 'Cobros y facturas', '#datos-fiscales'],
     // Canjes, salas, widgets y correos tienen su propia pantalla desde el
     // 15-sep (v2): sus enlaces los prueba e2e/configuracion-herramientas.spec.ts.
@@ -148,22 +148,22 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
     await expect(page).toHaveURL(/\/configuracion\?tab=conexiones$/);
     await expect(tituloSeccion(page, 'Integraciones')).toBeVisible();
 
-    await rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true }).click();
+    await rail(page).getByRole('link', { name: 'Alta de clientes', exact: true }).click();
     await expect(page).toHaveURL(/\/configuracion\?tab=altas$/);
-    await expect(rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(rail(page).getByRole('link', { name: 'Alta de clientes', exact: true })).toHaveAttribute('aria-current', 'page');
 
     // `replace`, no `push`: dos clics en la columna no son dos pasos atrás.
     expect(await page.evaluate(() => history.length)).toBe(historialAntes);
 
     await page.reload();
-    await expect(tituloSeccion(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
-    await expect(rail(page).getByRole('link', { name: 'Alta de alumnas', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(tituloSeccion(page, 'Alta de clientes')).toBeVisible({ timeout: 30_000 });
+    await expect(rail(page).getByRole('link', { name: 'Alta de clientes', exact: true })).toHaveAttribute('aria-current', 'page');
   });
 
   test('lo que salió de las reglas de reserva: sus enlaces viejos llevan a su sección', async ({ page }) => {
     await panel(page);
     await page.goto('/configuracion?tab=reservas#compra-desde-tu-enlace');
-    await expect(tituloSeccion(page, 'Alta de alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(tituloSeccion(page, 'Alta de clientes')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#compra-desde-tu-enlace')).toBeInViewport({ timeout: 15_000 });
 
     await page.goto('/configuracion?tab=estudio&sub=reservas#ajuste-instructoras-crean-clases');
@@ -172,7 +172,7 @@ test.describe('Los enlaces a Configuración aterrizan donde dicen', () => {
 
     // La tarjeta única de reglas se partió en cinco: su ancla lleva a la primera.
     await page.goto('/configuracion?tab=reservas#reglas-de-reserva');
-    await expect(tituloSeccion(page, 'Cómo reservan mis alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(tituloSeccion(page, 'Cómo reservan mis clientes')).toBeVisible({ timeout: 30_000 });
     await expect(page.locator('#reservar-titulo')).toBeFocused({ timeout: 15_000 });
   });
 

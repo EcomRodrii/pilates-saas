@@ -44,7 +44,7 @@ export function AppEnVivo({ slug, css, recarga, escala, pie, onCargada }: {
           key={recarga}
           ref={ref}
           name={NOMBRE_MARCO_SOLO_MIRAR}
-          title="La app de tus alumnas, con tu color. Puedes tocarla: aquí no se reserva ni se crea nada"
+          title="La app de tus clientes, con tu color. Puedes tocarla: aquí no se reserva ni se crea nada"
           src={`/portal/${encodeURIComponent(slug)}`}
           onLoad={() => { pintarBorrador(ref.current, css); setCargando(false); onCargada?.(); }}
           className="bg-white transition-opacity duration-300"

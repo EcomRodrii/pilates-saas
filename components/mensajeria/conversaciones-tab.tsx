@@ -417,7 +417,7 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
 
           {esPropietaria && (
             <div className="flex gap-1 px-3 py-2 border-b border-border shrink-0" role="tablist" aria-label="Qué conversaciones ver">
-              {([['bandeja', 'Tus conversaciones'], ['supervision', 'Equipo con alumnas']] as const).map(([valor, texto]) => (
+              {([['bandeja', 'Tus conversaciones'], ['supervision', 'Equipo con clientes']] as const).map(([valor, texto]) => (
                 <button
                   key={valor}
                   role="tab"
@@ -469,8 +469,8 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
                 <EmptyState
                   compacto
                   icono={Eye}
-                  titulo="Tu equipo aún no ha escrito a ninguna alumna"
-                  descripcion="Cuando una instructora escriba a una alumna desde la app, lo verás aquí en solo lectura."
+                  titulo="Tu equipo aún no ha escrito a ningún cliente"
+                  descripcion="Cuando una instructora escriba a un cliente desde la app, lo verás aquí en solo lectura."
                 />
               ) : (
                 <BandejaVacia onNueva={() => setMostrarNueva(true)} />

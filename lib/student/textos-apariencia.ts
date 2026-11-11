@@ -16,4 +16,4 @@ export const TEXTO_RESERVAS_Y_WIDGET =
   'Tu página de reservas y el widget de tu web toman de aquí el estilo, la tipografía y tu color (salvo los colores o la letra que le pongas al widget). El botón principal, las esquinas y el tamaño de los títulos solo cambian en tu app.';
 
 /** El desplegable del color secundario. */
-export const TEXTO_SECUNDARIO = 'Color secundario (solo tu panel y los correos a tus alumnas)';
+export const TEXTO_SECUNDARIO = 'Color secundario (solo tu panel y los correos a tus clientes)';

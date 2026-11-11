@@ -38,7 +38,7 @@ test('una sesión sin completar (abierta, caducada, SetupIntent sin éxito) no s
   assert.equal(confirmacionTarjetaGuardada({ ...SESION, setupIntent: null }, { ...YO, metodoDeLaFicha: null }), 'sin_completar');
 });
 
-test('⚠️ la sesión de OTRA alumna, de otro estudio, o que no es de guardar tarjeta: «ajena» (el servidor contesta 404)', () => {
+test('⚠️ la sesión de Otro cliente, de otro estudio, o que no es de guardar tarjeta: «ajena» (el servidor contesta 404)', () => {
   const ficha = { ...YO, metodoDeLaFicha: 'pm_nueva' };
   assert.equal(confirmacionTarjetaGuardada({ ...SESION, metadata: { ...SESION.metadata, socioId: 'socio-2' } }, ficha), 'ajena');
   assert.equal(confirmacionTarjetaGuardada({ ...SESION, metadata: { ...SESION.metadata, studioId: 'studio-2' } }, ficha), 'ajena');
@@ -106,8 +106,8 @@ test('la ruta: identidad del JWT, Stripe del estudio en servidor, guardias de mo
   const r = sinComentarios(leer('app/api/public/tarjeta/route.ts'));
   const post = r.slice(r.indexOf('export async function POST'), r.indexOf('async function confirmarTarjetaGuardada'));
   assert.match(post, /verificarUsuarioSupabase\(req\)/);
-  assert.match(post, /socioAutenticado\(user\.userId, studioId\)/, 'la alumna sale de SU sesión, nunca del body');
-  assert.equal(/body\.(socioId|customer|stripeAccount|paymentMethod)/.test(post), false, 'ni la alumna, ni el Customer ni la cuenta vienen del body');
+  assert.match(post, /socioAutenticado\(user\.userId, studioId\)/, 'el cliente sale de SU sesión, nunca del body');
+  assert.equal(/body\.(socioId|customer|stripeAccount|paymentMethod)/.test(post), false, 'ni el cliente, ni el Customer ni la cuenta vienen del body');
   assert.match(post, /comprobarModoStripe\(\)/, 'una clave live fuera de producción no guarda tarjetas');
   assert.match(post, /comprobarParDeClaves\(\)/, 'el incrustado se monta con la publicable: las dos del mismo modo');
   assert.match(post, /parametrosSesionGuardarTarjeta\(/);

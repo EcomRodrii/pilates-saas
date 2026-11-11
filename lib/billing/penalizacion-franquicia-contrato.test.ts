@@ -16,7 +16,7 @@ test('la franquicia se decide ANTES de mirar Stripe y el consentimiento, para no
   assert.ok(franquicia > 0 && stripe > franquicia && consentimiento > franquicia, 'orden de las guardias del cron');
 });
 
-test('cuenta las faltas ANTERIORES de la alumna y de su estudio, sin las revertidas, dentro de la ventana', () => {
+test('cuenta las faltas ANTERIORES del cliente y de su estudio, sin las revertidas, dentro de la ventana', () => {
   assert.match(cron, /\.eq\('studio_id', pen\.studio_id\)\.eq\('socio_id', pen\.socio_id\)\.neq\('estado', 'OMITIDA_REVERTIDA'\)/);
   assert.match(cron, /desdeVentanaDeFaltas\(new Date\(detectada\)\.toISOString\(\), ventana\)/);
   // El desempate usa el instante TAL CUAL (microsegundos): `toISOString()` lo truncaba a ms y dos faltas de la misma transacción no se contaban.

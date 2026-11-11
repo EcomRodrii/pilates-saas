@@ -76,7 +76,7 @@ async function montarInstructora(page: Page, opciones: { tambienAlumna: boolean;
 }
 
 test.describe('La instructora entra en la app del estudio', () => {
-  test('sin ficha de alumna, entra directa a «Hoy» con su próxima clase y sus bajas', async ({ page }) => {
+  test('sin ficha de cliente, entra directa a «Hoy» con su próxima clase y sus bajas', async ({ page }) => {
     const contador = await montarInstructora(page, { tambienAlumna: false });
     await page.goto(`/portal/${SLUG}`);
 
@@ -96,7 +96,7 @@ test.describe('La instructora entra en la app del estudio', () => {
     expect(contador.agenda).toBeGreaterThan(0);
   });
 
-  test('al aterrizar del enlace, NO se la da de alta como alumna', async ({ page }) => {
+  test('al aterrizar del enlace, NO se la da de alta como cliente', async ({ page }) => {
     const contador = await montarInstructora(page, { tambienAlumna: false });
     await page.goto(`/portal/${SLUG}/acceso/verificar`);
 
@@ -107,7 +107,7 @@ test.describe('La instructora entra en la app del estudio', () => {
     expect(contador.altaAlumna).toBe(0);
   });
 
-  test('una alumna que abre la parte de instructora vuelve a su inicio', async ({ page }) => {
+  test('un cliente que abre la parte de instructora vuelve a su inicio', async ({ page }) => {
     const contador = await montarInstructora(page, { tambienAlumna: true, esInstructora: false });
     await page.goto(`/portal/${SLUG}/equipo`);
 
@@ -117,7 +117,7 @@ test.describe('La instructora entra en la app del estudio', () => {
     await expect(page.getByTestId('clase-que-da')).toHaveCount(0);
   });
 
-  test('agenda única: si además es alumna, ve lo que da y lo que ha reservado', async ({ page }) => {
+  test('agenda única: si además es cliente, ve lo que da y lo que ha reservado', async ({ page }) => {
     await montarInstructora(page, { tambienAlumna: true });
     await page.goto(`/portal/${SLUG}/equipo/agenda`);
 
@@ -137,7 +137,7 @@ test.describe('La instructora entra en la app del estudio', () => {
     // La barra es la de la instructora aunque también sea alumna: sus cinco
     // destinos, y «Reservar» vive en Perfil (decisión del 15-sep-2026).
     const barra = page.getByRole('navigation', { name: 'Principal' });
-    for (const destino of ['Hoy', 'Agenda', 'Alumnas', 'Mensajes', 'Perfil']) {
+    for (const destino of ['Hoy', 'Agenda', 'Clientes', 'Mensajes', 'Perfil']) {
       await expect(barra.getByRole('link', { name: destino, exact: true })).toBeVisible();
     }
     await expect(barra.getByRole('link', { name: 'Reservar', exact: true })).toHaveCount(0);
@@ -149,7 +149,7 @@ test.describe('La instructora entra en la app del estudio', () => {
   // pregunta con `forzar=true` en cada pantalla, cada cambio de pestaña era
   // otra oportunidad de perderla. Con contador de intentos: "no la expulsó" no
   // puede ser verdad solo porque no llegó a preguntar nada.
-  test('un fallo de red al preguntar si es instructora no la expulsa a la app de alumna', async ({ page }) => {
+  test('un fallo de red al preguntar si es instructora no la expulsa a la app de cliente', async ({ page }) => {
     await montarPortal(page, { conSesion: true, sinSocia: true });
     await page.route('**/api/public/session**', (route) => json(route, { error: 'No hay ninguna socia' }, 404));
     let llamadas = 0;

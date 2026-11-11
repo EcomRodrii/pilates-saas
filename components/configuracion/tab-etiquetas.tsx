@@ -118,8 +118,8 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
   return (
     <div className="space-y-6 pb-6">
       <p className="text-pretty text-sm text-muted-foreground">
-        Para agrupar a tus alumnas a tu manera —«Mamás», «Mañanas», «Vienen con su pareja»—. Las pones en la ficha de cada una o a varias a la vez desde
-        Clientas, y en Clientas filtras por ellas.
+        Para agrupar a tus clientes a tu manera —«Mamás», «Mañanas», «Vienen con su pareja»—. Las pones en la ficha de cada una o a varias a la vez desde
+        Clientes, y en Clientes filtras por ellas.
       </p>
 
       {puedeEditar ? (
@@ -148,7 +148,7 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
           </div>
         </section>
       ) : (
-        <p className="text-sm text-muted-foreground">Solo quien lleva las clientas puede crear o cambiar etiquetas.</p>
+        <p className="text-sm text-muted-foreground">Solo quien lleva los clientes puede crear o cambiar etiquetas.</p>
       )}
 
       <section aria-labelledby={`${uid}-lista`} className="space-y-2">
@@ -156,7 +156,7 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
         {!etiquetasCargadas && lista.length === 0 ? (
           <p className="text-sm text-muted-foreground">Cargando…</p>
         ) : lista.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Aún no tienes ninguna. Crea la primera arriba y úsala desde la ficha de una alumna.</p>
+          <p className="text-sm text-muted-foreground">Aún no tienes ninguna. Crea la primera arriba y úsala desde la ficha de un cliente.</p>
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border">
             {lista.map(e => {
@@ -169,7 +169,7 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
                       <Chip nombre={e.nombre} color={e.color} />
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {e.usos === 0 ? 'Sin alumnas' : e.usos === 1 ? '1 alumna' : `${e.usos} alumnas`}
+                      {e.usos === 0 ? 'Sin clientes' : e.usos === 1 ? '1 cliente' : `${e.usos} clientes`}
                     </span>
                     {puedeEditar && (
                       <>
@@ -215,9 +215,9 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
                       {efecto && normalizarNombre(nuevoNombre) !== '' && normalizarNombre(nuevoNombre) !== e.nombre && (
                         <p className="text-pretty text-xs text-muted-foreground" role="status">
                           {efecto.seFunde
-                            ? `Ya existe «${normalizarNombre(nuevoNombre)}»: las dos se juntan en una${efecto.alumnas > 0 ? ` y ${efecto.alumnas === 1 ? 'se cambia a 1 alumna' : `se cambian ${efecto.alumnas} alumnas`}` : ''}.`
-                            : efecto.alumnas === 0 ? 'Ninguna alumna la tiene todavía.'
-                            : efecto.alumnas === 1 ? 'Se cambiará en 1 alumna.' : `Se cambiará en ${efecto.alumnas} alumnas.`}
+                            ? `Ya existe «${normalizarNombre(nuevoNombre)}»: las dos se juntan en una${efecto.alumnas > 0 ? ` y ${efecto.alumnas === 1 ? 'se cambia a 1 cliente' : `se cambian ${efecto.alumnas} clientes`}` : ''}.`
+                            : efecto.alumnas === 0 ? 'Ningún cliente la tiene todavía.'
+                            : efecto.alumnas === 1 ? 'Se cambiará en 1 cliente.' : `Se cambiará en ${efecto.alumnas} clientes.`}
                         </p>
                       )}
                       <div className="flex gap-2">
@@ -239,8 +239,8 @@ export function TabEtiquetas({ showToast }: { showToast: MostrarToast }) {
         titulo={aEliminar ? `¿Eliminar «${aEliminar.nombre}»?` : '¿Eliminar la etiqueta?'}
         descripcion={aEliminar
           ? aEliminar.usos === 0
-            ? 'Ninguna alumna la tiene: solo desaparece de tu lista.'
-            : `Se quita de ${aEliminar.usos === 1 ? '1 alumna' : `${aEliminar.usos} alumnas`}. Las alumnas no se borran, solo pierden la etiqueta.`
+            ? 'Ningún cliente la tiene: solo desaparece de tu lista.'
+            : `Se quita de ${aEliminar.usos === 1 ? '1 cliente' : `${aEliminar.usos} clientes`}. Los clientes no se borran, solo pierden la etiqueta.`
           : ''}
         textoConfirmar="Eliminar"
         destructivo

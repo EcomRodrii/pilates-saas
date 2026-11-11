@@ -8,7 +8,7 @@ import {
 
 const uso = (o: Partial<UsoGratis> = {}): UsoGratis => ({ alumnasActivas: 0, reservas30Dias: 0, ...o });
 
-test('los límites del fundador: 150 alumnas y 250 reservas al mes, 30 días de margen', () => {
+test('los límites del fundador: 150 clientes y 250 reservas al mes, 30 días de margen', () => {
   assert.equal(LIMITE_ALUMNAS, 150);
   assert.equal(LIMITE_RESERVAS_MES, 250);
   assert.equal(MARGEN_DIAS, 30);
@@ -21,7 +21,7 @@ test('justo en el límite no se ha pasado; uno más, sí', () => {
   assert.deepEqual(limitesPasados(uso({ reservas30Dias: 251 })), ['reservas']);
 });
 
-test('se avisa desde el 80 %: 120 alumnas o 200 reservas', () => {
+test('se avisa desde el 80 %: 120 clientes o 200 reservas', () => {
   assert.deepEqual(limitesCerca(uso({ alumnasActivas: 119, reservas30Dias: 199 })), []);
   assert.deepEqual(limitesCerca(uso({ alumnasActivas: 120 })), ['alumnas']);
   assert.deepEqual(limitesCerca(uso({ reservas30Dias: 200 })), ['reservas']);

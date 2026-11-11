@@ -215,10 +215,10 @@ export default function PerfilInstructoraPage() {
 
         {socia && (
           <ProfileSection
-            titulo="También eres alumna"
+            titulo="También eres cliente"
             items={[
               { label: 'Reservar una clase', href: href('/reservar') },
-              { label: 'Mis clases como alumna', href: href('/mis-reservas') },
+              { label: 'Mis clases como cliente', href: href('/mis-reservas') },
               { label: 'Mi plan', href: href('/bonos') },
             ]}
           />

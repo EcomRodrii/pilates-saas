@@ -120,8 +120,8 @@ const guardarPolitica = (page: Page) => page.getByRole('button', { name: 'Guarda
 const sinGuardar = (page: Page, tarjeta: string) => page.getByText(`Cambios sin guardar en: ${tarjeta}`);
 const filaAvisos = (page: Page) => page.locator('#ajuste-avisar-alumnas');
 // En Configuración, la fila; en Sustituciones, su interruptor de siempre.
-const avisosEnConfiguracion = (page: Page) => page.getByRole('switch', { name: 'Avisos a las alumnas' });
-const interruptorAvisar = (page: Page) => page.getByRole('switch', { name: /Avisar a las alumnas, por email y en su app/ });
+const avisosEnConfiguracion = (page: Page) => page.getByRole('switch', { name: 'Avisos a los clientes' });
+const interruptorAvisar = (page: Page) => page.getByRole('switch', { name: /Avisar a los clientes, por email y en su app/ });
 const consecuencia = (page: Page) => page.getByRole('dialog').locator('[data-consecuencia]');
 
 async function abrirReservas(page: Page) {
@@ -213,7 +213,7 @@ test('«Guardar» sale bien: la fila cambia', async ({ page }) => {
 });
 
 for (const fallo of [400, 500, 'red'] as const) {
-  test(`el aviso a las alumnas falla (${fallo}): el interruptor vuelve a lo guardado y dice por qué`, async ({ page }) => {
+  test(`el aviso a los clientes falla (${fallo}): el interruptor vuelve a lo guardado y dice por qué`, async ({ page }) => {
     const { patchesAvisar, patchesStudio } = await montar(page, { falloAvisar: fallo });
     await abrirReservas(page);
 
@@ -232,7 +232,7 @@ for (const fallo of [400, 500, 'red'] as const) {
   });
 }
 
-test('el aviso a las alumnas: doble toque = una escritura, y se queda en lo guardado de verdad', async ({ page }) => {
+test('el aviso a los clientes: doble toque = una escritura, y se queda en lo guardado de verdad', async ({ page }) => {
   const { patchesAvisar, patchesStudio } = await montar(page, { retrasoAvisarMs: 1500 });
   await abrirReservas(page);
 
@@ -242,7 +242,7 @@ test('el aviso a las alumnas: doble toque = una escritura, y se queda en lo guar
   // Mientras el servidor no contesta, está ocupado y no se deja tocar.
   await expect(toggle).toHaveAttribute('aria-busy', 'true');
 
-  await expect(page.getByText('Aviso a las alumnas desactivado')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Aviso a los clientes desactivado')).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(800);
   expect(patchesAvisar).toHaveLength(1);
   expect(patchesAvisar[0]).toEqual({ action: 'config_avisar', avisar: false });
@@ -299,7 +299,7 @@ test('Sustituciones, recepción: lo que pasa y quién lo decide, sin interruptor
   await page.goto('/sustituciones');
 
   await expect(page.getByText(
-    'Tentare avisa a sus alumnas por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.',
+    'Tentare avisa a sus clientes por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.',
   )).toBeVisible({ timeout: 30_000 });
   await expect(interruptorAvisar(page)).toHaveCount(0);
   // El marco del panel tiene su propio enlace de cuenta a /configuracion; lo que

@@ -129,7 +129,7 @@ function confirmacion(antes: DevolucionesForm, ahora: Politica) {
   if (!antes.activos && ahora.reembolsosActivos) {
     return {
       titulo: '¿Permitir devolver desde Tentare?',
-      descripcion: `Tú y recepción veréis «Devolver» en los pagos de cada alumna (${politica.toLowerCase()}). Cada devolución mueve dinero de verdad a su forma de pago original.`,
+      descripcion: `Tú y recepción veréis «Devolver» en los pagos de cada cliente (${politica.toLowerCase()}). Cada devolución mueve dinero de verdad a su forma de pago original.`,
       textoConfirmar: 'Sí, permitirlo',
     };
   }
@@ -256,11 +256,11 @@ function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
   if (f.proporcional !== base.proporcional || (f.proporcional && f.diasMinimos !== base.diasMinimos)) {
     partes.push(f.proporcional && f.proporcional === base.proporcional ? {
       titulo: '¿Cambiar los días mínimos del cobro proporcional?',
-      descripcion: `Desde ahora, si al apuntarse una alumna quedan ${f.diasMinimos} días o menos del mes, desde el panel no se cobra nada hoy y su primera cuota es el día 1 del mes siguiente (online se cobra hoy la cuota entera, que cubre hasta el final del mes siguiente); con más días, la parte proporcional.`,
+      descripcion: `Desde ahora, si al apuntarse un cliente quedan ${f.diasMinimos} días o menos del mes, desde el panel no se cobra nada hoy y su primera cuota es el día 1 del mes siguiente (online se cobra hoy la cuota entera, que cubre hasta el final del mes siguiente); con más días, la parte proporcional.`,
       textoConfirmar: 'Sí, cambiar',
     } : f.proporcional ? {
       titulo: '¿Cobrar la parte proporcional del primer mes?',
-      descripcion: 'Desde ahora, una cuota mensual que des de alta desde el panel a mitad de mes (alta de clienta o «Asignar plan») cobra solo los días que quedan de ese mes, y la primera renovación es el día 1 del mes siguiente por la cuota entera. Además, al cambiar a una cuota más cara a mitad de ciclo podrás cobrar la diferencia proporcional. Las alumnas que ya tienes no cambian. Lo mismo vale cuando la alumna compra la cuota ella misma desde la web o la app (se le enseña antes de pagar). La caja, la clase de prueba, la importación y «pagar y reservar» una clase siguen cobrando el mes completo. La matrícula no se prorratea. Ojo con la compra online: con pocos días restantes no se puede aplazar el cobro, así que se cobra la cuota entera hoy y vale hasta el final del mes siguiente. Si quedan pocos días (3 de serie), a quien das de alta desde el panel no se le cobra nada hoy y su primera cuota entera se cobra el día 1.',
+      descripcion: 'Desde ahora, una cuota mensual que des de alta desde el panel a mitad de mes (alta de cliente o «Asignar plan») cobra solo los días que quedan de ese mes, y la primera renovación es el día 1 del mes siguiente por la cuota entera. Además, al cambiar a una cuota más cara a mitad de ciclo podrás cobrar la diferencia proporcional. Los clientes que ya tienes no cambian. Lo mismo vale cuando el cliente compra la cuota ella misma desde la web o la app (se le enseña antes de pagar). La caja, la clase de prueba, la importación y «pagar y reservar» una clase siguen cobrando el mes completo. La matrícula no se prorratea. Ojo con la compra online: con pocos días restantes no se puede aplazar el cobro, así que se cobra la cuota entera hoy y vale hasta el final del mes siguiente. Si quedan pocos días (3 de serie), a quien das de alta desde el panel no se le cobra nada hoy y su primera cuota entera se cobra el día 1.',
       textoConfirmar: 'Sí, cobrar la parte proporcional',
     } : {
       titulo: '¿Volver a cobrar el mes entero?',
@@ -271,11 +271,11 @@ function confirmacionCobroDia(f: CobroDiaForm, base: CobroDiaForm) {
   if (f.dia1 !== base.dia1 || partes.length === 0) {
     partes.push(f.dia1 ? {
       titulo: '¿Cobrar todas las cuotas el día 1?',
-      descripcion: 'Cada cuota mensual se realinea sola en su PRÓXIMA renovación, sin prorratear ni tocarla ahora: para una alumna que ya tienes puede tardar hasta un ciclo en caer exactamente el día 1. Las cuotas nuevas siguen naciendo en el día en que se apuntan.',
+      descripcion: 'Cada cuota mensual se realinea sola en su PRÓXIMA renovación, sin prorratear ni tocarla ahora: para un cliente que ya tienes puede tardar hasta un ciclo en caer exactamente el día 1. Las cuotas nuevas siguen naciendo en el día en que se apuntan.',
       textoConfirmar: 'Sí, cobrar el día 1',
     } : {
-      titulo: '¿Volver al aniversario de cada alumna?',
-      descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada alumna contrató su cuota.',
+      titulo: '¿Volver al aniversario de cada cliente?',
+      descripcion: 'Las próximas renovaciones vuelven a caer en el día en que cada cliente contrató su cuota.',
       textoConfirmar: 'Sí, volver al aniversario',
     });
   }
@@ -323,7 +323,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
         >
           <input type="radio" name="cobro-dia" className="mt-1 accent-[var(--brand)]" checked={!form.dia1} onChange={() => setForm(f => ({ ...f, dia1: false }))} />
           <span>
-            <span className="block text-sm font-medium text-foreground">Cada alumna en su aniversario</span>
+            <span className="block text-sm font-medium text-foreground">Cada cliente en su aniversario</span>
             <span className="block text-sm text-muted-foreground text-pretty">Se le cobra el mismo día en que contrató su cuota, cada mes. Es como funciona hoy.</span>
           </span>
         </label>
@@ -337,7 +337,7 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
           <span>
             <span className="block text-sm font-medium text-foreground">Todas el día 1 de cada mes</span>
             <span className="block text-sm text-muted-foreground text-pretty">
-              Cada cuota se realinea sola en su próxima renovación: una alumna a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1. Una vez guardado, eliges si las alumnas que ya tienes pagan la cuota entera (unos días gratis) o solo la parte proporcional.
+              Cada cuota se realinea sola en su próxima renovación: un cliente a mitad de ciclo puede tardar hasta un mes en pasar a cobrarse el día 1. Una vez guardado, eliges si los clientes que ya tienes pagan la cuota entera (unos días gratis) o solo la parte proporcional.
             </span>
           </span>
         </label>
@@ -360,8 +360,8 @@ export function FormCobroDia1({ onGuardado }: PropsFormularioCajon) {
               (alta el 15 de un mes de 31 días: 17 de 31). El mes siguiente se cobra entero, el día 1. La matrícula no se prorratea. Al cambiar a una cuota más cara a mitad de ciclo, «Cambiar plan» te deja cobrar la diferencia proporcional.
             </span>
             <span className="mt-1 block text-xs text-muted-foreground text-pretty">
-              Aplica a altas desde el panel y a la compra online (la alumna ve antes de pagar cuánto y por qué). No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar», que cobran el mes entero.
-              Con «Todas el día 1», lo que pagan las alumnas que ya tienes se elige aparte, después de guardar.
+              Aplica a altas desde el panel y a la compra online (el cliente ve antes de pagar cuánto y por qué). No aplica a la caja, la clase de prueba, la importación ni «pagar y reservar», que cobran el mes entero.
+              Con «Todas el día 1», lo que pagan los clientes que ya tienes se elige aparte, después de guardar.
             </span>
           </span>
         </label>
@@ -448,7 +448,7 @@ export function FormCongelacion({ onGuardado }: PropsFormularioCajon) {
         <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-3">
           <span>
             <span className="block text-sm font-medium text-foreground">Se pueden congelar cuotas y bonos</span>
-            <span className="block text-sm text-muted-foreground text-pretty">Una alumna que no puede venir una temporada la pausa y no pierde lo que ya pagó. Apagado, no se puede congelar nada nuevo; lo que ya está congelado se reanuda con normalidad.</span>
+            <span className="block text-sm text-muted-foreground text-pretty">Un cliente que no puede venir una temporada la pausa y no pierde lo que ya pagó. Apagado, no se puede congelar nada nuevo; lo que ya está congelado se reanuda con normalidad.</span>
           </span>
           <Toggle on={form.permitida} onChange={v => setForm(f => ({ ...f, permitida: v }))} ariaLabel="Se pueden congelar cuotas y bonos" />
         </div>
@@ -481,7 +481,7 @@ export function FormCongelacion({ onGuardado }: PropsFormularioCajon) {
           {!form.permitida
             ? 'Nadie del equipo podrá congelar una cuota o un bono mientras esté apagado.'
             : form.tope
-              ? `Si una alumna está congelada 40 días, su cuota o bono se alarga como máximo ${form.dias}.`
+              ? `Si un cliente está congelada 40 días, su cuota o bono se alarga como máximo ${form.dias}.`
               : 'Cada día congelado alarga su cuota o bono, sin límite: como hasta ahora.'}
         </p>
       </div>
@@ -534,7 +534,7 @@ function confirmacionCuotaCancelada(antes: CuotaCanceladaForm, ahora: CuotaCance
   if (ahora.recibos === 'ANULAR' && antes.recibos !== 'ANULAR') {
     return {
       titulo: '¿Anular el recibo pendiente al cancelar?',
-      descripcion: 'Desde ahora, al cancelar una cuota su recibo pendiente se anula y la alumna deja de deberlo. Lo que ya estaba cancelado antes no cambia.',
+      descripcion: 'Desde ahora, al cancelar una cuota su recibo pendiente se anula y el cliente deja de deberlo. Lo que ya estaba cancelado antes no cambia.',
       textoConfirmar: 'Sí, anularlo',
     };
   }

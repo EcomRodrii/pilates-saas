@@ -95,7 +95,7 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
     >
     <div className="space-y-4">
       <p className="text-[12px] text-muted-foreground">
-        Se calcula sobre el total histórico de créditos ganados por la alumna, no sobre su saldo.
+        Se calcula sobre el total histórico de créditos ganados por el cliente, no sobre su saldo.
       </p>
 
       {ordenados.length === 0 ? (
@@ -142,14 +142,14 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
               </Field>
             </div>
             <div>
-              <Field label="Insignia" description="Acompaña al nombre del nivel en la app de la alumna.">
+              <Field label="Insignia" description="Acompaña al nombre del nivel en la app del cliente.">
                 <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
               </Field>
             </div>
             <div className="grid grid-cols-1 gap-3">
               <div>
                 <Field label="Créditos necesarios"
-                  description="Créditos acumulados para alcanzar este nivel. Los niveles se ordenan por este número. Si subes o quitas un nivel y con eso alguna alumna bajaría, no se guarda."
+                  description="Créditos acumulados para alcanzar este nivel. Los niveles se ordenan por este número. Si subes o quitas un nivel y con eso algún cliente bajaría, no se guarda."
                 >
                   <input type="number" min={0} className={inputCls} value={form.umbralCreditos} onChange={e => setForm(f => ({ ...f, umbralCreditos: Math.max(0, parseInt(e.target.value, 10) || 0) }))} />
                 </Field>
@@ -188,7 +188,7 @@ export function TabNiveles({ showToast }: { showToast: MostrarToast }) {
           <DialogHeader>
             <DialogTitle>Eliminar nivel</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Si alguna alumna lo tiene alcanzado no se podrá eliminar: nadie baja de nivel.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este nivel? Si algún cliente lo tiene alcanzado no se podrá eliminar: nadie baja de nivel.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-destructive text-white text-[13px] font-semibold hover:bg-red-700">Eliminar</button>

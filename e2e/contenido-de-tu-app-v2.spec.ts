@@ -164,7 +164,7 @@ test('el mensaje se ve en su app mientras se escribe, se guarda con su botón y 
   await texto.fill('Cerramos el 1 de noviembre.');
   await expect(vista(page).getByTestId('vista-franja')).toContainText('Cerramos el 1 de noviembre.');
   await page.waitForTimeout(1200);
-  expect(c.mensajes, 'el mensaje no se guarda solo: lo leen todas sus alumnas').toHaveLength(0);
+  expect(c.mensajes, 'el mensaje no se guarda solo: lo leen todas sus clientes').toHaveLength(0);
 
   await page.getByRole('button', { name: 'Guardar el mensaje' }).click();
   await expect(page.getByRole('button', { name: 'Guardado' })).toBeVisible({ timeout: 15_000 });
@@ -209,7 +209,7 @@ test('en el móvil la vista va en una hoja, con su botón', async ({ page }) => 
   // A la derecha no cabe: la de la rejilla va oculta.
   await expect(v2(page).getByTestId('vista-app-movil')).toBeHidden();
   await page.getByRole('button', { name: 'Ver cómo queda en su app' }).click();
-  const hoja = page.getByRole('dialog', { name: 'Así lo ven tus alumnas' });
+  const hoja = page.getByRole('dialog', { name: 'Así lo ven tus clientes' });
   await expect(hoja).toBeVisible();
   await expect(hoja.getByTestId('vista-app-movil')).toBeVisible();
   await expect(hoja.getByTestId('vista-app-movil')).toContainText('Taller');

@@ -146,5 +146,5 @@ test('el anfitrión cuelga del contenedor que lleva la clase del tema', () => {
 test('fuera del panel se sigue usando document.body', () => {
   const src = readFileSync(join(raiz, 'lib/panel-portal.ts'), 'utf8');
   assert.match(src, /\?\?\s*document\.body/,
-    'Estos componentes también se usan en la app de la alumna, donde no hay anfitrión: sin respaldo, dejarían de montarse.');
+    'Estos componentes también se usan en la app del cliente, donde no hay anfitrión: sin respaldo, dejarían de montarse.');
 });

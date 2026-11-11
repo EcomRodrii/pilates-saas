@@ -44,7 +44,7 @@ export default function Contenido() {
           {' '}Una serie dura las semanas que elijas. Cuando le queda un mes aparece en Resumen para que la renueves (o
           digas que no), y también puedes renovarla cuando quieras desde la propia clase, en su &ldquo;⋯&rdquo; → &ldquo;Renovar serie&rdquo;:
           se alarga la misma clase con su horario, sala, tipo, instructora, aforo y notas, las clases que ya están en
-          el calendario no se tocan, los días de cierre del centro se saltan y las alumnas con clase fija siguen en su hueco. Si no la renuevas, te avisamos a
+          el calendario no se tocan, los días de cierre del centro se saltan y los clientes con clase fija siguen en su hueco. Si no la renuevas, te avisamos a
           las dos semanas y a la semana del final (y el último día, también por email). Y si prefieres no depender
           de acordarte, marca &ldquo;Renovar sola&rdquo; al renovarla: un mes antes del final se renueva con las mismas
           semanas y te avisa.
@@ -53,13 +53,13 @@ export default function Contenido() {
           También puedes crearla desde &ldquo;Crear clase&rdquo; → &ldquo;Clase fija&rdquo;.
           Las clases de una serie llevan la marca ↻ y, al abrirlas, dicen hasta cuándo se repiten. Y la vista
           &ldquo;Horario&rdquo; (junto a Día y Semana) reúne todas las que se repiten por día de la semana:
-          hasta cuándo va cada una, si se renueva sola y cuántas alumnas tienen clase fija, con los botones para
-          renovarla o dar una clase fija a una clienta sin salir de ahí.
+          hasta cuándo va cada una, si se renueva sola y cuántos clientes tienen clase fija, con los botones para
+          renovarla o dar una clase fija a un cliente sin salir de ahí.
         </p>
       </AyudaPaso>
 
       <AyudaResultado>
-        La clase aparece en tu Calendario y, si no está oculta, en la app de tus alumnas y en tu página de reservas — al momento, sin
+        La clase aparece en tu Calendario y, si no está oculta, en la app de tus clientes y en tu página de reservas — al momento, sin
         publicar nada aparte.
       </AyudaResultado>
 
@@ -68,11 +68,11 @@ export default function Contenido() {
         Junto al título «Calendario» hay dos botones pequeños. El de las flechas lo{' '}
         <strong>amplía a toda la pantalla</strong>: esconde el menú y la barra de arriba para que quepan más horas y
         más días; con el mismo botón, o con <strong>Esc</strong>, vuelve a su tamaño. Ese mismo botón lo tienen
-        Clientas, Cobros, Informes, Mensajería y Equipo.
+        Clientes, Cobros, Informes, Mensajería y Equipo.
       </p>
       <p>
         El otro saca la agenda del día a una <strong>ventana flotante</strong> que se queda a mano mientras vas a
-        Clientas, Cobros o cualquier otra pantalla. La mueves arrastrándola por su barra y se queda donde la dejes,
+        Clientes, Cobros o cualquier otra pantalla. La mueves arrastrándola por su barra y se queda donde la dejes,
         también si recargas. Desde la propia ventana cambias de día, la pliegas para que solo quede la barra, o pulsas
         una clase para abrirla en el Calendario; con sus flechas la agrandas para ver la semana entera sin que deje de flotar, y con las mismas vuelve a pequeña. Solo aparece en un ordenador, no en el móvil ni en la tablet.
       </p>

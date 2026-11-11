@@ -89,7 +89,7 @@ test.describe('La home enseña el embudo del widget sin ir a buscarlo a Configur
 
   test('sin visitas este mes no ocupa sitio (se oculta sola, igual que el resto de tarjetas de estado)', async ({ page }) => {
     await montarDashboard(page, { embudo: [] });
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Crecimiento web este mes')).toHaveCount(0);
   });
 
@@ -101,7 +101,7 @@ test.describe('La home enseña el embudo del widget sin ir a buscarlo a Configur
         { tipo: 'booking_completed', n: 10 },
       ],
     });
-    await expect(page.getByText('Clientas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('Crecimiento web este mes')).toHaveCount(0);
   });
 });

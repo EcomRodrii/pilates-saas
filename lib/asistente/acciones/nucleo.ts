@@ -278,7 +278,7 @@ export function prepararEvento(
   let fallo: string | null = null;
   const limpio = input.texto.replace(/\[([A-Z]+_\d+)\]/g, (_m, ref: string) => {
     const n = ref.startsWith('EQUIPO_') ? nombreDeMarca(ref) : null;
-    if (!n) fallo = 'El anuncio nombra a una persona que no puedo publicar. Pregunta el texto sin nombres de alumnas.';
+    if (!n) fallo = 'El anuncio nombra a una persona que no puedo publicar. Pregunta el texto sin nombres de clientes.';
     return n ?? '';
   }).replace(/\s+/g, ' ').trim();
   if (fallo) return no(fallo);
@@ -294,8 +294,8 @@ export function prepararEvento(
   return {
     ok: true, tipo: 'CREAR_EVENTO', titulo: 'Publicar un evento',
     payload: { texto: limpio, inicio: t0.inicio, aforo, lugar },
-    lineas, avisos: ['Se publicará exactamente este texto, visible para todas las alumnas: revisa que no lleve nombres.'],
-    efecto: 'Se publica en la Comunidad de la app y se avisa a todas las alumnas con una notificación.',
+    lineas, avisos: ['Se publicará exactamente este texto, visible para todos los clientes: revisa que no lleve nombres.'],
+    efecto: 'Se publica en la Comunidad de la app y se avisa a todos los clientes con una notificación.',
     resumen: `Evento «${input.texto.replace(/\s+/g, ' ').trim().slice(0, 60)}», ${dia(input.fecha)}, ${textoHora(t0.inicio)}${aforo ? `, ${aforo} plazas` : ', sin límite de plazas'}`,
     destino: { href: '/comunidad', texto: 'Ver en Comunidad' },
   };
@@ -317,8 +317,8 @@ const ETIQUETA_CITA: Record<string, string> = { PRIVADA: 'Cita privada', EVALUAC
 export function prepararCita(input: EntradaCita, c: CatalogoCita, ahoraMs: number, hoy: string): Preparada<PayloadCita> {
   const t0 = instanteFuturo(input.fecha, input.hora, ahoraMs, hoy);
   if (!t0.ok) return t0;
-  if (c.socia === 'ambigua') return no('No sé a qué alumna se refiere: hay varias con ese nombre. Pregunta cuál.');
-  if (!c.socia) return no('No encuentro a esa alumna. Pregunta su nombre completo.');
+  if (c.socia === 'ambigua') return no('No sé a qué cliente se refiere: hay varias con ese nombre. Pregunta cuál.');
+  if (!c.socia) return no('No encuentro a ese cliente. Pregunta su nombre completo.');
   if (c.instructora === 'ambigua') return no('No sé a qué instructora se refiere. Pregunta cuál.');
   if (!c.instructora || !c.instructora.activa) return no('Falta la instructora de la cita. Pregunta con quién es.');
   const minutos = input.duracion_min !== undefined && input.duracion_min > 0 ? input.duracion_min : 60;
@@ -334,7 +334,7 @@ export function prepararCita(input: EntradaCita, c: CatalogoCita, ahoraMs: numbe
     ok: true, tipo: 'CREAR_CITA', titulo: 'Crear una cita',
     payload: { socioId: c.socia.id, instructorId: c.instructora.id, tipo, inicio, fin },
     lineas: [
-      { etiqueta: 'Alumna', valor: c.marcaSocia(c.socia.id) }, { etiqueta: 'Con', valor: c.marcaInstructora(c.instructora.id) },
+      { etiqueta: 'Cliente', valor: c.marcaSocia(c.socia.id) }, { etiqueta: 'Con', valor: c.marcaInstructora(c.instructora.id) },
       { etiqueta: 'Tipo', valor: ETIQUETA_CITA[tipo] }, { etiqueta: 'Día', valor: dia(input.fecha) },
       { etiqueta: 'Hora', valor: textoHora(inicio, fin) },
     ],

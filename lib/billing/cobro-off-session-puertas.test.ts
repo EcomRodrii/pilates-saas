@@ -67,7 +67,7 @@ test('cobrar a mano uno a uno: la marca se mira antes de cerrar el enlace o canc
   const mira = cuerpo.indexOf("if (fila?.cobro_off_session_clave) return { ok: false, motivo: 'COBRO_CON_METODO_GUARDADO', mensaje: MENSAJE_COBRO_CON_METODO_GUARDADO };");
   assert.ok(mira > 0, 'la guarda compartida no mira la marca');
   assert.ok(mira < cuerpo.indexOf('soltarCobroDeMostradorAntesDeCobrarAMano(') && mira < cuerpo.indexOf('cerrarPagoOnlineAntesDeCobrarAMano('),
-    'antes de tocar el datáfono o el enlace de la clienta');
+    'antes de tocar el datáfono o el enlace del cliente');
 });
 
 test('lo que borra o anula un recibo sin cobro en marcha mira también la marca', () => {

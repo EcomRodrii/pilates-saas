@@ -74,7 +74,7 @@ test('la app de un estudio abre SU entrada: su nombre, sin buscador ni logo de T
   await expect(page.locator('[data-avatar-estudio]').first()).toBeVisible();
 });
 
-test('con sesión, la alumna del estudio entra directa en él, sin lista', async ({ page }) => {
+test('con sesión, el cliente del estudio entra directa en él, sin lista', async ({ page }) => {
   await comoApp(page, 'app.tentare.luz');
   await conSesion(page);
   await appDeEstudio(page, () => ({ status: 200, body: APP_LUZ }));
@@ -94,7 +94,7 @@ test('con sesión, la alumna del estudio entra directa en él, sin lista', async
   await expect(page.getByRole('heading', { name: 'Hola, Lucía' })).toHaveCount(0);
 });
 
-test('con sesión pero sin ser alumna de ese estudio: a darse de alta en él', async ({ page }) => {
+test('con sesión pero sin ser cliente de ese estudio: a darse de alta en él', async ({ page }) => {
   await comoApp(page, 'app.tentare.luz');
   await conSesion(page);
   await appDeEstudio(page, () => ({ status: 200, body: APP_LUZ }));
@@ -161,7 +161,7 @@ async function misEstudios(page: Page, estudios: unknown[]) {
   return n;
 }
 
-test('cadena: alumna de una sola sede entra directa en ella', async ({ page }) => {
+test('cadena: cliente de una sola sede entra directa en ella', async ({ page }) => {
   await comoApp(page, 'app.tentare.cupo-001');
   await conSesion(page);
   await appDeEstudio(page, () => ({ status: 200, body: APP_CADENA }));
@@ -196,6 +196,6 @@ test('cadena: «Cambiar de sede» enseña la lista aunque solo sea de una', asyn
   const lista = page.getByTestId('elegir-sede');
   await expect(lista).toBeVisible({ timeout: 60_000 });
   expect(n.pedidas).toBeGreaterThan(0);
-  await expect(lista.locator('[data-sede="luz-norte"]')).toContainText('Ya eres alumna');
+  await expect(lista.locator('[data-sede="luz-norte"]')).toContainText('Ya eres cliente');
   await expect(lista.locator('[data-sede="luz-sur"]')).toContainText('Te das de alta');
 });

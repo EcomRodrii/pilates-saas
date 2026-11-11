@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decidirPasoPortal, destinoTrasDosPasos } from './doble-factor-portal-reglas.ts';
 
-test('sin la verificación activada, la app ni pregunta: nada cambia para esa alumna', () => {
+test('sin la verificación activada, la app ni pregunta: nada cambia para ese cliente', () => {
   assert.equal(decidirPasoPortal({ actual: 'aal1', siguiente: 'aal1', yaConfiada: false }), 'ok');
   assert.equal(decidirPasoPortal({ actual: null, siguiente: null, yaConfiada: false }), 'ok');
 });

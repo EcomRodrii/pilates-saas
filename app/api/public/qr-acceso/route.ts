@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     if (!studioId) return NextResponse.json({ error: 'Estudio no encontrado' }, { status: 404 });
 
     const socioId = await socioAutenticado(user.userId, studioId);
-    if (!socioId) return NextResponse.json({ error: 'No eres clienta de este estudio' }, { status: 403 });
+    if (!socioId) return NextResponse.json({ error: 'No eres cliente de este estudio' }, { status: 403 });
 
     const { data: estudio, error } = await admin.from('studios').select('control_acceso_qr').eq('id', studioId).single();
     if (error) return errorInterno('public/qr-acceso', error, 'No hemos podido preparar tu QR.');

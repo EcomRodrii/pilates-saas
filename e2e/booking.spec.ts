@@ -268,7 +268,7 @@ test.describe('Reserva pública (registro · reserva · pago)', () => {
     await expect(page.getByRole('button', { name: /continuar/i })).toBeVisible();
   });
 
-  test('alumna nueva: el correo le trae un CÓDIGO y con él sigue reservando', async ({ page }) => {
+  test('cliente nuevo: el correo le trae un CÓDIGO y con él sigue reservando', async ({ page }) => {
     // Con un email sin cuenta confirmada, gotrue no manda el enlace de acceso:
     // manda el correo de alta, que solo trae un código de 6 cifras. Antes esta
     // pantalla decía «te enviamos un enlace» y no había dónde escribirlo.

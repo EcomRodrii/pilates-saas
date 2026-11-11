@@ -17,7 +17,7 @@ import { join } from 'node:path';
 
 const raiz = join(import.meta.dirname, '..', '..');
 
-test('ningún emisor a alumnas manda con la marca de la plataforma', () => {
+test('ningún emisor a clientes manda con la marca de la plataforma', () => {
   const fichero = join(raiz, 'lib/sustituciones/email.ts');
   const src = readFileSync(fichero, 'utf8');
 
@@ -35,15 +35,15 @@ test('ningún emisor a alumnas manda con la marca de la plataforma', () => {
 
   assert.ok(
     !/'Tentare'/.test(cuerpo),
-    'el aviso a la alumna vuelve a mandarse con la marca de la plataforma',
+    'el aviso al cliente vuelve a mandarse con la marca de la plataforma',
   );
   assert.ok(
     /params\.marca\.estudioNombre/.test(cuerpo),
-    'el aviso a la alumna debe mandarse con el nombre de SU estudio',
+    'el aviso al cliente debe mandarse con el nombre de SU estudio',
   );
   assert.ok(
     /replyTo/.test(cuerpo),
-    'si la alumna responde, debe contestarle su estudio y no el buzón de la plataforma',
+    'si el cliente responde, debe contestarle su estudio y no el buzón de la plataforma',
   );
 });
 

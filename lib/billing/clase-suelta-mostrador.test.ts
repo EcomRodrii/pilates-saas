@@ -100,7 +100,7 @@ test('si el recibo que ya había es de otro importe, no se sigue: se manda a rev
   assert.match(!r.ok ? r.error : '', /otro importe/);
 });
 
-test('si la suscripción es de otra clienta, no se toca', async () => {
+test('si la suscripción es de otro cliente, no se toca', async () => {
   const { admin, escrituras } = adminFalso({
     suscripciones: [{ id: 'sus-suelta-res-1', studio_id: 'st', socio_id: 'soc-OTRA', plan_id: 'pl-suelta', estado: 'ACTIVA', sesiones_restantes: 1 }],
   });

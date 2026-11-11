@@ -65,8 +65,8 @@ export function SeccionAltas({ showToast }: { showToast: (m: string) => void }) 
     const res = await updateStudio({ preguntasAltaActivas: v });
     if (!res.ok) return res.error;
     const hayPreguntas = camposPersonalizados.some(c => c.activo);
-    showToast(!v ? 'Tus alumnas ya no verán las preguntas en su app'
-      : hayPreguntas ? 'Tus alumnas contestarán tus preguntas en su app'
+    showToast(!v ? 'Tus clientes ya no verán las preguntas en su app'
+      : hayPreguntas ? 'Tus clientes contestarán tus preguntas en su app'
       : 'Activado. Añade alguna pregunta en «Datos extra de la ficha» para que les salga');
     return null;
   }

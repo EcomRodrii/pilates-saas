@@ -37,7 +37,7 @@ test('el estudio de muestra es el que nacerá: su nombre, sin logo ni ciudad, el
 test('el módulo no carga el esquema del tema: lo lee también el navegador', async () => {
   const { readFile } = await import('node:fs/promises');
   const fuente = await readFile(new URL('./muestra.ts', import.meta.url), 'utf8');
-  assert.equal(/from '[^']*theme-schema/.test(fuente), false, 'theme-schema (zod) acabaría en el JavaScript de la app de la alumna');
+  assert.equal(/from '[^']*theme-schema/.test(fuente), false, 'theme-schema (zod) acabaría en el JavaScript de la app del cliente');
 });
 
 test('sin nombre todavía, «Tu estudio»', () => {

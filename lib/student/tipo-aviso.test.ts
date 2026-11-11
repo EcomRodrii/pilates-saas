@@ -44,7 +44,7 @@ test('la categoría ya NO elige cara: es solo red de seguridad', () => {
   assert.equal(tipoDeAviso(null, null), 'estudio');
 });
 
-test('todo evento que le llega a una alumna tiene cara propia en el catálogo', () => {
+test('todo evento que le llega a un cliente tiene cara propia en el catálogo', () => {
   // Los tipos (EVENTOS) viven en eventos.ts y las reglas en catalog.ts: se leen los dos.
   const fuente = ['../notifications/eventos.ts', '../notifications/catalog.ts']
     .map(f => readFileSync(new URL(f, import.meta.url), 'utf8')).join('\n');
@@ -64,12 +64,12 @@ test('todo evento que le llega a una alumna tiene cara propia en el catálogo', 
     assert.ok(ev, `EVENTOS.${m[1]} está configurado pero no declarado`);
     deAlumna.push(ev);
   }
-  assert.ok(deAlumna.length >= 20, `audiencias de alumna leídas a medias (${deAlumna.length})`);
+  assert.ok(deAlumna.length >= 20, `audiencias de cliente leídas a medias (${deAlumna.length})`);
 
   const huerfanos = deAlumna.filter((ev) => !EVENTOS_DE_ALUMNA.has(ev));
   assert.deepEqual(
     huerfanos, [],
-    `estos eventos le llegan a la alumna y saldrían con el 📣 neutro por no tener cara: ${huerfanos.join(', ')}`,
+    `estos eventos le llegan al cliente y saldrían con el 📣 neutro por no tener cara: ${huerfanos.join(', ')}`,
   );
 
   // Y al revés: una entrada de la tabla que ya no exista en el catálogo es

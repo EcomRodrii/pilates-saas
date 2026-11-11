@@ -92,7 +92,7 @@ export function decidirReciboPrevioDeCita(
   if (centimos(previo.importe) !== centimos(esperado.importe) || previo.socioId !== esperado.socioId) {
     return {
       tipo: 'revisar',
-      error: `Esta ${que} ya tiene un recibo con otro importe u otra clienta. Revísalo en «Quién me debe» antes de cobrarla.`,
+      error: `Esta ${que} ya tiene un recibo con otro importe u otro cliente. Revísalo en «Quién me debe» antes de cobrarla.`,
     };
   }
   switch (situacionRecibo(previo)) {

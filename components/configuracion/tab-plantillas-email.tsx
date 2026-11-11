@@ -61,10 +61,10 @@ const PLANTILLAS_META: {
   avisoAlApagar: string;
 }[] = [
   {
-    tipo: 'bienvenida', label: 'Bienvenida', cuando: 'Se envía al dar de alta a una alumna.',
+    tipo: 'bienvenida', label: 'Bienvenida', cuando: 'Se envía al dar de alta a un cliente.',
     asuntoDefault: '¡Bienvenida a {estudio}!',
     introDefault: 'Hola {nombre}, estamos encantadas de tenerte en {estudio}.',
-    variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
+    variables: [{ token: '{nombre}', que: 'el nombre del cliente' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     pieDefault: '{estudio} · tu dirección',
     portadaDeFabrica: true,
     datosLabel: 'Su plan contratado',
@@ -72,10 +72,10 @@ const PLANTILLAS_META: {
     botonLabel: 'Botón de acceso a su portal',
   },
   {
-    tipo: 'reserva', label: 'Reserva confirmada', cuando: 'Se envía cuando una alumna reserva una clase.',
+    tipo: 'reserva', label: 'Reserva confirmada', cuando: 'Se envía cuando un cliente reserva una clase.',
     asuntoDefault: 'Reserva confirmada — {clase}',
     introDefault: 'Hola {nombre}, tu plaza está reservada.',
-    variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    variables: [{ token: '{nombre}', que: 'el nombre del cliente' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
     botonLabel: 'Botón para abrir su app',
     pieDefault: '{estudio} · tu dirección',
@@ -86,7 +86,7 @@ const PLANTILLAS_META: {
     tipo: 'recordatorio', label: 'Recordatorio de clase', cuando: 'Se envía 24 h antes; si reserva más tarde, poco después de reservar (si falta más de 1 h y cuarto). Apagarlo no apaga el aviso en su app.',
     asuntoDefault: 'Recordatorio — {clase}',
     introDefault: 'Hola {nombre}, te esperamos en tu próxima clase. Aquí tienes los detalles.',
-    variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    variables: [{ token: '{nombre}', que: 'el nombre del cliente' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
     botonLabel: 'Botón para abrir su app',
     pieDefault: '{estudio} · tu dirección',
@@ -97,17 +97,17 @@ const PLANTILLAS_META: {
     tipo: 'cancelacion', label: 'Clase cancelada', cuando: 'Se envía cuando el estudio cancela una clase.',
     asuntoDefault: 'Clase cancelada — {clase}',
     introDefault: 'Hola {nombre}, lamentamos avisarte de que esta clase ha sido cancelada. No hace falta que te presentes.',
-    variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    variables: [{ token: '{nombre}', que: 'el nombre del cliente' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
     pieDefault: '{estudio} · tu dirección',
     portadaDeFabrica: false,
     avisoAlApagar: 'No se enterará por correo de que has anulado su clase.',
   },
   {
-    tipo: 'promocion', label: 'Plaza liberada', cuando: 'Se envía al ascender a una alumna desde la lista de espera.',
+    tipo: 'promocion', label: 'Plaza liberada', cuando: 'Se envía al ascender a un cliente desde la lista de espera.',
     asuntoDefault: 'Se ha liberado tu plaza — {clase}',
     introDefault: 'Hola {nombre}, estabas en lista de espera y ha quedado una plaza libre.',
-    variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{clase}', que: 'el nombre de la clase' }],
+    variables: [{ token: '{nombre}', que: 'el nombre del cliente' }, { token: '{clase}', que: 'el nombre de la clase' }],
     datosLabel: 'Fecha, hora, sala e instructora',
     botonLabel: 'Botón para abrir su app',
     pieDefault: '{estudio} · tu dirección',
@@ -118,7 +118,7 @@ const PLANTILLAS_META: {
     tipo: 'impago', label: 'Pago fallido', cuando: 'Se envía cuando un cobro automático no se completa.',
     asuntoDefault: 'Problema con tu pago — {estudio}',
     introDefault: 'Hola {nombre}, hemos intentado cobrar tu cuota y el pago no se ha completado.',
-    variables: [{ token: '{nombre}', que: 'el nombre de la alumna' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
+    variables: [{ token: '{nombre}', que: 'el nombre del cliente' }, { token: '{estudio}', que: 'el nombre de tu estudio' }],
     datosLabel: 'El concepto y el importe',
     pieDefault: '{estudio} · tu dirección',
     portadaDeFabrica: false,
@@ -356,7 +356,7 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Así lo recibe tu alumna
+          Así lo recibe tu cliente
         </p>
         {cargando && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
       </div>
@@ -384,7 +384,7 @@ function VistaPreviaViva({ tipo, borrador }: { tipo: TipoPlantillaEmail; borrado
           )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Con una alumna de ejemplo (Ana García) y una clase de ejemplo.
+        Con un cliente de ejemplo (Ana García) y una clase de ejemplo.
       </p>
     </div>
   );

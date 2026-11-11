@@ -60,7 +60,7 @@ export async function montarBienvenida(page: Page, { estudio = {} }: { estudio?:
 test('la primera pantalla es el logo, sin baraja de valor ni preguntas', async ({ page }) => {
   await montarBienvenida(page);
   await expect(page.getByRole('heading', { name: 'Ponle tu logo y ya es tuyo' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('heading', { name: 'Tus alumnas reservan solas, a cualquier hora' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Tus clientes reservan solas, a cualquier hora' })).toHaveCount(0);
   await expect(page.getByText('¿Cuántos centros tienes?')).toHaveCount(0);
   // Una sola pantalla: ni «1 de N» ni riel de avance.
   await expect(page.getByText(/^1 de \d/)).toHaveCount(0);
@@ -132,7 +132,7 @@ test('las tres preguntas de perfil caben en una sola pantalla', async ({ page })
   await page.getByRole('button', { name: 'Saltar' }).click({ timeout: 30_000 });
 
   await expect(page.getByRole('heading', { name: 'Cuéntanos de tu estudio' })).toBeVisible();
-  for (const etiqueta of ['¿Cuántos centros tienes?', '¿Con qué lo llevas ahora?', '¿Cuántas alumnas activas tienes?']) {
+  for (const etiqueta of ['¿Cuántos centros tienes?', '¿Con qué lo llevas ahora?', '¿Cuántos clientes activos tienes?']) {
     await expect(page.getByLabel(etiqueta)).toBeVisible();
   }
   // Y ya no son tres pasos: el asistente son TRES pantallas, no once preguntas.

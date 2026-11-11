@@ -21,7 +21,7 @@ const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
   {
     seccion: 'Cómo me comunico',
     tarjetas: [
-      ['Nombre y respuesta de tus correos', 'El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas.'],
+      ['Nombre y respuesta de tus correos', 'El nombre que ven tus clientes como remitente y la dirección donde llegan sus respuestas.'],
     ],
   },
   {
@@ -31,9 +31,9 @@ const GRUPOS: { seccion: string; tarjetas: [string, string][] }[] = [
       ['WhatsApp', 'Recordatorios y avisos desde tu número de WhatsApp Business.'],
       ['Google Calendar', 'Copia las clases de las próximas 4 semanas a tu calendario al pulsar «Sincronizar ahora»; no se actualiza solo.'],
       ['Zoom', 'Crea una reunión de Zoom para cada clase de los tipos marcados como online.'],
-      ['Kisi', 'Abre la puerta de tu estudio sola con cada check-in de tus alumnas.'],
-      ['Klaviyo', 'Lleva a Klaviyo las alumnas que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».'],
-      ['Mailchimp', 'Lleva a tu audiencia de Mailchimp las alumnas que aceptaron recibir marketing, al pulsar «Sincronizar ahora».'],
+      ['Kisi', 'Abre la puerta de tu estudio sola con cada check-in de tus clientes.'],
+      ['Klaviyo', 'Lleva a Klaviyo los clientes que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».'],
+      ['Mailchimp', 'Lleva a tu audiencia de Mailchimp los clientes que aceptaron recibir marketing, al pulsar «Sincronizar ahora».'],
       ['Zapier', 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.'],
     ],
   },

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para registrar el contrato de una clienta.' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para registrar el contrato de un cliente.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'socios-aceptacion-contrato', { max: 30, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;

@@ -123,7 +123,7 @@ for (const vista of VISTAS) {
       await expect(valor(page, 'lista-de-espera')).toHaveText('Oferta de 30 min');
       await expect(valor(page, 'asistencia')).toHaveText('Se pasa lista');
       await expect(valor(page, 'si-cancela-tarde-o-no-viene')).toHaveText('5 € · lo apruebas tú');
-      await expect(page.getByRole('switch', { name: 'Avisos a las alumnas' })).toHaveAttribute('aria-checked', 'true');
+      await expect(page.getByRole('switch', { name: 'Avisos a los clientes' })).toHaveAttribute('aria-checked', 'true');
       // Lo que es de serie ya no es un grupo de filas aparte: va en el cajón de su regla.
       await expect(page.locator('[data-fila-informativa]')).toHaveCount(0);
       await expect(page.getByText('Cuando algo cambia, Tentare…')).toHaveCount(0);
@@ -230,9 +230,9 @@ test.describe('Reservas: guardar', () => {
     });
   });
 
-  test('el aviso a las alumnas se guarda al tocarlo y, si el servidor dice que no, vuelve atrás', async ({ page }) => {
+  test('el aviso a los clientes se guarda al tocarlo y, si el servidor dice que no, vuelve atrás', async ({ page }) => {
     const { avisos, patches } = await abrir(page, 'configuracion?tab=reservas', { falloAvisar: 500 });
-    const interruptor = page.getByRole('switch', { name: 'Avisos a las alumnas' });
+    const interruptor = page.getByRole('switch', { name: 'Avisos a los clientes' });
     await expect(interruptor).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
     await expect(interruptor).toBeEnabled();
 

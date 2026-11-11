@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
   if (limited) return limited;
   try {
     const [totales, sinLista] = await Promise.all([totalesDe(admin, sesion.studioId), sinListaDe(admin, sesion.studioId)]);
-    if (!totales) return NextResponse.json({ error: 'No se han podido leer los créditos de tus alumnas.' }, { status: 503 });
+    if (!totales) return NextResponse.json({ error: 'No se han podido leer los créditos de tus clientes.' }, { status: 503 });
     return NextResponse.json({ totales, sinLista }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (err) {
     return errorInterno('estudio/niveles:GET', err, 'No se han podido leer los niveles.');
@@ -117,14 +117,14 @@ export async function PUT(req: NextRequest) {
 
     const totales = await totalesDe(admin, studioId);
     // Sin los totales no se sabe si alguien bajaría: no se guarda.
-    if (!totales) return NextResponse.json({ error: 'No se han podido leer los créditos de tus alumnas. No se ha guardado nada.' }, { status: 503 });
+    if (!totales) return NextResponse.json({ error: 'No se han podido leer los créditos de tus clientes. No se ha guardado nada.' }, { status: 503 });
     // Entre leer los totales y guardar pasan milisegundos sin candado: solo podría
     // afectar a quien cruce un umbral justo entonces, y un nivel no da nada (es
     // estético). Aceptado a propósito: una RPC con candado costaría migración.
     const bajarian = quienBajaria(totales, antes, niveles);
     if (bajarian > 0) {
       return NextResponse.json({
-        error: `Con este cambio ${bajarian === 1 ? '1 alumna bajaría' : `${bajarian} alumnas bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`,
+        error: `Con este cambio ${bajarian === 1 ? '1 cliente bajaría' : `${bajarian} clientes bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`,
         bajarian,
       }, { status: 409 });
     }
@@ -158,7 +158,7 @@ export async function PUT(req: NextRequest) {
     if (eGuardar) {
       return NextResponse.json({
         error: quitados.length > 0
-          ? 'No se han podido guardar los niveles (los que quitaste, sin alumnas, sí se han quitado). Vuelve a intentarlo.'
+          ? 'No se han podido guardar los niveles (los que quitaste, sin clientes, sí se han quitado). Vuelve a intentarlo.'
           : 'No se han podido guardar los niveles. No se ha cambiado nada.',
       }, { status: 503 });
     }

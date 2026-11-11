@@ -163,7 +163,7 @@ test.describe('Automatizaciones, sin Tenti: la baldosa del Zap de siempre', () =
   });
 });
 
-test('Importar clientas: el enlace a la migración automática lleva a Tenti, y ningún ✨', async ({ page }) => {
+test('Importar clientes: el enlace a la migración automática lleva a Tenti, y ningún ✨', async ({ page }) => {
   await montar(page);
   await ir(page, 'clientas/importar');
   const enlace = page.getByRole('link', { name: /Vienes de otro software/ });

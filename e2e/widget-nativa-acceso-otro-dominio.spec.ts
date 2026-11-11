@@ -381,7 +381,7 @@ async function conCodigoQueAbreSesion(context: BrowserContext, app: string): Pro
   return contador;
 }
 
-test('con el código del correo: la sesión llega al widget y NO se queda en tentare.app, ni pisa la de la alumna', async ({ page, context, baseURL }) => {
+test('con el código del correo: la sesión llega al widget y NO se queda en tentare.app, ni pisa la del cliente', async ({ page, context, baseURL }) => {
   const app = new URL(baseURL!).origin;
   const suya = await conSesionDelPortal(context, app);
   const verificar = await conCodigoQueAbreSesion(context, app);

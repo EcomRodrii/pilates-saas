@@ -16,7 +16,7 @@ const suelta = (cambios: Partial<FranjaSuelta> = {}): FranjaSuelta => ({
   proximaSesionId: 'ses-1', ultimaFecha: '2027-01-30', ...cambios,
 });
 
-test('sin sesión de alumna, se ofrece pedirla (no se la riñe por su cuota)', () => {
+test('sin sesión de cliente, se ofrece pedirla (no se la riñe por su cuota)', () => {
   const [v] = proyectarClasesSueltas([suelta()], null, [planMensual], HOY);
   assert.deepEqual(v.estado, { estado: 'PUEDE_PEDIR' });
 });

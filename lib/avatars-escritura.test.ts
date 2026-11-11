@@ -70,7 +70,7 @@ test('instructor-: el manager solo sobre fichas INSTRUCTOR/RECEPCION; la propiet
   assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'instructor-x', rol: 'PROPIETARIO', rolFichaInstructora: 'MANAGER' }), true);
 });
 
-test('socia: ella misma (sin rol de staff) o quien gestiona clientas', () => {
+test('socia: ella misma (sin rol de staff) o quien gestiona clientes', () => {
   assert.equal(puedeEscribirRutaAvatar({ esDelEstudio: false, esPropia: true, nombre: 'soc-1', rol: null }), true);
   assert.equal(puedeEscribirRutaAvatar({ ...base, nombre: 'soc-1', rol: 'RECEPCION' }), true);
 });

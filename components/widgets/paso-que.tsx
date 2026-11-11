@@ -386,7 +386,7 @@ const SE_ACTUALIZA_SOLO: Record<string, ReactNode> = {
   estudio: <>La descripción, la dirección y el horario salen de <EnlaceA href="/configuracion?tab=estudio">Tu estudio</EnlaceA>.</>,
   equipo: <>Salen las instructoras que dan clase, con su foto. Se editan en <EnlaceA href="/equipo">Equipo</EnlaceA>.</>,
   bonos: <>Sale cada bono activo con su precio. Se editan en <EnlaceA href="/productos">Paquetes</EnlaceA>.</>,
-  contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Clientas</EnlaceA>.</>,
+  contacto: <>Nombre, email y mensaje. Cada consulta te llega a <EnlaceA href="/clientas">Clientes</EnlaceA>.</>,
 };
 
 export function QueEnsena({ w, c, metodo, cambiar, datos, porId, tituloHorario = 'Qué enseña' }: {
@@ -445,7 +445,7 @@ export function QueEnsena({ w, c, metodo, cambiar, datos, porId, tituloHorario =
   if (w.contenido.includes('cuentaInicio')) {
     return (
       <Tarjeta titulo="Qué enseña" etiqueta={etiqueta} subtitulo={porId ? siCambia : undefined}>
-        <Ajuste etiqueta="Al abrir, enseña" descripcion="Tus alumnas pasan de una cosa a otra con un toque.">
+        <Ajuste etiqueta="Al abrir, enseña" descripcion="Tus clientes pasan de una cosa a otra con un toque.">
           <Segmentado
             etiqueta="Con qué abre su cuenta"
             valor={c.cuentaInicio}

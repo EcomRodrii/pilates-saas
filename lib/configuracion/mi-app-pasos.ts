@@ -133,7 +133,7 @@ export function pasosMiApp(d: DatosMiApp): PasoMiApp[] {
       tono: d.fraseAMano ? 'hecho' : 'nada', hecho: d.fraseAMano,
     },
     {
-      id: 'compartir', orden: 7, titulo: 'Compártela con tus alumnas', peso: 'final',
+      id: 'compartir', orden: 7, titulo: 'Compártela con tus clientes', peso: 'final',
       porque: d.appEnTienda
         ? 'Una app que no conocen no se usa: el enlace, el QR para recepción, cómo instalarla en el móvil y tu app en la App Store.'
         : 'Una app que no conocen no se usa: el enlace, el QR para recepción y cómo instalarla en el móvil.',

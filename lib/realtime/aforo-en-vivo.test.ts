@@ -98,7 +98,7 @@ test('solo escucha el staff del estudio o una socia activa suya', () => {
 });
 
 // ── Que nadie se olvide de engancharlo ───────────────────────────────────────
-test('las pantallas de la alumna que enseñan plazas o su reserva están enganchadas', () => {
+test('las pantallas del cliente que enseñan plazas o su reserva están enganchadas', () => {
   const pantallas = [
     'app/portal/[slug]/page.tsx',
     'app/portal/[slug]/mis-reservas/page.tsx',
@@ -113,7 +113,7 @@ test('las pantallas de la alumna que enseñan plazas o su reserva están enganch
   }
 });
 
-test('el calendario del panel escucha, y quitar a una alumna refresca su vista', () => {
+test('el calendario del panel escucha, y quitar a un cliente refresca su vista', () => {
   const cal = leer('app/(dashboard)/calendario/page.tsx');
   assert.match(cal, /useAforoEnVivo\(supabase, \{/, 'el calendario no escucha el canal');
 
@@ -127,7 +127,7 @@ test('el calendario del panel escucha, y quitar a una alumna refresca su vista',
   assert.ok(i > 0, 'no encuentro el manejador de quitar');
   const bloque = cal.slice(i, i + 1200);
   assert.match(bloque, /refrescarVista\(\)/,
-    'Quitar a una alumna tiene que refrescar `datosVista`: es de donde sale el contador.');
+    'Quitar a un cliente tiene que refrescar `datosVista`: es de donde sale el contador.');
 });
 
 // ── El widget que el estudio incrusta en su propia web ──────────────────────

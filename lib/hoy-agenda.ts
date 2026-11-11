@@ -202,7 +202,7 @@ export function resumirClaseDelDia(
       motivos.push({ clave: 'sobreaforo', texto: `${sobreaforo} por encima del aforo`, tono: 'PROBLEMA' });
     }
     if (estado === 'SIN_PASAR_LISTA') {
-      motivos.push({ clave: 'sin-pasar-lista', texto: `Falta pasar lista a ${plural(sinPasarLista, 'alumna', 'alumnas')}`, tono: 'PROBLEMA' });
+      motivos.push({ clave: 'sin-pasar-lista', texto: `Falta pasar lista a ${plural(sinPasarLista, 'cliente', 'clientes')}`, tono: 'PROBLEMA' });
     }
     const pendientes = sinContestar + pendientesAprobacion;
     if (pendientes > 0) {

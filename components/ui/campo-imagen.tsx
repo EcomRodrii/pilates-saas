@@ -166,7 +166,7 @@ export function CampoImagen({
               // Avisa, pero no bloquea: puede que el enlace no cargue aquí y sí
               // en otro sitio. Lo que hay que decirle es qué pasa si lo guarda
               // igualmente, no impedírselo.
-              onError={() => setError('Ese enlace no carga aquí. Comprueba que la imagen sea pública — si la guardas así, tus alumnas verán la foto por defecto.')}
+              onError={() => setError('Ese enlace no carga aquí. Comprueba que la imagen sea pública — si la guardas así, tus clientes verán la foto por defecto.')}
             />
           )}
           <button

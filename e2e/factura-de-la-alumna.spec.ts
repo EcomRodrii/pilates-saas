@@ -75,7 +75,7 @@ async function montar(page: Page, opts: { factura?: boolean } = {}) {
     : r.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'Sin factura' }) })));
 }
 
-test.describe('Factura de la alumna', () => {
+test.describe('Factura del cliente', () => {
   test('con factura emitida, aparece el botón y desaparece el «pídesela al estudio»', async ({ page }) => {
     await montar(page, { factura: true });
     await page.goto(`${base}/pagos/rec-1`);
@@ -126,7 +126,7 @@ async function htmlDeLaFactura(page: Page): Promise<string> {
   return html as string;
 }
 
-test.describe('La factura de la alumna no lleva el registro fiscal del estudio', () => {
+test.describe('La factura del cliente no lleva el registro fiscal del estudio', () => {
   test('sin sello: ni QR, ni huella, ni aviso de entorno de pruebas', async ({ page }) => {
     await espiarVentanaDeFactura(page);
     await montar(page, { factura: true });
@@ -141,7 +141,7 @@ test.describe('La factura de la alumna no lleva el registro fiscal del estudio',
     expect(html).not.toMatch(/PRUEBAS/i);
   });
 
-  test('y sí lleva lo suyo: estudio, alumna, concepto, IVA y total', async ({ page }) => {
+  test('y sí lleva lo suyo: estudio, cliente, concepto, IVA y total', async ({ page }) => {
     await espiarVentanaDeFactura(page);
     await montar(page, { factura: true });
     await page.goto(`${base}/pagos/rec-1`);

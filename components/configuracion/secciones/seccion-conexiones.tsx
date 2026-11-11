@@ -105,12 +105,12 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
 
   return (
     <>
-      <GrupoFilas titulo="Cobrar a tus alumnas">
+      <GrupoFilas titulo="Cobrar a tus clientes">
         <FilaCobroConTarjeta c={stripe} onAbrir={() => abrir('integracion-stripe')} />
         <FilaDatafono d={datafono} stripeConectado={stripe.conectado} onAbrir={() => abrir('datafono')} onConectar={() => setConectandoDatafono('inicio')} />
       </GrupoFilas>
 
-      <GrupoFilas titulo="Escribir a tus alumnas">
+      <GrupoFilas titulo="Escribir a tus clientes">
         <FilaWhatsapp w={whatsapp} onAbrir={() => abrir('integracion-whatsapp')} />
         <FilaGmail g={gmail} onAbrir={() => abrir('integracion-gmail')} />
         <FilaOtraSeccion

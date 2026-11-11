@@ -80,7 +80,7 @@ export default function RendimientoInstructorasPage() {
               <h2 className="text-[14px] font-semibold text-foreground mb-3">{i.nombre}</h2>
               {i.datosInsuficientes ? (
                 <p className="text-[13px] text-muted-foreground">
-                  Todavía no hay datos suficientes (necesita al menos 5 alumnas propias y 60 días dando clases en el estudio).
+                  Todavía no hay datos suficientes (necesita al menos 5 clientes propios y 60 días dando clases en el estudio).
                 </p>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-[13px]">

@@ -48,7 +48,7 @@ for (const vista of TELEFONOS) {
   test.describe(`Cobros con el dedo, ${vista.nombre}`, () => {
     test.use(vista.uso);
 
-    test('cada clienta que debe dice quién es, cuánto y cómo está, sin salirse de lado', async ({ page }) => {
+    test('cada cliente que debe dice quién es, cuánto y cómo está, sin salirse de lado', async ({ page }) => {
       await quienMeDebe(page);
       expect(await desborde(page), 'la página se sale de lado').toBeLessThanOrEqual(0);
 

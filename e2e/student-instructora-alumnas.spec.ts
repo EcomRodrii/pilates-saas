@@ -55,7 +55,7 @@ async function montar(
     }
     if (cuerpo.accion === 'listar') {
       contador.listar++;
-      if (opciones.listarFalla) return json(route, { error: 'No hemos podido cargar tus alumnas.' }, 500);
+      if (opciones.listarFalla) return json(route, { error: 'No hemos podido cargar tus clientes.' }, 500);
       return json(route, {
         alumnas: [
           { socioId: 'soc-aina', nombre: 'Aina P.', fotoUrl: null, primeraClase: true, proxima: PROXIMA },
@@ -76,7 +76,7 @@ async function montar(
       });
     }
     contador.fichas.push(cuerpo.socioId ?? '');
-    if (cuerpo.socioId !== 'soc-aina') return json(route, { error: 'No encontramos a esta alumna.' }, 404);
+    if (cuerpo.socioId !== 'soc-aina') return json(route, { error: 'No encontramos a este cliente.' }, 404);
     return json(route, {
       socioId: 'soc-aina', nombre: 'Aina P.', fotoUrl: null, primeraClase: true,
       proximas: [PROXIMA],
@@ -86,12 +86,12 @@ async function montar(
   return contador;
 }
 
-test.describe('«Tus alumnas» en la app de la instructora', () => {
-  test('desde Perfil ve sus alumnas con lo mínimo y abre la ficha de una', async ({ page }) => {
+test.describe('«Tus clientes» en la app de la instructora', () => {
+  test('desde Perfil ve sus clientes con lo mínimo y abre la ficha de una', async ({ page }) => {
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/perfil`);
     // Sus alumnas están en la barra de abajo, no dentro de Perfil (15-sep-2026).
-    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Alumnas', exact: true }).click({ timeout: 30_000 });
+    await page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Clientes', exact: true }).click({ timeout: 30_000 });
 
     const aina = page.getByTestId('alumna').filter({ hasText: 'Aina P.' });
     await expect(aina).toContainText('Primera clase', { timeout: 30_000 });
@@ -106,11 +106,11 @@ test.describe('«Tus alumnas» en la app de la instructora', () => {
     expect(contador.fichas).toContain('soc-aina');
   });
 
-  test('una alumna que no es suya no se ve: lo explica sin enseñar nada', async ({ page }) => {
+  test('un cliente que no es suya no se ve: lo explica sin enseñar nada', async ({ page }) => {
     const contador = await montar(page);
     await page.goto(`/portal/${SLUG}/equipo/alumnas/soc-ajena`);
 
-    await expect(page.getByText('No encontramos a esta alumna')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('No encontramos a este cliente')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('nombre-alumna')).toHaveCount(0);
     expect(contador.fichas).toContain('soc-ajena');
   });
@@ -119,8 +119,8 @@ test.describe('«Tus alumnas» en la app de la instructora', () => {
     const contador = await montar(page, { listarFalla: true });
     await page.goto(`/portal/${SLUG}/equipo/alumnas`);
 
-    await expect(page.getByText('No hemos podido cargar tus alumnas.')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Todavía no tienes alumnas')).toHaveCount(0);
+    await expect(page.getByText('No hemos podido cargar tus clientes.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Todavía no tienes clientes')).toHaveCount(0);
     expect(contador.listar).toBeGreaterThan(0);
   });
 

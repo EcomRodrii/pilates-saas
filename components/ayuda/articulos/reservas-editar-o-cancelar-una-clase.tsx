@@ -24,22 +24,22 @@ export default function Contenido() {
         &ldquo;Guardar esta y las siguientes&rdquo;. Para cancelar pasa lo mismo, también en el &ldquo;⋯&rdquo; de la
         clase: &ldquo;Cancelar esta clase&rdquo; quita solo esa, y &ldquo;Cancelar esta y las siguientes&rdquo;, esa y
         las que vienen detrás. Una clase que ya ha empezado no se cancela ni se borra: su asistencia es la historia
-        de tus clientas.
+        de tus clientes.
       </p>
       <p>
         &ldquo;Guardar esta y las siguientes&rdquo; no guarda al pulsarlo: antes te enseña qué va a pasar. Cuántas
         clases cambian y desde qué fecha, qué cambia (hora, sala, instructora&hellip;), cuántas reservas confirmadas
-        se ven afectadas y a cuántas alumnas se avisará (una vez a cada una, aunque cambien varias de sus clases),
-        qué alumnas tienen clase fija en esas clases, quién está en lista de espera y qué reservas se hicieron
+        se ven afectadas y a cuántos clientes se avisará (una vez a cada una, aunque cambien varias de sus clases),
+        qué clientes tienen clase fija en esas clases, quién está en lista de espera y qué reservas se hicieron
         con una recuperación. Solo se guarda —y se avisa— cuando confirmas. Si cambias únicamente el aforo o las
         notas, no se avisa a nadie.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cancelar una clase</h2>
       <p>
-        Al cancelar, la clase se marca como cancelada y cada alumna con una reserva CONFIRMADA en ella recibe un
+        Al cancelar, la clase se marca como cancelada y cada cliente con una reserva CONFIRMADA en ella recibe un
         aviso. Por defecto recuperan además la sesión en su bono; si prefieres que no, desactiva &ldquo;Devolver la
-        sesión al cancelar una clase entera&rdquo; en Configuración &gt; Cómo reservan mis alumnas. Ese mismo
+        sesión al cancelar una clase entera&rdquo; en Configuración &gt; Cómo reservan mis clientes. Ese mismo
         ajuste decide qué pasa cuando una clase se cancela sola por no llegar al mínimo de asistentes o por un cierre
         del centro.
       </p>
@@ -52,7 +52,7 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Cada alumna con reserva ve el cambio o la cancelación en su portal, con su notificación correspondiente. Si
+        Cada cliente con reserva ve el cambio o la cancelación en su portal, con su notificación correspondiente. Si
         crees que a alguien no le ha llegado el aviso, revisa{' '}
         <Link href="/ayuda/problemas/no-llega-un-email" style={{ color: 'inherit', textDecoration: 'underline' }}>no llega un email</Link>.
       </AyudaResultado>

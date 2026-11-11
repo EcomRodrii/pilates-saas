@@ -263,8 +263,8 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
             {/* El enlace por defecto: el que se pasa a las alumnas. Entran con su email y un código. */}
             <EnlacePublico
               icono={Smartphone}
-              titulo="App de tus alumnas"
-              detalle="El enlace que compartes con tus alumnas: Instagram, WhatsApp, la puerta o tus folletos. Entran con su email, reservan, ven su bono y su progreso, y se instala en el móvil."
+              titulo="App de tus clientes"
+              detalle="El enlace que compartes con tus clientes: Instagram, WhatsApp, la puerta o tus folletos. Entran con su email, reservan, ven su bono y su progreso, y se instala en el móvil."
               nota={miWebNueva ? (
                 <>Cómo se instala y cómo se ve, en{' '}
                   <Link href="/configuracion/apariencia?paso=instalar" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Mi app → Compártela</Link>.</>
@@ -279,7 +279,7 @@ export function DetalleDireccionYEnlaces({ showToast }: Pick<PropsFormularioCajo
             <EnlacePublico
               icono={CalendarLinkIcon}
               titulo="Página de reservas"
-              detalle="Para tu web: la que se integra en tu web, con un botón o un widget. No es el enlace que repartes a tus alumnas, ese es el de su app."
+              detalle="Para tu web: la que se integra en tu web, con un botón o un widget. No es el enlace que repartes a tus clientes, ese es el de su app."
               nota={(
                 <>Cómo ponerla en tu web, en{' '}
                   <Link href="/configuracion?tab=web&abrir=widgets" className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Widgets para tu web</Link>.</>

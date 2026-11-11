@@ -155,7 +155,7 @@ test('cita: usa la RPC atómica sin precio ni servicio, con el id derivado; un C
   assert.ok(!c.ok && c.codigo === 'CONFLICTO' && /No se ha creado nada/.test(c.error));
 });
 
-test('sala y evento: ids derivados; el evento avisa a las alumnas solo tras crearse y una vez', async () => {
+test('sala y evento: ids derivados; el evento avisa a los clientes solo tras crearse y una vez', async () => {
   const sala = adminFalso(base({ asistente_acciones: [fila({ tipo: 'CREAR_SALA', payload: { nombre: 'Terraza', capacidad: 6, color: '#F7A6C4' } })] }));
   assert.ok((await confirmarAccion(sala.admin, { ...YO, rol: 'MANAGER' }, ID, deps())).ok);
   assert.equal(sala.tablas.salas.find(s => s.id === `sala-asist-${ID}`)?.nombre, 'Terraza');
@@ -201,7 +201,7 @@ test('proponer no escribe nada del estudio: solo la propuesta, atada a quien la 
   assert.doesNotMatch(JSON.stringify(bloque) + JSON.stringify(guardada.payload), /Marta/);
 });
 
-test('proponer una cita: la marca se resuelve a un id del estudio; una alumna de otro estudio o una PERSONA_n no', async () => {
+test('proponer una cita: la marca se resuelve a un id del estudio; un cliente de otro estudio o una PERSONA_n no', async () => {
   const d = { ...datos(), socios: [{ id: 'soc-1', studio_id: 'est-1', borrado_en: null }, { id: 'soc-de-otro-estudio', studio_id: 'est-2', borrado_en: null }] };
   const { admin } = adminFalso(d);
   const c = ctx(admin);

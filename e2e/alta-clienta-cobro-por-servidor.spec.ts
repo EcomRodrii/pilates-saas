@@ -104,7 +104,7 @@ async function montar(page: Page, opts: { cobro?: 'aplicada' | 'sin_sellar' | 'n
 
 async function altaConCobro(page: Page, planId: string, opts: { pagado?: boolean; dobleClic?: boolean } = {}) {
   const pagado = opts.pagado ?? true;
-  await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: /Nuevo cliente|Añadir primer cliente/ }).first().click({ timeout: 30_000 });
   await page.getByRole('textbox', { name: /^Nombre\s*\*?$/ }).fill('María');
   await page.getByRole('textbox', { name: 'Apellidos' }).fill('Soler Puig');
   await page.getByRole('textbox', { name: 'Email' }).fill('maria@example.com');
@@ -114,8 +114,8 @@ async function altaConCobro(page: Page, planId: string, opts: { pagado?: boolean
     await page.getByRole('combobox', { name: 'Cómo te lo ha pagado' }).selectOption('BIZUM');
   }
   await page.getByRole('checkbox').check();
-  await page.getByPlaceholder(/Nombre completo de la clienta/i).fill('María Soler Puig');
-  const crear = page.getByRole('button', { name: /Crear clienta y firmar/ });
+  await page.getByPlaceholder(/Nombre completo del cliente/i).fill('María Soler Puig');
+  const crear = page.getByRole('button', { name: /Crear cliente y firmar/ });
   if (opts.dobleClic) await crear.dblclick();
   else await crear.click();
 }
@@ -167,7 +167,7 @@ test.describe('Alta con «ya está cobrado»', () => {
     await expect(page.getByText(/cobro no ha quedado registrado/i)).toHaveCount(0);
   });
 
-  test('un doble clic en «Crear clienta» crea UNA alta y la cobra UNA vez', async ({ page }) => {
+  test('un doble clic en «Crear cliente» crea UNA alta y la cobra UNA vez', async ({ page }) => {
     const { recibos, cobros } = await montar(page);
     await altaConCobro(page, 'plan-1', { dobleClic: true });
 
@@ -197,7 +197,7 @@ test.describe('Alta con «ya está cobrado»', () => {
 
   test('la domiciliación ya no se ofrece como método de un cobro ya hecho', async ({ page }) => {
     await montar(page);
-    await page.getByRole('button', { name: /Nueva clienta|Añadir primera clienta/ }).first().click({ timeout: 30_000 });
+    await page.getByRole('button', { name: /Nuevo cliente|Añadir primer cliente/ }).first().click({ timeout: 30_000 });
     await page.getByRole('combobox', { name: /Plan/i }).selectOption('plan-1');
     await page.getByRole('button', { name: /Sí, ya está cobrado/ }).click();
     const metodos = page.getByRole('combobox', { name: 'Cómo te lo ha pagado' }).locator('option');

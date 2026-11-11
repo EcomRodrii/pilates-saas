@@ -51,8 +51,8 @@ test('la huella del alta va apagada por defecto (la revisa un abogado antes)', (
   assert.equal(huellaAltaActiva({ HUELLA_ALTA: ' on ' }), true);
 });
 
-test('umbrales de alumnas: con unas pocas en común no se toca a nadie', () => {
-  assert.ok(MIN_ALUMNAS_COMUNES >= 20, 'dos estudios del mismo barrio comparten alguna alumna');
+test('umbrales de clientes: con unas pocas en común no se toca a nadie', () => {
+  assert.ok(MIN_ALUMNAS_COMUNES >= 20, 'dos estudios del mismo barrio comparten algún cliente');
   assert.ok(PCT_ALUMNAS_COMUNES >= 0.5);
   // El servidor pasa ESTOS umbrales a la función SQL, no otros escritos a mano.
   const srv = leer('lib/billing/vinculos-gratis-servidor.ts');
@@ -129,7 +129,7 @@ test('desvincular en /interno descarta los dos sentidos y reabre por la única p
   assert.match(reabrir, /\.eq\('subscription_status', ESTADO_GRATIS_CERRADO\)\.select\('id'\)/);
 });
 
-test('RGPD: el rastro se borra al suprimir a la alumna y caduca solo', () => {
+test('RGPD: el rastro se borra al suprimir al cliente y caduca solo', () => {
   const ruta = leer('app/api/socios/eliminar/route.ts');
   assert.equal((ruta.match(/await borrarRastroDeAlumna\(admin, sesion\.studioId, socioId\)/g) ?? []).length, 2,
     'en la supresión y al reaplicarla');

@@ -45,7 +45,7 @@ const PILLARS = [
   {
     icon: <Activity size={22} />,
     title: 'Datos de salud, con consentimiento',
-    body: 'La ficha clínica de tus alumnas (lesiones, embarazo, condiciones) es categoría especial del RGPD. Se guarda con consentimiento explícito y acceso restringido por rol.',
+    body: 'La ficha clínica de tus clientes (lesiones, embarazo, condiciones) es categoría especial del RGPD. Se guarda con consentimiento explícito y acceso restringido por rol.',
   },
   {
     icon: <FileCheck size={22} />,
@@ -55,7 +55,7 @@ const PILLARS = [
   {
     icon: <CreditCard size={22} />,
     title: 'Pagos que no tocan tu servidor',
-    body: 'Los cobros se procesan con Stripe. Tentare no almacena los números de tarjeta de tus alumnas — los gestiona el proveedor de pagos certificado.',
+    body: 'Los cobros se procesan con Stripe. Tentare no almacena los números de tarjeta de tus clientes — los gestiona el proveedor de pagos certificado.',
   },
   {
     icon: <Database size={22} />,
@@ -65,7 +65,7 @@ const PILLARS = [
 ];
 
 const NEVER = [
-  'No vendemos ni cedemos los datos de tus alumnas a terceros para publicidad.',
+  'No vendemos ni cedemos los datos de tus clientes a terceros para publicidad.',
   'No guardamos números de tarjeta en nuestros servidores.',
   'No te atamos con contratos de permanencia ni cobros por marcharte.',
 ];
@@ -80,7 +80,7 @@ export default function SeguridadPage() {
       <header className="sec-cab">
         <div className="sec-cab-in">
           <p className="sec-antetitulo"><Shield size={16} aria-hidden /> Seguridad y privacidad</p>
-          <h1 className="sec-h1">Tus datos y los de tus<br />alumnas, protegidos.</h1>
+          <h1 className="sec-h1">Tus datos y los de tus<br />clientes, protegidos.</h1>
           <p className="sec-entrada">Tentare gestiona información sensible de tu negocio y de tus socias. Está construido desde el primer día para que esos datos estén aislados, alojados en Europa y bajo tu control.</p>
           <ul className="sec-sellos">
             {['Base de datos en la UE', 'Diseñado con el RGPD en mente', 'Cifrado en tránsito', 'Sin permanencia'].map((t) => <li key={t}>{t}</li>)}
@@ -109,7 +109,7 @@ export default function SeguridadPage() {
             <Reveal delay={90} className="sec-tarjeta">
               <Icon><Download size={22} /></Icon>
               <h2 className="sec-tarjeta-h">Tus datos son tuyos</h2>
-              <p className="sec-tarjeta-p">Sin permanencia y sin secuestro de datos. Puedes exportar tus alumnas, tu historial y tus facturas cuando quieras. Si un día te vas, te llevas tus alumnas, sus reservas, sus cobros y tus facturas.</p>
+              <p className="sec-tarjeta-p">Sin permanencia y sin secuestro de datos. Puedes exportar tus clientes, tu historial y tus facturas cuando quieras. Si un día te vas, te llevas tus clientes, sus reservas, sus cobros y tus facturas.</p>
             </Reveal>
           </div>
 

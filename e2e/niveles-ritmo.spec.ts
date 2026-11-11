@@ -87,7 +87,7 @@ test('encendido: equivalencia en clases, reparto, y un cambio que bajaría a alg
   // «Centro» desde 8 clases = 200; subirlo a 16 clases (400) bajaría a la alumna con 300.
   await expect(page.getByLabel('Clases para Centro')).toHaveValue('8');
   await page.getByLabel('Clases para Centro').fill('16');
-  await expect(page.getByRole('alert').filter({ hasText: 'bajarían de nivel: 1 alumna de «Centro»' })).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'bajarían de nivel: 1 cliente de «Centro»' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Guardar niveles' })).toBeDisabled();
   expect(guardados).toHaveLength(0);
 });
@@ -146,7 +146,7 @@ test('si se corta la red al guardar, no se dice ni «guardado» ni «no se ha gu
 test('si el servidor no guarda (409: alguien bajaría), se dice en rojo y sí se intentó', async ({ page }) => {
   const { guardados } = await abrir(page, {
     encendido: true,
-    put: { status: 409, body: { error: 'Con este cambio 1 alumna bajaría de nivel, y lo que ya tienen no se toca. No se ha guardado nada.' } },
+    put: { status: 409, body: { error: 'Con este cambio 1 cliente bajaría de nivel, y lo que ya tienen no se toca. No se ha guardado nada.' } },
   });
   await expect(page.getByTestId('editor-niveles')).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('vista-previa-niveles')).toContainText('Respiración: 2');

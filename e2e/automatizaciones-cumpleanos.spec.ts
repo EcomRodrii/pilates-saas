@@ -108,7 +108,7 @@ test.describe('Felicitar el cumpleaños (regla opcional)', () => {
   test('apagada para el estudio: la pantalla es la de siempre y no se ofrece', async ({ page }) => {
     const { cuenta, sondaHecha } = await montar(page, { sonda: { status: 200, body: { cumpleanos: null } } });
     // Las sugeridas de siempre se ven: la pantalla ha cargado.
-    await expect(page.getByText('Clienta ausente').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Cliente ausente').first()).toBeVisible({ timeout: 30_000 });
     await sondaHecha;
     await dosFotogramas(page);
     expect(cuenta.sonda).toBeGreaterThan(0);
@@ -119,7 +119,7 @@ test.describe('Felicitar el cumpleaños (regla opcional)', () => {
   for (const [caso, sonda] of [['un 500', { status: 500, body: { error: 'x' } }], ['la red caída', 'red']] as const) {
     test(`si la sonda falla (${caso}) no se ofrece nada y la pantalla sigue entera`, async ({ page }) => {
       const { cuenta, sondaHecha } = await montar(page, { sonda });
-      await expect(page.getByText('Clienta ausente').first()).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText('Cliente ausente').first()).toBeVisible({ timeout: 30_000 });
       await sondaHecha;
       await dosFotogramas(page);
       expect(cuenta.sonda).toBeGreaterThan(0);
@@ -177,10 +177,10 @@ test.describe('Felicitar el cumpleaños (regla opcional)', () => {
     const interruptor = page.getByRole('switch', { name: /Felicitar el cumpleaños/ });
     await interruptor.click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
-    await expect(dialogo).toContainText('Esto va a escribir a tus clientas');
-    await expect(dialogo).toContainText('llegaría a 3 de tus 40 clientas');
+    await expect(dialogo).toContainText('Esto va a escribir a tus clientes');
+    await expect(dialogo).toContainText('llegaría a 3 de tus 40 clientes');
     // Y un lector de pantalla lo lee al abrirse (el foco cae en un botón).
-    await expect(dialogo).toHaveAccessibleDescription(/llegaría a 3 de tus 40 clientas/);
+    await expect(dialogo).toHaveAccessibleDescription(/llegaría a 3 de tus 40 clientes/);
     // No es la cuenta del panel («email o teléfono»), que aquí sería otra cifra.
     await expect(dialogo).not.toContainText('email o teléfono');
     await dialogo.getByRole('button', { name: 'No, dejarla pausada' }).click();
@@ -195,7 +195,7 @@ test.describe('Felicitar el cumpleaños (regla opcional)', () => {
     await page.getByRole('switch', { name: /Felicitar el cumpleaños/ }).click({ timeout: 30_000 });
     const dialogo = page.getByRole('dialog');
     await expect(dialogo).toContainText('no felicitaría a nadie');
-    await expect(dialogo).toContainText('de tus 363 clientas, ninguna tiene guardada su fecha de nacimiento y 13 han aceptado recibir novedades');
+    await expect(dialogo).toContainText('de tus 363 clientes, ninguna tiene guardada su fecha de nacimiento y 13 han aceptado recibir novedades');
     await expect(dialogo).toContainText('Hacen falta las dos cosas');
     await expect(dialogo).toContainText('al apuntarse desde tu web o al firmar su ficha de salud, o si la importas');
   });
@@ -223,10 +223,10 @@ test.describe('Felicitar el cumpleaños (regla opcional)', () => {
 
   test('apagada para el estudio y la regla apagada: no se enseña', async ({ page }) => {
     const { cuenta, sondaHecha } = await montar(page, { sonda: { status: 200, body: { cumpleanos: null } }, reglas: [reglaCumple(false), {
-      id: 'rule-aus', studio_id: STUDIO_ID, nombre: 'Clienta ausente', descripcion: 'x', icono: '👤', trigger: 'AUSENCIA_DIAS',
+      id: 'rule-aus', studio_id: STUDIO_ID, nombre: 'Cliente ausente', descripcion: 'x', icono: '👤', trigger: 'AUSENCIA_DIAS',
       condicion: {}, pasos: [], activa: false, ejecutada_veces: 0, ultima_ejecucion: null, creada_en: '2026-01-01T00:00:00Z',
     }] });
-    await expect(page.getByRole('switch', { name: /Clienta ausente/ })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('switch', { name: /Cliente ausente/ })).toBeVisible({ timeout: 30_000 });
     await sondaHecha;
     await dosFotogramas(page);
     expect(cuenta.sonda).toBeGreaterThan(0);

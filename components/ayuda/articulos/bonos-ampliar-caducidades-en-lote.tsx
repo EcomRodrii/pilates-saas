@@ -13,7 +13,7 @@ export default function Contenido() {
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Selecciona a quién afecta">
-        En <strong>Clientas</strong>, marca las casillas de las alumnas a las que quieres ampliar. Si es a todas,
+        En <strong>Clientes</strong>, marca las casillas de los clientes a las que quieres ampliar. Si es a todas,
         la casilla de la cabecera las selecciona de golpe — y respeta el filtro que tengas puesto, así que puedes
         ampliar solo a las activas, o solo a las de una etiqueta.
       </AyudaPaso>
@@ -25,7 +25,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={3} titulo="Comprueba lo que se movió">
         Al terminar te dice exactamente cuántos bonos y cuántas recuperaciones ha ampliado. Si sale «No había
-        ningún bono ni recuperación en vigor que ampliar», es que esas alumnas no tenían nada vivo — no es un error.
+        ningún bono ni recuperación en vigor que ampliar», es que esos clientes no tenían nada vivo — no es un error.
       </AyudaPaso>
 
       <h2 style={h2}>Qué se amplía y qué no</h2>
@@ -39,7 +39,7 @@ export default function Contenido() {
         Cuando el motivo son vacaciones, un puente o unas obras, lo que quieres es un{' '}
         <Link href="/ayuda/configuracion/cierres-del-centro" style={enlace}>cierre del centro</Link>: además de
         cancelar las clases de esas fechas y avisar a quien tenía reserva, <strong>alarga solo</strong> los bonos y
-        las recuperaciones de todas tus alumnas esos mismos días, sin que selecciones a nadie. Esta pantalla es para
+        las recuperaciones de todas tus clientes esos mismos días, sin que selecciones a nadie. Esta pantalla es para
         lo otro: regalar días a quien tú elijas, sin cerrar.
       </p>
 
@@ -51,7 +51,7 @@ export default function Contenido() {
       </p>
 
       <AyudaResultado>
-        Es la operación pensada para vacaciones y festivos. Para el caso de una sola alumna que se va de viaje,
+        Es la operación pensada para vacaciones y festivos. Para el caso de una sola cliente que se va de viaje,
         tienes algo mejor: <Link href="/ayuda/bonos/caducidad-de-un-bono" style={enlace}>pausar su plan</Link>,
         que empuja su fecha exactamente los días que estuvo parada.
       </AyudaResultado>

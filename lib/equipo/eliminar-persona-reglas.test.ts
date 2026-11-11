@@ -46,11 +46,11 @@ test('los códigos de la base de datos se traducen a una frase, y lo desconocido
   }
 });
 
-test('el aviso de lo pendiente habla de una persona del equipo, no de una clienta', () => {
+test('el aviso de lo pendiente habla de una persona del equipo, no de un cliente', () => {
   assert.equal(avisoPendientesEquipo([]), null);
   const aviso = avisoPendientesEquipo([{ tercero: 'cuenta_acceso' }]);
   assert.match(aviso ?? '', /esta persona/);
-  assert.doesNotMatch(aviso ?? '', /clienta/i);
+  assert.doesNotMatch(aviso ?? '', /cliente/i);
 });
 
 test('el aviso de lo pendiente nombra QUÉ falta, y dice cómo reintentarlo (no promete que otro lo hará)', () => {

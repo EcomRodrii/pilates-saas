@@ -86,7 +86,7 @@ test('⚠️ el ajuste se lee con tolerancia: sin la columna (código antes que 
   assert.ok(!/plaza_fija_aprobacion/.test(SOLICITAR.slice(0, SOLICITAR.indexOf('const aprobacion = await'))), 'la lectura de siempre no depende de la migración');
 });
 
-test('a la alumna se le dice lo que pasó: un mensaje propio, no un correo de lo que acaba de hacer ella', () => {
+test('al cliente se le dice lo que pasó: un mensaje propio, no un correo de lo que acaba de hacer ella', () => {
   assert.match(RESOLVER, /if \(p\.automatica\) \{ paraAlumna = respuesta; return; \}/);
   assert.match(RESOLVER, /Tu clase fija de \$\{franja\} está confirmada\./);
   const ruta = leer('app/api/public/plaza-fija/route.ts');

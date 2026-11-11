@@ -152,7 +152,7 @@ export default function SustitucionesPage() {
       // pendiente para la propietaria, no una confirmación.
       if (r.aviso) { setErrorAccion(r.aviso); await recargar(); return; }
       const a = r.alumnas;
-      setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} alumnas avisadas por email.` : 'Clase cancelada.');
+      setAviso(a && !a.desactivado ? `Clase cancelada. ${a.avisadas} de ${a.total} clientes avisados por email.` : 'Clase cancelada.');
       await recargar();
       setTimeout(() => setAviso(null), 6000);
     } catch (e) {
@@ -176,7 +176,7 @@ export default function SustitucionesPage() {
       if ('error' in r) { setErrorAccion(r.error); return; }
       setAReprogramar(null);
       const a = r.alumnas;
-      setAviso(a && !a.desactivado ? `Clase movida. ${a.avisadas} de ${a.total} alumnas avisadas del cambio por email.` : 'Clase movida de horario.');
+      setAviso(a && !a.desactivado ? `Clase movida. ${a.avisadas} de ${a.total} clientes avisados del cambio por email.` : 'Clase movida de horario.');
       await recargar();
       setTimeout(() => setAviso(null), 6000);
     } catch (e) {
@@ -422,8 +422,8 @@ export default function SustitucionesPage() {
                 <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
                   <Users size={14} className="shrink-0" aria-hidden />
                   {avisar
-                    ? 'Tentare avisa a sus alumnas por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'
-                    : 'Tentare no avisa a las alumnas cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'}
+                    ? 'Tentare avisa a sus clientes por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'
+                    : 'Tentare no avisa a los clientes cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'}
                 </p>
               )}
             </div>
@@ -449,8 +449,8 @@ export default function SustitucionesPage() {
         <p className="flex items-center gap-2 text-[13px] text-muted-foreground">
           <Users size={14} className="shrink-0" aria-hidden />
           {avisar
-            ? 'Tentare avisa a sus alumnas por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'
-            : 'Tentare no avisa a las alumnas cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'}
+            ? 'Tentare avisa a sus clientes por email y en su app cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'
+            : 'Tentare no avisa a los clientes cuando se cubre, se mueve o se cancela una clase. Lo decide la propietaria o la gerencia.'}
         </p>
       ))}
 
@@ -554,7 +554,7 @@ export default function SustitucionesPage() {
           ejemplos={[
             { accion: 'Te propone sustitutas', cuando: 'según si están libres, si conocen la clase y cuántas horas llevan.' },
             { accion: 'Las avisa por ti', cuando: 'en Asistido, Autónomo o Vacaciones.' },
-            { accion: 'Si nadie puede,', cuando: 'mueves la clase o la cancelas, y avisa a tus alumnas si lo tienes encendido.' },
+            { accion: 'Si nadie puede,', cuando: 'mueves la clase o la cancelas, y avisa a tus clientes si lo tienes encendido.' },
           ]}
           accion={{ label: 'Marcar una baja', onClick: () => setNuevaBaja(true), Icono: Plus }}
         />
@@ -612,8 +612,8 @@ export default function SustitucionesPage() {
         onOpenChange={abierto => { if (!abierto) setACancelar(null); }}
         titulo="¿Cancelar esta clase?"
         descripcion={avisar
-          ? 'Se avisará a las alumnas apuntadas por email y en su app.'
-          : 'El aviso a las alumnas está desactivado: no les llegará ni email ni aviso en su app.'}
+          ? 'Se avisará a los clientes apuntados por email y en su app.'
+          : 'El aviso a los clientes está desactivado: no les llegará ni email ni aviso en su app.'}
         textoConfirmar="Cancelar clase"
         destructivo
         onConfirm={() => { const s = aCancelar; setACancelar(null); if (s) void cancelar(s); }}
@@ -679,8 +679,8 @@ function ReprogramarDialog({ s, avisarActivo, enProceso, onClose, onConfirm }: {
         <p className="text-[13px] text-muted-foreground -mt-1">
           La clase se mueve al hueco nuevo con la misma duración y su instructora original.{' '}
           {avisarActivo
-            ? 'Las alumnas apuntadas recibirán el cambio por email y en su app, y mantienen su plaza.'
-            : 'El aviso a las alumnas está desactivado: no les llegará ni email ni aviso en su app.'}
+            ? 'Los clientes apuntados recibirán el cambio por email y en su app, y mantienen su plaza.'
+            : 'El aviso a los clientes está desactivado: no les llegará ni email ni aviso en su app.'}
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -717,7 +717,7 @@ function fmtHora(inicio?: string | null): string {
 function Estrellas({ val }: { val?: { media: number; total: number } }) {
   if (!val || val.total <= 0) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207] shrink-0" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de alumnas`}>
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FEF9C3] text-[#A16207] shrink-0" title={`${val.total} valoración${val.total === 1 ? '' : 'es'} de clientes`}>
       <Star size={10} fill="#D9C29E" stroke="#D9C29E" />
       {valoracionMedia(val.media)}
       <span className="font-medium text-[#CA8A04]">({val.total})</span>
@@ -897,7 +897,7 @@ function SustitucionCard({
             <p className="text-[13px] text-destructive">
               Avisamos a todas las candidatas disponibles y ninguna confirmó. Avisa a alguien por tu cuenta,
               vuelve a intentarlo con una candidata de abajo, reprograma la clase a otro horario, o cancélala
-              (avisamos a las alumnas).
+              (avisamos a los clientes).
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
@@ -964,7 +964,7 @@ function SustitucionCard({
             onClick={() => onCancelar(s)} disabled={enProceso}
             className="mt-2 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500 text-white text-[12px] font-bold hover:bg-red-600 disabled:opacity-50 transition"
           >
-            <CalendarOff size={14} /> Cancelar clase y avisar a las alumnas
+            <CalendarOff size={14} /> Cancelar clase y avisar a los clientes
           </button>
         </div>
       ) : (

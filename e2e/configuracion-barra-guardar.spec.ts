@@ -155,7 +155,7 @@ const pideConfirmarAlSalir = (page: Page) => page.evaluate(() => {
   return e.defaultPrevented;
 });
 
-test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumnas»', () => {
+test.describe('La barra de guardar de los cajones de «Cómo reservan mis clientes»', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test('solo sale con cambios, dice en qué, y se va al deshacerlos a mano', async ({ page }) => {
@@ -206,7 +206,7 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
   test('«Reservar»: contar las pendientes de aprobar solo se ofrece con un tope de reservas a la vez, y viaja con su tarjeta', async ({ page }) => {
     const { patches } = await cajonDe(page, 'reservar', 'Reservar');
     const sw = page.getByRole('switch', { name: /Contar las reservas pendientes de aprobar/ });
-    const tope = page.getByLabel('Reservas a la vez por alumna');
+    const tope = page.getByLabel('Reservas a la vez por cliente');
     // Con tope (la fila de prueba trae 4) se ofrece, apagado de serie…
     await expect(sw).toHaveAttribute('aria-checked', 'false');
     // …y sin tope no tiene nada que contar.
@@ -236,7 +236,7 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
 
   test('«Reservar»: el tope de clases al día viaja con sus columnas, y un 0 no se guarda', async ({ page }) => {
     const { patches } = await cajonDe(page, 'reservar', 'Reservar');
-    const alDia = page.getByLabel('Clases al día por alumna');
+    const alDia = page.getByLabel('Clases al día por cliente');
 
     await alDia.fill('0');
     await expect(barra(page).getByRole('alert')).toHaveText('Las clases al día van de 1 a 20. Déjalo vacío para no poner límite.');
@@ -278,7 +278,7 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
 
   test('«Recuperaciones»: el tope viaja con la caducidad y el reparto de los lunes, y un 0 no se guarda', async ({ page }) => {
     const { patches } = await cajonDe(page, 'recuperaciones', 'Recuperaciones');
-    const tope = page.getByLabel('Recuperaciones sin usar a la vez, por alumna');
+    const tope = page.getByLabel('Recuperaciones sin usar a la vez, por cliente');
     await expect(tope).toHaveValue('4');
 
     await tope.fill('0');
@@ -296,11 +296,11 @@ test.describe('La barra de guardar de los cajones de «Cómo reservan mis alumna
 
   test('«Recuperaciones»: si el servidor dice que no, el cajón se queda con lo escrito', async ({ page }) => {
     const { patches } = await cajonDe(page, 'recuperaciones', 'Recuperaciones', { fallo: 500 });
-    await page.getByLabel('Recuperaciones sin usar a la vez, por alumna').fill('2');
+    await page.getByLabel('Recuperaciones sin usar a la vez, por cliente').fill('2');
     await guardar(page).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBeGreaterThan(0);
     await expect(barra(page).getByRole('alert')).toContainText(/No se ha guardado/, { timeout: 15_000 });
-    await expect(page.getByLabel('Recuperaciones sin usar a la vez, por alumna')).toHaveValue('2');
+    await expect(page.getByLabel('Recuperaciones sin usar a la vez, por cliente')).toHaveValue('2');
     await expect(valorFila(page, 'recuperaciones')).toHaveText(/^Hasta 4 sin usar/);
   });
 
@@ -513,7 +513,7 @@ test.describe('«Tu panel», ya en cajones: salir con cambios pregunta', () => {
 test.describe('Lo que se fue de las reglas de reserva se guarda en su sección, solo', () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
-  test('Alta de alumnas: «Compra desde tu enlace» manda su columna y ninguna más', async ({ page }) => {
+  test('Alta de clientes: «Compra desde tu enlace» manda su columna y ninguna más', async ({ page }) => {
     // Una fila con su cajón desde el 15-sep (v2): el ancla lo abre.
     const { patches } = await abrir(page, 'configuracion?tab=altas#compra-desde-tu-enlace');
     await expect(page.getByRole('radio', { name: /Que se registre antes de pagar/ })).toBeChecked({ timeout: 30_000 });

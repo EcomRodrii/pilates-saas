@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (estudio.qrAcceso !== true) return NextResponse.json({ error: 'Tu estudio no usa el acceso con QR.' }, { status: 409 });
 
     const socioId = await socioAutenticado(user.userId, estudio.id);
-    if (!socioId) return NextResponse.json({ error: 'No eres clienta de este estudio' }, { status: 403 });
+    if (!socioId) return NextResponse.json({ error: 'No eres cliente de este estudio' }, { status: 403 });
 
     const [{ token }, { data: socia }] = await Promise.all([
       qrDeLaAlumna(admin, { studioId: estudio.id, socioId }),

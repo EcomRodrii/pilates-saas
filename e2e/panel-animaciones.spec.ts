@@ -50,7 +50,7 @@ test('las pantallas que no son de trabajo grande no llevan el botón', async ({ 
 test('cambiar de pantalla con la vista ampliada devuelve el menú', async ({ page }) => {
   await montar(page);
   await ir(page, 'dashboard');
-  await menu(page).getByRole('link', { name: 'Clientas' }).first().click();
+  await menu(page).getByRole('link', { name: 'Clientes' }).first().click();
   await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
   await esperarPantalla(page);
   await page.getByRole('button', { name: 'Ampliar a toda la pantalla' }).click();
@@ -79,7 +79,7 @@ test('se anima el cambio de sección desde el menú, y no un enlace de dentro de
   test.skip(!(await page.evaluate(() => 'startViewTransition' in document)), 'sin View Transitions');
 
   const inicial = await contar();
-  await menu(page).getByRole('link', { name: 'Clientas' }).first().click();
+  await menu(page).getByRole('link', { name: 'Clientes' }).first().click();
   await expect(page).toHaveURL(/\/clientas/, { timeout: 60_000 });
   await expect.poll(contar, { message: 'el menú anima el cambio de sección' }).toBeGreaterThan(inicial);
 

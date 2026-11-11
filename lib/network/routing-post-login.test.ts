@@ -25,12 +25,12 @@ test('sin estudio, sin perfil, con el onboarding a medias o suspendido → reanu
   assert.equal(resolverDestinoPostLogin(false, 'suspended'), '/network/reanudar');
 });
 
-test('F0: sin estudio ni instructora, con perfil de alumna → la vía de alumna, nunca la de instructora', () => {
+test('F0: sin estudio ni instructora, con perfil de cliente → la vía de cliente, nunca la de instructora', () => {
   assert.equal(resolverDestinoPostLogin(false, null, 'published'), '/network/alumna/inicio');
   assert.equal(resolverDestinoPostLogin(false, null, 'draft'), '/network/alumna/reanudar');
 });
 
-test('F0: instructora manda sobre alumna cuando hay las dos y ninguna tiene estudio', () => {
+test('F0: instructora manda sobre cliente cuando hay las dos y ninguna tiene estudio', () => {
   // La rama de instructora se resuelve primero — mismo orden que ya usaba el
   // código antes de F0, alumna es una tercera vía añadida, no una que compita.
   assert.equal(resolverDestinoPostLogin(false, 'published', 'published'), '/network/inicio');
@@ -112,14 +112,14 @@ test('nunca se concede "entra" a un producto sin nada propio ahí', () => {
 
 // ── F0: la tercera vía, network-alumna — independiente de instructora ──────
 
-test('cuenta SOLO alumna entra por /network/alumna/acceso, a inicio si está publicado', () => {
+test('cuenta SOLO cliente entra por /network/alumna/acceso, a inicio si está publicado', () => {
   assert.deepEqual(
     resolverAccesoPorProducto('network-alumna', { tieneEstudio: false, estadoPerfilNetwork: null, estadoPerfilNetworkAlumna: 'published' }),
     { tipo: 'entra', destino: '/network/alumna/inicio' },
   );
 });
 
-test('cuenta SOLO alumna con onboarding a medias entra a reanudar', () => {
+test('cuenta SOLO cliente con onboarding a medias entra a reanudar', () => {
   for (const estado of ['draft', 'hidden', 'suspended']) {
     assert.deepEqual(
       resolverAccesoPorProducto('network-alumna', { tieneEstudio: false, estadoPerfilNetwork: null, estadoPerfilNetworkAlumna: estado }),
@@ -139,7 +139,7 @@ test('⚠️ cuenta de instructora o de estudio intentando /network/alumna/acces
   );
 });
 
-test('⚠️ cuenta SOLO alumna intentando /login o /network/acceso: bloqueada en las dos', () => {
+test('⚠️ cuenta SOLO cliente intentando /login o /network/acceso: bloqueada en las dos', () => {
   const soloAlumna = { tieneEstudio: false, estadoPerfilNetwork: null, estadoPerfilNetworkAlumna: 'published' };
   assert.deepEqual(resolverAccesoPorProducto('software', soloAlumna), { tipo: 'cuenta-de-otro-producto' });
   assert.deepEqual(resolverAccesoPorProducto('network', soloAlumna), { tipo: 'cuenta-de-otro-producto' });

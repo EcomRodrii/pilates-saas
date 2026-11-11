@@ -70,8 +70,8 @@ export default function Libreta() {
           resuelto por la ruta. */}
       <PageHeader
         className="no-print mb-4"
-        title="Libreta de clientas"
-        description="Copia de tus clientas siempre al día: imprímela o guárdala como PDF cuando quieras."
+        title="Libreta de clientes"
+        description="Copia de tus clientes siempre al día: imprímela o guárdala como PDF cuando quieras."
         // Vacía (panel nuevo) no hay nada que imprimir: la acción es la del vacío, una sola.
         actions={vaciaNueva ? undefined :
           <button
@@ -90,13 +90,13 @@ export default function Libreta() {
           tono="indigo"
           Icono={Notebook}
           titulo="Tu libreta, por si cae internet"
-          texto="Una hoja con cada clienta activa para imprimir o guardar en PDF. Se llena sola en cuanto tengas clientas activas."
+          texto="Una hoja con cada cliente activo para imprimir o guardar en PDF. Se llena sola en cuanto tengas clientes activos."
           ejemplos={[
-            { accion: 'Su plan y lo que le queda', cuando: 'de cada clienta activa' },
+            { accion: 'Su plan y lo que le queda', cuando: 'de cada cliente activo' },
             { accion: 'Sus recuperaciones vivas', cuando: 'con el día en que caducan' },
             { accion: 'Su clase fija', cuando: 'con el día, la hora y la sala' },
           ]}
-          accion={{ label: 'Dar de alta a mi primera clienta', href: '/clientas?nuevo=1', Icono: UserPlus }}
+          accion={{ label: 'Dar de alta a mi primer cliente', href: '/clientas?nuevo=1', Icono: UserPlus }}
           secundaria={{ label: 'Tráelas de tu programa anterior', href: '/migracion' }}
           className="no-print"
         />
@@ -104,7 +104,7 @@ export default function Libreta() {
       <div className="libreta-doc border border-border rounded-xl p-4 sm:p-8 bg-card">
         <div className="mb-6">
           <h2 className="text-2xl font-extrabold text-foreground">Tu estudio en Tentare</h2>
-          <p className="text-sm text-muted-foreground mt-1">{studio?.nombre ?? 'Mi estudio'} · {mes} · {filas.length} clientas activas</p>
+          <p className="text-sm text-muted-foreground mt-1">{studio?.nombre ?? 'Mi estudio'} · {mes} · {filas.length} clientes activos</p>
         </div>
 
         {/* En móvil la tabla de cinco columnas es más ancha que la pantalla: se desplaza dentro de su hoja
@@ -113,7 +113,7 @@ export default function Libreta() {
         <table className="w-full min-w-[34rem] text-[13px] border-collapse">
           <thead>
             <tr className="border-b-2 border-border text-left">
-              <th className="py-2 pr-3 font-bold">Clienta</th>
+              <th className="py-2 pr-3 font-bold">Cliente</th>
               <th className="py-2 px-3 font-bold">Plan</th>
               <th className="py-2 px-3 font-bold">Sesiones</th>
               <th className="py-2 px-3 font-bold">Recuperaciones</th>
@@ -143,10 +143,10 @@ export default function Libreta() {
         </table>
         </div>
 
-        {filas.length === 0 && <EmptyState compacto icono={Notebook} titulo="No hay clientas activas todavía." />}
+        {filas.length === 0 && <EmptyState compacto icono={Notebook} titulo="No hay clientes activos todavía." />}
 
         <p className="text-[11px] text-muted-foreground mt-6 leading-relaxed">
-          Esta es tu libreta: cada clienta con su plan, sus sesiones, sus recuperaciones vivas y su clase fija. Son tus datos, siempre contigo.
+          Esta es tu libreta: cada cliente con su plan, sus sesiones, sus recuperaciones vivas y su clase fija. Son tus datos, siempre contigo.
           Generada el {fechaCorta(hoyISO)} desde {studio?.nombre ?? 'tu estudio'}.
         </p>
       </div>

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { esAppDeLaAlumna, sinProveedoresDeSesion } from './rutas-sin-proveedores.ts';
 
-test('la app de la alumna se sirve sin los providers del panel', () => {
+test('la app del cliente se sirve sin los providers del panel', () => {
   for (const ruta of ['/portal/mi-estudio', '/portal/mi-estudio/reservar', '/portal/mi-estudio/perfil/privacidad', '/portal/offline']) {
     assert.equal(esAppDeLaAlumna(ruta), true, ruta);
   }

@@ -28,7 +28,7 @@ export function BloqueAlumnas({ bloque }: { bloque: Extract<BloqueAsistente, { t
   return (
     <Tarjeta tipo="alumnas" titulo={bloque.titulo} href={bloque.href}
       extra={<span className="font-mono text-[12px] tabular-nums text-muted-foreground">{bloque.total}</span>}
-      pie={quedanMas(bloque.total, bloque.alumnas.length, 'Clientas')}>
+      pie={quedanMas(bloque.total, bloque.alumnas.length, 'Clientes')}>
       {bloque.alumnas.length === 0
         ? <p className="border-t border-border px-4 py-4 text-[13.5px] text-muted-foreground">Ninguna.</p>
         : <Filas>{bloque.alumnas.map(a => (
@@ -42,7 +42,7 @@ export function BloqueBonos({ bloque }: { bloque: Extract<BloqueAsistente, { tip
   return (
     <Tarjeta tipo="bonos" titulo={bloque.titulo} href={bloque.href}
       extra={<span className="font-mono text-[12px] tabular-nums text-muted-foreground">{bloque.total}</span>}
-      pie={quedanMas(bloque.total, bloque.bonos.length, 'Clientas')}>
+      pie={quedanMas(bloque.total, bloque.bonos.length, 'Clientes')}>
       {bloque.bonos.length === 0
         ? <p className="border-t border-border px-4 py-4 text-[13.5px] text-muted-foreground">Ninguno.</p>
         : <Filas>{bloque.bonos.map(b => (
@@ -71,7 +71,7 @@ export function BloqueRecibos({ bloque }: { bloque: Extract<BloqueAsistente, { t
         : <Filas>{bloque.recibos.map(r => {
           const s = SITUACION[r.situacion];
           return (
-            <Fila key={r.reciboId} referencia={r.alumna} principal="Venta sin clienta" detalle={`Vence el ${r.vence}`} derecha={<>
+            <Fila key={r.reciboId} referencia={r.alumna} principal="Venta sin cliente" detalle={`Vence el ${r.vence}`} derecha={<>
               <CifraPrivada inline className="block font-mono text-[13.5px] font-semibold tabular-nums text-foreground">{r.importe}</CifraPrivada>
               <span className={cn('mt-0.5 inline-block rounded-full px-2 py-px text-[11px] font-medium', s.clase)}>{s.texto}</span>
             </>} />

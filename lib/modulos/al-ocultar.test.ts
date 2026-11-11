@@ -20,7 +20,7 @@ test('cada módulo que se puede ocultar dice qué pasa al ocultarlo (uno nuevo s
   for (const m of ocultables()) assert.ok(LO_PROPIO[m.href], `${m.href} sin su entrada en LO_PROPIO`);
 });
 
-test('siempre: qué deja de verse en el menú, qué notan las alumnas, que no se borra nada y que el ⌘K lo encuentra', () => {
+test('siempre: qué deja de verse en el menú, qué notan los clientes, que no se borra nada y que el ⌘K lo encuentra', () => {
   for (const m of ocultables()) {
     for (const d of [SIN_DATOS, CEROS]) {
       const r = alOcultar(m, d);
@@ -50,19 +50,19 @@ test('en una cadena dice que se oculta en todas las sedes; los de la barra del m
   assert.ok(!alOcultar({ href: '/informes', label: 'Informes' }, SIN_DATOS).dejaDeVerse.includes('Su botón en la barra de abajo del móvil.'));
 });
 
-test('avisa con su cifra de lo que toca a las alumnas o queda pendiente', () => {
+test('avisa con su cifra de lo que toca a los clientes o queda pendiente', () => {
   const con = (p: Partial<DatosAlOcultar>) => ({ ...CEROS, ...p });
   assert.match(alOcultar({ href: '/calendario', label: 'Calendario' }, con({ reservasProximas: 12 })).aviso ?? '', /^Hay 12 reservas en tus próximas clases\. Siguen en pie/);
   assert.match(alOcultar({ href: '/calendario', label: 'Calendario' }, con({ reservasProximas: 1 })).aviso ?? '', /^Hay 1 reserva en tus próximas clases\. Sigue en pie/);
-  assert.match(alOcultar({ href: '/automatizaciones', label: 'Automatizaciones' }, con({ automatizacionesEncendidas: 3 })).aviso ?? '', /3 automatizaciones encendidas: seguirán escribiendo a tus alumnas/);
-  assert.match(alOcultar({ href: '/citas', label: 'Citas' }, con({ citasProximas: 2, serviciosCitaOnline: 1 })).aviso ?? '', /2 citas por delante: siguen en pie\. Y tus alumnas pueden pedir más/);
+  assert.match(alOcultar({ href: '/automatizaciones', label: 'Automatizaciones' }, con({ automatizacionesEncendidas: 3 })).aviso ?? '', /3 automatizaciones encendidas: seguirán escribiendo a tus clientes/);
+  assert.match(alOcultar({ href: '/citas', label: 'Citas' }, con({ citasProximas: 2, serviciosCitaOnline: 1 })).aviso ?? '', /2 citas por delante: siguen en pie\. Y tus clientes pueden pedir más/);
   assert.match(alOcultar({ href: '/mensajeria', label: 'Mensajería' }, con({ mensajesSinLeer: 4 })).aviso ?? '', /4 conversaciones sin leer/);
   assert.match(alOcultar({ href: '/cobros', label: 'Cobros' }, con({ recibosSinCobrar: 1 })).aviso ?? '', /1 recibo sin cobrar: sigue pendiente/);
   // Lo que solo ve el estudio no lleva aviso.
   assert.equal(alOcultar({ href: '/informes', label: 'Informes' }, con({ reservasProximas: 12 })).aviso, null);
 });
 
-test('lo que la alumna puede hacer sola solo se afirma si de verdad puede', () => {
+test('lo que el cliente puede hacer sola solo se afirma si de verdad puede', () => {
   assert.equal(alOcultar({ href: '/citas', label: 'Citas' }, CEROS).enLaApp, 'No cambia nada.');
   assert.match(alOcultar({ href: '/citas', label: 'Citas' }, { ...CEROS, serviciosCitaOnline: 2 }).enLaApp, /pueden seguir pidiendo citas/);
   assert.equal(alOcultar({ href: '/productos', label: 'Paquetes' }, SIN_DATOS).enLaApp, 'No cambia nada.');

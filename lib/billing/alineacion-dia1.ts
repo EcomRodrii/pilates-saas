@@ -270,7 +270,7 @@ export function vistaPreviaAlineacion(cuotas: readonly CuotaParaVistaPrevia[], h
     suscripcionId: 'ejemplo', fechaFin: `${hoyISO.slice(0, 7)}-14`, plan: { tipo: 'MENSUAL', precio: 50, periodicidadMeses: 1 }, hoyISO: `${hoyISO.slice(0, 7)}-01`, diasMinimos,
   });
   const ejemplo = ej
-    ? `Una alumna con cuota de ${eurTxt(ej.importeCompleto)} que renueva el ${fechaLarga(ej.fechaRenovacion)}. `
+    ? `Un cliente con cuota de ${eurTxt(ej.importeCompleto)} que renueva el ${fechaLarga(ej.fechaRenovacion)}. `
       + `Opción A: paga ${eurTxt(ej.importeCompleto)} ese día y no vuelve a pagar hasta el ${fechaLarga(masDias(finDelMesDe(ej.primerCobroCompleto), 1))}; `
       + `tú regalas ${eurTxt(ej.valorProporcional)} (${ej.diasRestantes} días). `
       + `Opción B: paga ${eurTxt(ej.valorProporcional)} ese día (${ej.diasRestantes} de ${ej.diasDelMes} días) y ${eurTxt(ej.importeCompleto)} el ${fechaLarga(ej.primerCobroCompleto)}.`
@@ -340,12 +340,12 @@ export type ValidacionCambioModo =
 export function validarCambioModo(e: {
   rol: string; modo: unknown; dia1Activo: boolean; huella: unknown; huellaActual: string | null;
 }): ValidacionCambioModo {
-  if (e.rol !== 'PROPIETARIO') return { ok: false, status: 403, codigo: 'ROL', error: 'Solo la propietaria puede cambiar cuándo se cobra a las alumnas.' };
+  if (e.rol !== 'PROPIETARIO') return { ok: false, status: 403, codigo: 'ROL', error: 'Solo la propietaria puede cambiar cuándo se cobra a los clientes.' };
   if (e.modo !== 'PROPORCIONAL' && e.modo !== 'ENTERA') return { ok: false, status: 400, codigo: 'MODO', error: 'Petición no válida' };
   if (e.modo === 'ENTERA') return { ok: true };
   if (!e.dia1Activo) return { ok: false, status: 409, codigo: 'DIA_1_APAGADO', error: 'Primero guarda «Todas el día 1 de cada mes».' };
   if (typeof e.huella !== 'string' || !e.huella || e.huella !== e.huellaActual) {
-    return { ok: false, status: 409, codigo: 'LISTA_CAMBIADA', error: 'La lista de alumnas ha cambiado desde que la viste (otro día, otra cuota o otro ajuste). Revísala otra vez antes de activar.' };
+    return { ok: false, status: 409, codigo: 'LISTA_CAMBIADA', error: 'La lista de clientes ha cambiado desde que la viste (otro día, otra cuota o otro ajuste). Revísala otra vez antes de activar.' };
   }
   return { ok: true };
 }

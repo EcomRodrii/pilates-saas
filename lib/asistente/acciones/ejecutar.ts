@@ -161,7 +161,7 @@ async function crearCita(admin: Admin, sesion: SesionConfirmar, id: string, p: P
   const fecha = hoyEnEstudio(new Date(p.inicio));
   const socia = await admin.from('socios').select('id').eq('studio_id', sesion.studioId).eq('id', p.socioId).is('borrado_en', null).maybeSingle();
   if (socia.error) throw socia.error;
-  if (!socia.data) throw new Cambio('Esa alumna ya no está en el estudio.');
+  if (!socia.data) throw new Cambio('Ese cliente ya no está en el estudio.');
   await instructoraActiva(admin, sesion, p.instructorId);
   if (cierreDeFecha(fecha, await cierresDelEstudio(admin, sesion))) throw new Cambio('El estudio está cerrado ese día.');
   if ((await bloqueosDe(admin, sesion, p.instructorId, fecha)).some(b => bloqueada(b, p.inicio, p.fin))) throw new Cambio('Esa instructora ya no está disponible ese día.');

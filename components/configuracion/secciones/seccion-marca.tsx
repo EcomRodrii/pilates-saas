@@ -168,7 +168,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
         <CajonAjuste
           id="logo-y-favicon" abierto={cajon === 'logo-y-favicon'} onCerrar={cerrar}
           titulo="Tu logo y tu icono"
-          frase="Tu logo va arriba en su app y en tus correos; tu icono, en el móvil de tus alumnas y en la pestaña. Se aplican al momento."
+          frase="Tu logo va arriba en su app y en tus correos; tu icono, en el móvil de tus clientes y en la pestaña. Se aplican al momento."
         >
           <DetalleLogoYFavicon
             favicon={puedeEditarFavicon ? (cargandoTema ? undefined : tema?.faviconUrl ?? null) : undefined}
@@ -235,7 +235,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
         {!miWebNueva && filaApariencia}
       </GrupoFilas>
 
-      <GrupoFilas titulo="Lo que leen tus alumnas">
+      <GrupoFilas titulo="Lo que leen tus clientes">
         <FilaAjuste id="textos-de-tu-app" icono={Type} valor={resumenPresentacion(cargado ?? {})} onAbrir={abrir} />
         <FilaAjuste id="textos-de-bienvenida" icono={MessageSquareQuote} valor={resumenTextosBienvenida(cargado ?? {})} onAbrir={abrir} />
       </GrupoFilas>

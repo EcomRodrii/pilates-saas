@@ -214,7 +214,7 @@ export function BandejaVacia({ onNueva }: { onNueva: () => void }) {
     <EmptyState
       icono={Inbox}
       titulo="Aquí aparecerán tus conversaciones"
-      descripcion="Escribe a una clienta desde el mostrador o deja que ella empiece desde su portal — todo llega a esta bandeja."
+      descripcion="Escribe a un cliente desde el mostrador o deja que ella empiece desde su portal — todo llega a esta bandeja."
       cta={{ label: 'Nueva conversación', icono: MessageSquarePlus, onClick: onNueva }}
       className="border-0 py-14"
     />
@@ -488,7 +488,7 @@ export function HiloVista({
         </div>
       ) : soloLectura ? (
         <div className="px-4 py-3 border-t border-border shrink-0">
-          <p className="text-xs text-muted-foreground text-center">No puedes escribir en esta conversación: es de tu equipo con una alumna.</p>
+          <p className="text-xs text-muted-foreground text-center">No puedes escribir en esta conversación: es de tu equipo con un cliente.</p>
         </div>
       ) : (
         <div className="flex items-end gap-2 px-3 py-3 border-t border-border shrink-0">
@@ -579,7 +579,7 @@ export function NuevaConversacion({
     <div className="border-b border-border bg-muted/40 shrink-0">
       <div className="flex items-center justify-between px-4 pt-3.5 pb-2">
         <p className="text-[13px] font-bold text-foreground">
-          {socio ? 'Y ahora, ¿con quién habla?' : 'Elige una clienta'}
+          {socio ? 'Y ahora, ¿con quién habla?' : 'Elige un cliente'}
         </p>
         <button
           onClick={onCerrar}
@@ -599,7 +599,7 @@ export function NuevaConversacion({
               value={busqueda}
               onChange={e => setBusqueda(e.target.value)}
               placeholder={verContacto ? 'Busca por nombre o email…' : 'Busca por nombre…'}
-              aria-label="Buscar clienta"
+              aria-label="Buscar cliente"
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0"
             />
           </label>
@@ -607,10 +607,10 @@ export function NuevaConversacion({
             {resultados.length === 0 ? (
               <p className="text-xs text-muted-foreground py-6 text-center">
                 {busqueda.trim()
-                  ? <>Ninguna clienta coincide con «{busqueda.trim()}».</>
+                  ? <>Ningún cliente coincide con «{busqueda.trim()}».</>
                   : verContacto
-                    ? 'Todavía no hay clientas activas.'
-                    : 'Aún no hay alumnas con reserva en tus clases.'}
+                    ? 'Todavía no hay clientes activos.'
+                    : 'Aún no hay clientes con reserva en tus clases.'}
               </p>
             ) : (
               <ul className="space-y-0.5">

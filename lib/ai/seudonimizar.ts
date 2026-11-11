@@ -123,4 +123,4 @@ export function restaurar(texto: string | null | undefined, tabla: ReadonlyMap<s
 }
 
 /** Lo que se le explica a la IA sobre las marcas, para que las copie y no las «arregle». */
-export const INSTRUCCION_MARCAS = `El texto puede llevar marcas entre corchetes en lugar de datos personales: [ALUMNA_1], [ALUMNA_2]… son el nombre y los apellidos de la alumna; [EQUIPO1_1]… los de alguien del equipo; [EMAIL_1] y [TELEFONO_1], un correo o un teléfono. Si las necesitas, cópialas EXACTAMENTE igual, con sus corchetes; no las traduzcas ni intentes adivinar a quién se refieren.`;
+export const INSTRUCCION_MARCAS = `El texto puede llevar marcas entre corchetes en lugar de datos personales: [ALUMNA_1], [ALUMNA_2]… son el nombre y los apellidos del cliente; [EQUIPO1_1]… los de alguien del equipo; [EMAIL_1] y [TELEFONO_1], un correo o un teléfono. Si las necesitas, cópialas EXACTAMENTE igual, con sus corchetes; no las traduzcas ni intentes adivinar a quién se refieren.`;

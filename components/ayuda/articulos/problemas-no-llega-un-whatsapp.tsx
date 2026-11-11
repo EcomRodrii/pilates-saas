@@ -6,13 +6,13 @@ export default function Contenido() {
   return (
     <>
       <QueEstaPasando>
-        Un aviso por WhatsApp (a una instructora sobre una sustitución, a una alumna sobre su clase) no ha llegado.
+        Un aviso por WhatsApp (a una instructora sobre una sustitución, a un cliente sobre su clase) no ha llegado.
       </QueEstaPasando>
 
       <CausasComunes items={[
         'El número guardado tiene un error, o le falta el prefijo de país.',
         'La persona ha bloqueado o silenciado el número de WhatsApp de tu estudio.',
-        'La alumna ha desactivado WhatsApp en sus preferencias.',
+        'El cliente ha desactivado WhatsApp en sus preferencias.',
         'Tu WhatsApp no está conectado — sin él, esos avisos van solo por email.',
         'Un fallo puntual del envío por el lado del proveedor.',
       ]} />

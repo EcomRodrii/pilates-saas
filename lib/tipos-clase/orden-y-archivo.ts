@@ -138,7 +138,7 @@ export function frasesImpactoArchivar(i: ImpactoArchivar): string[] {
     frases.push('No tiene clases programadas.');
   } else {
     const ultima = i.ultimaClase ? `, ${i.clasesFuturas === 1 ? 'el' : 'la última el'} ${fechaCortaEstudio(i.ultimaClase)}` : '';
-    const quien = i.alumnas === 0 ? 'sin alumnas apuntadas todavía' : `con ${plural(i.alumnas, 'alumna apuntada', 'alumnas apuntadas')}`;
+    const quien = i.alumnas === 0 ? 'sin clientes apuntados todavía' : `con ${plural(i.alumnas, 'cliente apuntado', 'clientes apuntados')}`;
     frases.push(`Tiene ${plural(i.clasesFuturas, 'clase programada', 'clases programadas')}${ultima}, ${quien}. Se quedan como están y se pueden seguir reservando.`);
   }
   if (i.series > 0) {

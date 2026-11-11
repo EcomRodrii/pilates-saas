@@ -62,7 +62,7 @@ function baseEstudio(extra: Record<string, Record<string, unknown>[]> = {}, soci
   return baseEnMemoria({
     studios: [{ id: STUDIO, stripe_account_id: CUENTA, slug: 'estudio-arnes', nombre: 'Estudio Arnés', subscription_status: 'active', reembolsos_activos: true, reembolso_plazo_dias: 30, reembolso_solo_sin_usar: false }],
     socios: [{
-      id: SOCIA, studio_id: STUDIO, auth_user_id: USUARIO.userId, nombre: 'Alumna', email: USUARIO.email,
+      id: SOCIA, studio_id: STUDIO, auth_user_id: USUARIO.userId, nombre: 'Cliente', email: USUARIO.email,
       stripe_customer_id: CUSTOMER, stripe_payment_method_id: null, sepa_payment_method_id: null, sepa_mandate_id: null, metodo_pago_preferido: null,
       ...socia,
     }],

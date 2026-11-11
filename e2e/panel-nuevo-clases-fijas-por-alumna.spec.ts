@@ -44,14 +44,14 @@ async function abrir(page: Page, opts: { panelNuevo?: boolean; falloQuitar?: 500
   return { quitar };
 }
 
-const porAlumna = (page: Page) => page.getByRole('region', { name: 'Clases fijas por alumna' });
+const porAlumna = (page: Page) => page.getByRole('region', { name: 'Clases fijas por cliente' });
 
-test('«Por alumna»: cada alumna con sus clases fijas, y marcado lo que pide hacer algo', async ({ page }) => {
+test('«Por cliente»: cada cliente con sus clases fijas, y marcado lo que pide hacer algo', async ({ page }) => {
   await abrir(page);
-  await page.getByRole('button', { name: 'Por alumna' }).click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Por cliente' }).click({ timeout: 30_000 });
   const lista = porAlumna(page);
   await expect(lista).toBeVisible();
-  await expect(lista.getByText('3 alumnas · 3 clases fijas')).toBeVisible();
+  await expect(lista.getByText('3 clientes · 3 clases fijas')).toBeVisible();
   // Por nombre: Carmen, Laura, María.
   await expect(lista.getByRole('listitem').filter({ has: page.getByRole('link') }).first()).toHaveAccessibleName('Carmen Del Río Sánchez');
   const maria = lista.getByRole('listitem', { name: 'María García Fernández' });
@@ -65,13 +65,13 @@ test('«Por alumna»: cada alumna con sus clases fijas, y marcado lo que pide ha
   await lista.getByRole('button', { name: 'En pausa' }).click();
   await expect(lista.getByRole('link')).toHaveText(['Carmen Del Río Sánchez']);
   await lista.getByRole('button', { name: 'Todas' }).click();
-  await lista.getByRole('searchbox', { name: 'Buscar alumna' }).fill('maria');
+  await lista.getByRole('searchbox', { name: 'Buscar cliente' }).fill('maria');
   await expect(lista.getByRole('link')).toHaveText(['María García Fernández']);
 });
 
 test('«Gestionar» abre la sección de clases fijas de su ficha; con un 500 al quitar no dice «quitada»', async ({ page }) => {
   const { quitar } = await abrir(page, { falloQuitar: 500 });
-  await page.getByRole('button', { name: 'Por alumna' }).click({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Por cliente' }).click({ timeout: 30_000 });
   await porAlumna(page).getByRole('button', { name: 'Gestionar las clases fijas de Laura Martín' }).click();
   const cajon = page.getByRole('dialog', { name: 'Clases fijas de Laura Martín' });
   await expect(cajon).toBeVisible();
@@ -84,8 +84,8 @@ test('«Gestionar» abre la sección de clases fijas de su ficha; con un 500 al 
   await expect(cajon.getByRole('button', { name: 'Quitar la clase fija del Lunes 07:15' })).toBeVisible();
 });
 
-test('sin el panel nuevo, el Horario no cambia: no hay «Por alumna»', async ({ page }) => {
+test('sin el panel nuevo, el Horario no cambia: no hay «Por cliente»', async ({ page }) => {
   await abrir(page, { panelNuevo: false });
   await expect(page.getByText('Todavía no hay clases que se repitan')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: 'Por alumna' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Por cliente' })).toHaveCount(0);
 });

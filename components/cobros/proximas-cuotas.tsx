@@ -56,7 +56,7 @@ export function ProximasCuotas({ datos }: { datos: DatosCobros }) {
     <section aria-label="Próximas cuotas" className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-3.5">
         <h2 className="text-[13.5px] font-semibold text-foreground">Próximas cuotas · 30 días · {cuotas.length}</h2>
-        <span className="ml-auto text-[12.5px] text-muted-foreground">Cambiar o cancelar un plan, en la ficha de la clienta</span>
+        <span className="ml-auto text-[12.5px] text-muted-foreground">Cambiar o cancelar un plan, en la ficha del cliente</span>
       </div>
       {cuotas.length === 0 ? (
         <p className="px-4 pb-4 text-[13px] text-muted-foreground">No se renueva ninguna cuota en los próximos 30 días.</p>
@@ -168,7 +168,7 @@ export function ProximasCuotasNueva({ datos, diasIniciales = 30 }: { datos: Dato
         {sinFechaDeFin > 0 && (
           <>{sinFechaDeFin === 1 ? '1 cuota no tiene fecha de fin' : `${sinFechaDeFin} cuotas no tienen fecha de fin`}: no se renueva{sinFechaDeFin === 1 ? '' : 'n'} sola{sinFechaDeFin === 1 ? '' : 's'}. </>
         )}
-        Cambiar o cancelar un plan, en la ficha de la clienta.
+        Cambiar o cancelar un plan, en la ficha del cliente.
       </p>
     </section>
   );

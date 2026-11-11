@@ -25,8 +25,8 @@ export default function Contenido() {
         También puedes buscarla tú desde el <strong>Calendario</strong>: en la ficha de una clase sin cubrir,{' '}
         <strong>«Buscar sustituta»</strong> pone en marcha lo mismo (y antes de pulsar te dice a quién avisaría y en
         qué orden). Si ya sabes quién la da, <strong>«¿Ya sabes quién la da?»</strong> se la asigna directamente:
-        queda registrada como sustitución, a ella le llega el aviso en la app del estudio y, si quieres, a las
-        clientas apuntadas también. En una clase que sí tiene instructora, lo mismo está en su «⋯» →{' '}
+        queda registrada como sustitución, a ella le llega el aviso en la app del estudio y, si quieres, a los
+        clientes apuntados también. En una clase que sí tiene instructora, lo mismo está en su «⋯» →{' '}
         «Buscar sustituta».
       </p>
 
@@ -37,11 +37,11 @@ export default function Contenido() {
         Vacaciones. Autónomo y Vacaciones van incluidos {DESDE_PLAN}.
       </p>
 
-      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué le llega a la alumna</h2>
+      <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Qué le llega al cliente</h2>
       <p>
-        Si se cubre la clase, a ti te llega «Clase cubierta» y las alumnas con reserva reciben un aviso del cambio
+        Si se cubre la clase, a ti te llega «Clase cubierta» y los clientes con reserva reciben un aviso del cambio
         por email y en su app — la clase sigue en pie, no se cancela. Ese aviso viene encendido y se cambia en
-        Configuración &gt; Cómo reservan mis alumnas, donde también ves qué pasa con todo lo demás. Si no queda
+        Configuración &gt; Cómo reservan mis clientes, donde también ves qué pasa con todo lo demás. Si no queda
         nadie de tu equipo, puedes volver a buscar, reprogramar o cancelar.
       </p>
 

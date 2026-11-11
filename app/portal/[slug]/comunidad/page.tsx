@@ -53,7 +53,7 @@ export default function ComunidadPage() {
       <div className="px" style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 560 }}>
         {estado === 'loading' && <ListSkeleton n={3} h={120} />}
         {estado === 'error' && (soloMirar
-          ? <EmptyState ilustracion="charla" titulo="Tu tablón" cuerpo="Aquí verán tus alumnas lo que publiques en Comunidad, al entrar con su cuenta." />
+          ? <EmptyState ilustracion="charla" titulo="Tu tablón" cuerpo="Aquí verán tus clientes lo que publiques en Comunidad, al entrar con su cuenta." />
           : <ErrorState onRetry={reintentar} />)}
         {estado === 'offline' && <OfflineState cuerpo="Necesitas conexión para ver el tablón." />}
         {estado === 'empty' && (

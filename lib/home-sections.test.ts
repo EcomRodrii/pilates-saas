@@ -77,7 +77,7 @@ test('una prioridad sin sección real no mueve nada', () => {
   const visibles = ['accion', 'resumen', 'ingresos', 'principal'];
   // Las dos variantes: la etiqueta pasó a «alumnas» el 13-sep y los estudios
   // anteriores tienen guardada la antigua en `onb_prioridad`.
-  for (const p of ['Conseguir más alumnas', 'Conseguir más alumnos', 'Marketing', 'Sustituciones de profesoras', 'Otro']) {
+  for (const p of ['Conseguir más clientes', 'Conseguir más alumnos', 'Marketing', 'Sustituciones de profesoras', 'Otro']) {
     assert.deepEqual(ordenarSeccionesHome(visibles, [p]), ordenarSeccionesHome(visibles), p);
   }
 });

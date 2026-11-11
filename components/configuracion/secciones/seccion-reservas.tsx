@@ -117,7 +117,7 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
     const r = await setAvisarAlumnas(v);
     if ('error' in r) return r.error;
     reflejarStudioGuardado({ avisarAlumnas: v });
-    showToast(v ? 'Tus alumnas recibirán el aviso' : 'Aviso a las alumnas desactivado');
+    showToast(v ? 'Tus clientes recibirán el aviso' : 'Aviso a los clientes desactivado');
     return null;
   }
 

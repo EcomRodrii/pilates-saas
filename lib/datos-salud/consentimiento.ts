@@ -56,7 +56,7 @@ export function respuestaCambioConsentimiento(resultado: unknown): RespuestaCamb
     case 'NO_CONSTABA':
       return { status: 200, ok: true, cambiado: false };
     case 'SOCIA_NO_ENCONTRADA':
-      return { status: 404, ok: false, cambiado: false, error: 'No encontramos a esta clienta en tu estudio.' };
+      return { status: 404, ok: false, cambiado: false, error: 'No encontramos a este cliente en tu estudio.' };
     case 'MENOR_14':
       return { status: 403, ok: false, cambiado: false, codigo: 'MENOR_14', error: MENSAJE_MENOR_CONSENTIMIENTO_PORTAL };
     case 'FALTA_FECHA_NACIMIENTO':
@@ -122,13 +122,13 @@ export function decidirFirmantePanel(
       ? { ok: true, firmante: 'TUTOR_LEGAL' }
       : {
           ok: false, status: 400, codigo: 'MENOR_EXIGE_TUTOR',
-          error: `Esta clienta tiene menos de ${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años: tiene que autorizarlo su padre, madre o tutor legal.`,
+          error: `Este cliente tiene menos de ${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años: tiene que autorizarlo su padre, madre o tutor legal.`,
         };
   }
   if (declarado === 'TUTOR_LEGAL') return { ok: true, firmante: 'TUTOR_LEGAL' };
   if (porEdad === 'PUEDE' || declarado === 'SOCIA') return { ok: true, firmante: 'SOCIA' };
   return {
     ok: false, status: 400, codigo: 'FALTA_FIRMANTE',
-    error: 'No consta su fecha de nacimiento: indica si autoriza la propia clienta o su tutor legal.',
+    error: 'No consta su fecha de nacimiento: indica si autoriza el propio cliente o su tutor legal.',
   };
 }

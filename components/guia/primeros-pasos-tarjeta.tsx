@@ -83,11 +83,11 @@ export function PrimerosPasosTarjeta() {
           <div className="min-w-0 flex-1">
             <h2 className="text-[20px] font-bold leading-tight text-foreground">Tu estudio está listo para recibir reservas</h2>
             <p className="mt-1.5 text-[13.5px] text-foreground/75 text-pretty">
-              Has hecho los seis pasos. Comparte la app de tus alumnas donde ya te buscan: Instagram, Google o el grupo de WhatsApp.
+              Has hecho los seis pasos. Comparte la app de tus clientes donde ya te buscan: Instagram, Google o el grupo de WhatsApp.
             </p>
             {studio.slug && (
               <a href={rutaApp(studio.slug)} target="_blank" rel="noreferrer" className={cn(BOTON_DESTACADO, 'mt-4 h-10 px-4 text-[13.5px]')}>
-                Ver la app de mis alumnas <ExternalLink size={14} aria-hidden />
+                Ver la app de mis clientes <ExternalLink size={14} aria-hidden />
               </a>
             )}
             {fallo && <p className="mt-2 text-[12px] text-destructive">No se ha podido ocultar. Inténtalo otra vez.</p>}

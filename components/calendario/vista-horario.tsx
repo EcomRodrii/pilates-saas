@@ -173,11 +173,11 @@ export function VistaHorario(p: VistaHorarioProps) {
         <p className="mb-3 text-xs text-muted-foreground text-pretty" data-testid="aviso-peticiones-plaza-fija">
           {p.alumnasPidenPlaza ? (
             p.plazasSeApruebanSolas
-              ? <>Tus alumnas pueden pedir su clase fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
-              : <>Tus alumnas pueden pedir su clase fija desde la app; lo decides en Resumen.</>
+              ? <>Tus clientes pueden pedir su clase fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
+              : <>Tus clientes pueden pedir su clase fija desde la app; lo decides en Resumen.</>
           ) : (
             <>
-              Tus alumnas no pueden pedir su clase fija desde la app: se la das tú, aquí o en su ficha.
+              Tus clientes no pueden pedir su clase fija desde la app: se la das tú, aquí o en su ficha.
               {p.hrefAjustePeticiones && (
                 <>{' '}<Link href={p.hrefAjustePeticiones} className="font-medium underline underline-offset-2 hover:text-primary">Dejar que la pidan ellas</Link></>
               )}
@@ -378,11 +378,11 @@ function VistaHorarioNueva(p: VistaHorarioProps & { horario: HorarioFijo }) {
           <span>
             {p.alumnasPidenPlaza ? (
               p.plazasSeApruebanSolas
-                ? <>Tus alumnas pueden pedir su clase fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
-                : <>Tus alumnas pueden pedir su clase fija desde la app; lo decides en Resumen.</>
+                ? <>Tus clientes pueden pedir su clase fija desde la app; se da sola si cumple tus reglas, y la que no las cumple la decides en Resumen.</>
+                : <>Tus clientes pueden pedir su clase fija desde la app; lo decides en Resumen.</>
             ) : (
               <>
-                Tus alumnas no pueden pedir su clase fija desde la app: se la das tú, aquí o en su ficha.
+                Tus clientes no pueden pedir su clase fija desde la app: se la das tú, aquí o en su ficha.
                 {p.hrefAjustePeticiones && (
                   <>{' '}<Link href={p.hrefAjustePeticiones} className="font-semibold underline underline-offset-2" style={{ color: 'var(--t-text-link)' }}>Dejar que la pidan ellas</Link></>
                 )}
@@ -400,7 +400,7 @@ function VistaHorarioNueva(p: VistaHorarioProps & { horario: HorarioFijo }) {
           texto="Una clase recurrente sale aquí con su horario, hasta cuándo va y quién viene fija."
           ejemplos={[
             { accion: 'Una clase cada semana', cuando: 'el mismo día, a la misma hora y en la misma sala' },
-            { accion: 'Sus alumnas fijas', cuando: 'con su sitio guardado cada semana' },
+            { accion: 'Sus clientes fijos', cuando: 'con su sitio guardado cada semana' },
             { accion: 'Hasta cuándo va', cuando: 'y si se renueva sola al acabar' },
           ]}
           accion={p.onCrearRecurrente ? { label: 'Crear clase recurrente', onClick: p.onCrearRecurrente, Icono: RefreshCw } : undefined}

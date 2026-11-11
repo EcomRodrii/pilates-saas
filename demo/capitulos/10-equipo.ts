@@ -16,7 +16,7 @@ export const equipo: Capitulo = {
     });
 
     g.momento('app-de-tus-instructoras');
-    await g.mientras('La app de tus instructoras. Ellas no usan este panel: trabajan en una app propia, a la que entran con su cuenta, donde ven su agenda, avisan de una baja, ponen su disponibilidad y consultan a sus alumnas. Aquí tienes el enlace para dárselo, con un botón de copiar.', async () => {
+    await g.mientras('La app de tus instructoras. Ellas no usan este panel: trabajan en una app propia, a la que entran con su cuenta, donde ven su agenda, avisan de una baja, ponen su disponibilidad y consultan a sus clientes. Aquí tienes el enlace para dárselo, con un botón de copiar.', async () => {
       await g.ir(fila(page, 'app-de-tus-instructoras'));
     });
     await g.mientras('Más abajo, tres filas llevan a otras pantallas. Sustituciones: cuánto decide Tentare cuando alguien no puede dar su clase. Tarifas y liquidaciones: lo que cobra cada instructora y lo que le debes cada mes. Y Equipo: das de alta a cada persona y eliges su rol.', async () => {

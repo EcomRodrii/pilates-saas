@@ -128,7 +128,7 @@ test('las cuatro guardias de la sesión enseñan su motivo y no son avería', ()
   ] as Array<[string, string]>) {
     const d = desenlaceDeRespuesta({ error: msg, codigo });
     assert.equal(d.state, 'error', codigo);
-    assert.equal(d.mensaje, msg, `${codigo}: el motivo es justo lo que le falta a la alumna para saber que no hay nada que reintentar`);
+    assert.equal(d.mensaje, msg, `${codigo}: el motivo es justo lo que le falta al cliente para saber que no hay nada que reintentar`);
     assert.equal(esRechazoConocido(codigo), true, `${codigo}: es producto, no producción rota`);
   }
 });

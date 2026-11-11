@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (typeof cuerpo.asignadaA !== 'string' || !ES_UUID.test(cuerpo.asignadaA)) return NextResponse.json({ error: 'Elige a alguien del equipo.' }, { status: 400 });
       const puede = await cuentaDelEquipo(admin, sesion.studioId, cuerpo.asignadaA);
       if (puede === null) return errorInterno('seguimientos:equipo', new Error('lectura del equipo'), 'No se ha podido comprobar el equipo. Vuelve a intentarlo.');
-      if (!puede) return NextResponse.json({ error: 'Esa persona no está en el equipo, o no gestiona clientas.' }, { status: 400 });
+      if (!puede) return NextResponse.json({ error: 'Esa persona no está en el equipo, o no gestiona clientes.' }, { status: 400 });
       cambios.asignada_a = cuerpo.asignadaA;
     }
 

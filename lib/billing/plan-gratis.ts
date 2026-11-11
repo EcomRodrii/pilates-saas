@@ -308,7 +308,7 @@ export function empiezaDeCeroAlConvertir(estadoPrevio: string | null | undefined
 
 /** La frase de lo que se ha pasado, para los avisos: «150 alumnas activas», «250 reservas al mes». */
 export function textoLimite(m: MotivoLimite): string {
-  return m === 'alumnas' ? `${LIMITE_ALUMNAS} alumnas activas` : `${LIMITE_RESERVAS_MES} reservas al mes`;
+  return m === 'alumnas' ? `${LIMITE_ALUMNAS} clientes activos` : `${LIMITE_RESERVAS_MES} reservas al mes`;
 }
 
 /** «150 alumnas activas y 250 reservas al mes»; sin motivos (cerrado y ya por debajo), «un límite del plan gratis». */

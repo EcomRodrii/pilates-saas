@@ -325,7 +325,7 @@ export default function EntradaApp() {
               <h1 className="t-h1">{fijo.app ? `Reserva en ${sedesDeLaApp(fijo.app) ? fijo.app.nombreApp : fijo.app.nombre}` : 'Reserva en tu estudio'}</h1>
               <p className="t-meta" style={{ marginTop: 4 }}>
                 {fijo.app
-                  ? 'Escribe tu email. Si ya eres alumna, te reconocemos; si no, te das de alta.'
+                  ? 'Escribe tu email. Si ya eres cliente, te reconocemos; si no, te das de alta.'
                   : 'Escribe tu email. Si ya vas a un estudio con Tentare, te reconocemos.'}
               </p>
             </div>
@@ -437,7 +437,7 @@ export default function EntradaApp() {
                         <span style={{ display: 'block', fontWeight: 800 }}>{e.nombre}</span>
                         {e.ciudad && <span className="t-meta" style={{ display: 'block' }}>{e.ciudad}</span>}
                         <span className="t-meta" style={{ display: 'block', fontSize: 12 }}>
-                          {e.como === 'instructora' ? 'Instructora' : e.como === 'las-dos' ? 'Alumna e instructora' : 'Alumna'}
+                          {e.como === 'instructora' ? 'Instructora' : e.como === 'las-dos' ? 'Cliente e instructora' : 'Cliente'}
                           {ultimo ? ' · la última que abriste' : ''}
                         </span>
                       </span>
@@ -475,7 +475,7 @@ export default function EntradaApp() {
                     <AvatarEstudio icono={s.icono} nombre={s.nombre} color={s.color} lado={48} radio={13} />
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: 'block', fontWeight: 800 }}>{s.nombre}</span>
-                      <span className="t-meta" style={{ display: 'block', fontSize: 12 }}>{s.suya ? 'Ya eres alumna' : 'Te das de alta al entrar'}</span>
+                      <span className="t-meta" style={{ display: 'block', fontSize: 12 }}>{s.suya ? 'Ya eres cliente' : 'Te das de alta al entrar'}</span>
                     </span>
                     <Icono nombre="chevron-derecha" tamano={18} />
                   </button>

@@ -10,8 +10,8 @@ export default function Contenido() {
   return (
     <>
       <p>
-        Tentare avisa solo, de serie y sin que tengas que activar ninguna regla ni redactar nada: en la app de la
-        alumna y, para el recordatorio de clase, también por email (y por WhatsApp si lo tienes conectado).
+        Tentare avisa solo, de serie y sin que tengas que activar ninguna regla ni redactar nada: en la app del
+        cliente y, para el recordatorio de clase, también por email (y por WhatsApp si lo tienes conectado).
         Algunos ejemplos de lo que se envía solo:
       </p>
 
@@ -33,7 +33,7 @@ export default function Contenido() {
         Estos avisos no se encienden ni se apagan: son parte del producto. La excepción es el correo del
         recordatorio, que puedes apagar en Configuración &gt; Cómo me comunico; apagarlo no apaga el aviso en su app ni el
         WhatsApp. En Configuración &gt; Cómo me comunico &gt; Avisos en el móvil eliges cuánto antes llega el
-        recordatorio y puedes reescribir con tus palabras lo que dice cada aviso que reciben tus alumnas (con «Enviarme una prueba» te llega a tu móvil antes de guardarlo). Cada alumna,
+        recordatorio y puedes reescribir con tus palabras lo que dice cada aviso que reciben tus clientes (con «Enviarme una prueba» te llega a tu móvil antes de guardarlo). Cada cliente,
         a su vez, puede apagar desde su app los avisos que no quiera en el móvil, uno a uno. Lo que eliges tú es qué
         avisos te llegan a ti y por dónde, en Configuración &gt; Mis avisos, y el WhatsApp de tu estudio se conecta en
         Configuración &gt; Integraciones.

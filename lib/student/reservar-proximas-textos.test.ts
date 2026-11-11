@@ -41,7 +41,7 @@ test('etiquetaOcurrencia: cada resultado dice algo distinto y nunca el código t
   assert.equal(etiquetaOcurrencia({ resultado: 'FUERA_DE_VENTANA', codigo: 'fuera-ventana-maxima' }), 'Aún no se puede reservar');
 });
 
-test('todo código de reserva clasificado tiene una etiqueta que la alumna entiende', () => {
+test('todo código de reserva clasificado tiene una etiqueta que el cliente entiende', () => {
   for (const c of CODIGOS_CLASIFICADOS) {
     const t = etiquetaOcurrencia({ ...clasificarCodigo(c), codigo: c });
     assert.ok(t.length > 3 && !/[a-z]+-[a-z]+/.test(t), `${c} → «${t}»`);

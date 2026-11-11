@@ -480,7 +480,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
     guardandoOrden.current = false;
     setOrdenPendiente(null);
     const fallo = resultados.find((r): r is { ok: false; error: string } => !r.ok);
-    showToast(fallo ? `El orden no se ha guardado. ${fallo.error}` : 'Orden guardado: así lo verán tus alumnas', fallo ? { variant: 'error' } : undefined);
+    showToast(fallo ? `El orden no se ha guardado. ${fallo.error}` : 'Orden guardado: así lo verán tus clientes', fallo ? { variant: 'error' } : undefined);
   }, [activos, updateTipoClase, showToast]);
 
   const sensores = useSensors(
@@ -564,8 +564,8 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
           {activos.length > 1 && (
             <p className="text-[12.5px] text-muted-foreground text-pretty">
               {hayOrden
-                ? 'En este orden los ve tu alumna al reservar. Arrástralos por el asa para cambiarlo.'
-                : 'Arrástralos por el asa para decidir en qué orden los ve tu alumna al reservar.'}
+                ? 'En este orden los ve tu cliente al reservar. Arrástralos por el asa para cambiarlo.'
+                : 'Arrástralos por el asa para decidir en qué orden los ve tu cliente al reservar.'}
             </p>
           )}
         </div>
@@ -597,7 +597,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
           }}
         >
           <SortableContext items={enLista.map(t => t.id)} strategy={verticalListSortingStrategy}>
-            <ul data-tour="tipos-clase-lista" aria-label="Tipos de clase, en el orden en que los ve tu alumna" className={cn(cardCls, 'divide-y divide-border')}>
+            <ul data-tour="tipos-clase-lista" aria-label="Tipos de clase, en el orden en que los ve tu cliente" className={cn(cardCls, 'divide-y divide-border')}>
               {enLista.map(tc => (
                 <FilaTipoClase
                   key={tc.id}

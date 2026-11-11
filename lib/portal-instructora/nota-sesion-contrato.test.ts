@@ -26,11 +26,11 @@ test('existe y se encuentra el cuerpo de guardarNotaDeSesion', () => {
   assert.ok(inicio >= 0 && guardar.length > 200);
 });
 
-test('solo sobre SU alumna: la misma regla que para leer su salud, antes de escribir', () => {
+test('solo sobre SU cliente: la misma regla que para leer su salud, antes de escribir', () => {
   const regla = guardar.indexOf('instructoraAtiendeSocia(filas, p.instructorId, ahora)');
   const insert = guardar.indexOf(".from('notas_progreso').insert(");
   assert.ok(guardar.includes('filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora)'));
-  assert.ok(regla > 0 && regla < insert, 'se comprueba que es su alumna antes del insert');
+  assert.ok(regla > 0 && regla < insert, 'se comprueba que es su cliente antes del insert');
 });
 
 test('sin consentimiento de salud vigente no se guarda', () => {
@@ -38,14 +38,14 @@ test('sin consentimiento de salud vigente no se guarda', () => {
   assert.ok(consentimiento > 0 && consentimiento < guardar.indexOf(".from('notas_progreso').insert("));
 });
 
-test('la clase elegida es suya, con reserva de esta alumna y en la ventana', () => {
+test('la clase elegida es suya, con reserva de este cliente y en la ventana', () => {
   assert.match(guardar, /\.eq\('instructor_id', p\.instructorId\)/);
   assert.match(guardar, /\.eq\('socio_id', p\.socioId\)\.eq\('sesion_id', p\.nota\.sesionId\)/);
   assert.match(guardar, /\.neq\('estado', 'CANCELADA'\)/);
   assert.match(guardar, /dentroDeVentanaAlumna\(sesion\.inicio, ahora\)/);
 });
 
-test('estudio, alumna y autora salen del token, nunca del cuerpo', () => {
+test('estudio, cliente y autora salen del token, nunca del cuerpo', () => {
   assert.match(guardar, /studio_id: p\.studioId,/);
   assert.match(guardar, /socio_id: p\.socioId,/);
   assert.match(guardar, /instructor_id: p\.instructorId,/);

@@ -60,7 +60,7 @@ test('«Tu prueba de 7 días» solo se enseña a quien tiene una prueba en march
   assert.equal(pasoAplica(pasoPorId('c10.1')!, ctx({ enPrueba: false })), true);
 });
 
-test('la ficha de una clienta se comprueba contra /clientas, no contra el comodín', () => {
+test('la ficha de un cliente se comprueba contra /clientas, no contra el comodín', () => {
   const vistas: string[] = [];
   pasoAplica(pasoPorId('c5.4')!, ctx({ puedeVer: r => { vistas.push(r); return true; } }));
   assert.deepEqual(vistas, ['/clientas']);

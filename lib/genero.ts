@@ -58,12 +58,12 @@ export interface Trato {
 }
 
 const FEMENINO: Trato = {
-  clienta: 'clienta', alumna: 'alumna', socia: 'socia', fija: 'fija',
+  clienta: 'cliente', alumna: 'cliente', socia: 'socia', fija: 'fija',
   la: 'la', esta: 'esta', una: 'una', alA: 'a la', deLa: 'de la', ella: 'ella', lo: 'la', fin: 'a',
 };
 
 const MASCULINO: Trato = {
-  clienta: 'cliente', alumna: 'alumno', socia: 'socio', fija: 'fijo',
+  clienta: 'cliente', alumna: 'cliente', socia: 'socio', fija: 'fijo',
   la: 'el', esta: 'este', una: 'un', alA: 'al', deLa: 'del', ella: 'él', lo: 'lo', fin: 'o',
 };
 

@@ -93,7 +93,7 @@ async function abrir(page: Page, query: string, datos = fixture()) {
 }
 
 async function rellenarDatos(page: Page) {
-  await page.getByPlaceholder('Nombre y apellido').fill('Nueva Alumna');
+  await page.getByPlaceholder('Nombre y apellido').fill('Nuevo Cliente');
   await page.getByPlaceholder('Email').fill('nueva@example.com');
   await page.getByPlaceholder('Móvil').fill('+34 600 123 456');
   await page.getByRole('checkbox', { name: /política de privacidad/i }).check();

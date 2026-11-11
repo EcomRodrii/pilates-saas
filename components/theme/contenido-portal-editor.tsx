@@ -162,7 +162,7 @@ export function ContenidoPortalList({
           24» escrito aquí no lo lee nadie, y eso tiene consecuencias reales, así
           que el copy deja de prometerlo mientras no haya render. */}
       <p className="text-[12.5px] text-muted-foreground pt-2 border-t border-border">
-        Tablón — notas internas del estudio. <strong className="font-semibold">Ahora mismo tus clientas no las ven</strong>:
+        Tablón — notas internas del estudio. <strong className="font-semibold">Ahora mismo tus clientes no las ven</strong>:
         para un aviso que sí les llegue, usa un banner o una campaña.
       </p>
       <div className="space-y-1.5">

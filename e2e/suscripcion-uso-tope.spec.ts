@@ -61,7 +61,7 @@ test.describe('Suscripción · cuántas cuentan para el tope del plan', () => {
       await montar(page, plan);
       await expect(page.getByText('Plan actual')).toBeVisible({ timeout: 30_000 });
       await expect(page.locator('[data-uso-tope]')).toHaveCount(0);
-      await expect(page.getByText(/de 150 clientas activas/)).toHaveCount(0);
+      await expect(page.getByText(/de 150 clientes activos/)).toHaveCount(0);
     });
   }
 });

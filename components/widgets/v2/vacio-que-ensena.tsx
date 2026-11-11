@@ -49,7 +49,7 @@ export function VacioQueEnsena({ slug, origen, colorEstudio, onEmpezar }: {
         <div>
           <h3 id="vacio-tu-web" className="text-[26px] font-bold leading-tight text-foreground text-balance">Pon tu horario en tu web</h3>
           <p className="mt-2 max-w-xl text-[14.5px] leading-relaxed text-muted-foreground text-pretty">
-            Tus alumnas ven tus clases y reservan desde tu web. Lo preparas aquí, lo pegas una vez y después se pone al día solo con tus clases, tus precios y tus plazas.
+            Tus clientes ven tus clases y reservan desde tu web. Lo preparas aquí, lo pegas una vez y después se pone al día solo con tus clases, tus precios y tus plazas.
           </p>
         </div>
         <div>
@@ -86,7 +86,7 @@ export function VacioQueEnsena({ slug, origen, colorEstudio, onEmpezar }: {
           <IphoneConWeb escala={escala} direccion={null} fondo="white" desplazable={false}>
             <iframe
               src={src}
-              title="Tu horario, como lo verá tu alumna"
+              title="Tu horario, como lo verá tu cliente"
               inert
               tabIndex={-1}
               loading="lazy"

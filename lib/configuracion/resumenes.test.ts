@@ -287,7 +287,7 @@ test('«Revisa esto»: por prioridad, como mucho tres, y vacío si no hay nada',
   assert.deepEqual(resumenesDeConfiguracion(todo).estudio.estado, { tono: 'pendiente', etiqueta: 'Sin horario' });
 });
 
-test('cada aviso lleva a una tarjeta de su sección, y el copy dice «alumna»', () => {
+test('cada aviso lleva a una tarjeta de su sección, y el copy dice «cliente»', () => {
   const todo = con({ nif: '', horarioSemana: CERRADO }, {
     integraciones: [fallando('WHATSAPP'), fallando('RESEND'), fallando('KISI'), fallando('MAILCHIMP')],
     numPlanesActivos: 3,
@@ -417,7 +417,7 @@ test('avisos en el móvil: un recordatorio apagado no aparece en el resumen', ()
   assert.equal(r(false, false), 'Recordatorios apagados · textos de Tentare');
 });
 
-test('ninguna fila de herramienta pasa de una línea del móvil ni dice «clienta»', () => {
+test('ninguna fila de herramienta pasa de una línea del móvil ni dice «cliente»', () => {
   const muchos = {
     numTiposClase: 120,
     salas: { numSalas: 12, averias: Array.from({ length: 11 }, () => ({ hasta: null })), ahoraMs: AHORA },
@@ -552,7 +552,7 @@ test('contrato: de quién son los textos, y con términos propios y penalizació
   assert.deepEqual(resumenContrato({ propios: null, hayPenalizacion: true }), { valor: null, estado: null });
 });
 
-test('alta de alumnas: compra desde tu enlace, datos extra y cuestionario; sin cargar, nada', () => {
+test('alta de clientes: compra desde tu enlace, datos extra y cuestionario; sin cargar, nada', () => {
   assert.equal(resumenCompraPublica('EXIGIR_REGISTRO'), 'Se registra antes de pagar');
   assert.equal(resumenCompraPublica('CREAR_FICHA'), 'Paga sin registrarse antes');
   assert.equal(resumenCompraPublica(undefined), null);
@@ -574,7 +574,7 @@ test('alta de alumnas: compra desde tu enlace, datos extra y cuestionario; sin c
   assert.equal(resumenPlanesActivos(null), null);
 });
 
-test('las filas de cobros y altas caben en una línea del móvil (los avisos van enteros) y dicen «alumna»', () => {
+test('las filas de cobros y altas caben en una línea del móvil (los avisos van enteros) y dicen «cliente»', () => {
   const valores = [
     resumenDatosFiscales({ razonSocial: 'Pilates Centro SL', nif: NIF_BUENO, ivaPorDefecto: 21 }).valor,
     resumenDomiciliaciones({ sepaAcreedorId: 'x', sepaIban: null, sepaTitular: null }),
@@ -623,7 +623,7 @@ test('reglas de reserva: lo principal delante, y los tipos que la cambian antes 
   assert.equal(resumenRegla('cancelar-y-recuperar', r, sin), 'Hasta 12 h antes · después pierde la sesión');
   assert.equal(resumenRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }, sin), 'Cancela hasta el último momento');
   assert.equal(resumenRegla('si-se-cancela-una-clase', r, sin), 'Devuelve la sesión · sin mínimo');
-  assert.equal(resumenRegla('si-se-cancela-una-clase', { ...r, cancelacionClaseDevuelveBono: false, minimoAsistentesPorClase: 3 }, sin), 'No devuelve la sesión · mínimo 3 alumnas');
+  assert.equal(resumenRegla('si-se-cancela-una-clase', { ...r, cancelacionClaseDevuelveBono: false, minimoAsistentesPorClase: 3 }, sin), 'No devuelve la sesión · mínimo 3 clientes');
   assert.equal(resumenRegla('lista-de-espera', r, sin), 'Plaza al momento');
   assert.equal(resumenRegla('lista-de-espera', { ...r, listaEsperaPlazoAceptacionMinutos: 30 }, sin), 'Oferta de 30 min');
   assert.equal(resumenRegla('lista-de-espera', { ...r, permiteListaEspera: false, listaEsperaPlazoAceptacionMinutos: 30 }, sin), 'Sin lista de espera');
@@ -883,9 +883,9 @@ test('Mi equipo: el modo de Sustituciones que se aplica de verdad, con el plan; 
   assert.equal(resumenModoSustituciones({ plan: 'BASE', subscriptionStatus: 'active', modoAutonomia: 'asistido' }), 'Asistido: tú apruebas con un toque');
 });
 
-test('Mi equipo: el aviso a las alumnas y la dirección de la app de tus instructoras', () => {
+test('Mi equipo: el aviso a los clientes y la dirección de la app de tus instructoras', () => {
   assert.equal(resumenAvisarAlumnas(true), 'Les avisa por email y en su app');
-  assert.equal(resumenAvisarAlumnas(false), 'No avisa a las alumnas');
+  assert.equal(resumenAvisarAlumnas(false), 'No avisa a los clientes');
   assert.equal(resumenAvisarAlumnas(null), null);
   assert.equal(resumenAvisarAlumnas(undefined), null);
   assert.equal(resumenAppInstructoras({ slug: 'pilates-centro', origen: 'https://www.tentare.es/' }), 'tentare.es/portal/pilates-centro/equipo');
@@ -893,7 +893,7 @@ test('Mi equipo: el aviso a las alumnas y la dirección de la app de tus instruc
   assert.equal(resumenAppInstructoras({ slug: null, origen: 'https://tentare.es' }), null);
 });
 
-test('las filas de Mi equipo caben en una línea del móvil y dicen «alumna» e «instructora»', () => {
+test('las filas de Mi equipo caben en una línea del móvil y dicen «cliente» e «instructora»', () => {
   const p = (rol: string) => ({ rol, activo: true });
   const valores = [
     resumenEquipo([p('INSTRUCTOR'), p('INSTRUCTOR'), p('RECEPCION'), p('MANAGER')]),

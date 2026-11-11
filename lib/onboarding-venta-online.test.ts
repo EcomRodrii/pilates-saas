@@ -20,7 +20,7 @@ test('avisa justo en el caso que bloquea: exige bono + tarifa activa + sin Strip
   assert.match(avisoVentaOnline(BASE) ?? '', /no puede comprarlo online/);
 });
 
-test('no avisa cuando la alumna SÍ puede reservar', () => {
+test('no avisa cuando el cliente SÍ puede reservar', () => {
   // Con Stripe puede comprar el bono online.
   assert.equal(avisoVentaOnline({ ...BASE, stripeAccountId: 'acct_1' }), null);
   // Sin exigir bono, reserva sin comprar nada.

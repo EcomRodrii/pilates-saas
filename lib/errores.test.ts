@@ -106,12 +106,12 @@ test('401 y 403 no repiten lo que diga el servidor', () => {
 // llegaba el error crudo de Postgres. El genérico de clave duplicada tampoco
 // servía de mucho: no dice qué dato choca ni qué hacer con él.
 
-test('el email repetido de una clienta dice QUÉ pasa y QUÉ hacer', () => {
+test('el email repetido de un cliente dice QUÉ pasa y QUÉ hacer', () => {
   const r = mensajeDeFalloAlGuardar({
     code: '23505',
     message: 'duplicate key value violates unique constraint "uq_socios_studio_email"',
   });
-  assert.match(r, /clienta con ese email/i);
+  assert.match(r, /cliente con ese email/i);
   assert.match(r, /reactiva/i, 'tiene que ofrecer la salida, no solo describir el choque');
   // Y nunca el error crudo: "constraint", "duplicate key" o el nombre del índice
   // no significan nada para quien está dando de alta a una clienta.
@@ -124,7 +124,7 @@ test('otras claves duplicadas siguen con el mensaje genérico', () => {
     message: 'duplicate key value violates unique constraint "sustituciones_sesion_id_key"',
   });
   assert.match(r, /Ya existe algo con esos mismos datos/);
-  assert.ok(!/clienta/i.test(r), 'no se puede hablar de clientas ante un choque de sustituciones');
+  assert.ok(!/cliente/i.test(r), 'no se puede hablar de clientes ante un choque de sustituciones');
 });
 
 // ── Petición que viajó como anon sin que la usuaria se enterase ────────────

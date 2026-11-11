@@ -35,7 +35,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo te presentas</h2>
       <p>
-        En Configuración &gt; Marca hay dos filas de textos libres para tu página de reservas y la app de tus alumnas:
+        En Configuración &gt; Marca hay dos filas de textos libres para tu página de reservas y la app de tus clientes:
         «Cómo te presentas» (tu descripción, tu lema, tu año de apertura y las normas del centro) y «Textos de
         bienvenida» (las frases del inicio de su app). Cada una se abre y se guarda con «Guardar». Si dejas un texto
         vacío, ese bloque simplemente no se pinta — no hay texto de relleno.

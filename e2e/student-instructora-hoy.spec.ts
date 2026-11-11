@@ -69,7 +69,7 @@ test.describe('«Hoy» de la instructora con pocas clases', () => {
     await expect(mensajes).toContainText('Aina P.');
     expect(contador.hilos).toBeGreaterThan(0);
 
-    await expect(page.getByTestId('valoraciones-hoy')).toContainText('Cuando al menos 5 alumnas');
+    await expect(page.getByTestId('valoraciones-hoy')).toContainText('Cuando al menos 5 clientes');
   });
 
   test('sin conversaciones, la tarjeta de mensajes le dice cómo empezar', async ({ page }) => {

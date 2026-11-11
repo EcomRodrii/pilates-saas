@@ -8,7 +8,7 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Una recuperación es una clase que le debes a una alumna. No es una sesión de bono ni un plan: vive
+        Una recuperación es una clase que le debes a un cliente. No es una sesión de bono ni un plan: vive
         aparte, tiene su propia fecha de caducidad y se ve en su ficha.
       </AyudaAntesDeEmpezar>
 
@@ -27,7 +27,7 @@ export default function Contenido() {
 
       <h2 style={h2}>Cuánto duran</h2>
       <p>
-        Lo decides tú en <strong>Configuración → Cómo reservan mis alumnas</strong>, en la fila «Cancelar y
+        Lo decides tú en <strong>Configuración → Cómo reservan mis clientes</strong>, en la fila «Cancelar y
         recuperar». Tres opciones: al final del mes siguiente (lo que viene puesto), al final del mes en
         curso, o un número de días que elijas.
       </p>
@@ -50,14 +50,14 @@ export default function Contenido() {
 
       <h2 style={h2}>Cuántas puede guardar</h2>
       <p>
-        De serie, una alumna puede tener <strong>como máximo cuatro recuperaciones vivas a la vez</strong>. Al
-        intentar darle una más te avisa y no la crea. Lo cambias en Configuración → Cómo reservan mis alumnas →
+        De serie, un cliente puede tener <strong>como máximo cuatro recuperaciones vivas a la vez</strong>. Al
+        intentar darle una más te avisa y no la crea. Lo cambias en Configuración → Cómo reservan mis clientes →
         Recuperaciones, de 1 a 20. Si bajas el número, quien ya tenga más las conserva; solo no se le da otra
         hasta que baje del tope.
       </p>
 
       <AyudaResultado>
-        Las recuperaciones vivas aparecen en la ficha de la alumna, y en Centro de Control («Ver todo el detalle»)
+        Las recuperaciones vivas aparecen en la ficha del cliente, y en Centro de Control («Ver todo el detalle»)
         cuando les quedan menos de siete días — para que puedas avisarla antes de que la pierda. También se traen desde tu
         software anterior al{' '}
         <Link href="/ayuda/clientes/importar-clientes" style={enlace}>importar tus datos</Link>.

@@ -67,7 +67,7 @@ export function AppAlumnaReal({ slug, ancho, version = 0, className = '' }: {
           {montado && (
             <iframe
               key={version}
-              title="La app de tus alumnas, tal y como la ven"
+              title="La app de tus clientes, tal y como la ven"
               src={`/portal/${encodeURIComponent(slug)}`}
               onLoad={(e) => {
                 // La zona segura de un iPhone 17 Pro (54 pt arriba, 34 pt del
@@ -96,7 +96,7 @@ export function AppAlumnaReal({ slug, ancho, version = 0, className = '' }: {
         </div>
       </MockupIphone>
       <figcaption className="mt-3 text-center text-[12.5px] text-muted-foreground" aria-live="polite">
-        {cargado ? 'Así verán tus alumnas tu app' : 'Cargando tu app…'}
+        {cargado ? 'Así verán tus clientes tu app' : 'Cargando tu app…'}
       </figcaption>
     </figure>
   );

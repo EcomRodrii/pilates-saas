@@ -123,8 +123,8 @@ export function frasesPoliticaEstudio(p: PoliticaEstudio): FrasePolitica[] {
     frases.push({
       id: 'cambia-la-clase',
       texto: p.avisarAlumnas
-        ? 'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, avisa a sus alumnas por email y en su app.'
-        : 'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, no avisa a sus alumnas.',
+        ? 'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, avisa a sus clientes por email y en su app.'
+        : 'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, no avisa a sus clientes.',
       respaldo: ['avisarAlumnas'],
       tarjeta: 'ajuste-avisar-alumnas',
     });

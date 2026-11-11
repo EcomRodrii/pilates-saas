@@ -29,7 +29,7 @@ async function jsDescargado(page: Page): Promise<string> {
   return cuerpos.join('\n');
 }
 
-test('la app de la alumna no descarga los providers del panel', async ({ page }) => {
+test('la app del cliente no descarga los providers del panel', async ({ page }) => {
   test.setTimeout(120_000);
   // `sinReloj`: `page.clock.install()` vacía la Performance API.
   await sembrarSociaCompleta(page, { bono: 5, sinReloj: true });
@@ -39,7 +39,7 @@ test('la app de la alumna no descarga los providers del panel', async ({ page })
 
   const js = await jsDescargado(page);
   expect(js.length, 'no se ha medido ningún JS: la comprobación no probaría nada').toBeGreaterThan(50_000);
-  expect(MARCADORES.filter((m) => js.includes(m)), 'código del panel en la app de la alumna').toEqual([]);
+  expect(MARCADORES.filter((m) => js.includes(m)), 'código del panel en la app del cliente').toEqual([]);
 });
 
 test('contraprueba: el login sí los descarga', async ({ page }) => {

@@ -77,21 +77,21 @@ async function leer(descarga: Download): Promise<Buffer> {
 const ladoPng = (bytes: Buffer) => ({ ancho: bytes.readUInt32BE(16), alto: bytes.readUInt32BE(20) });
 
 test.describe('Código QR para el escaparate', () => {
-  test('la app de tus alumnas va primero: cartel con el color de la marca, en PDF y PNG, y solo el código en PNG y SVG', async ({ page, baseURL }) => {
+  test('la app de tus clientes va primero: cartel con el color de la marca, en PDF y PNG, y solo el código en PNG y SVG', async ({ page, baseURL }) => {
     await prepararPanel(page, { ...STUDIO_ROW, sitio_web: 'pilatesboutiquemar.example.com' });
 
     // App, página de reservas y web: un QR por enlace, y la app —el enlace que se reparte— la primera.
     await expect(botonesQr(page)).toHaveCount(3);
     await expect(page.getByText('Para tu web: la que se integra en tu web')).toBeVisible();
-    const yApp = (await page.getByText('App de tus alumnas', { exact: true }).first().boundingBox())!.y;
+    const yApp = (await page.getByText('App de tus clientes', { exact: true }).first().boundingBox())!.y;
     const yPagina = (await page.getByText('Página de reservas', { exact: true }).first().boundingBox())!.y;
     expect(yApp, 'la app va antes que la página de reservas').toBeLessThan(yPagina);
     await botonesQr(page).first().click();
 
-    const dialogo = page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' });
+    const dialogo = page.getByRole('dialog', { name: 'Código QR · App de tus clientes' });
     await expect(dialogo).toBeVisible();
     // Se ve el cartel de verdad y a dónde lleva, antes de descargar nada.
-    await expect(dialogo.getByRole('img', { name: 'Cartel con el código QR de App de tus alumnas' })).toBeVisible();
+    await expect(dialogo.getByRole('img', { name: 'Cartel con el código QR de App de tus clientes' })).toBeVisible();
     const legible = `${new URL(baseURL!).host}/portal/pilates-boutique-mar`;
     await expect(dialogo.locator('figcaption')).toHaveText(legible);
     // Arranca con el color de su marca (el tema: #6D28D9 en el mock).
@@ -132,7 +132,7 @@ test.describe('Código QR para el escaparate', () => {
   test('los colores los elige el estudio, el código solo en tonos que se leen, y se recuerdan para los otros carteles', async ({ page }) => {
     await prepararPanel(page, { ...STUDIO_ROW, sitio_web: 'pilatesboutiquemar.example.com' });
     await botonesQr(page).first().click();
-    const dialogo = page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' });
+    const dialogo = page.getByRole('dialog', { name: 'Código QR · App de tus clientes' });
 
     await dialogo.getByLabel('Otro color para el fondo').fill('#0f766e');
     const pdf = await descargar(page, /cartel.*PDF para imprimir/);

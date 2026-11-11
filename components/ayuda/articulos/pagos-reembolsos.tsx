@@ -4,16 +4,16 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Un reembolso se pide desde Tentare, pero el dinero lo devuelve Stripe directamente a la tarjeta de la
-        alumna — Tentare nunca gestiona el dinero fuera de ese circuito.
+        Un reembolso se pide desde Tentare, pero el dinero lo devuelve Stripe directamente a la tarjeta del
+        cliente — Tentare nunca gestiona el dinero fuera de ese circuito.
       </AyudaAntesDeEmpezar>
 
-      <AyudaPaso numero={1} titulo="Abre el cobro en la ficha de la clienta">
+      <AyudaPaso numero={1} titulo="Abre el cobro en la ficha del cliente">
         <p>El botón «Devolver» de la ficha aparece cuando has activado tu política de devoluciones en Configuración &gt; Cobros y facturas &gt; Devoluciones. El «Devolver» de la pantalla de Cobros solo lo apunta como devuelto: no mueve dinero.</p>
       </AyudaPaso>
 
       <AyudaPaso numero={2} titulo="Pide el reembolso">
-        <p style={{ margin: 0 }}>Desde Tentare se devuelve el cobro entero; si necesitas uno parcial, hazlo en Stripe. La petición va a Stripe, y el dinero tarda lo que tarde normalmente un reembolso con tarjeta (unos días, según el banco de la alumna) en aparecer en su cuenta.</p>
+        <p style={{ margin: 0 }}>Desde Tentare se devuelve el cobro entero; si necesitas uno parcial, hazlo en Stripe. La petición va a Stripe, y el dinero tarda lo que tarde normalmente un reembolso con tarjeta (unos días, según el banco del cliente) en aparecer en su cuenta.</p>
       </AyudaPaso>
 
       <AyudaResultado>

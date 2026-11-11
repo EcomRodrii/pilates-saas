@@ -84,8 +84,8 @@ export const SIGNIFICADO: {
     },
   },
   emociones: {
-    amor: { es: 'Llega alguien nuevo al estudio.', cuando: 'Hoy viene una alumna por primera vez.' },
-    orgullo: { es: 'Un récord de verdad.', cuando: 'Hoy es el día con más alumnas desde que el estudio usa Tentare.' },
+    amor: { es: 'Llega alguien nuevo al estudio.', cuando: 'Hoy viene un cliente por primera vez.' },
+    orgullo: { es: 'Un récord de verdad.', cuando: 'Hoy es el día con más clientes desde que el estudio usa Tentare.' },
     guino: { es: 'Te doy una pista.', cuando: 'La única novedad del día es un hueco que puedes llenar.' },
     bostezo: { es: 'Has estado fuera un buen rato.', cuando: 'Vuelves a la pestaña tras media hora o más fuera.' },
     sorpresa: { es: 'Algo nuevo que no estaba hace un momento.', cuando: 'La bandeja sube mientras la tienes delante.' },
@@ -333,11 +333,11 @@ export function fraseDeHoy({ resumen, clases, primerasVeces, record, estado }: {
   const frases: string[] = [];
   if (primerasVeces > 0) {
     const viene = dormido ? (primerasVeces === 1 ? 'ha venido' : 'han venido') : (primerasVeces === 1 ? 'viene' : 'vienen');
-    frases.push(`${primerasVeces === 1 ? 'Una alumna' : `${primerasVeces} alumnas`} ${viene} hoy por primera vez.`);
+    frases.push(`${primerasVeces === 1 ? 'Un cliente' : `${primerasVeces} clientes`} ${viene} hoy por primera vez.`);
   }
   const { texto, soloHuecos } = encontrado(resumen, clases);
   if (texto) frases.push(texto);
-  if (record) frases.push(`Hoy es el día con más alumnas desde que usas Tentare (${resumen.alumnas}).`);
+  if (record) frases.push(`Hoy es el día con más clientes desde que usas Tentare (${resumen.alumnas}).`);
   if (dormido) frases.push(clases.length === 0 ? FRASE_DORMIDO.sinClases : FRASE_DORMIDO.terminadas);
   return frases.length ? { texto: frases.join(' '), soloHuecos } : null;
 }
@@ -403,7 +403,7 @@ export const MAPA: Record<string, SitioDeTenti> = {
   'components/onboarding/listo-para-reservar.tsx': {
     sitio: '«Tu estudio ya puede recibir reservas»',
     funcion: null, literales: ['hecho'], estados: ['reposo', 'hecho'], emociones: [],
-    motivo: 'el servidor confirma que una alumna nueva ya puede reservar: un hito, con celebración',
+    motivo: 'el servidor confirma que un cliente nuevo ya puede reservar: un hito, con celebración',
   },
   'components/onboarding/estudio-listo.tsx': {
     sitio: 'Bienvenida › «tu estudio ya está en marcha»',

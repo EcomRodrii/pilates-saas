@@ -300,7 +300,7 @@ export function leerRespuestaPuedeReservar(x: unknown): RespuestaPuedeReservar {
   return SIN_COMPROBAR;
 }
 
-const NO_PUEDE_AUN = 'Una alumna nueva todavía no puede reservar desde tu app';
+const NO_PUEDE_AUN = 'Un cliente nuevo todavía no puede reservar desde tu app';
 const DONDE_SE_ABRE = 'Para abrirla, ve a Configuración > Mi app y mi web > Ocultar tu página.';
 
 // `undefined`: con lo que ha llegado no se puede escribir una frase cierta (un
@@ -322,7 +322,7 @@ const TEXTO_MOTIVO: Record<MotivoNoReserva, (r: ExtraNo) => string | null | unde
   ANTELACION: r => (r.abreEl && r.antelacionDias != null
     ? `Solo dejas reservar con ${r.antelacionDias} ${r.antelacionDias === 1 ? 'día' : 'días'} de antelación: tu primera clase no se podrá reservar hasta el ${diaDeApertura(new Date(r.abreEl))}.`
     : undefined),
-  NECESITA_AUTORIZACION: () => `${NO_PUEDE_AUN}: estas clases son solo para alumnas autorizadas, y a una alumna nueva tendrías que abrírselas tú desde su ficha.`,
+  NECESITA_AUTORIZACION: () => `${NO_PUEDE_AUN}: estas clases son solo para clientes autorizados, y a un cliente nuevo tendrías que abrírselas tú desde su ficha.`,
   SIN_PLAN_QUE_CUBRA: () => `${NO_PUEDE_AUN}: pides bono para reservar y ninguno de tus planes a la venta incluye estas clases.`,
   // El mismo caso que ya avisaba el cliente (evaluación del 13-sep), con la misma frase.
   STRIPE_SIN_CUENTA: () => AVISO_VENTA_SIN_STRIPE,
@@ -336,7 +336,7 @@ const esMotivo = (m: string): m is MotivoNoReserva => Object.hasOwn(TEXTO_MOTIVO
  * contestado (o no hay clave para preguntarle). No se sabe si cobra, y eso es lo
  * que se dice: ni la promesa ni un «no cobra» que quizá no es verdad.
  */
-const TEXTO_STRIPE_SIN_COMPROBAR = 'No hemos podido comprobar si Stripe ya puede cobrar, y pides bono para reservar: mientras no cobre, una alumna nueva no podrá comprarlo desde tu app. Míralo en Stripe o véndeselo tú en el mostrador.';
+const TEXTO_STRIPE_SIN_COMPROBAR = 'No hemos podido comprobar si Stripe ya puede cobrar, y pides bono para reservar: mientras no cobre, un cliente nuevo no podrá comprarlo desde tu app. Míralo en Stripe o véndeselo tú en el mostrador.';
 
 /**
  * El aviso que se pinta bajo «Tu estudio ya puede recibir reservas».

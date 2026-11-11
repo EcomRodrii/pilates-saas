@@ -17,7 +17,7 @@ export interface ValoracionesVista {
   hasta: string;
 }
 
-export const TEXTO_SIN_VALORACIONES = 'Cuando al menos 5 alumnas hayan valorado tus clases, verás aquí tu media.';
+export const TEXTO_SIN_VALORACIONES = 'Cuando al menos 5 clientes hayan valorado tus clases, verás aquí tu media.';
 
 const fmtDia = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', timeZone: 'UTC' });
 

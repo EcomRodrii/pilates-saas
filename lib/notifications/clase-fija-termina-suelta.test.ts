@@ -11,7 +11,7 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
 
 const plantilla = () => {
   const p = plantillaDe(EVENTOS.CLASE_FIJA_TERMINA_PRONTO, 'SOCIA');
-  assert.ok(p, 'sin plantilla para la alumna');
+  assert.ok(p, 'sin plantilla para el cliente');
   return p;
 };
 const cuerpo = (data: Record<string, unknown>) => render(plantilla().body, data);
@@ -46,7 +46,7 @@ test('⚠️ el cron avisa de las plazas sueltas en su ventana, solo las vivas y
   assert.match(sueltas, /\.in\('estado', \['ACTIVA', 'PAUSADA'\]\)/);
   assert.match(sueltas, /\.is\('clase_fija_id', null\)/, 'solo las SIN clase fija con nombre: esas ya las cubre su propio aviso');
   assert.match(sueltas, /\.gte\('vigencia_hasta', hoy\)\.lte\('vigencia_hasta', limite\)/, 'sin fecha de fin no hay nada que avisar');
-  assert.match(sueltas, /agruparTerminanPronto\(plazas\)/, 'un aviso por alumna y fecha');
+  assert.match(sueltas, /agruparTerminanPronto\(plazas\)/, 'un aviso por cliente y fecha');
   const ofertas = cron.slice(cron.indexOf('async function avisarOfertasConNombre'), cron.indexOf('async function avisarPlazasSueltas'));
   assert.match(ofertas, /\.not\('clase_fija_id', 'is', null\)/, 'las de clase fija con nombre siguen como estaban');
   assert.match(cron, /DIAS_AVISO_CLASE_FIJA_TERMINA/, 'la misma ventana para los dos');

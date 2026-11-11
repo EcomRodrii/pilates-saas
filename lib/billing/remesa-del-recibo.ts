@@ -22,7 +22,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const TEXTO_SIN_REMESAS =
   'Este estudio no prepara remesas: este recibo no salió en ninguna. Si no llegó a ir al banco, usa «No llegó a ir al banco».';
 export const TEXTO_SIN_DOMICILIACION =
-  'Esta clienta no tiene domiciliación: este recibo no pudo salir en una remesa. Si no llegó a ir al banco, usa «No llegó a ir al banco».';
+  'Este cliente no tiene domiciliación: este recibo no pudo salir en una remesa. Si no llegó a ir al banco, usa «No llegó a ir al banco».';
 
 export type LecturaRemesa =
   | { ok: true; motivoPorRecibo: Map<string, string | null> }

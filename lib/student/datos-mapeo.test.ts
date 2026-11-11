@@ -355,7 +355,7 @@ test('cierraEl: el del tipo manda, null hereda el del estudio y 0 es sin cierre'
   assert.equal(cierre(null, undefined), null);
 });
 
-test('gamificación: un nivel que el estudio desactivó no lo ve la alumna (el panel ya lo ignoraba)', async () => {
+test('gamificación: un nivel que el estudio desactivó no lo ve el cliente (el panel ya lo ignoraba)', async () => {
   const { proyectarGamificacion } = await import('./mapeo.ts');
   const nivel = (id: string, umbral: number, activo: boolean) => ({ id, nombre: id, orden: 0, umbralCreditos: umbral, color: '#000000', icono: '·', beneficios: null, activo });
   const vista = proyectarGamificacion({

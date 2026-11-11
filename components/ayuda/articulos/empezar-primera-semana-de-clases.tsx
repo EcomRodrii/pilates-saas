@@ -22,8 +22,8 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        En cuanto tienes horario, la app de tus alumnas ya tiene algo que mostrar — es el momento de compartir su
-        enlace con tu primera alumna.
+        En cuanto tienes horario, la app de tus clientes ya tiene algo que mostrar — es el momento de compartir su
+        enlace con tu primer cliente.
       </AyudaResultado>
     </>
   );

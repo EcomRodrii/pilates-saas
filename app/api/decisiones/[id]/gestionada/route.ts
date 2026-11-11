@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({
       error: efecto === 'COBRAR'
         ? 'Un cobro no se puede dar por hecho sin cobrarlo.'
-        : 'Aprobarla no le envía nada a la clienta: márcala con «Hecho».',
+        : 'Aprobarla no le envía nada al cliente: márcala con «Hecho».',
     }, { status: 409 });
   }
 

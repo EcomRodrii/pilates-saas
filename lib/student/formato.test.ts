@@ -115,7 +115,7 @@ test('una fecha buena sigue saliendo igual que antes', () => {
   assert.equal(etiquetaDia('2026-09-04', '2026-09-10'), 'Vie 4');
 });
 
-test('el método de cobro no se le enseña a la alumna en mayúsculas de enum', () => {
+test('el método de cobro no se le enseña al cliente en mayúsculas de enum', () => {
   // Los cinco que hay en producción hoy.
   assert.equal(metodoPagoTexto('TARJETA'), 'Tarjeta');
   assert.equal(metodoPagoTexto('EFECTIVO'), 'Efectivo');

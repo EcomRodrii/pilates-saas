@@ -352,7 +352,7 @@ test.describe('Recargar y el móvil', () => {
   });
 });
 
-test.describe('El iPhone de al lado: la app de la alumna de verdad', () => {
+test.describe('El iPhone de al lado: la app del cliente de verdad', () => {
   // Fundador, 21-oct-2026: «el mockup ese de iphone es muy falso, no es la app
   // alumna, el enlace tampoco». Ahora es la app real (su pantalla de entrada) de
   // un estudio que aún no existe, con el nombre que se escribe

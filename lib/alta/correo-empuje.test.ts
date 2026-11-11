@@ -33,11 +33,11 @@ test('compartir: si ya copió o mandó el enlace no hay nada que empujar', () =>
   assert.deepEqual(decidirCorreoEmpuje({ ...COMPARTIR, enlaceCompartido: true }), { enviar: false, motivo: 'ya_compartido' });
 });
 
-test('alumnas: compartió hace dos días y sigue sin ninguna reserva → sale', () => {
+test('clientes: compartió hace dos días y sigue sin ninguna reserva → sale', () => {
   assert.deepEqual(decidirCorreoEmpuje(ALUMNAS), { enviar: true });
 });
 
-test('alumnas: ventana de 48 h a 10 días, y solo si compartió', () => {
+test('clientes: ventana de 48 h a 10 días, y solo si compartió', () => {
   assert.deepEqual(decidirCorreoEmpuje({ ...ALUMNAS, hitoEn: hace(47.9) }), { enviar: false, motivo: 'aun_no' });
   assert.deepEqual(decidirCorreoEmpuje({ ...ALUMNAS, hitoEn: hace(48) }), { enviar: true });
   assert.deepEqual(decidirCorreoEmpuje({ ...ALUMNAS, hitoEn: hace(10 * 24) }), { enviar: true });
@@ -45,7 +45,7 @@ test('alumnas: ventana de 48 h a 10 días, y solo si compartió', () => {
   assert.deepEqual(decidirCorreoEmpuje({ ...ALUMNAS, enlaceCompartido: false }), { enviar: false, motivo: 'sin_compartir' });
 });
 
-test('alumnas: con una sola reserva ya no es «nadie ha reservado»', () => {
+test('clientes: con una sola reserva ya no es «nadie ha reservado»', () => {
   assert.deepEqual(decidirCorreoEmpuje({ ...ALUMNAS, hayReservas: true }), { enviar: false, motivo: 'ya_tiene_reservas' });
   // Sin leerlas todavía, lo demás decide (se leen justo antes de mandar).
   assert.deepEqual(decidirCorreoEmpuje({ ...ALUMNAS, hayReservas: undefined }), { enviar: true });

@@ -62,7 +62,7 @@ async function aplicarRetencionRastro(admin: SupabaseClient): Promise<void> {
 export async function borrarRastroDeAlumna(admin: SupabaseClient, studioId: string, socioId: string): Promise<void> {
   const { error } = await admin.from('rastro_gratis').delete().eq('studio_id', studioId).eq('socio_id', socioId);
   if (error) {
-    Sentry.captureMessage('[plan gratis] no se ha podido borrar el rastro de una alumna suprimida', {
+    Sentry.captureMessage('[plan gratis] no se ha podido borrar el rastro de un cliente suprimido', {
       level: 'error', tags: { area: 'rgpd' }, extra: { studioId, socioId, error: error.message },
     });
   }

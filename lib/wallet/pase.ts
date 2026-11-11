@@ -113,7 +113,7 @@ export function paseJson(d: DatosPase): Record<string, unknown> {
     ...coloresDelPase(d.estudio.colorPrimario, d.estudio.apariencia),
     sharingProhibited: true,
     generic: {
-      primaryFields: [{ key: 'alumna', label: 'Alumna', value: d.alumna.nombre || 'Tu acceso' }],
+      primaryFields: [{ key: 'alumna', label: 'Cliente', value: d.alumna.nombre || 'Tu acceso' }],
       secondaryFields: [{ key: 'estudio', label: 'Estudio', value: d.estudio.nombre }],
       backFields: [
         { key: 'uso', label: 'Cómo se usa', value: 'Enséñalo al llegar al estudio. Es el mismo QR que el de tu app: si generas uno nuevo allí, este deja de valer y tendrás que volver a añadirlo.' },

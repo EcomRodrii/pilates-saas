@@ -18,7 +18,7 @@ export function PlanGratisAlta() {
   const puntos = [
     `${TODO_MENOS_SEDES}.`,
     `${TOPE_GRATIS}.`,
-    `${SI_PASAS.charAt(0).toUpperCase()}${SI_PASAS.slice(1)}, sin tope de alumnas ni de reservas. IVA incluido.`,
+    `${SI_PASAS.charAt(0).toUpperCase()}${SI_PASAS.slice(1)}, sin tope de clientes ni de reservas. IVA incluido.`,
     `Si te pasas, tienes ${GRATIS_MARGEN_DIAS} días para contratarlo, y te avisamos antes.`,
     'Sin tarjeta y sin permanencia.',
   ];

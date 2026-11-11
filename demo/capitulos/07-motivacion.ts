@@ -4,14 +4,14 @@ import { abrirCajon, abrirSeccion, cajon, guardarYCerrar } from './ayudas.ts';
 export const motivacion: Capitulo = {
   id: 'motivacion',
   titulo: 'Motivación',
-  frase: 'Premia la constancia de tus alumnas con créditos, logros y retos que ven en su app.',
+  frase: 'Premia la constancia de tus clientes con créditos, logros y retos que ven en su app.',
   async guion(g, pos) {
     const { page } = g;
     await abrirSeccion(g, pos, 'motivacion', 'Motivación', 'Créditos, recompensas, logros y retos.',
-      'Séptimo capítulo: motivación. Es la forma de premiar la constancia de tus alumnas con créditos, logros y retos que ven en su app. Está disponible desde el plan Estudio.');
+      'Séptimo capítulo: motivación. Es la forma de premiar la constancia de tus clientes con créditos, logros y retos que ven en su app. Está disponible desde el plan Estudio.');
 
     g.momento('reglas');
-    await g.mientras('Primero, cómo funcionan tus créditos. Les pones el nombre que quieras, decides cuánto duran y cuántas clases por semana mantienen la racha de una alumna. Les llamamos Soles.', async () => {
+    await g.mientras('Primero, cómo funcionan tus créditos. Les pones el nombre que quieras, decides cuánto duran y cuántas clases por semana mantienen la racha de un cliente. Les llamamos Soles.', async () => {
       await abrirCajon(g, 'reglas');
       await g.escribe(cajon(page).getByLabel('Nombre de tus créditos'), 'Soles');
     });
@@ -22,7 +22,7 @@ export const motivacion: Capitulo = {
     });
 
     g.momento('creditos-por-accion');
-    await g.mientras('Créditos por acción. Cuántos créditos gana una alumna con cada cosa: asistir a clase, renovar su plan, traer a un amigo, completar una semana, su primera reserva, cumplir su objetivo del mes o comprar en el estudio. Cada una se enciende o se apaga.', async () => {
+    await g.mientras('Créditos por acción. Cuántos créditos gana un cliente con cada cosa: asistir a clase, renovar su plan, traer a un amigo, completar una semana, su primera reserva, cumplir su objetivo del mes o comprar en el estudio. Cada una se enciende o se apaga.', async () => {
       await abrirCajon(g, 'creditos-por-accion');
       await g.ir(cajon(page).getByRole('switch', { name: /Asistir a clase/ }));
     });
@@ -36,20 +36,20 @@ export const motivacion: Capitulo = {
 
     // ── Recompensas, logros, niveles y retos ──
     g.momento('recompensas');
-    await g.mientras('Debajo, en el mismo orden en que se piensa: en qué se gastan, qué desbloquean, hasta dónde suben y los retos con fecha. A la derecha, lo que ve tu alumna en su app.', async () => {
+    await g.mientras('Debajo, en el mismo orden en que se piensa: en qué se gastan, qué desbloquean, hasta dónde suben y los retos con fecha. A la derecha, lo que ve tu cliente en su app.', async () => {
       await g.ir(page.locator('#recompensas'));
     });
-    await g.mientras('Las recompensas son lo que tus alumnas pueden canjear con sus créditos. Creamos una: una clase suelta gratis, por seiscientos créditos. Eliges qué pasa al canjearla: normalmente, te llega un aviso y la entregas tú.', async () => {
+    await g.mientras('Las recompensas son lo que tus clientes pueden canjear con sus créditos. Creamos una: una clase suelta gratis, por seiscientos créditos. Eliges qué pasa al canjearla: normalmente, te llega un aviso y la entregas tú.', async () => {
       await g.clic(page.getByRole('button', { name: 'Nueva recompensa' }));
       await g.escribe(page.getByLabel('Nombre', { exact: true }), 'Clase suelta gratis');
       await g.escribe(page.getByLabel('Coste en créditos'), '600');
     });
-    await g.mientras('Se puede limitar el stock y el máximo por alumna, o dejarla disponible solo entre dos fechas. Guardamos.', async () => {
+    await g.mientras('Se puede limitar el stock y el máximo por cliente, o dejarla disponible solo entre dos fechas. Guardamos.', async () => {
       await g.clic(page.getByRole('button', { name: 'Guardar', exact: true }));
       await g.pausa(900);
     });
     g.momento('canjes');
-    await g.dice('Cuando una alumna canjea una recompensa, arriba de esta pantalla aparece un aviso con los canjes por entregar, que también ves en tu Resumen.');
+    await g.dice('Cuando un cliente canjea una recompensa, arriba de esta pantalla aparece un aviso con los canjes por entregar, que también ves en tu Resumen.');
 
     g.momento('logros');
     await g.mientras('Los logros se desbloquean al llegar a una cifra que eliges, como diez clases. Tentare te propone unos cuantos de ejemplo, que puedes cargar con un clic y luego editar, o crear los tuyos.', async () => {

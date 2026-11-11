@@ -36,7 +36,7 @@ test('la ruta de la app: sesión de socia y estudio verificados ANTES del interr
   assert.match(ruta, /unica: false/);
 });
 
-test('el cargador filtra TODA consulta por estudio (corre con service-role) y las de la alumna por socia', () => {
+test('el cargador filtra TODA consulta por estudio (corre con service-role) y las del cliente por socia', () => {
   const fuente = sinComentarios(leer('lib/gamificacion/racha-unica-servidor.ts'));
   const tablas = [...fuente.matchAll(/\.from\('([a-z_]+)'\)([\s\S]*?)(?=\.from\(|$)/g)];
   assert.ok(tablas.length >= 6, 'las seis tablas que lee');
@@ -65,7 +65,7 @@ test('UNA función para tres salidas: ruta de la app, logro «Semanas consecutiv
   assert.match(panel, /useInterruptor\('rachaUnica'/);
 });
 
-test('la app de la alumna: con el interruptor pide la racha al servidor; sin él, nada nuevo y Inicio sigue sin racha', () => {
+test('la app del cliente: con el interruptor pide la racha al servidor; sin él, nada nuevo y Inicio sigue sin racha', () => {
   const datos = sinComentarios(leer('lib/student/gamificacion-datos.ts'));
   assert.match(datos, /if \(await getRachaUnicaActiva\(slug\)\) return await getRachaUnica\(studioId\)/);
   assert.match(datos, /fetch\('\/api\/public\/racha'/);

@@ -99,7 +99,7 @@ test('canales: una CRÍTICA ignora la preferencia pero NO se inventa canales', (
   assert.deepEqual(canalesExtraDe({ ...r, canales: ['PUSH'] }, PREF({ push: false }), true), ['PUSH']);
 });
 
-test('clase.* no declara EMAIL: el panel ya manda su propio correo a las alumnas', () => {
+test('clase.* no declara EMAIL: el panel ya manda su propio correo a los clientes', () => {
   for (const evento of [EVENTOS.CLASE_CANCELADA, EVENTOS.CLASE_MODIFICADA, EVENTOS.CLASE_SUSTITUTA]) {
     assert.equal(REGLAS[evento].canales.includes('EMAIL'), false, `${evento} duplicaría el email`);
   }
@@ -134,7 +134,7 @@ test('canalesDisponibles: refleja lo que cada rol puede recibir por categoría',
   assert.deepEqual(canalesDisponibles('SOCIA', 'marketing'), []);
 });
 
-test('cambios de clase: avisan a las alumnas Y a quien la imparte', () => {
+test('cambios de clase: avisan a los clientes Y a quien la imparte', () => {
   // clase.cancelada usa la variante que incluye LISTA_ESPERA/PENDIENTE_APROBACION
   // (auditoría 29-ago: cancelar la clase cancelaba también esas reservas y no se
   // avisaba a nadie de ellas). clase.modificada NO: a quien no tiene plaza no le

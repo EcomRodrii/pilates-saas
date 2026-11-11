@@ -211,7 +211,7 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
                       : <span className="truncate">{fila.nombre}</span>}
                     {fila.siglaPlataforma && (
                       <span
-                        title="Reserva vendida por la plataforma: no es clienta del estudio"
+                        title="Reserva vendida por la plataforma: no es cliente del estudio"
                         data-plataforma={fila.plataforma}
                         className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground"
                       >

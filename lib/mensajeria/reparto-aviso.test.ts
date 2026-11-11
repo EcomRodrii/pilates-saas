@@ -15,7 +15,7 @@ import { leerHasta } from './avisos-leidos.ts';
 const RECEPCION: FichaEquipo = { id: 'ins-rec', auth_user_id: 'recepcion', rol: 'RECEPCION', activo: true };
 const PROFE: FichaEquipo = { id: 'ins-profe', auth_user_id: 'profe', rol: 'INSTRUCTOR', activo: true };
 
-test('mostrador: escribe la alumna → la dueña como PROPIETARIO aunque sea socia del estudio, y recepción con su rol', () => {
+test('mostrador: escribe el cliente → la dueña como PROPIETARIO aunque sea socia del estudio, y recepción con su rol', () => {
   const r = repartirAvisoMensaje({
     tipo: 'ALUMNA_MOSTRADOR', remitente: 'ana',
     socia: { socioId: 'soc-ana', cuenta: 'ana' },
@@ -27,7 +27,7 @@ test('mostrador: escribe la alumna → la dueña como PROPIETARIO aunque sea soc
   ]);
 });
 
-test('mostrador: contesta recepción → la alumna como SOCIA (con su ficha) y el resto del equipo, sin quien escribe', () => {
+test('mostrador: contesta recepción → el cliente como SOCIA (con su ficha) y el resto del equipo, sin quien escribe', () => {
   const r = repartirAvisoMensaje({
     tipo: 'ALUMNA_MOSTRADOR', remitente: 'recepcion',
     socia: { socioId: 'soc-ana', cuenta: 'ana' },
@@ -49,7 +49,7 @@ test('mostrador: una ficha de instructora o una de baja no es mostrador', () => 
   assert.deepEqual(r, []);
 });
 
-test('hilo con la instructora: la instructora que además es alumna del estudio recibe como INSTRUCTOR, no como SOCIA', () => {
+test('hilo con la instructora: la instructora que además es cliente del estudio recibe como INSTRUCTOR, no como SOCIA', () => {
   const r = repartirAvisoMensaje({
     tipo: 'ALUMNA_INSTRUCTORA', remitente: 'ana',
     socia: { socioId: 'soc-ana', cuenta: 'ana' },
@@ -58,7 +58,7 @@ test('hilo con la instructora: la instructora que además es alumna del estudio 
   assert.deepEqual(r, [{ role: 'INSTRUCTOR', userId: 'profe', instructorId: 'ins-profe' }]);
 });
 
-test('hilo con la instructora: dada de baja en este estudio no se entera; la alumna sí', () => {
+test('hilo con la instructora: dada de baja en este estudio no se entera; el cliente sí', () => {
   const r = repartirAvisoMensaje({
     tipo: 'ALUMNA_INSTRUCTORA', remitente: 'profe',
     socia: { socioId: 'soc-ana', cuenta: 'ana' },
@@ -67,7 +67,7 @@ test('hilo con la instructora: dada de baja en este estudio no se entera; la alu
   assert.deepEqual(r, [{ role: 'SOCIA', userId: 'ana', socioId: 'soc-ana' }]);
 });
 
-test('la alumna sin cuenta (la borró) no recibe nada; su ficha sigue siendo la del hilo', () => {
+test('el cliente sin cuenta (la borró) no recibe nada; su ficha sigue siendo la del hilo', () => {
   const r = repartirAvisoMensaje({
     tipo: 'ALUMNA_MOSTRADOR', remitente: 'recepcion',
     socia: { socioId: 'soc-ana', cuenta: null },
@@ -97,7 +97,7 @@ function adminFalso(tablas: Record<string, Fila[]>): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
-test('la alumna que volvió con otra cuenta recibe en la nueva (su ficha), y el aviso lleva su socioId', async () => {
+test('el cliente que volvió con otra cuenta recibe en la nueva (su ficha), y el aviso lleva su socioId', async () => {
   const admin = adminFalso({
     studios: [{ id: 's1', owner_auth_user_id: 'duena' }],
     socios: [{ id: 'soc-ana', studio_id: 's1', auth_user_id: 'ana-nueva' }],

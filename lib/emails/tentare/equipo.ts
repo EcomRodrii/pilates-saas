@@ -125,11 +125,11 @@ export function correoAlertaPropietaria(p: {
         ? 'Nos lo ha dicho desde su móvil y ya estamos avisando a las candidatas por ti. Te escribimos en cuanto alguna confirme: no tienes que hacer nada ahora mismo.'
         : 'Nos lo ha dicho desde su móvil. Ya tenemos las candidatas ordenadas y listas: solo falta tu visto bueno en el panel para que empecemos a avisarlas.')
     : agotada
-      ? 'Hemos avisado a todas las candidatas disponibles y ninguna ha confirmado. La clase sigue sin sustituta y necesita tu decisión: avisar a alguien por tu cuenta o cancelarla (avisamos a las alumnas por ti).'
+      ? 'Hemos avisado a todas las candidatas disponibles y ninguna ha confirmado. La clase sigue sin sustituta y necesita tu decisión: avisar a alguien por tu cuenta o cancelarla (avisamos a los clientes por ti).'
       : sinSustituta
         // Cierre por barrido, con la hora de clase ya pasada: aviso de qué ha
         // pasado, no una llamada a la acción antes de que sea tarde.
-        ? 'Esta clase ya ha llegado a su hora sin que nadie confirmara cubrirla, y puede que nunca llegara a avisarse a ninguna candidata. Revisa el panel para ver qué pasó y avisar a las alumnas si hace falta.'
+        ? 'Esta clase ya ha llegado a su hora sin que nadie confirmara cubrirla, y puede que nunca llegara a avisarse a ninguna candidata. Revisa el panel para ver qué pasó y avisar a los clientes si hace falta.'
         : `Avisamos a ${p.candidataNombre ?? 'la candidata'} y aún no ha respondido. Puedes esperar, avisar a otra candidata o cancelar la clase desde el panel.`;
   return correoTentare({
     preheader: cuerpo.slice(0, 90),

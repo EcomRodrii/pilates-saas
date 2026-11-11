@@ -140,7 +140,7 @@ test.describe('Crear un tipo de clase normal', () => {
     await page.getByRole('button', { name: 'Nuevo tipo de clase' }).click();
     await page.getByRole('button', { name: 'Crear tipo de clase' }).click();
 
-    await expect(page.getByText('Ponle un nombre a la clase — es lo primero que ve tu alumna.')).toBeVisible();
+    await expect(page.getByText('Ponle un nombre a la clase — es lo primero que ve tu cliente.')).toBeVisible();
     // El panel sigue abierto y no ha salido ni una escritura.
     await expect(page.getByLabel('Nombre de la clase')).toBeVisible();
     expect(tipos).toHaveLength(0);

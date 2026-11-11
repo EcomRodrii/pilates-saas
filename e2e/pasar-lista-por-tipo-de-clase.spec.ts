@@ -162,7 +162,7 @@ test.describe('Pasar lista por tipo de clase', () => {
     await expect(page.getByRole('group', { name: GRUPO })).toHaveCount(0);
   });
 
-  test('al apagarla se explica que las alumnas cobran créditos solas', async ({ page }) => {
+  test('al apagarla se explica que los clientes cobran créditos solas', async ({ page }) => {
     // Sin este texto, el interruptor parece que solo esconde el escáner. Lo que
     // hace de verdad es dar por asistida a todo el mundo, con lo que eso
     // arrastra: créditos, racha y logros sin que nadie escanee nada.

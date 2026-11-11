@@ -108,7 +108,7 @@ function SinActivar() {
     <div className="flex flex-col gap-4 pb-6">
       <p className="text-sm text-foreground text-pretty">
         La API permite que tu programa de contabilidad (u otra herramienta) lea por su cuenta tus cobros, facturas, devoluciones,
-        ventas de la caja y alumnas, sin exportar nada a mano.
+        ventas de la caja y clientes, sin exportar nada a mano.
       </p>
       <p className="text-sm text-foreground text-pretty">Tentare la ha desactivado en tu estudio. Escríbenos y lo revisamos.</p>
       {enlace && (

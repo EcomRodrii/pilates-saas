@@ -216,8 +216,8 @@ export default function HoyInstructoraPage() {
     ...(data?.puedeCrearClases ? [{ href: href('/equipo/nueva-clase'), titulo: 'Nueva clase', pie: 'Crea una clase tuya', icono: 'mas' }] : []),
     { href: href('/equipo/disponibilidad'), titulo: 'Disponible', pie: 'Cuándo puedes cubrir', icono: 'calendario' },
     { href: href('/equipo/ausencias'), titulo: 'Ausencias', pie: 'Vacaciones y bajas', icono: 'aviso' },
-    { href: href('/equipo/alumnas'), titulo: 'Alumnas', pie: 'De tus clases', icono: 'instructoras' },
-    { href: href('/equipo/mensajes'), titulo: 'Mensajes', pie: 'Con tus alumnas', icono: 'comentario' },
+    { href: href('/equipo/alumnas'), titulo: 'Clientes', pie: 'De tus clases', icono: 'instructoras' },
+    { href: href('/equipo/mensajes'), titulo: 'Mensajes', pie: 'Con tus clientes', icono: 'comentario' },
   ] as Acceso[]).slice(0, 4);
 
   return (
@@ -391,11 +391,11 @@ export default function HoyInstructoraPage() {
                 <p style={{ margin: '7px 0 0', fontSize: 'var(--t-body)', lineHeight: 1.5, fontWeight: sinLeer.length > 0 ? 700 : 400, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                   {hiloDestacado
                     ? (unaLinea(hiloDestacado.ultimo_cuerpo) || 'Sin mensajes todavía')
-                    : 'Aún no hablas con ninguna alumna. Escríbele desde su ficha, en «Alumnas».'}
+                    : 'Aún no hablas con ningún cliente. Escríbele desde su ficha, en «Clientes».'}
                 </p>
                 {hiloDestacado && (
                   <p style={{ margin: '6px 0 0', fontSize: 'var(--t-micro)', fontWeight: 600, color: 'var(--subtle-foreground)' }}>
-                    {hiloDestacado.alumna?.nombre ?? 'Alumna'} · {selloLista(hiloDestacado.ultimo_mensaje_en ?? hiloDestacado.creado_en)}
+                    {hiloDestacado.alumna?.nombre ?? 'Cliente'} · {selloLista(hiloDestacado.ultimo_mensaje_en ?? hiloDestacado.creado_en)}
                   </p>
                 )}
               </Link>

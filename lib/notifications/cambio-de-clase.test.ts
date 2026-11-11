@@ -18,7 +18,7 @@ test('si se mueve la hora o la sala es una clase modificada (aunque cambie tambi
   assert.equal(avisoDeCambioDeClase({ cambiaInstructora: false }), 'modificada');
 });
 
-test('el aviso de sustituta llega a la alumna por PUSH e in-app y tiene su interruptor', () => {
+test('el aviso de sustituta llega al cliente por PUSH e in-app y tiene su interruptor', () => {
   const regla = REGLAS[EVENTOS.CLASE_SUSTITUTA];
   assert.ok(regla.canales.includes('PUSH'));
   assert.equal(regla.audiencia, 'socias-de-la-sesion');

@@ -33,7 +33,7 @@ export function VistaPreviaAlumna() {
   const vacio = formas.length + niveles.length + recompensas.length + logros.length + retos.length === 0;
 
   return (
-    <figure aria-label="Vista previa de la app de tu alumna" className="mx-auto w-full max-w-[300px]">
+    <figure aria-label="Vista previa de la app de tu cliente" className="mx-auto w-full max-w-[300px]">
       <div className="overflow-hidden rounded-[34px] border-[6px] border-foreground/85 bg-background shadow-sm">
         <div className="flex justify-center pt-2" aria-hidden>
           <span className="h-1.5 w-16 rounded-full bg-foreground/15" />
@@ -130,7 +130,7 @@ export function VistaPreviaAlumna() {
         </div>
       </div>
       <figcaption className="mt-2 text-center text-xs text-muted-foreground text-pretty">
-        Así lo ve tu alumna en su app, con lo que tienes guardado.
+        Así lo ve tu cliente en su app, con lo que tienes guardado.
       </figcaption>
     </figure>
   );

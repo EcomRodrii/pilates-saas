@@ -120,7 +120,7 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
     setEnviando(true);
     onOcupado(true);
     setError(null);
-    const nombre = clienta ? clienta.nombre : 'la clienta';
+    const nombre = clienta ? clienta.nombre : 'el cliente';
     try {
       if (ahora && metodo) {
         const res = await crearFacturaDirecta(
@@ -161,10 +161,10 @@ function Formulario({ onCerrar, onOcupado, avisos, socioFijo }: {
 
   return (
     <div className="mt-2 space-y-4">
-      <Campo texto="Clienta">
+      <Campo texto="Cliente">
         {socioFijo ? (
           <p className="rounded-xl border border-border bg-muted/40 px-3.5 py-2.5 text-sm font-medium text-foreground">
-            {clienta ? `${clienta.nombre} ${clienta.apellidos}` : 'Clienta'}
+            {clienta ? `${clienta.nombre} ${clienta.apellidos}` : 'Cliente'}
           </p>
         ) : (
           // Otra clienta, otro plan: la casilla no se arrastra de una a otra.

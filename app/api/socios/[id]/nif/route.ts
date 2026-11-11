@@ -18,7 +18,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeVerDatosPrivadosSocia(sesion.rol)) {
-    return NextResponse.json({ error: 'Solo la propietaria o recepción pueden cambiar el NIF de una clienta.' }, { status: 403 });
+    return NextResponse.json({ error: 'Solo la propietaria o recepción pueden cambiar el NIF de un cliente.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'socios-nif', { max: 60, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
@@ -40,7 +40,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       .is('borrado_en', null)
       .select('id');
     if (error) return errorInterno('socios/nif:PUT', error, 'No se ha podido guardar el NIF.');
-    if (!data?.length) return NextResponse.json({ error: 'No encontramos a esa clienta.' }, { status: 404 });
+    if (!data?.length) return NextResponse.json({ error: 'No encontramos a ese cliente.' }, { status: 404 });
     return NextResponse.json({ ok: true, nif });
   } catch (e) {
     return errorInterno('socios/nif:PUT', e, 'No se ha podido guardar el NIF.');

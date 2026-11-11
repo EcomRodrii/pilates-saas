@@ -111,7 +111,7 @@ export const ETIQUETA_CANAL_CONSULTA: Record<CanalConsulta, string> = {
 
 /** Lo que se le dice a quien la apunta (y lo que hay que contarle a ella si pregunta). */
 export const BASE_LEGAL_CONSULTA_MANUAL =
-  'Solo para contestarle a lo que preguntó: no recibe publicidad ni cuenta como alumna activa de tu plan.';
+  'Solo para contestarle a lo que preguntó: no recibe publicidad ni cuenta como cliente activo de tu plan.';
 
 export interface ConsultaManualValida {
   nombre: string;

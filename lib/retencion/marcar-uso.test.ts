@@ -66,7 +66,7 @@ test('informe diario: apagado no llama; en informe, una RPC y su resumen', async
   await assert.rejects(registrarSituacionDiaria(roto, informe), /registrar_situacion_diaria/);
 });
 
-test('las marcas se escriben donde dice el diseño: el panel, la app de la alumna y la del equipo, siempre después de contestar', () => {
+test('las marcas se escriben donde dice el diseño: el panel, la app del cliente y la del equipo, siempre después de contestar', () => {
   const leer = (r: string) => readFileSync(join(import.meta.dirname, '../..', r), 'utf8');
   const status = leer('app/api/billing/status/route.ts');
   assert.match(status, /after\(\(\) => marcarUso\(admin, 'panel', sesion\.studioId\)\)/);

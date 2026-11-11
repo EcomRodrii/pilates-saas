@@ -92,7 +92,7 @@ test.describe('Congelar una cuota o un bono', () => {
 
     await cajon(page).getByRole('switch', { name: 'Poner un máximo de días de congelación' }).click();
     await cajon(page).getByLabel('Máximo de días por congelación').fill('20');
-    await expect(cajon(page).getByText('Si una alumna está congelada 40 días, su cuota o bono se alarga como máximo 20.')).toBeVisible();
+    await expect(cajon(page).getByText('Si un cliente está congelada 40 días, su cuota o bono se alarga como máximo 20.')).toBeVisible();
     await guardar(page).click();
     await expect(page.getByText('Guardada la política de congelación')).toBeVisible({ timeout: 15_000 });
     expect(patches).toEqual([{ congelacion_permitida: true, congelacion_max_dias: 20 }]);

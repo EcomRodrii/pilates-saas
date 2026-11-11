@@ -66,13 +66,13 @@ for (const [nombre, ruta] of PANTALLAS) {
   });
 }
 
-test('oscuro, panel nuevo: Calendario (Semana, Horario por clase y por alumna) sin texto por debajo de AA', async ({ page }) => {
+test('oscuro, panel nuevo: Calendario (Semana, Horario por clase y por cliente) sin texto por debajo de AA', async ({ page }) => {
   await abrir(page, 'calendario');
   const malos = await medir(page, 'calendario-semana');
   await page.getByRole('button', { name: 'Horario', exact: true }).click({ timeout: 60_000 });
   await expect(page.getByRole('button', { name: 'Por clase' })).toBeVisible({ timeout: 30_000 });
   malos.push(...await medir(page, 'calendario-horario-clase'));
-  await page.getByRole('button', { name: 'Por alumna' }).click();
+  await page.getByRole('button', { name: 'Por cliente' }).click();
   malos.push(...await medir(page, 'calendario-horario-alumna'));
   expect(malos, 'texto por debajo del contraste mínimo en oscuro').toEqual([]);
 });

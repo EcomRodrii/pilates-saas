@@ -156,7 +156,7 @@ test.describe('La instructora ve su nota agregada en el perfil', () => {
     await page.goto(`/portal/${SLUG}/equipo/perfil`);
 
     const tarjeta = page.getByTestId('valoraciones');
-    await expect(tarjeta).toContainText('Cuando al menos 5 alumnas hayan valorado tus clases', { timeout: 30_000 });
+    await expect(tarjeta).toContainText('Cuando al menos 5 clientes hayan valorado tus clases', { timeout: 30_000 });
     await expect(tarjeta).not.toContainText('·');
     expect(contador.perfil).toBeGreaterThan(0);
   });
@@ -168,6 +168,6 @@ test.describe('La instructora ve su nota agregada en el perfil', () => {
     await expect(page.getByRole('link', { name: 'Tus ausencias', exact: true })).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => contador.perfil, { timeout: 30_000 }).toBeGreaterThan(0);
     await expect(page.getByTestId('valoraciones')).toHaveCount(0);
-    await expect(page.getByText('Cuando al menos 5 alumnas')).toHaveCount(0);
+    await expect(page.getByText('Cuando al menos 5 clientes')).toHaveCount(0);
   });
 });

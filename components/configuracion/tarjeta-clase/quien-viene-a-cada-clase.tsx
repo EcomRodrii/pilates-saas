@@ -96,7 +96,7 @@ export function QuienVieneACadaClase({ showToast }: { showToast: (m: string) => 
       <div className="space-y-1 px-1">
         <h3 id={idTitulo} className="text-sm font-semibold text-foreground">Quién viene a cada clase</h3>
         <p className="text-sm text-muted-foreground text-pretty">
-          Lo que se ve en el panel debajo del nombre de cada alumna, en la lista de una clase del Calendario.
+          Lo que se ve en el panel debajo del nombre de cada cliente, en la lista de una clase del Calendario.
           {studio?.cadenaId ? ' Solo en esta sede.' : ''}
         </p>
       </div>
@@ -155,7 +155,7 @@ export function QuienVieneACadaClase({ showToast }: { showToast: (m: string) => 
         </ul>
 
         <div className="space-y-2 bg-muted/40 px-4 py-3">
-          <p className="text-[12.5px] font-medium text-foreground">Así se verá (con una alumna inventada)</p>
+          <p className="text-[12.5px] font-medium text-foreground">Así se verá (con un cliente inventado)</p>
           <div role="group" className="rounded-lg border border-border bg-card px-3 py-2.5" data-testid="vista-previa-tarjeta" aria-label="Vista previa de una fila">
             <div className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-[12.5px] font-semibold text-foreground" aria-hidden>

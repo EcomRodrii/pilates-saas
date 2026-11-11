@@ -55,7 +55,7 @@ function montar(guiones: (Guion | (() => never))[], ejecutar?: (nombre: string, 
     },
     ejecutar: ejecutar ?? (async (nombre) => {
       ejecutadas.push(nombre);
-      return { contenido: JSON.stringify({ activas: 84, dePrueba: 6 }), esError: false, bloques: [{ tipo: 'metricas', titulo: 'Tus alumnas', metricas: [] }] };
+      return { contenido: JSON.stringify({ activas: 84, dePrueba: 6 }), esError: false, bloques: [{ tipo: 'metricas', titulo: 'Tus clientes', metricas: [] }] };
     }),
     etiqueta: (nombre) => `Mirando ${nombre}…`,
     emitir: e => eventos.push(e),
@@ -63,7 +63,7 @@ function montar(guiones: (Guion | (() => never))[], ejecutar?: (nombre: string, 
   };
   const entrada = {
     historial: [] as Anthropic.MessageParam[],
-    pregunta: '¿Cuántas alumnas activas tengo?',
+    pregunta: '¿Cuántos clientes activos tengo?',
     herramientas: [{ name: 'contar_alumnas', description: 'x', input_schema: { type: 'object' as const, properties: {} } }],
     sistema: [{ type: 'text' as const, text: 'PROMPT', cache_control: { type: 'ephemeral' as const } }, { type: 'text' as const, text: 'Hoy es lunes 5 de octubre de 2026 (2026-10-05).' }],
     signal: new AbortController().signal,
@@ -76,13 +76,13 @@ const textoEmitido = (ev: EventoAsistente[]) => ev.filter((e): e is Extract<Even
 test('pregunta → herramienta → respuesta: resultados en UN mensaje, tarjeta al navegador y texto filtrado', async () => {
   const m = montar([
     { herramientas: [{ id: 'tu_1', name: 'contar_alumnas', input: {} }] },
-    { texto: 'Tienes 84 alumnas activas y 6 de prueba.' },
+    { texto: 'Tienes 84 clientes activos y 6 de prueba.' },
   ]);
   const r = await ejecutarTurno(m.deps, m.entrada);
   assert.equal(r.motivo, 'OK');
   assert.equal(r.nLlamadas, 2);
   assert.deepEqual(r.herramientasUsadas, ['contar_alumnas']);
-  assert.equal(textoEmitido(m.eventos), 'Tienes 84 alumnas activas y 6 de prueba.');
+  assert.equal(textoEmitido(m.eventos), 'Tienes 84 clientes activos y 6 de prueba.');
   assert.ok(m.eventos.some(e => e.t === 'bloque'));
   assert.ok(m.eventos.some(e => e.t === 'herramienta' && e.etiqueta === 'Mirando contar_alumnas…'));
   // Historial válido: pregunta, tool_use, tool_result, respuesta.
@@ -171,7 +171,7 @@ test('«Pulsa Confirmar» sin ninguna tarjeta: se avisa de que no hay nada que c
 });
 
 test('una respuesta normal no dispara el aviso de propuesta sin tarjeta', async () => {
-  const m = montar([{ texto: 'Tienes 84 alumnas activas.' }]);
+  const m = montar([{ texto: 'Tienes 84 clientes activos.' }]);
   await ejecutarTurno(m.deps, m.entrada);
   assert.ok(!m.eventos.some(e => e.t === 'aviso' && e.codigo === 'PROPUESTA_SIN_TARJETA'));
 });
@@ -228,7 +228,7 @@ test('una cifra de una respuesta pasada (ya filtrada) está respaldada; una nuev
   const m = montar([{ texto: 'Como te decía, tienes 84 activas. Y además 97 en espera.' }]);
   m.entrada.historial = [
     { role: 'user', content: [{ type: 'text', text: '¿Cuántas activas tengo?' }] },
-    { role: 'assistant', content: [{ type: 'text', text: 'Tienes 84 alumnas activas.' }] },
+    { role: 'assistant', content: [{ type: 'text', text: 'Tienes 84 clientes activos.' }] },
   ];
   m.entrada.pregunta = '¿Y eso es mucho?';
   const r = await ejecutarTurno(m.deps, m.entrada);
@@ -266,7 +266,7 @@ test('una sola propuesta por turno: la segunda proponer_* del mismo turno NO se 
 });
 
 test('un 400 de Anthropic manda a Sentry lo estructural (status, tipo, mensaje sin valores) y nunca la pregunta', async () => {
-  const cuerpo = { type: 'error', error: { type: 'invalid_request_error', message: 'tools.9.custom.input_schema: "minimum" not supported; got "¿Cuántas alumnas activas tengo?"' } };
+  const cuerpo = { type: 'error', error: { type: 'invalid_request_error', message: 'tools.9.custom.input_schema: "minimum" not supported; got "¿Cuántos clientes activos tengo?"' } };
   // Con el modelo principal, un 400 prueba antes el de respaldo; si también falla, el aviso que cuenta es el segundo.
   const m = montar([
     () => { throw Anthropic.APIError.generate(400, cuerpo, 'x', new Headers()); },
@@ -280,7 +280,7 @@ test('un 400 de Anthropic manda a Sentry lo estructural (status, tipo, mensaje s
   assert.equal(d.status, 400);
   assert.equal(d.tipo, 'invalid_request_error');
   assert.match(String(d.mensaje), /tools\.9\.custom\.input_schema/);
-  assert.doesNotMatch(JSON.stringify(d), /Cuántas alumnas/);
+  assert.doesNotMatch(JSON.stringify(d), /Cuántos clientes/);
   assert.ok(String(d.mensaje).length <= 303);
 });
 
@@ -300,7 +300,7 @@ test('un corte de red sin status deja pista de qué fue (antes «ASISTENTE_ANTHR
 const fallo404 = () => { throw new Anthropic.NotFoundError(404, { type: 'error', error: { type: 'not_found_error', message: 'model: claude-haiku-5-5' } }, 'x', new Headers()); };
 
 test('modelo no encontrado (404): la misma vuelta se repite con Haiku 4.5, con SUS parámetros, y se avisa solo con códigos', async () => {
-  const m = montar([fallo404, { texto: 'Tienes muchas alumnas activas.', usage: { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 0 } }]);
+  const m = montar([fallo404, { texto: 'Tienes muchos clientes activos.', usage: { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 0 } }]);
   const avisos: { c: string; d?: Record<string, unknown> }[] = [];
   m.deps.avisar = (c, _n, d) => { avisos.push({ c, d }); };
   const r = await ejecutarTurno(m.deps, m.entrada);
@@ -316,7 +316,7 @@ test('modelo no encontrado (404): la misma vuelta se repite con Haiku 4.5, con S
   // La llamada fallida no cuenta: 1 llamada contada, y su coste a precios de Haiku 4.5 (1 M de entrada = 1 $).
   assert.equal(r.nLlamadas, 1);
   assert.equal(r.costeUsd, 1);
-  assert.equal(textoEmitido(m.eventos), 'Tienes muchas alumnas activas.');
+  assert.equal(textoEmitido(m.eventos), 'Tienes muchos clientes activos.');
   assert.equal(avisos.length, 1);
   assert.equal(avisos[0].c, 'ASISTENTE_MODELO_RESPALDO');
   assert.deepEqual(avisos[0].d, { status: 404, tipo: 'not_found_error', de: 'claude-haiku-5-5', a: 'claude-haiku-4-5' });
@@ -325,7 +325,7 @@ test('modelo no encontrado (404): la misma vuelta se repite con Haiku 4.5, con S
 });
 
 test('el respaldo es para el resto de la pregunta: las vueltas siguientes ya van con Haiku 4.5', async () => {
-  const m = montar([fallo404, { herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }] }, { texto: 'Tienes 84 alumnas activas.' }]);
+  const m = montar([fallo404, { herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }] }, { texto: 'Tienes 84 clientes activos.' }]);
   const r = await ejecutarTurno(m.deps, m.entrada);
   assert.deepEqual(m.peticiones.map(p => p.model), ['claude-haiku-5-5', 'claude-haiku-4-5', 'claude-haiku-4-5']);
   assert.equal(r.nLlamadas, 2);
@@ -387,7 +387,7 @@ test('el coste de la pregunta suma el de cada llamada con la tarifa de SU prompt
   // Dos llamadas de 60.000 tokens de entrada: cada una paga la tarifa corriente (0,10 $/M); sumadas serían 120.000 (tarifa larga).
   const m = montar([
     { herramientas: [{ id: 't', name: 'contar_alumnas', input: {} }], usage: { input_tokens: 60_000, output_tokens: 0, cache_read_input_tokens: 0 } },
-    { texto: 'Tienes 84 alumnas activas.', usage: { input_tokens: 60_000, output_tokens: 0, cache_read_input_tokens: 0 } },
+    { texto: 'Tienes 84 clientes activos.', usage: { input_tokens: 60_000, output_tokens: 0, cache_read_input_tokens: 0 } },
   ]);
   const r = await ejecutarTurno(m.deps, m.entrada);
   assert.equal(r.costeUsd, 0.012);

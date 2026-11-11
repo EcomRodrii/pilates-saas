@@ -63,7 +63,7 @@ const ESPERA_SIN_ENVIOS_MS = 12_000;
 // compilando en la primera visita, los 30 s por defecto no llegan.
 test.setTimeout(180_000);
 
-test.describe('analítica: nada sale de lo que ve la alumna', () => {
+test.describe('analítica: nada sale de lo que ve el cliente', () => {
   test.skip(!CLAVE, 'Sin NEXT_PUBLIC_POSTHOG_KEY en el entorno: el SDK no arranca y esto no probaría nada (ver la cabecera: el CI aún no la lleva).');
   test.beforeEach(async ({ page }) => { await pareceUnaPersona(page); });
 
@@ -76,13 +76,13 @@ test.describe('analítica: nada sale de lo que ve la alumna', () => {
     }).toBeGreaterThan(0);
   });
 
-  test('la app de la alumna: cero envíos', async ({ page }) => {
+  test('la app del cliente: cero envíos', async ({ page }) => {
     await sembrarSociaLista(page);
     const envios = await contarEnvios(page);
     await page.goto(`/portal/${SLUG}`);
     await expect(page.locator('body')).not.toBeEmpty();
     await page.waitForTimeout(ESPERA_SIN_ENVIOS_MS);
-    expect(envios.n, 'La app de la alumna ha enviado algo a PostHog').toBe(0);
+    expect(envios.n, 'La app del cliente ha enviado algo a PostHog').toBe(0);
   });
 
   test('la reserva pública: cero envíos', async ({ page }) => {

@@ -64,7 +64,7 @@ test('las notas de progreso siguen la misma regla, con el nombre de la instructo
   assert.deepEqual(t.socios, ['s1']);
 });
 
-test('las notas internas salen todas (también las privadas) y ordenadas por clienta y fecha', () => {
+test('las notas internas salen todas (también las privadas) y ordenadas por cliente y fecha', () => {
   const t = tablaNotasInternas({
     socias,
     notas: [

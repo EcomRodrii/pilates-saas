@@ -110,7 +110,7 @@ test('devolución de la caja: se anota DESPUÉS de que el dinero salga y el libr
   assert.match(f, /if \(importe > 0\) \{\s+const yaDevuelto/);
   const trozo = f.slice(anota, f.indexOf('// ── 3. Créditos de gamificación'));
   assert.doesNotMatch(trozo, /motivo/i, 'el motivo es texto libre y no entra al libro');
-  assert.doesNotMatch(trozo, /nombre/i, 'el nombre de quien devuelve o de la clienta no entra al libro');
+  assert.doesNotMatch(trozo, /nombre/i, 'el nombre de quien devuelve o del cliente no entra al libro');
 });
 
 test('rectificativa: se anota solo si ESTA petición la emitió, y sin datos del receptor', () => {

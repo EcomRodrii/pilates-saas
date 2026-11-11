@@ -154,7 +154,7 @@ export default function PaginaInvitacion() {
             {inv.nombre}, te han dado de alta en {inv.estudio}
           </h1>
           <p className="text-[13.5px] text-muted-foreground">
-            Tu agenda, tus alumnas y tus horarios están en la app de {inv.estudio}.
+            Tu agenda, tus clientes y tus horarios están en la app de {inv.estudio}.
             {inv.email
               ? <> Entra con tu correo <strong className="text-foreground break-all">{inv.email}</strong> (o crea allí tu cuenta con él) y elige «Como instructora».</>
               : ' Entra con tu correo, o crea allí tu cuenta, y elige «Como instructora».'}

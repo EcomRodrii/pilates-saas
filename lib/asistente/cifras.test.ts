@@ -9,7 +9,7 @@ const DATOS = [
 
 test('una frase con cifras que salen de los datos pasa; una inventada no', () => {
   const p = numerosPermitidos(DATOS);
-  assert.ok(fraseRespaldada('Tienes 84 alumnas activas y 6 de prueba. ', p));
+  assert.ok(fraseRespaldada('Tienes 84 clientes activos y 6 de prueba. ', p));
   assert.ok(fraseRespaldada('Has cobrado 1.234,50 € este mes, con una ocupación del 62 %. ', p));
   assert.ok(fraseRespaldada('Hoy, 5 de octubre, a las 18:00. ', p));
   assert.ok(!fraseRespaldada('Eso es un 15 % más. ', p));

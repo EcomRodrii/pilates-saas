@@ -14,28 +14,28 @@ export default function Contenido() {
       <p>
         Al crear tu estudio empiezas en {PLAN_INFO.BASE.nombre}, gratis y con todas las funcionalidades de Tentare
         menos varias sedes y la app propia en la App Store, sin pedirte tarjeta en ningún momento. Es gratis mientras tu estudio no pase de{' '}
-        {GRATIS_ALUMNAS} alumnas activas ni de {GRATIS_RESERVAS_MES} reservas al mes.
+        {GRATIS_ALUMNAS} clientes activos ni de {GRATIS_RESERVAS_MES} reservas al mes.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Qué pasa si te pasas</h2>
       <p>
         Si pasas de cualquiera de los dos, sigues en {PLAN_INFO.BASE.nombre} por {PRECIO_FOUNDING_PAGO} € al mes, con
-        IVA incluido y sin tope de alumnas ni de reservas. En ese plan de pago, {COMPLEMENTOS_DE_PAGO} van aparte,
+        IVA incluido y sin tope de clientes ni de reservas. En ese plan de pago, {COMPLEMENTOS_DE_PAGO} van aparte,
         como complementos. Te avisamos cuando llegas al 80 % y, si te pasas, tienes{' '}
         {GRATIS_MARGEN_DIAS} días para contratarlo desde Suscripción, en el menú. Si no lo contratas, el panel se cierra
-        hasta que lo hagas; la app de tus alumnas sigue funcionando todo el tiempo.
+        hasta que lo hagas; la app de tus clientes sigue funcionando todo el tiempo.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Cómo se cuentan</h2>
       <p>
-        Las alumnas, por el estado «Activa» de su ficha: el mismo número que «Clientas activas» en el Resumen. Las
+        Los clientes, por el estado «Activa» de su ficha: el mismo número que «Clientes activos» en el Resumen. Las
         reservas, las de las clases de los últimos 30 días, sin contar las canceladas ni las que están en lista de
         espera o pendientes de aprobar. Las de clase fija también cuentan.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Tus datos se quedan</h2>
       <p>
-        Si el panel se cierra, no se borra nada: tus clases, clientas y configuración siguen ahí en cuanto eliges
+        Si el panel se cierra, no se borra nada: tus clases, clientes y configuración siguen ahí en cuanto eliges
         plan.
       </p>
 

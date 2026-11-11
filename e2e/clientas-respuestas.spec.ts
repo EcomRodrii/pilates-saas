@@ -61,14 +61,14 @@ async function montar(page: Page, opts: { campos?: unknown[]; activas?: boolean 
   await page.route('**/rest/v1/campos_personalizados**', (r) => json(r, opts.campos ?? CAMPOS));
 }
 
-test.describe('Clientas → Respuestas', () => {
+test.describe('Clientes → Respuestas', () => {
   test('todas las respuestas juntas: resumen, tabla, filtro y enlace a la ficha', async ({ page }) => {
     await montar(page);
     await page.goto('/clientas/respuestas');
-    await expect(page.getByRole('heading', { name: 'Respuestas de tus alumnas' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Respuestas de tus clientes' })).toBeVisible({ timeout: 30_000 });
 
     // Solo las de alta (Dani está de baja): 3, y 2 con todo contestado.
-    await expect(page.getByText('alumnas lo han contestado todo')).toContainText('2 de 3');
+    await expect(page.getByText('clientes lo han contestado todo')).toContainText('2 de 3');
     // Resumen: las dos preguntas tienen 2 de 3 contestadas; en «Objetivo», las 2 dijeron Fuerza.
     const resumen = page.getByRole('region', { name: 'Resumen por pregunta' });
     await expect(resumen.getByText('2 de 3 la han contestado')).toHaveCount(2);
@@ -95,7 +95,7 @@ test.describe('Clientas → Respuestas', () => {
     expect(d.suggestedFilename()).toMatch(/^respuestas-pilates-centro-\d{4}-\d{2}-\d{2}\.csv$/);
     const csv = readFileSync(await d.path() as string, 'utf8').replace(/^﻿/, '');
     const lineas = csv.split('\r\n');
-    expect(lineas[0]).toBe('Alumna;Objetivo;Cómo nos conociste;Estado');
+    expect(lineas[0]).toBe('Cliente;Objetivo;Cómo nos conociste;Estado');
     expect(lineas).toContain('Ana Prueba;Fuerza;Instagram;Completa');
     // La fórmula llega como texto (apóstrofo delante), nunca como fórmula.
     expect(lineas.find((l) => l.startsWith('Bea Prueba'))).toBe(`Bea Prueba;Fuerza;"'=HYPERLINK(""x"")";Completa`);
@@ -109,17 +109,17 @@ test.describe('Clientas → Respuestas', () => {
     await expect(page.getByRole('link', { name: 'Crear preguntas' })).toHaveAttribute('href', '/configuracion?tab=altas');
   });
 
-  test('con el interruptor apagado, avisa de que la alumna no las ve en su app', async ({ page }) => {
+  test('con el interruptor apagado, avisa de que el cliente no las ve en su app', async ({ page }) => {
     await montar(page, { activas: false });
     await page.goto('/clientas/respuestas');
     await expect(page.getByRole('note')).toContainText('todavía no las contestan en su app', { timeout: 30_000 });
   });
 
-  test('Clientas lleva a Respuestas', async ({ page }) => {
+  test('Clientes lleva a Respuestas', async ({ page }) => {
     await montar(page);
     await page.goto('/clientas');
     await page.getByRole('button', { name: 'Respuestas' }).click({ timeout: 30_000 });
     await expect(page).toHaveURL(/\/clientas\/respuestas$/);
-    await expect(page.getByRole('heading', { name: 'Respuestas de tus alumnas' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: 'Respuestas de tus clientes' })).toBeVisible({ timeout: 30_000 });
   });
 });

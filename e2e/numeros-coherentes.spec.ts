@@ -95,7 +95,7 @@ async function montar(page: Page, ruta: string) {
 }
 
 test.describe('Los números dicen lo mismo entre pantallas', () => {
-  test('"Sin venir 30d" es el mismo en Resumen y en el filtro de Clientas al que lleva', async ({ page }) => {
+  test('"Sin venir 30d" es el mismo en Resumen y en el filtro de Clientes al que lleva', async ({ page }) => {
     await montar(page, '/dashboard');
     const enResumen = page.getByRole('link', { name: /Sin venir 30d/ });
     await expect(enResumen).toBeVisible({ timeout: 30_000 });
@@ -106,22 +106,22 @@ test.describe('Los números dicen lo mismo entre pantallas', () => {
     // La tarjeta lleva al filtro: las filas de destino tienen que ser las mismas 3.
     await enResumen.click();
     await expect(page).toHaveURL(/\/clientas\?mas=sin_venir_30d$/);
-    await expect(page.getByText('Mostrando 3 de 3 (de 5) clientas')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Mostrando 3 de 3 (de 5) clientes')).toBeVisible({ timeout: 30_000 });
     for (const quien of ['Bea Prueba', 'Carla Prueba', 'Eva Prueba']) await expect(page.getByText(quien).first()).toBeVisible();
     for (const quien of ['Ana Prueba', 'Dani Prueba']) await expect(page.getByText(quien)).toHaveCount(0);
   });
 
-  test('"Clientas activas" de Resumen es el chip «Activa» de Clientas', async ({ page }) => {
+  test('"Clientes activos" de Resumen es el chip «Activa» de Clientes', async ({ page }) => {
     await montar(page, '/dashboard');
     // Ana (vino hace 5 días) y Carla (cuota vigente): 2. Antes contaba «no está
     // de baja» (4) y la pantalla de Clientas decía otra cosa.
-    const kpi = page.locator('[data-slot="card"]').filter({ hasText: 'Clientas activas' });
+    const kpi = page.locator('[data-slot="card"]').filter({ hasText: 'Clientes activos' });
     await expect(kpi.getByText('2', { exact: true })).toBeVisible({ timeout: 30_000 });
     await montar(page, '/clientas');
     await expect(page.locator('[data-estado-filtro="ACTIVA"]')).toContainText('2', { timeout: 30_000 });
   });
 
-  test('"Clientas activas" de Informes es el mismo número, y la «Tasa retención» de antes ya no está', async ({ page }) => {
+  test('"Clientes activos" de Informes es el mismo número, y la «Tasa retención» de antes ya no está', async ({ page }) => {
     // Informes contaba «no está de baja» con la RPC antigua (aquí sembrada con
     // 12 activas de 20, a propósito): una tercera cifra para lo mismo.
     await montar(page, '/informes');
@@ -138,14 +138,14 @@ test.describe('Los números dicen lo mismo entre pantallas', () => {
     // «Ingreso medio por clienta» vuelve con Informes). La pantalla cargó de verdad.
     await montar(page, '/cobros');
     await expect(page.getByTestId('linea-resumen-cobros')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText('Ingreso medio por clienta')).toHaveCount(0);
+    await expect(page.getByText('Ingreso medio por cliente')).toHaveCount(0);
     // El nombre que se confundía con el de Informes ya no está.
     await expect(page.getByText('Media por cliente')).toHaveCount(0);
 
     // En Informes vuelve con su nombre entero y su base (rediseño de Informes, 2-oct-2026).
     await montar(page, '/informes');
-    await expect(page.getByText('Ingreso medio por clienta que pagó')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByTestId('informe-ingreso-medio')).toContainText(/no cuenta las ventas de caja sin clienta|Ninguna clienta ha pagado/);
+    await expect(page.getByText('Ingreso medio por cliente que pagó')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId('informe-ingreso-medio')).toContainText(/no cuenta las ventas de caja sin cliente|Ningún cliente ha pagado/);
     await expect(page.getByText('Ticket medio / cliente')).toHaveCount(0);
     await expect(page.getByText('Ticket medio de quien pagó')).toHaveCount(0);
   });

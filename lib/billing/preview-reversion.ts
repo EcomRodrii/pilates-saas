@@ -149,7 +149,7 @@ export function calcularReversion(p: {
         'Si le devuelves todo, esas clases quedan sin pagar.',
       );
     }
-    avisos.push('La ficha de la clienta NO se borra: archívala a mano si hace falta.');
+    avisos.push('La ficha del cliente NO se borra: archívala a mano si hace falta.');
     const objetivo: ObjetivoReversion = { sesionesRestantes: 0 };
     if (!pausada) objetivo.estado = 'CANCELADA';
     return { posible: true, objetivo, consumidasDesde: consumidas, avisos };

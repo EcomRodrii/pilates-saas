@@ -126,7 +126,7 @@ export function EstudioListo({
               {nombre} ya está en marcha
             </h1>
             <p className="mt-0.5 text-[14px] text-muted-foreground">
-              Esta es tu app. Ahora falta lo que la hace valer: tus alumnas.
+              Esta es tu app. Ahora falta lo que la hace valer: tus clientes.
             </p>
           </div>
         </div>
@@ -139,15 +139,15 @@ export function EstudioListo({
           <div className="flex flex-col gap-5">
             {/* El paso que decide si se queda: traer a sus alumnas. */}
             <section aria-labelledby="alumnas-t" className="ob-sube rounded-2xl border-2 border-brand-medio bg-card p-5" style={{ animationDelay: '80ms' }} data-testid="traer-alumnas">
-              <h2 id="alumnas-t" className="text-[18px] font-bold leading-tight">Trae a tus alumnas</h2>
+              <h2 id="alumnas-t" className="text-[18px] font-bold leading-tight">Trae a tus clientes</h2>
               <p className="mt-1 text-[13.5px] leading-snug text-muted-foreground">
                 {migrable
-                  ? `Exporta de ${ans.software} tus alumnas, bonos y horario y súbelos: los leemos solos, ves el plan antes de importar nada y se puede deshacer. Sin coste.`
+                  ? `Exporta de ${ans.software} tus clientes, bonos y horario y súbelos: los leemos solos, ves el plan antes de importar nada y se puede deshacer. Sin coste.`
                   : 'Si las tienes en Excel o en otro programa, súbelo: lo leemos solo, ves el plan antes de importar nada y se puede deshacer. Sin coste.'}
               </p>
               <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">
                 {salida('/migracion', 'migracion', <><FileSpreadsheet size={17} aria-hidden /> Subir mi archivo</>, true)}
-                {salida('/clientas?nuevo=1', 'alumna_a_mano', <><UserPlus size={17} aria-hidden /> Añadir una alumna ahora</>)}
+                {salida('/clientas?nuevo=1', 'alumna_a_mano', <><UserPlus size={17} aria-hidden /> Añadir un cliente ahora</>)}
               </div>
             </section>
 
@@ -161,7 +161,7 @@ export function EstudioListo({
               <section aria-labelledby="enlace-t" className="ob-sube rounded-2xl border border-border bg-card p-4" style={{ animationDelay: '240ms' }}>
                 <h2 id="enlace-t" className="flex items-center gap-1.5 text-[14px] font-bold"><Link2 size={15} aria-hidden /> El enlace de tu app</h2>
                 <p className="mt-1 break-all text-[13px] text-muted-foreground" data-testid="url-app">{urlApp}</p>
-                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Tu alumna entra con su email y un código, sin contraseña y sin descargarse nada.</p>
+                <p className="mt-1 text-[12.5px] text-muted-foreground">Para Instagram, WhatsApp o la puerta del estudio. Tu cliente entra con su email y un código, sin contraseña y sin descargarse nada.</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -170,7 +170,7 @@ export function EstudioListo({
                   >
                     <Copy size={14} aria-hidden /> Copiar enlace
                   </button>
-                  {studio.slug && <BotonQr destino="app" url={urlApp} slug={studio.slug} estudio={nombre} nombreEnlace="App de tus alumnas" onDescargado={() => apuntarEnlaceCompartido('qr')} />}
+                  {studio.slug && <BotonQr destino="app" url={urlApp} slug={studio.slug} estudio={nombre} nombreEnlace="App de tus clientes" onDescargado={() => apuntarEnlaceCompartido('qr')} />}
                   <span role="status" className="text-[12.5px] text-muted-foreground">
                     {copiado === 'ok' ? 'Enlace copiado' : copiado === 'fallo' ? 'No se ha podido copiar: selecciónalo y cópialo a mano.' : ''}
                   </span>
