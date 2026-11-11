@@ -79,7 +79,7 @@ test.describe('Configuración · Tu Tentare', () => {
     await abrir(page);
     const tu = page.getByTestId('tu-tentare');
     await expect(tu.getByRole('heading', { name: 'Tus módulos' })).toBeVisible({ timeout: 60_000 });
-    await expect(tu.getByTestId('modulo-tu-tentare')).toHaveCount(21);
+    await expect(tu.getByTestId('modulo-tu-tentare')).toHaveCount(20);
     for (const congelado of ['Chat de equipo', 'Oferta digital', 'Tentare Network']) await expect(tu.getByText(congelado)).toHaveCount(0);
     await expect(tu.getByText(/próximamente/i)).toHaveCount(0);
     await expect(tu.getByText('No se puede quitar')).toHaveCount(3);
@@ -178,8 +178,8 @@ test.describe('Configuración · Tu Tentare', () => {
   test('plan Founding: Centro de Control dice qué plan necesita (si `tieneFeature` dice que falta) y se pone y se quita igual que en el cajón', async ({ page }) => {
     const cuenta = await abrir(page, { plan: 'BASE', ocultos: ['/centro-de-control'] });
     const cdc = fila(page, '/centro-de-control');
-    // La misma cifra que la fila «Tu menú»: 21 módulos (con Festivos, 14-oct, y Apps e integraciones, 12-nov), uno quitado.
-    await expect(page.getByText('En tu menú: 20 de 21.')).toBeVisible({ timeout: 60_000 });
+    // La misma cifra que la fila «Tu menú»: 20 módulos (con Festivos, 14-oct, y Apps e integraciones, y sin Actualizaciones, 12-nov), uno quitado.
+    await expect(page.getByText('En tu menú: 19 de 20.')).toBeVisible({ timeout: 60_000 });
     const base = { plan: 'BASE', subscriptionStatus: 'active' };
     const falta = accesoProducto(base) && !tieneFeature(base, 'decisiones');
     await expect(cdc.getByText(/^Desde el plan /)).toHaveCount(falta ? 1 : 0);

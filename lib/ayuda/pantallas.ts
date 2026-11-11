@@ -259,7 +259,6 @@ export const AYUDA_POR_PANTALLA = {
 
   '/actualizaciones': {
     titulo: 'Actualizaciones',
-    valor: 'Lo nuevo, lo mejorado y lo corregido en Tentare, versión a versión y sin tecnicismos.',
     resumen:
       'Todo lo que ha cambiado en Tentare, versión a versión: lo que es nuevo, lo que hemos mejorado y lo que hemos corregido. Publicamos casi cada semana y aquí queda el registro completo, contado sin tecnicismos.',
     ahorra: 'Enterarte de una función nueva meses después de tenerla.',

@@ -138,7 +138,6 @@ export const LO_PROPIO: Record<string, (d: DatosAlOcultar) => Propio> = {
     sigue: ['Las integraciones que tengas conectadas y las claves de tu API siguen funcionando.'],
   }),
   '/libreta': () => ({ enLaApp: NO_CAMBIA }),
-  '/actualizaciones': () => ({ enLaApp: NO_CAMBIA }),
 };
 
 const EN_LA_BARRA_DEL_MOVIL = new Set(bottomNavItems.map((i) => i.href));
