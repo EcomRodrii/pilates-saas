@@ -35,13 +35,13 @@ export function GraficaAltas({ socios, hoy, href }: { socios: readonly { fechaAl
   return (
     <TarjetaGrafica
       id="grafica-altas"
-      titulo="Nuevas alumnas"
+      titulo="Nuevos clientes"
       sub="Las que se han dado de alta en tu estudio cada mes"
       cifra={mes.total}
       // «este mes · +2 vs 1–14 sep.»: la cifra es la de este mes, comparada con el mismo tramo del anterior.
       comparacion={<>este mes · <Comparacion diferencia={mes.total - mes.mesPasadoAlDia} contra={`1–${mes.hoy} ${mesPasado}.`} /></>}
       controles={<Pildoras opciones={[{ valor: 3, label: '3 meses' }, { valor: 6, label: '6 meses' }, { valor: 12, label: '1 año' }]} valor={meses} onCambio={setMeses} />}
-      pie={href ? <VerMas href={href} label="Ver alumnas" /> : null}
+      pie={href ? <VerMas href={href} label="Ver clientes" /> : null}
     >
       <GraficaArea
         titulo="Altas por mes"
@@ -51,7 +51,7 @@ export function GraficaAltas({ socios, hoy, href }: { socios: readonly { fechaAl
         puntos={serie.map(m => ({ eje: ejeMes(m.clave), nombre: nombreMes(m.clave), valor: m.valor }))}
         formato={n => `${n} alta${n === 1 ? '' : 's'}`}
         enteros
-        vacio="Cada alumna que se dé de alta, en el mostrador o desde tu página, sumará aquí."
+        vacio="Cada cliente que se dé de alta, en el mostrador o desde tu página, sumará aquí."
       />
       {/* La tira de Bonsai: cada día del mes, con su número encima si hubo altas. */}
       <p className="mt-4 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Altas por día este mes</p>

@@ -47,7 +47,7 @@ test('el ejemplo del explicador sale igual de la función real: 15 + 20 + 10 = 4
   assert.deepEqual(c.ejemplo, { socioId: 'ana', pagado: 60, plazasEnElPeriodo: 4, valorPlaza: 15, plazasAqui: 4 }, 'empatadas en plazas, la de id menor');
 });
 
-test('cada alumna reparte lo que pagó entre TODAS sus plazas del periodo (180 € y 12 clases = 15 € cada una)', () => {
+test('cada cliente reparte lo que pagó entre TODAS sus plazas del periodo (180 € y 12 clases = 15 € cada una)', () => {
   const sesiones = [...[0, 1, 2, 3, 4, 5].map(i => sesion(`m${i}`, martes18(i))), ...[0, 1, 2, 3, 4, 5].map(i => sesion(`j${i}`, jueves10(i)))];
   const reservas = sesiones.map(s => reserva(s.id, 'ana'));
   const m = mapaEuroPorPlaza(sesiones, reservas, [recibo('ana', 180, 'sus-cuota')], T, AHORA, tipoDePlanDe);
@@ -67,7 +67,7 @@ test(`con menos de ${MIN_CLASES_CELDA} clases, sin cifra pero con su base`, () =
   assert.equal(m.total.euroPorPlaza, 30 / 18, 'el total del periodo sí lleva cifra');
 });
 
-test('ClassPass y alumnas sin cobro en el periodo ocupan plaza y valen 0 €, contadas aparte', () => {
+test('ClassPass y clientes sin cobro en el periodo ocupan plaza y valen 0 €, contadas aparte', () => {
   const { sesiones, reservas, recibos } = ejemploDelExplicador();
   const mas = [...reservas, reserva('m0', null), reserva('m1', 'sin-cobro'), reserva('m2', 'sin-cobro', 'NO_ASISTIO')];
   const c = mapaEuroPorPlaza(sesiones, mas, recibos, T, AHORA, tipoDePlanDe).celdas[0];
@@ -77,7 +77,7 @@ test('ClassPass y alumnas sin cobro en el periodo ocupan plaza y valen 0 €, co
   assert.equal(c.repartido, 180, 'lo de las tres que pagaron, ni un céntimo más');
 });
 
-test('la Caja, las sesiones privadas, «otros» y lo sin alumna no se reparten, y cuadran con el titular', () => {
+test('la Caja, las sesiones privadas, «otros» y lo sin cliente no se reparten, y cuadran con el titular', () => {
   const { sesiones, reservas, recibos } = ejemploDelExplicador();
   const fuera = [
     recibo('ana', 50, null, { id: 'rec-pos-1' }), // Caja: el ticket entero

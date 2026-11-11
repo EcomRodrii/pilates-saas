@@ -157,11 +157,11 @@ export async function reembolsarReciboAMano(
   if (cobroEntroPorStripe(recibo)) {
     return {
       ok: false, http: 409,
-      error: 'Este cobro entró por Stripe: devuélvelo desde la ficha de la alumna («Devolver»), y el recibo se marcará solo.',
+      error: 'Este cobro entró por Stripe: devuélvelo desde la ficha del cliente («Devolver»), y el recibo se marcará solo.',
     };
   }
   if (recibo.reembolso_stripe_id || recibo.reembolso_solicitado_en || devuelto > 0) {
-    return { ok: false, http: 409, error: 'A este cobro ya se le ha devuelto dinero: revísalo en la ficha de la alumna.' };
+    return { ok: false, http: 409, error: 'A este cobro ya se le ha devuelto dinero: revísalo en la ficha del cliente.' };
   }
   if (!(importe > 0)) return { ok: false, http: 409, error: 'Este recibo no tiene importe que devolver.' };
   if (esVentaDeCaja) return { ok: false, http: 409, error: 'Este cobro es una venta de la caja: devuélvela desde la caja.' };

@@ -150,6 +150,6 @@ export function respuestaTrasCancelar(
   }
   return {
     confirmado: false, http,
-    mensaje: `${causa} Hemos pedido cancelar el cobro, pero no podemos confirmarlo todavía: si la alumna llega a pagar, no se lo vuelvas a cobrar. Revisa el recibo en Cobros.`,
+    mensaje: `${causa} Hemos pedido cancelar el cobro, pero no podemos confirmarlo todavía: si el cliente llega a pagar, no se lo vuelvas a cobrar. Revisa el recibo en Cobros.`,
   };
 }

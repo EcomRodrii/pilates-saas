@@ -185,7 +185,7 @@ test('valoracionMedia(): siempre un decimal, con coma', () => {
 
 test('cifras().valoracionTexto: la media con coma decimal', () => {
   const c = cifras(m({ valoracion: { media: 4.8, total: 34 } }), 'PROPIETARIO', AHORA);
-  assert.equal(c.valoracionTexto, '4,8 de 34 alumnas');
+  assert.equal(c.valoracionTexto, '4,8 de 34 clientes');
 });
 
 // ── frecuenciaMensual() / cifras().frecuenciaTexto ──────────────────────────

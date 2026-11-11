@@ -47,7 +47,7 @@ export function OrganizationStructuredData() {
     url: LEGAL.url,
     founder: { '@id': ID_FUNDADOR },
     logo: { '@type': 'ImageObject', url: `${LEGAL.url}/icon-512.png`, width: 512, height: 512 },
-    description: 'Software de gestión para estudios de Pilates y Yoga en España: reservas, app para alumnas, bonos y cobros, calendario y equipo.',
+    description: 'Software de gestión para estudios de Pilates y Yoga en España: reservas, app para clientes, bonos y cobros, calendario y equipo.',
     email: LEGAL.email,
     sameAs: [...REDES_SOCIALES_TENTARE, ...PERFILES_EN_DIRECTORIOS],
     contactPoint: {

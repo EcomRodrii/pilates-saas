@@ -20,6 +20,6 @@ export function puedeAjustarAforoASalaCapacidad(confirmadas: number, capacidadSa
 export function motivoAforoBloqueado(confirmadas: number, capacidadSala: number): string {
   const sobran = plazasSobrantesTrasAforo(confirmadas, capacidadSala);
   return sobran === 1
-    ? `No se puede: hay 1 alumna confirmada de más para la capacidad de la sala (${capacidadSala}). Resuélvelo a mano primero.`
-    : `No se puede: hay ${sobran} alumnas confirmadas de más para la capacidad de la sala (${capacidadSala}). Resuélvelo a mano primero.`;
+    ? `No se puede: hay 1 cliente confirmado de más para la capacidad de la sala (${capacidadSala}). Resuélvelo a mano primero.`
+    : `No se puede: hay ${sobran} clientes confirmados de más para la capacidad de la sala (${capacidadSala}). Resuélvelo a mano primero.`;
 }

@@ -194,7 +194,7 @@ test.describe('Momentos del calendario', () => {
     // Pregunta, y nombra a quién afecta y quién da ahora la clase. (El panel de
     // detalle de la clase también es role="dialog": se filtra por el título.)
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
-    await expect(dialogo).toContainText('¿Aviso a las 2 alumnas?');
+    await expect(dialogo).toContainText('¿Aviso a los 2 clientes?');
     await expect(dialogo).toContainText('Laura');
 
     // Nada se ha mandado todavía.
@@ -234,7 +234,7 @@ test.describe('Momentos del calendario', () => {
     await page.getByRole('button', { name: 'Guardar cambios' }).click();
 
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
-    await expect(dialogo).toContainText('¿Aviso a la alumna?');
+    await expect(dialogo).toContainText('¿Aviso al cliente?');
     await dialogo.getByRole('button', { name: 'Sí, avisar' }).click();
 
     // El endpoint recibe el sesionId; las destinatarias las resuelve él, no el
@@ -243,7 +243,7 @@ test.describe('Momentos del calendario', () => {
     expect(JSON.parse(avisosInstructora[0])).toMatchObject({ sesionId: 'ses-1' });
 
     // El toast cuenta las 3 avisadas de verdad, no la 1 que el panel veía.
-    await expect(page.getByText('Avisadas 3 alumnas por email · 1 sin email guardado')).toBeVisible();
+    await expect(page.getByText('Avisadas 3 clientes por email · 1 sin email guardado')).toBeVisible();
   });
 
   test('cambiar solo la instructora pregunta aunque el panel no vea NINGUNA apuntada', async ({ page }) => {
@@ -271,12 +271,12 @@ test.describe('Momentos del calendario', () => {
 
     // El diálogo se abre igualmente, con texto genérico (no "las 0 alumnas").
     const dialogo = page.getByRole('dialog').filter({ hasText: '¿Aviso a' });
-    await expect(dialogo).toContainText('¿Aviso a las alumnas apuntadas?');
+    await expect(dialogo).toContainText('¿Aviso a los clientes apuntados?');
     await dialogo.getByRole('button', { name: 'Sí, avisar' }).click();
 
     // Y el aviso sale de verdad: el servidor resolvió 1 destinataria real.
     await expect.poll(() => avisosInstructora.length, { timeout: 10_000 }).toBe(1);
-    await expect(page.getByText('Avisada 1 alumna por email')).toBeVisible();
+    await expect(page.getByText('Avisada 1 cliente por email')).toBeVisible();
   });
 
   test('mover la hora avisa aunque el panel no viera la reserva (bug del aplazamiento)', async ({ page }) => {

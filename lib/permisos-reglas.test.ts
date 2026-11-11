@@ -130,7 +130,7 @@ test('una subruta hereda el bloqueo de su prefijo', () => {
 // propietaria (y ve la facturación de todo el negocio) o recepción (y no puede
 // ni dar de alta a una instructora).
 
-test('el manager lleva su sede: horario, alumnas, equipo, sustituciones', () => {
+test('el manager lleva su sede: horario, clientes, equipo, sustituciones', () => {
   for (const ruta of ['/calendario', '/clientas', '/citas', '/equipo', '/sustituciones', '/dashboard']) {
     assert.equal(puedeVer('MANAGER', ruta), true, ruta);
   }
@@ -207,7 +207,7 @@ test('quien no gestiona equipo no reparte nada', () => {
   assert.deepEqual(rolesQuePuedeAsignar('INSTRUCTOR'), []);
 });
 
-test('gestionar alumnas: el manager sí, la instructora no', () => {
+test('gestionar clientes: el manager sí, la instructora no', () => {
   assert.equal(puedeGestionarClientas('MANAGER'), true);
   assert.equal(puedeGestionarClientas('RECEPCION'), true);
   assert.equal(puedeGestionarClientas('INSTRUCTOR'), false);
@@ -256,7 +256,7 @@ test('recepción y propietaria sí importan: es trabajo de mostrador', () => {
   }
 });
 
-test('el manager importa alumnas pero no bonos: los bonos son dinero', () => {
+test('el manager importa clientes pero no bonos: los bonos son dinero', () => {
   assert.equal(puedeVer('MANAGER', '/clientas/importar'), true);
   assert.equal(puedeVer('MANAGER', '/clientas/importar/plazas-fijas'), true);
   assert.equal(puedeVer('MANAGER', '/citas/importar'), true);
@@ -660,18 +660,18 @@ test('activar acceso: nadie reparte poderes de dinero que no tiene (recorre todo
   }
 });
 
-test('borrar los datos de una alumna (RGPD) es solo de la propietaria; darla de baja, de todo el mostrador', () => {
+test('borrar los datos de un cliente (RGPD) es solo de la propietaria; darla de baja, de todo el mostrador', () => {
   assert.equal(puedeBorrarDatosClienta('PROPIETARIO'), true);
   for (const rol of ['MANAGER', 'RECEPCION', 'INSTRUCTOR'] as const) assert.equal(puedeBorrarDatosClienta(rol), false, rol);
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeGestionarClientas(rol), true, rol);
 });
 
-test('las notas del equipo las leen y escriben quienes gestionan alumnas, como su RLS (notas_internas_*)', () => {
+test('las notas del equipo las leen y escriben quienes gestionan clientes, como su RLS (notas_internas_*)', () => {
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) assert.equal(puedeVerNotasInternas(rol), true, rol);
   assert.equal(puedeVerNotasInternas('INSTRUCTOR'), false);
 });
 
-test('quitar la verificación en dos pasos de una alumna: solo propietaria y gerencia', async () => {
+test('quitar la verificación en dos pasos de un cliente: solo propietaria y gerencia', async () => {
   const { puedeQuitarVerificacionClienta } = await import('./permisos-reglas.ts');
   assert.equal(puedeQuitarVerificacionClienta('PROPIETARIO'), true);
   assert.equal(puedeQuitarVerificacionClienta('MANAGER'), true);

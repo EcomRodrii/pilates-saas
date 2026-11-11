@@ -832,7 +832,7 @@ export default function Dashboard() {
             gestionaClientas ? (
             <>
               <Link href="/clientas?nuevo=1" className={cn(buttonVariants({ variant: 'outline', size: 'lg' }))}>
-                <UserPlus /> Nueva alumna
+                <UserPlus /> Nuevo cliente
               </Link>
               {/* CONGELADO (feature-freeze PMF): se quitó el botón "Abrir caja" → /pos. */}
             </>
@@ -921,7 +921,7 @@ export default function Dashboard() {
         <div {...wrap('resumen')}>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {[
-            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Alumnas hoy', alert: false, privada: false },
+            { href: '/calendario', Icon: Users, value: resumenHoy.alumnosHoy, label: 'Clientes hoy', alert: false, privada: false },
             ...(verFinanzas ? [{ href: '/cobros', Icon: CreditCard, value: pendientesTotal as number | string, label: 'Pagos pendientes', alert: pendientesTotal > 0, privada: false }] : []),
             { href: '/clientas', Icon: AlertTriangle, value: resumenHoy.bonosCaducanHoy, label: 'Bonos que caducan hoy', alert: resumenHoy.bonosCaducanHoy > 0, privada: false },
             { href: '/clientas?mas=sin_venir_30d', Icon: Clock, value: sinVenir30d ?? '—', label: 'Sin venir 30d', alert: (sinVenir30d ?? 0) > 0, privada: false },
@@ -1113,7 +1113,7 @@ export default function Dashboard() {
               la caja eso es un dato de caja —y encima, con la 0109, un "0 pagos
               pendientes" falso, porque la RLS ya no le sirve los recibos. */}
           <KpiCard
-            label="Alumnas activas"
+            label="Clientes activos"
             value={sociasActivas ?? '—'}
             sub={verFinanzas
               ? `${pendientes.length} pago${pendientes.length !== 1 ? 's' : ''} pendiente${pendientes.length !== 1 ? 's' : ''}`
@@ -1208,7 +1208,7 @@ export default function Dashboard() {
                   href="/clientas?nuevo=1"
                   className="flex items-center gap-2.5 w-full px-3.5 py-2.5 rounded-xl text-[13px] font-semibold text-primary-foreground bg-primary hover:brightness-95 transition-colors"
                 >
-                  <UserPlus size={14} /> Nueva alumna
+                  <UserPlus size={14} /> Nuevo cliente
                 </Link>
                 )}
                 <Link

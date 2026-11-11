@@ -119,11 +119,11 @@ test.describe('Clases del mes en Tiempo trabajado', () => {
     await fila.getByRole('button', { name: 'Guardar corrección' }).click();
     await expect(page.getByText('Indica el motivo del cambio')).toBeVisible();
     expect(patches).toHaveLength(0);
-    await fila.getByPlaceholder('Ej.: la dio, se le olvidó empezarla').fill('Empezó tarde por una alumna');
+    await fila.getByPlaceholder('Ej.: la dio, se le olvidó empezarla').fill('Empezó tarde por un cliente');
     await fila.getByRole('button', { name: 'Guardar corrección' }).click();
     await expect(page.getByText('Clase corregida')).toBeVisible({ timeout: 30_000 });
     expect(patches).toEqual([{
-      accion: 'corregir', motivo: 'Empezó tarde por una alumna',
+      accion: 'corregir', motivo: 'Empezó tarde por un cliente',
       items: [{ sesionId: 'c-olv1', estado: 'DADA', inicio: '2026-09-26T16:20:00.000Z', fin: '2026-09-26T17:00:00.000Z' }],
     }]);
   });

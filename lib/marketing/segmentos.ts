@@ -28,7 +28,7 @@ const DIAS_BONO_CADUCA_PRONTO = 14;
 export const SEGMENTOS_AUDIENCIA: {
   id: DestinatariosCampana; etiqueta: string; descripcion: string;
 }[] = [
-  { id: 'TODAS', etiqueta: 'Todas', descripcion: 'Cualquier alumna de tu ficha, esté activa o no' },
+  { id: 'TODAS', etiqueta: 'Todas', descripcion: 'Cualquier cliente de tu ficha, esté activa o no' },
   // Las cuatro siguientes cuentan con el ESTADO de cada clienta (el mismo que
   // enseña Clientas): «activas» son sus «Activa», no «las que no están de baja».
   { id: 'ACTIVAS', etiqueta: 'Solo socias activas', descripcion: 'Las que pueden reservar con su plan o han venido en el último mes' },

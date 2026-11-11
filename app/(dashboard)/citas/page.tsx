@@ -721,7 +721,7 @@ export default function CitasPage() {
             titulo="Reserva tu primera cita"
             texto="Las sesiones de una en una, con su hueco en la agenda y su precio, aparte de las clases de grupo."
             ejemplos={[
-              { accion: 'Valoración inicial', cuando: 'antes de que una alumna empiece en las clases de grupo' },
+              { accion: 'Valoración inicial', cuando: 'antes de que un cliente empiece en las clases de grupo' },
               { accion: 'Sesión privada', cuando: 'para quien quiere ir a su ritmo' },
               { accion: 'Fisio o readaptación', cuando: 'con su hora, su instructora y lo que cuesta' },
             ]}
@@ -788,14 +788,14 @@ export default function CitasPage() {
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-            <FF label="Alumna">
+            <FF label="Cliente">
               <select
                 required
                 value={form.socioId}
                 onChange={(e) => setForm((f) => ({ ...f, socioId: e.target.value }))}
                 className={inputCls}
               >
-                <option value="">Seleccionar alumna...</option>
+                <option value="">Seleccionar cliente...</option>
                 {socios.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre} {s.apellidos}
@@ -947,7 +947,7 @@ export default function CitasPage() {
                 <p className="text-sm text-muted-foreground">
                   {emiteFacturas ? 'Se generará un recibo cobrado y una factura al contado por' : 'Se registrará un recibo cobrado por'}{' '}
                   <span className="font-semibold text-foreground">{cita.precio != null ? formatEuro(cita.precio) : ''}</span>
-                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'esta alumna'}</span>.
+                  {' '}a nombre de <span className="font-semibold text-foreground">{socio ? `${socio.nombre} ${socio.apellidos}` : 'este cliente'}</span>.
                   No se puede deshacer con un clic — si te has equivocado, gestiónalo después desde Cobros.
                 </p>
                 {errorCobro && (

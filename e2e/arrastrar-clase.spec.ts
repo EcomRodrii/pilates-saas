@@ -269,7 +269,7 @@ test.describe('Arrastrar a otro día en la Semana por franjas', () => {
     expect(dia).toBe('2026-08-07');
   });
 
-  test('con alumnas apuntadas, la pregunta dice a qué día y a qué hora', async ({ page }) => {
+  test('con clientes apuntados, la pregunta dice a qué día y a qué hora', async ({ page }) => {
     const reservas = [{ id: 'r1', studio_id: STUDIO_ID, sesion_id: 'ses-1', socio_id: 's1', estado: 'CONFIRMADA', creada_en: `${HOY}T08:00:00+00:00` }];
     const { patchBody } = await montar(page, { reservas });
     await page.getByRole('button', { name: 'Semana', exact: true }).click();
@@ -284,7 +284,7 @@ test.describe('Arrastrar a otro día en la Semana por franjas', () => {
     await page.mouse.up();
 
     // Antes decía «¿Mover a las viernes 7 ago, 12:00…?».
-    await expect(page.getByText('¿Mover al viernes 7 ago a las 12:00 y avisar a la alumna?')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('¿Mover al viernes 7 ago a las 12:00 y avisar al cliente?')).toBeVisible({ timeout: 30_000 });
     expect(patchBody.valor).toBeNull();
   });
 });
@@ -300,13 +300,13 @@ test.describe('Arrastrar y soltar una clase', () => {
     expect(horaEnEstudio(patchBody.valor.inicio)).toBe(13);
   });
 
-  test('con alumnas apuntadas, pide confirmación antes de mover y avisar', async ({ page }) => {
+  test('con clientes apuntados, pide confirmación antes de mover y avisar', async ({ page }) => {
     const reservas = [{ id: 'r1', studio_id: STUDIO_ID, sesion_id: 'ses-1', socio_id: 's1', estado: 'CONFIRMADA', creada_en: `${HOY}T08:00:00+00:00` }];
     const { patchBody } = await montar(page, { reservas });
 
     await arrastrarA(page, 14 * 60); // 14:00
 
-    await expect(page.getByText('¿Mover a las 14:00 y avisar a la alumna?')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('¿Mover a las 14:00 y avisar al cliente?')).toBeVisible({ timeout: 30_000 });
     expect(patchBody.valor).toBeNull(); // todavía no se ha movido nada
 
     await page.getByRole('button', { name: 'Mover y avisar' }).click();

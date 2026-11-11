@@ -188,7 +188,7 @@ test('las listas por cuenta borran lo personal de ESA cuenta en ESTE estudio (nu
   for (const t of ['oauth_tokens', 'sesion_activa']) assert.ok(cPorCuenta.some(c => c.tabla === t), `falta ${t} en c_borrar_por_cuenta`);
   for (const t of ['notification_preference', 'push_subscription']) {
     assert.ok(cPorCuentaNoSocia.some(c => c.tabla === t), `falta ${t} en c_borrar_por_cuenta_si_no_es_socia`);
-    assert.ok(!cPorCuenta.some(c => c.tabla === t), `${t} se borra también cuando es socia: perdería datos de su lado de alumna`);
+    assert.ok(!cPorCuenta.some(c => c.tabla === t), `${t} se borra también cuando es socia: perdería datos de su lado de cliente`);
   }
   // Si la misma cuenta es socia del estudio, lo suyo de socia se queda: el bucle solo corre si no lo es, los avisos de
   // rol SOCIA no se tocan, y de las conversaciones solo se va su lado de equipo.

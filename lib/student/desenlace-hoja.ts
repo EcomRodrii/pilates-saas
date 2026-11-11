@@ -21,7 +21,7 @@ export interface DesenlaceHoja {
 }
 
 /** Cuando el servidor dice «aforo-lleno», la clase NO admite lista de espera: solo entonces lo devuelve. */
-export const LLENA_SIN_ESPERA = 'Otra alumna ha cogido la última plaza y esta clase no tiene lista de espera. Elige otra hora.';
+export const LLENA_SIN_ESPERA = 'Otro cliente ha cogido la última plaza y esta clase no tiene lista de espera. Elige otra hora.';
 
 /**
  * De la respuesta del servidor a lo que pinta la hoja.

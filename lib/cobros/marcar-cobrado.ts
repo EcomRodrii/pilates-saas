@@ -155,7 +155,7 @@ export function resultadoNoCobrable(reciboId: string, error: string): ResultadoR
 
 /** Cobrado, pero el plan no se entregó. Antes lo avisaba el navegador; ahora lo dice el servidor. */
 export const MENSAJE_COBRADO_SIN_RENOVAR =
-  'Cobro registrado, pero no se ha podido renovar el plan de la alumna. Renuévalo a mano desde su ficha.';
+  'Cobro registrado, pero no se ha podido renovar el plan del cliente. Renuévalo a mano desde su ficha.';
 
 function mensajeNoCobrable(estado: string | null | undefined): string {
   // El único que no es «ya no hay nada que cobrar»: hay dinero en camino y

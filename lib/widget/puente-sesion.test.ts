@@ -236,7 +236,7 @@ const RAIZ = new URL('../../', import.meta.url).pathname;
 const leer = (ruta: string) => readFileSync(`${RAIZ}${ruta}`, 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-test('olvidar la sesión del puente borra SOLO sus claves, nunca la del portal de la alumna', () => {
+test('olvidar la sesión del puente borra SOLO sus claves, nunca la del portal del cliente', () => {
   const guardado = new Map<string, string>([
     [CLAVE_SESION_PUENTE, 'sesion'], [`${CLAVE_SESION_PUENTE}-code-verifier`, 'v'], ['sb-portal-auth', 'la-de-la-alumna'],
   ]);

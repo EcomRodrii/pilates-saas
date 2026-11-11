@@ -338,14 +338,14 @@ export function AsistenteRapido({
                 <div className="mt-6">
                   <Desplegable etiqueta="¿Con qué lo llevas ahora?" opciones={OPCIONES_SOFTWARE} valor={ans.software}
                     onCambio={(v) => guardar({ ...ans, software: v || undefined })} />
-                  <Desplegable etiqueta="¿Cuántas alumnas activas tienes?" opciones={OPCIONES_ALUMNOS} valor={ans.alumnos}
+                  <Desplegable etiqueta="¿Cuántos clientes activos tienes?" opciones={OPCIONES_ALUMNOS} valor={ans.alumnos}
                     onCambio={(v) => guardar({ ...ans, alumnos: v || undefined })} />
                   <Desplegable etiqueta="¿Cuántos centros tienes?" opciones={OPCIONES_CENTROS} valor={ans.centros}
                     onCambio={(v) => guardar({ ...ans, centros: v || undefined })} />
                 </div>
                 {migrable && (
                   <p className="mt-4 rounded-xl border border-border bg-card px-3.5 py-2.5 text-[13px] text-muted-foreground" data-testid="aviso-migracion">
-                    Vienes de <strong className="text-foreground">{ans.software}</strong>: al terminar te enseñamos cómo traer tus alumnas, bonos y horario.
+                    Vienes de <strong className="text-foreground">{ans.software}</strong>: al terminar te enseñamos cómo traer tus clientes, bonos y horario.
                   </p>
                 )}
               </>
@@ -406,7 +406,7 @@ export function AsistenteRapido({
                   Todo esto es opcional. Si lo dejas en blanco, tu estudio ya está montado.
                 </p>
                 <div className="mt-6">
-                  <Chips legend="¿Cómo cobras a tus alumnas?"
+                  <Chips legend="¿Cómo cobras a tus clientes?"
                     nota="Elige todas las que uses. Las dejamos preparadas; el precio lo pones tú antes de activarlas."
                     opciones={OPCIONES_COBRO_LISTA} valor={ans.cobro} multi={OPCIONES_COBRO_LISTA.length}
                     onCambio={(v) => guardar({ ...ans, cobro: v as string[] })} />

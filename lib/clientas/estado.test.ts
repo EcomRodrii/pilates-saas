@@ -246,7 +246,7 @@ const FIXTURE = {
   sesiones: [{ id: 's1', inicio: clase(45) }],
 };
 
-test('estadosDeClientas da lo mismo que preguntar alumna a alumna', () => {
+test('estadosDeClientas da lo mismo que preguntar cliente a cliente', () => {
   const todas = estadosDeClientas(FIXTURE, AHORA);
   const hechos = hechosDeAsistencia(FIXTURE.reservas, FIXTURE.sesiones, AHORA);
   for (const s of FIXTURE.socios) {

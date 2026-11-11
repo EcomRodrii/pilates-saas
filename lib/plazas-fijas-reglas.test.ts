@@ -25,7 +25,7 @@ test('con bono NO: sus reservas de plaza fija nunca descuentan sesiones', () => 
   assert.equal(cuotaParaPlazaFija('soc-1', [sus({ planId: 'bono', sesionesRestantes: 8 })], [bono], HOY, 'tc-ref'), null);
 });
 
-test('una cuota vencida, pausada, de otra alumna o que no cubre la clase no cuenta', () => {
+test('una cuota vencida, pausada, de otro cliente o que no cubre la clase no cuenta', () => {
   const soloMat = plan({ id: 'mat', tiposClaseIds: ['tc-mat'] });
   const libre = plan({ id: 'libre' });
   assert.equal(cuotaParaPlazaFija('soc-1', [sus({ planId: 'libre', fechaFin: '2026-09-14' })], [libre], HOY, 'tc-ref'), null);
@@ -113,8 +113,8 @@ test('con varios motivos, manda el primero: el límite semanal gana a lo demás'
 
 test('avisoTopeAutomatico: con la clase en su tope, dice cuántas tiene, el tope y el porcentaje', () => {
   const t = avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 4, cupo: 4, pct: 50 });
-  assert.equal(t, 'Esta clase ya tiene 4 alumnas con clase fija y tu tope para darlas solas es 4 (el 50 % del aforo): esta la decides tú.');
-  assert.match(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 1, cupo: 1, pct: 25 }) ?? '', /1 alumna con clase fija y/);
+  assert.equal(t, 'Esta clase ya tiene 4 clientes con clase fija y tu tope para darlas solas es 4 (el 50 % del aforo): esta la decides tú.');
+  assert.match(avisoTopeAutomatico({ modo: 'AUTOMATICA', superaLimite: false, ocupadas: 1, cupo: 1, pct: 25 }) ?? '', /1 cliente con clase fija y/);
 });
 
 test('avisoTopeAutomatico: nada que explicar si aprueba a mano, si pasa del límite (ya se dice aparte) o si cabe', () => {

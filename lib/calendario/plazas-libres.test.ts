@@ -44,7 +44,7 @@ test('para una clase fija: resta las fijas que aún no tienen su reserva, nunca 
   assert.equal(h.paraFija, 4);
 });
 
-test('una alumna con clase fija que canceló esa semana no resta (ya tiene su fila)', () => {
+test('un cliente con clase fija que canceló esa semana no resta (ya tiene su fila)', () => {
   const s = sesion('a', MARTES[0]);
   const [h] = huecosDeSesiones({ sesiones: [s], reservas: [res('a', 'bea', 'CANCELADA')], plazas: [fija('bea')], apartadas: sinApartadas, ahoraMs: AHORA });
   assert.equal(h.fijasPorVenir, 0);

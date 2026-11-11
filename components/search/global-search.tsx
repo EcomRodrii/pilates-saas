@@ -322,7 +322,7 @@ export function GlobalSearch({
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="¿Qué quieres hacer? O busca una alumna, clase o pago…"
+                placeholder="¿Qué quieres hacer? O busca un cliente, clase o pago…"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={teclaEnBuscador}
@@ -431,7 +431,7 @@ export function GlobalSearch({
               {sociosRes.length > 0 && (
                 <div className="mb-1">
                   <p className="text-[10px] font-bold uppercase tracking-widest px-3 py-2" style={{ color: 'var(--muted-foreground)' }}>
-                    {q ? 'Alumnas' : 'Alumnas activas'}
+                    {q ? 'Clientes' : 'Clientes activos'}
                   </p>
                   {sociosRes.map(s => (
                     <button key={s.id} onClick={() => go(`/clientas/${s.id}`)}

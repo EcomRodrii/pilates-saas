@@ -8,7 +8,7 @@ const BASE = { sesionId: 'ses-1', socioId: 'soc-1', reservaId: 'res-mf3k2-1a-x9z
 
 // ── La petición ─────────────────────────────────────────────────────────────
 
-test('una petición completa se acepta y, sin decir nada, se avisa a la alumna', () => {
+test('una petición completa se acepta y, sin decir nada, se avisa al cliente', () => {
   const r = leerPeticionReservaMostrador(BASE);
   assert.deepEqual(r, { ok: true, datos: { ...BASE, avisar: true, comoClaseSuelta: false, claseSuelta: null } });
 });
@@ -36,7 +36,7 @@ test('«como clase suelta» solo se pide con un true de verdad', () => {
   }
 });
 
-test('«Avisar a la alumna» desmarcado viaja como avisar:false', () => {
+test('«Avisar al cliente» desmarcado viaja como avisar:false', () => {
   const r = leerPeticionReservaMostrador({ ...BASE, avisar: false });
   assert.equal(r.ok && r.datos.avisar, false);
 });
@@ -44,11 +44,11 @@ test('«Avisar a la alumna» desmarcado viaja como avisar:false', () => {
 test('solo un false de verdad apaga el aviso: ante la duda, se avisa', () => {
   for (const avisar of ['false', 0, null, undefined, 'no']) {
     const r = leerPeticionReservaMostrador({ ...BASE, avisar });
-    assert.equal(r.ok && r.datos.avisar, true, `avisar=${String(avisar)} no debe dejar a la alumna sin aviso`);
+    assert.equal(r.ok && r.datos.avisar, true, `avisar=${String(avisar)} no debe dejar al cliente sin aviso`);
   }
 });
 
-test('sin clase, sin alumna o sin cuerpo no se reserva nada', () => {
+test('sin clase, sin cliente o sin cuerpo no se reserva nada', () => {
   assert.equal(leerPeticionReservaMostrador(null).ok, false);
   assert.equal(leerPeticionReservaMostrador('texto').ok, false);
   assert.equal(leerPeticionReservaMostrador({ ...BASE, sesionId: '' }).ok, false);

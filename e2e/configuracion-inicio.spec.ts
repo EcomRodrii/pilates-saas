@@ -78,7 +78,7 @@ for (const vista of VISTAS) {
 
       await expect(page.getByRole('heading', { level: 1, name: 'Configuración', exact: true })).toBeVisible();
       await expect(page.getByRole('searchbox', { name: 'Buscar un ajuste' })).toBeVisible();
-      for (const grupo of ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']) {
+      for (const grupo of ['Lo básico', 'Tus clientes', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']) {
         await expect(page.getByRole('heading', { level: 2, name: grupo, exact: true })).toBeVisible();
       }
       await expect(page.locator('#seccion-titulo')).toHaveCount(0);
@@ -180,7 +180,7 @@ test.describe('En el portátil', () => {
     await expect(page).toHaveURL(/\/configuracion$/);
 
     await fila(page, 'reservas').click();
-    await expect(tituloSeccion(page, 'Cómo reservan mis alumnas')).toBeVisible({ timeout: 30_000 });
+    await expect(tituloSeccion(page, 'Cómo reservan mis clientes')).toBeVisible({ timeout: 30_000 });
     await rail(page).getByRole('link', { name: 'Configuración', exact: true }).click();
     await expect(fila(page, 'reservas')).toBeFocused({ timeout: 15_000 });
     await expect(page).toHaveURL(/\/configuracion$/);
@@ -191,7 +191,7 @@ test.describe('En el portátil', () => {
     // (Los de las herramientas —canjes, correos— abren su pantalla: los prueba
     // e2e/configuracion-herramientas.spec.ts.)
     const casos: [string, string, string | null][] = [
-      ['configuracion?tab=estudio&sub=legal', 'Alta de alumnas', '#contrato-y-privacidad'],
+      ['configuracion?tab=estudio&sub=legal', 'Alta de clientes', '#contrato-y-privacidad'],
       ['configuracion?tab=estudio', 'Mi estudio', null],
     ];
     for (const [ruta, seccion, tarjeta] of casos) {

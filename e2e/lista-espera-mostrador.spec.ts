@@ -134,7 +134,7 @@ async function montarCalendario(page: Page) {
 
 async function abrirBuscador(page: Page) {
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Añadir alumna a la clase' }).click();
+  await page.getByRole('button', { name: 'Añadir cliente a la clase' }).click();
 }
 
 test.describe('Apuntar a alguien a una clase llena', () => {

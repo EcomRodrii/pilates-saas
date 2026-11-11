@@ -67,7 +67,7 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
   const nombre = (socioId: string | null) => {
     if (!socioId) return 'Venta de mostrador';
     const s = socios.find(x => x.id === socioId);
-    return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Alumna eliminada';
+    return s ? `${s.nombre} ${s.apellidos ?? ''}`.trim() : 'Cliente eliminado';
   };
 
   // Un recibo con su acción en vuelo no se vuelve a lanzar (doble toque).
@@ -104,7 +104,7 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
     else avisos.error(`${marcado.error} Si no aparece, hazle la factura desde «Lo que he cobrado».`);
     if (socio?.email && r) {
       void enviarEmailRecibo({ to: socio.email, toName: `${socio.nombre} ${socio.apellidos}`, reciboId }).then(salio => {
-        if (!salio) avisos.error('El cobro está registrado, pero el justificante no ha salido hacia la alumna.');
+        if (!salio) avisos.error('El cobro está registrado, pero el justificante no ha salido hacia el cliente.');
       });
     }
   }

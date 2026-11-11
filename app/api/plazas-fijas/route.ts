@@ -59,7 +59,7 @@ async function manejar(req: NextRequest, metodo: 'POST' | 'PATCH') {
   const socioId = typeof body?.socioId === 'string' ? body.socioId : '';
   const plazaId = typeof body?.plazaId === 'string' ? body.plazaId : '';
   if (!datos || (metodo === 'POST' && !socioId) || (metodo === 'PATCH' && !plazaId)) {
-    return NextResponse.json({ ok: false, error: 'Faltan la clase, la alumna o las fechas' }, { status: 400 });
+    return NextResponse.json({ ok: false, error: 'Faltan la clase, el cliente o las fechas' }, { status: 400 });
   }
 
   const admin = getSupabaseAdmin();

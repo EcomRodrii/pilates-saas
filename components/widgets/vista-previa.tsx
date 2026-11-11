@@ -158,7 +158,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
   return (
     <section ref={seccion} aria-label="Vista previa" className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[14px] font-semibold text-foreground">Así lo verá tu alumna</h3>
+        <h3 className="text-[14px] font-semibold text-foreground">Así lo verá tu cliente</h3>
         <div className="flex items-center gap-1">
           <Segmentado
             etiqueta="Dispositivo de la vista previa"
@@ -289,7 +289,7 @@ export function VistaPrevia({ contenido, falta, forma, web, paginaDeReservas, an
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div className="min-w-0">
               <p className="text-[14px] font-semibold text-foreground">A tamaño real, en un ordenador</p>
-              <p className="text-[12px] text-muted-foreground">Tu web a {ANCHO_ESCRITORIO} px de ancho, como la verá tu alumna en una pantalla grande.</p>
+              <p className="text-[12px] text-muted-foreground">Tu web a {ANCHO_ESCRITORIO} px de ancho, como la verá tu cliente en una pantalla grande.</p>
             </div>
             <button
               type="button"

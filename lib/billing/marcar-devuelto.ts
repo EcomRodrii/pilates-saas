@@ -52,7 +52,7 @@ export const TEXTO_COBRO_EN_MARCHA =
 export const TEXTO_RECIBO_CAMBIADO = 'Este recibo acaba de cambiar. Recarga y vuelve a intentarlo.';
 
 export const TEXTO_COBRO_POR_STRIPE =
-  'Este cobro entró por Stripe: marcarlo aquí no le devuelve el dinero. Haz el reembolso completo desde Stripe (o desde la ficha de la alumna, si tienes activadas las devoluciones) y el recibo se marcará como devuelto solo.';
+  'Este cobro entró por Stripe: marcarlo aquí no le devuelve el dinero. Haz el reembolso completo desde Stripe (o desde la ficha del cliente, si tienes activadas las devoluciones) y el recibo se marcará como devuelto solo.';
 
 export async function marcarReciboDevuelto(
   admin: SupabaseClient,
@@ -116,7 +116,7 @@ export async function marcarReciboDevuelto(
         return { ok: false, http: 409, error: TEXTO_NO_LO_DEVUELVE_EL_BANCO };
       }
       if (Number(recibo.importe_devuelto ?? 0) > 0 || recibo.reembolso_stripe_id || recibo.reembolso_solicitado_en) {
-        return { ok: false, http: 409, error: 'A este cobro ya se le ha devuelto dinero: revísalo en la ficha de la alumna.' };
+        return { ok: false, http: 409, error: 'A este cobro ya se le ha devuelto dinero: revísalo en la ficha del cliente.' };
       }
       // Una venta de la caja se devuelve desde la caja: si no, la venta y su recibo divergen.
       const { data: venta, error: errVenta } = await admin.from('ventas_pos').select('id')
@@ -224,7 +224,7 @@ export async function reintentarPorElBanco(
     return { ok: false, http: 409, error: 'Para volver a pasarlo por el banco, configura antes las domiciliaciones en Configuración → Cobros y facturas.' };
   }
   if (!mandatos || mandatos.length === 0) {
-    return { ok: false, http: 409, error: 'Esta alumna no tiene una domiciliación vigente: no entraría en la remesa. Cóbraselo de otra forma.' };
+    return { ok: false, http: 409, error: 'Este cliente no tiene una domiciliación vigente: no entraría en la remesa. Cóbraselo de otra forma.' };
   }
   const intentos = Number(recibo.intentos_reintento ?? 0) + 1;
   // Compare-and-set: sigue devuelto por el banco, con los mismos intentos y sin

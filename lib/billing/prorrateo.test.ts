@@ -124,7 +124,7 @@ test('online con pocos días: la cuota ENTERA hoy y ciclo hasta el último día 
   assert.equal(prorrateoDeAlta(mensual(50), '2026-10-15', 3, 'online')!.importe, prorrateoDeAlta(mensual(50), '2026-10-15', 3, 'panel')!.importe);
 });
 
-test('la frase de la alumna dice qué paga, por qué y cuándo es lo siguiente', () => {
+test('la frase del cliente dice qué paga, por qué y cuándo es lo siguiente', () => {
   assert.equal(prorrateoDeAlta(mensual(50), '2026-10-15')!.frase, 'Cuota de hoy: 27,42 € (parte proporcional de octubre: 17 de 31 días). El 1 de noviembre, 50 € y cada mes.');
   assert.equal(prorrateoDeAlta(mensual(50), '2026-10-01')!.frase, 'Cuota de hoy: 50 € (octubre completo). El 1 de noviembre, 50 € y cada mes.');
 });
@@ -291,7 +291,7 @@ test('fallo → reintento NO es un alta: con el cobro fallido o pendiente tampoc
   }
 });
 
-test('lo que NO cuenta como periodo ya cobrado: otra alumna, ciclo vencido, anulado, bonos, trimestrales, sin recibos', () => {
+test('lo que NO cuenta como periodo ya cobrado: otro cliente, ciclo vencido, anulado, bonos, trimestrales, sin recibos', () => {
   const ok = (o: Parameters<typeof periodoDeCuotaAnterior>[0]) => periodoDeCuotaAnterior(o);
   const recCobrado = [{ suscripcionId: 's1', estado: 'COBRADO' }];
   assert.equal(ok({ socioId: 'otra', suscripciones: [cancelada()], recibos: recCobrado, planes, hoyISO: '2026-10-20' }), null);

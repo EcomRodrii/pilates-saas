@@ -71,7 +71,7 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
   const todas = useMemo(
     () => (ahoraMs ? clasesFijasPorAlumna({
       plazasFijas, sesiones, suscripciones, planes: planesTarifa, ahoraMs,
-      nombreDe: id => nombrePorSocia.get(id) ?? 'Alumna sin nombre',
+      nombreDe: id => nombrePorSocia.get(id) ?? 'Cliente sin nombre',
     }) : []),
     [plazasFijas, sesiones, suscripciones, planesTarifa, nombrePorSocia, ahoraMs],
   );
@@ -87,7 +87,7 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
         tono="azul"
         Icono={CalendarClock}
         titulo="Nadie tiene clase fija todavía"
-        texto="Una clase fija le reserva sola su plaza cada semana a una alumna, sin que tengas que apuntarla clase a clase."
+        texto="Una clase fija le reserva sola su plaza cada semana a un cliente, sin que tengas que apuntarla clase a clase."
         ejemplos={[
           { accion: 'Dásela desde su ficha', cuando: 'eligiendo la clase a la que viene cada semana' },
           { accion: 'O desde «Por clase»', cuando: 'con «+ Clase fija» en la tarjeta de la clase' },
@@ -97,14 +97,14 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
   }
 
   return (
-    <section aria-label="Clases fijas por alumna" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
+    <section aria-label="Clases fijas por cliente" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <Baldosa tono="azul" Icono={Users} />
           <div>
-            <h2 className="text-[16px] font-semibold text-foreground">Clases fijas por alumna</h2>
+            <h2 className="text-[16px] font-semibold text-foreground">Clases fijas por cliente</h2>
             <p className="text-[12.5px] text-muted-foreground">
-              {todas.length} {todas.length === 1 ? 'alumna' : 'alumnas'} · {nClases} {nClases === 1 ? 'clase fija' : 'clases fijas'}
+              {todas.length} {todas.length === 1 ? 'cliente' : 'clientes'} · {nClases} {nClases === 1 ? 'clase fija' : 'clases fijas'}
               {nAvisos > 0 && <> · <span className="font-semibold text-[color:var(--warning)]">{nAvisos} con aviso</span></>}
             </p>
           </div>
@@ -113,13 +113,13 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <label className="relative min-w-[200px] flex-1">
-          <span className="sr-only">Buscar alumna</span>
+          <span className="sr-only">Buscar cliente</span>
           <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={texto}
             onChange={e => setTexto(e.target.value)}
-            placeholder="Buscar alumna"
+            placeholder="Buscar cliente"
             className="h-9 w-full rounded-full border border-border bg-background pl-9 pr-3 text-[13px] outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </label>
@@ -151,7 +151,7 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
 
       {visibles.length === 0 ? (
         <p role="status" className="mt-6 rounded-[12px] bg-muted/50 px-4 py-6 text-center text-[13px] text-muted-foreground">
-          Ninguna alumna con esos filtros.
+          Ningún cliente con esos filtros.
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-border">
@@ -245,7 +245,7 @@ export type HorarioPor = 'clase' | 'alumna';
 export function SelectorHorarioPor({ valor, onCambio }: { valor: HorarioPor; onCambio: (v: HorarioPor) => void }) {
   return (
     <div className="mb-3 inline-flex rounded-full bg-muted p-1" role="group" aria-label="Ver el horario">
-      {([['clase', 'Por clase'], ['alumna', 'Por alumna']] as const).map(([v, label]) => (
+      {([['clase', 'Por clase'], ['alumna', 'Por cliente']] as const).map(([v, label]) => (
         <button
           key={v}
           type="button"

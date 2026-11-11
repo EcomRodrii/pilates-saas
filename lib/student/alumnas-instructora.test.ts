@@ -10,7 +10,7 @@ function clase(sesionId: string, inicio: string, estado: ClaseConAlumna['estado'
   return { sesionId, inicio, fecha: inicio.slice(0, 10), hora: '10:00', tipo: 'Reformer', estado };
 }
 
-test('el estado de cada clase con la alumna sale de su reserva', () => {
+test('el estado de cada clase con el cliente sale de su reserva', () => {
   assert.equal(estadoClaseAlumna('CONFIRMADA', '2026-09-16T10:00:00Z', AHORA), 'viene');
   assert.equal(estadoClaseAlumna('CONFIRMADA', '2026-09-14T10:00:00Z', AHORA), 'sin-marcar');
   assert.equal(estadoClaseAlumna('ASISTIDA', '2026-09-14T10:00:00Z', AHORA), 'asistio');

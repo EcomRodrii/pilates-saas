@@ -114,7 +114,7 @@ test('sin teléfono, se responde por correo', async ({ page }) => {
 
 test('sin consultas no ocupa sitio', async ({ page }) => {
   await montar(page, { nuevas: [] });
-  await expect(page.getByRole('heading', { name: 'Alumnas' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Clientes' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByRole('heading', { name: /consulta/i })).toHaveCount(0);
 });
 
@@ -194,8 +194,8 @@ test('dar de alta con su mismo email: la consulta ya la cerró la base de datos 
   await page.getByRole('button', { name: 'Dar de alta' }).click();
   await expect(page.getByRole('textbox', { name: 'Email' })).toHaveValue('nueva@example.com');
   await page.getByRole('dialog').getByRole('checkbox').check();
-  await page.getByPlaceholder(/Nombre completo de la alumna/i).fill('Nueva Visitante');
-  await page.getByRole('button', { name: /Crear alumna/ }).click();
+  await page.getByPlaceholder(/Nombre completo del cliente/i).fill('Nueva Visitante');
+  await page.getByRole('button', { name: /Crear cliente/ }).click();
   await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
   await expect.poll(api.patches, { timeout: 15_000 }).toBeGreaterThan(0);
   await expect.poll(api.relecturas, { timeout: 15_000 }).toBeGreaterThan(0);
@@ -246,16 +246,16 @@ test.describe('apuntar a mano a alguien que preguntó', () => {
     await expect(dialogo).toBeHidden();
   });
 
-  test('⚠️ si ya es alumna (409), no se duplica: lo dice y lleva a su ficha', async ({ page }) => {
+  test('⚠️ si ya es cliente (409), no se duplica: lo dice y lleva a su ficha', async ({ page }) => {
     await montar(page, { nuevas: [] });
     let intentos = 0;
     await page.route((u) => u.pathname === '/api/consultas', (r) => {
       intentos++;
-      return json(r, { error: 'Ya es alumna: tiene ficha con ese email.', socioId: 'soc-irene' }, 409);
+      return json(r, { error: 'Ya es cliente: tiene ficha con ese email.', socioId: 'soc-irene' }, 409);
     });
     const { dialogo, apuntar } = await rellenar(page);
     await apuntar.click();
-    await expect(dialogo.getByRole('alert')).toContainText('Ya es alumna: tiene ficha con ese email.');
+    await expect(dialogo.getByRole('alert')).toContainText('Ya es cliente: tiene ficha con ese email.');
     expect(intentos).toBeGreaterThan(0);
     await expect(dialogo).toBeVisible();
     await dialogo.getByRole('button', { name: 'Ver su ficha' }).click();

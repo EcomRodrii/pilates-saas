@@ -43,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para dar de baja a una alumna.' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para dar de baja a un cliente.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'socios-baja', { max: 30, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq('id', socioId).eq('studio_id', sesion.studioId).is('borrado_en', null)
       .maybeSingle();
     if (errSocia) return errorInterno('socios:baja:leer', errSocia, 'No se ha podido leer la ficha. Vuelve a intentarlo.');
-    if (!socia) return NextResponse.json({ error: 'No se encuentra esta alumna.' }, { status: 404 });
+    if (!socia) return NextResponse.json({ error: 'No se encuentra este cliente.' }, { status: 404 });
 
     const [cuotasRes, plazasRes] = await Promise.all([
       admin.from('suscripciones')
@@ -174,7 +174,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .eq('id', socioId).eq('studio_id', sesion.studioId).is('borrado_en', null)
       .select('id');
     if (errMarca) return errorInterno('socios:baja:marca', errMarca, 'Se ha parado su cuota pero no se ha podido marcar de baja. Vuelve a intentarlo.');
-    if (!marcada || marcada.length === 0) return NextResponse.json({ error: 'No se encuentra esta alumna.' }, { status: 404 });
+    if (!marcada || marcada.length === 0) return NextResponse.json({ error: 'No se encuentra este cliente.' }, { status: 404 });
 
     await registrar(admin, sesion, socioId, `${sesion.nombre} dio de baja a ${nombreDe(socia)}`);
 
@@ -197,7 +197,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   if (!puedeGestionarClientas(sesion.rol)) {
-    return NextResponse.json({ error: 'No tienes permiso para dar de alta a una alumna.' }, { status: 403 });
+    return NextResponse.json({ error: 'No tienes permiso para dar de alta a un cliente.' }, { status: 403 });
   }
   const limited = await enforceRateLimit(req, 'socios-baja', { max: 30, windowSeconds: 60 }, sesion.studioId);
   if (limited) return limited;
@@ -213,7 +213,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       .select('id, nombre, apellidos');
     if (error) return errorInterno('socios:alta', error, 'No se ha podido dar de alta. Vuelve a intentarlo.');
     const socia = data?.[0];
-    if (!socia) return NextResponse.json({ error: 'No se encuentra esta alumna.' }, { status: 404 });
+    if (!socia) return NextResponse.json({ error: 'No se encuentra este cliente.' }, { status: 404 });
 
     // Lo que la baja dejó sin renovar sigue así: se le cuenta a quien la da de alta.
     const { data: sinRenovar, error: errCuotas } = await admin.from('suscripciones')
@@ -237,7 +237,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 }
 
 function nombreDe(s: { nombre?: unknown; apellidos?: unknown }): string {
-  return `${(s.nombre as string | null) ?? ''} ${(s.apellidos as string | null) ?? ''}`.trim() || 'una alumna';
+  return `${(s.nombre as string | null) ?? ''} ${(s.apellidos as string | null) ?? ''}`.trim() || 'un cliente';
 }
 
 // Si falla la constancia no se deshace nada: lo importante ya está guardado.

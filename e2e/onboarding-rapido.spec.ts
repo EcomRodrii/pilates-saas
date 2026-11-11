@@ -24,7 +24,7 @@ test.describe('el asistente rápido', () => {
     await expect(marco).toHaveAttribute('src', '/portal/studio-carmen', { timeout: 15_000 });
     await expect(marco).toHaveAttribute('aria-hidden', 'true');
     await expect(marco).toHaveAttribute('inert', '');
-    await expect(marco).toHaveAttribute('title', /app de tus alumnas/);
+    await expect(marco).toHaveAttribute('title', /app de tus clientes/);
     expect(await marco.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe('none');
     // Ninguna maqueta dibujada a mano.
     await expect(page.getByTestId('vista-previa-app')).toHaveCount(0);
@@ -32,7 +32,7 @@ test.describe('el asistente rápido', () => {
     expect(await marco.evaluate((e) => [e.clientWidth, e.clientHeight])).toEqual([402, 874]);
   });
 
-  test('alta → pantalla final con sus alumnas como siguiente paso → sella y lleva a importar', async ({ page }) => {
+  test('alta → pantalla final con sus clientes como siguiente paso → sella y lleva a importar', async ({ page }) => {
     const pet = await montarAlta(page);
     await saltarLogo(page);
     await irAlCierre(page);
@@ -42,7 +42,7 @@ test.describe('el asistente rápido', () => {
     const traer = page.getByTestId('traer-alumnas');
     await expect(traer).toBeVisible();
     await expect(traer.getByRole('button', { name: 'Subir mi archivo' })).toBeVisible();
-    await expect(traer.getByRole('button', { name: 'Añadir una alumna ahora' })).toBeVisible();
+    await expect(traer.getByRole('button', { name: 'Añadir un cliente ahora' })).toBeVisible();
     // El enlace de su app, para copiar, y el QR.
     await expect(page.getByTestId('url-app')).toContainText('/portal/studio-carmen');
     await expect(page.getByRole('button', { name: 'Copiar enlace' })).toBeVisible();

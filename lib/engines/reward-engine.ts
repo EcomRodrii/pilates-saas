@@ -4,11 +4,11 @@ import type { RewardRule, RewardAction, RewardTrigger, RewardTriggerDef, MemberC
 // inventar disparadores nuevos (eso requiere código), pero SÍ configura
 // cuántos créditos vale cada uno — eso vive en RewardRule, nunca aquí.
 export const REWARD_TRIGGERS: RewardTriggerDef[] = [
-  { trigger: 'ASISTENCIA_CLASE', nombre: 'Asistir a clase', descripcion: 'La alumna hace check-in en una reserva confirmada.' },
+  { trigger: 'ASISTENCIA_CLASE', nombre: 'Asistir a clase', descripcion: 'El cliente hace check-in en una reserva confirmada.' },
   { trigger: 'RENOVACION_PLAN', nombre: 'Renovar plan', descripcion: 'Paga la renovación de su plan o bono, o vuelve a comprar el mismo si el anterior terminó hace 60 días o menos. Si el cobro se devuelve, se retiran.' },
   { trigger: 'REFERIDO_AMIGO', nombre: 'Traer un amigo', descripcion: 'Un amigo referido asiste a su primera clase (no basta con registrarse).' },
   { trigger: 'SEMANA_COMPLETA', nombre: 'Completar una semana', descripcion: 'Asiste a todas las clases que tenía reservadas en la semana.' },
-  { trigger: 'PRIMERA_RESERVA', nombre: 'Primera reserva', descripcion: 'La alumna reserva una clase por primera vez.' },
+  { trigger: 'PRIMERA_RESERVA', nombre: 'Primera reserva', descripcion: 'El cliente reserva una clase por primera vez.' },
   { trigger: 'OBJETIVO_MENSUAL', nombre: 'Cumplir objetivo mensual', descripcion: 'Alcanza el objetivo de clases que se marcó para el mes.' },
   { trigger: 'COMPRA', nombre: 'Comprar en el estudio', descripcion: 'Compra algo en la caja: producto, bono o clase suelta. Los créditos van por lo que gasta.' },
 ];

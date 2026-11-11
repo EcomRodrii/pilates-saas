@@ -6,7 +6,7 @@ function ids(n: number): string[] {
   return Array.from({ length: n }, (_, i) => `soc-${i}`);
 }
 
-test('una consulta por trozo de alumnas, no una por alumna', async () => {
+test('una consulta por trozo de clientes, no una por cliente', async () => {
   const trozos: string[][] = [];
   let unaAUna = 0;
   const vinieron = await sociasQueHanVenido(
@@ -15,13 +15,13 @@ test('una consulta por trozo de alumnas, no una por alumna', async () => {
     async () => { unaAUna++; return true; },
   );
   assert.deepEqual(trozos.map((t) => t.length), [50, 50, 20]);
-  assert.equal(unaAUna, 0, 'sin corte no se pregunta alumna por alumna');
+  assert.equal(unaAUna, 0, 'sin corte no se pregunta cliente por cliente');
   assert.equal(vinieron.size, 12);
   assert.ok(vinieron.has('soc-10'));
   assert.ok(!vinieron.has('soc-11'), 'la que no sale no ha venido');
 });
 
-test('una alumna con varias clases asistidas cuenta una vez', async () => {
+test('un cliente con varias clases asistidas cuenta una vez', async () => {
   const vinieron = await sociasQueHanVenido(
     ['a', 'b'],
     async () => ['a', 'a', 'a'],
@@ -45,7 +45,7 @@ test('si la respuesta vuelve llena, las que no salieron se comprueban una a una'
   assert.ok(vinieron.has('c'), 'cortada por el límite, no por no haber venido');
 });
 
-test('sin alumnas no se consulta nada', async () => {
+test('sin clientes no se consulta nada', async () => {
   let consultas = 0;
   const vinieron = await sociasQueHanVenido(
     [],

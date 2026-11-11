@@ -48,20 +48,20 @@ export default function AlumnasInstructoraPage() {
     <StudentShell modo="instructora">
       {/* Sin «Volver»: es una pestaña de la barra, no una pantalla dentro de Perfil. */}
       <PageHeader
-        titulo="Tus alumnas"
+        titulo="Tus clientes"
         sub={total > 0
-          ? `${total} ${total === 1 ? 'alumna' : 'alumnas'} · de tus clases de los últimos 30 días y los próximos 30`
+          ? `${total} ${total === 1 ? 'cliente' : 'clientes'} · de tus clases de los últimos 30 días y los próximos 30`
           : 'De tus clases de los últimos 30 días y los próximos 30'}
       />
       <div className="px stack" style={{ ['--gap' as string]: 'var(--s-4)', marginTop: 14, paddingBottom: 24 }}>
         {estado === 'loading' && <ListSkeleton n={4} h={64} />}
-        {estado === 'error' && <ErrorState cuerpo="No hemos podido cargar tus alumnas." onRetry={reintentar} />}
-        {estado === 'offline' && <OfflineState cuerpo="Para ver a tus alumnas necesitas conexión." />}
+        {estado === 'error' && <ErrorState cuerpo="No hemos podido cargar tus clientes." onRetry={reintentar} />}
+        {estado === 'offline' && <OfflineState cuerpo="Para ver a tus clientes necesitas conexión." />}
 
         {data && data.length === 0 && (
           <EmptyState
             ilustracion="calendario"
-            titulo="Todavía no tienes alumnas"
+            titulo="Todavía no tienes clientes"
             cuerpo="Aparecerán cuando alguien reserve una de tus clases."
           />
         )}
@@ -76,14 +76,14 @@ export default function AlumnasInstructoraPage() {
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
               placeholder="Buscar por nombre"
-              aria-label="Buscar alumna"
+              aria-label="Buscar cliente"
               // 16 px: por debajo, iOS amplía la página al enfocar y no vuelve.
               style={{ width: '100%', height: 48, paddingLeft: 43, paddingRight: 15, border: '1px solid var(--border)', borderRadius: 999, background: 'var(--card)', boxShadow: 'var(--shadow-card)', fontSize: 16, fontFamily: 'inherit', color: 'var(--foreground)' }}
             />
           </div>
         )}
 
-        {sinResultados && <p className="t-small t-dim" style={{ margin: 0 }}>Ninguna de tus alumnas se llama así.</p>}
+        {sinResultados && <p className="t-small t-dim" style={{ margin: 0 }}>Ninguna de tus clientes se llama así.</p>}
 
         {conProxima.length > 0 && (
           <Grupo titulo="Con clase próxima contigo" alumnas={conProxima} hoy={hoy} href={href} />

@@ -230,8 +230,8 @@ test.describe('Cobros · «Cambios del equipo»', () => {
   });
 });
 
-test.describe('Ficha de la alumna · «Cambios de dinero en esta ficha»', () => {
-  test('la propietaria ve solo lo de esa alumna, sin repetirle su nombre en cada fila', async ({ page }) => {
+test.describe('Ficha del cliente · «Cambios de dinero en esta ficha»', () => {
+  test('la propietaria ve solo lo de ese cliente, sin repetirle su nombre en cada fila', async ({ page }) => {
     const p = await montarPanel(page);
     await ir(page, 'clientas/soc-1');
     await page.getByRole('tab', { name: 'Pagos', exact: true }).click();
@@ -245,7 +245,7 @@ test.describe('Ficha de la alumna · «Cambios de dinero en esta ficha»', () =>
     // Sin filtros de tipo: son pocas filas de una sola persona.
     await expect(page.getByRole('group', { name: 'Filtrar por tipo' })).toHaveCount(0);
     expect(p.urls.length).toBeGreaterThan(0);
-    expect(p.urls.every(u => u.searchParams.get('socio_id') === 'eq.soc-1'), 'pidió filas de otra alumna').toBe(true);
+    expect(p.urls.every(u => u.searchParams.get('socio_id') === 'eq.soc-1'), 'pidió filas de otro cliente').toBe(true);
   });
 
   test('recepción abre la misma ficha y no ve la sección, ni la pide', async ({ page }) => {

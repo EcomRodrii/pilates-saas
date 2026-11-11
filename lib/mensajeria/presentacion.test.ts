@@ -89,7 +89,7 @@ test('sin mensajes → leído, también en el mostrador', () => {
 // mostrador (que es la del equipo). Antes su app usaba la del mostrador, que su
 // bandeja ni siquiera trae: el punto se encendía siempre.
 
-test('alumna, hilo con el estudio: su marca posterior al último mensaje → leído (la del mostrador no cuenta)', () => {
+test('cliente, hilo con el estudio: su marca posterior al último mensaje → leído (la del mostrador no cuenta)', () => {
   const c = base({
     tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '2026-01-03T00:00:00Z', mostrador_leido_hasta: null,
     ultimo_remitente_auth_user_id: 'recepcion',
@@ -97,7 +97,7 @@ test('alumna, hilo con el estudio: su marca posterior al último mensaje → le�
   assert.equal(tieneSinLeer(c, 'socia', 'alumna'), false);
 });
 
-test('alumna, hilo con el estudio: su marca anterior al último mensaje → sin leer (aunque el mostrador lo leyera)', () => {
+test('cliente, hilo con el estudio: su marca anterior al último mensaje → sin leer (aunque el mostrador lo leyera)', () => {
   const c = base({
     tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '2026-01-01T12:00:00Z', mostrador_leido_hasta: '2026-01-03T00:00:00Z',
     ultimo_remitente_auth_user_id: 'recepcion',
@@ -105,17 +105,17 @@ test('alumna, hilo con el estudio: su marca anterior al último mensaje → sin 
   assert.equal(tieneSinLeer(c, 'socia', 'alumna'), true);
 });
 
-test('alumna: nunca abrió el hilo (\'-infinity\') y el último es de la otra parte → sin leer', () => {
+test('cliente: nunca abrió el hilo (\'-infinity\') y el último es de la otra parte → sin leer', () => {
   const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '-infinity', ultimo_remitente_auth_user_id: 'recepcion' });
   assert.equal(tieneSinLeer(c, 'socia', 'alumna'), true);
 });
 
-test('alumna: \'-infinity\' pero el último mensaje es suyo → leído', () => {
+test('cliente: \'-infinity\' pero el último mensaje es suyo → leído', () => {
   const c = base({ tipo: 'ALUMNA_MOSTRADOR', leido_hasta: '-infinity', ultimo_remitente_auth_user_id: 'socia' });
   assert.equal(tieneSinLeer(c, 'socia', 'alumna'), false);
 });
 
-test('el push de un hilo con una alumna no lleva el texto, en ninguno de los dos; EQUIPO, los primeros 80 caracteres', () => {
+test('el push de un hilo con un cliente no lleva el texto, en ninguno de los dos; EQUIPO, los primeros 80 caracteres', () => {
   const largo = 'Me duele la rodilla desde la última clase y no sé si venir mañana, ¿qué me recomiendas hacer?';
   assert.equal(previsualizacionParaAviso('ALUMNA_INSTRUCTORA', largo), null);
   assert.equal(previsualizacionParaAviso('ALUMNA_MOSTRADOR', largo), null);
@@ -124,7 +124,7 @@ test('el push de un hilo con una alumna no lleva el texto, en ninguno de los dos
   assert.equal(previsualizacionParaAviso('EQUIPO', 'Hola'), 'Hola');
 });
 
-test('la alumna ve el nombre de su instructora; «Tu instructora» solo si no llega', () => {
+test('el cliente ve el nombre de su instructora; «Tu instructora» solo si no llega', () => {
   assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_MOSTRADOR' }, 'Estudio Norte'), 'Estudio Norte');
   assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: { nombre: 'Laura' } }, 'Estudio Norte'), 'Laura');
   assert.equal(tituloConversacionAlumna({ tipo: 'ALUMNA_INSTRUCTORA', interlocutor: null }, 'Estudio Norte'), 'Tu instructora');

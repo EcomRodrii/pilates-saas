@@ -24,7 +24,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        En cuanto está conectada, tus alumnas pueden guardar tarjeta al reservar o pagar un bono, y tú puedes cobrar
+        En cuanto está conectada, tus clientes pueden guardar tarjeta al reservar o pagar un bono, y tú puedes cobrar
         con tarjeta desde el panel. Sigue con{' '}
         <Link href="/ayuda/pagos/tarjeta-guardada-y-cobro-automatico" style={{ color: 'inherit', textDecoration: 'underline' }}>tarjeta guardada y cobro automático</Link>.
       </AyudaResultado>

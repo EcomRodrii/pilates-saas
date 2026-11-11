@@ -106,7 +106,7 @@ test('sin email no hay a quién dársela', () => {
 // archivo de clientas se clasificó como recuperaciones porque, al tener menos
 // exigencias, sacaba mejor tasa de filas válidas.
 
-test('un CSV de alumnas NO se clasifica como recuperaciones', () => {
+test('un CSV de clientes NO se clasifica como recuperaciones', () => {
   const r = clasificarArchivoDeterminista(
     { nombre: 'clientas.csv', contenido: 'Nombre;Email\nMaría;maria@test.com\nLuz;luz@test.com\n' },
     CTX_VACIO,

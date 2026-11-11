@@ -172,7 +172,7 @@ test.describe('el alta nueva en el panel', () => {
     await page.getByRole('button', { name: 'Domingo' }).click();
     await page.getByRole('button', { name: 'Siguiente' }).click();
 
-    await expect(page.getByRole('heading', { name: '¿Traes alumnas de otro sitio?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '¿Traes clientes de otro sitio?' })).toBeVisible();
     expect(pet.patches).toContainEqual({ hora_apertura: '08:30:00', hora_cierre: '20:00:00' });
     const filas = escrito.horario[0] as { dia_semana: number; abierto: boolean; hora_apertura: string | null }[];
     expect(filas).toHaveLength(7);
@@ -216,9 +216,9 @@ test.describe('el alta nueva en el panel', () => {
     await page.getByRole('button', { name: 'Siguiente' }).click();
     await expect(page.getByRole('heading', { name: 'Cuándo abre tu estudio' })).toBeVisible();
     await page.getByRole('button', { name: 'Siguiente' }).click();
-    await expect(page.getByRole('heading', { name: '¿Traes alumnas de otro sitio?' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '¿Traes clientes de otro sitio?' })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole('heading', { name: '¿Traes alumnas de otro sitio?' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: '¿Traes clientes de otro sitio?' })).toBeVisible({ timeout: 30_000 });
     // «Más tarde» abajo, también.
     await page.getByRole('button', { name: 'Más tarde' }).last().click();
     await expect(page.getByRole('heading', { name: 'Que se vea tu estudio' })).toBeVisible();

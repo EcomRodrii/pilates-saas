@@ -64,7 +64,7 @@ test('pasarse de las plazas cedidas avisa, pero no lo impide', () => {
 // Guardia estática: la reserva de una plataforma tiene su propio dueño y NO
 // arrastra los efectos de la reserva de una socia (bono, aviso a la alumna,
 // créditos, gamificación). Si alguien los añade, que esto lo pare.
-test('el dueño de la reserva externa no consume bono ni avisa a la alumna', () => {
+test('el dueño de la reserva externa no consume bono ni avisa al cliente', () => {
   const fuente = readFileSync(new URL('./tras-reserva-externa.ts', import.meta.url), 'utf8');
   const inicio = fuente.indexOf('export async function trasReservaExterna');
   assert.ok(inicio > 0, 'no se encuentra trasReservaExterna');

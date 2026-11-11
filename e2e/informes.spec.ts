@@ -95,8 +95,8 @@ test('con la flecha, el mes pasado cerrado frente al de antes entero, y por qué
   // Pagaron dos clientas, 175 € entre las dos (la caja sin clienta no cuenta): 87,50 €.
   const medio = page.getByTestId('informe-ingreso-medio');
   await expect(medio).toContainText(euros(87.5));
-  await expect(medio).toContainText(`2 alumnas pagaron ${euros(175)}`);
-  await expect(medio).toContainText(/no cuenta las ventas de caja sin alumna/);
+  await expect(medio).toContainText(`2 clientes pagaron ${euros(175)}`);
+  await expect(medio).toContainText(/no cuenta las ventas de caja sin cliente/);
 
   // Y no se puede ir al futuro: desde el mes en curso, la flecha de la derecha está apagada.
   await page.getByRole('button', { name: 'Periodo siguiente' }).click();

@@ -193,7 +193,7 @@ function ResumenPlan({ form, tiposClase }: { form: FormularioPlan; tiposClase: {
   const nombres = tiposClase.filter(tc => form.tiposClaseIds.includes(tc.id)).map(tc => tc.nombre);
   return (
     <div className="rounded-2xl border border-border bg-muted/40 p-4">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Así lo verá tu alumna</p>
+      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-3">Así lo verá tu cliente</p>
       <div className="rounded-xl bg-card border border-border p-4 shadow-sm">
         <p className="font-bold text-foreground leading-tight break-words">
           {form.nombre.trim() || <span className="text-muted-foreground font-normal">Sin nombre todavía</span>}
@@ -452,7 +452,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground text-pretty">
                       {tipoSugerido === 'PUNTUAL'
-                        ? 'Una cuota se cobra sola a la alumna cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
+                        ? 'Una cuota se cobra sola al cliente cada periodo hasta que se da de baja. Si quieres un único pago, cámbiala.'
                         : 'Un bono es un puñado de sesiones que se gastan al reservar y caduca. Si es lo que quieres, cámbiala; si no, ignora este aviso.'}
                     </p>
                     <button type="button" onClick={() => cambiarTipo(tipoSugerido)}
@@ -623,7 +623,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     </div>
                     <p id={`${uid}-prueba-ayuda`} className="mt-1.5 pl-[52px] text-xs leading-relaxed text-muted-foreground">
                       {yaVendida
-                        ? 'Ya hay alumnas con esta tarifa: no se puede cambiar. Crea otra si quieres una clase de prueba.'
+                        ? 'Ya hay clientes con esta tarifa: no se puede cambiar. Crea otra si quieres una clase de prueba.'
                         : 'Solo para quien viene por primera vez, una vez, y siempre con una clase. No sale en tus planes: se ofrece en el widget «Clase de prueba».'}
                     </p>
                     {visible('esPrueba') && <p role="alert" className="mt-1 pl-[52px] text-xs text-destructive">{visible('esPrueba')}</p>}
@@ -767,7 +767,7 @@ function PlanModal({ initial, tiposClase, tipoInicial, otrasTarifas, onSave, onC
                     </span>
                     <p id={`${uid}-activo-ayuda`} className="text-[12px] text-muted-foreground mt-0.5">
                       {form.activo
-                        ? 'Tus alumnas pueden comprarlo desde la web y desde el mostrador.'
+                        ? 'Tus clientes pueden comprarlo desde la web y desde el mostrador.'
                         : 'Nadie nuevo puede comprarlo. Quien ya lo tenga lo conserva y lo sigue usando con normalidad.'}
                     </p>
                   </div>
@@ -1744,7 +1744,7 @@ export default function Productos() {
               // Decir cuántas la tienen contratada ANTES de borrar: el recuento
               // ya se calculaba para pintarlo en la tarjeta, pero no se usaba
               // para avisar en el único momento en que importa.
-              ? `"${borrando.nombre}" la tienen contratada ${susCount(borrando.id)} clienta${susCount(borrando.id) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; lo que desaparece es la tarifa del catálogo, para que no puedas venderla más.`
+              ? `"${borrando.nombre}" la tienen contratada ${susCount(borrando.id)} cliente${susCount(borrando.id) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; lo que desaparece es la tarifa del catálogo, para que no puedas venderla más.`
               : `"${borrando.nombre}" dejará de estar a la venta. No la tiene contratada nadie.`)
           : ''}
         textoConfirmar="Eliminar"

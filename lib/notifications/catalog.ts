@@ -910,7 +910,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // clienta pagó Y perdió lo entregado, y hay que devolvérselo a mano.
   ...paraRoles(EVENTOS.PAGO_DEVOLUCION_FALLIDA, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Una devolución ha fallado',
-    body: 'La devolución de {importe} € a {socia} ha fallado: la alumna NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
+    body: 'La devolución de {importe} € a {socia} ha fallado: el cliente NO ha recibido el dinero.{sesionesTexto} Puedes reintentarla desde su ficha.',
     deepLink: (d: Datos) => (d.socioId ? `/clientas/${s(d.socioId)}` : '/cobros'),
   }),
   ...paraRoles(EVENTOS.PAGO_CHARGEBACK_PERDIDO, ROLES_POR_AUDIENCIA.mostrador, {
@@ -982,7 +982,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: (d: Datos) => `/calendario?sesion=${s(d.sesionId)}`,
   },
   [`${EVENTOS.SOCIA_INACTIVA}#PROPIETARIO`]: {
-    title: 'Alumna inactiva',
+    title: 'Cliente inactivo',
     body: '{socia} lleva {dias} días sin venir. Quizá un mensaje la recupere.',
     deepLink: (d: Datos) => `/clientas/${s(d.socioId)}`,
   },
@@ -1008,12 +1008,12 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   // del iPad de recepción.
   ...paraRoles(EVENTOS.CONSULTA_CONTACTO, ROLES_POR_AUDIENCIA.mostrador, {
     title: 'Consulta nueva desde tu web',
-    body: 'Alguien te ha escrito desde tu formulario de contacto. Respóndele desde Alumnas.',
+    body: 'Alguien te ha escrito desde tu formulario de contacto. Respóndele desde Clientes.',
     deepLink: () => `/clientas`,
   }),
   [`${EVENTOS.RIESGO_DEPENDENCIA}#PROPIETARIO`]: {
     title: 'Riesgo de concentración alto',
-    body: '{instructora} concentra el {porcentaje}% de tu facturación en alumnas cautivas. Si se va, ese ingreso está en riesgo.',
+    body: '{instructora} concentra el {porcentaje}% de tu facturación en clientes cautivas. Si se va, ese ingreso está en riesgo.',
     deepLink: () => `/dashboard`,
   },
   // ── Equipo ──
@@ -1054,7 +1054,7 @@ export const PLANTILLAS: Record<string, Plantilla> = {
   },
   [`${EVENTOS.SISTEMA_EMAIL_FALLIDO}#PROPIETARIO`]: {
     title: 'Fallan los envíos de email',
-    body: 'Hoy no se han podido entregar algunos correos a tus alumnas (último error: {error}). Revisa la configuración de email.',
+    body: 'Hoy no se han podido entregar algunos correos a tus clientes (último error: {error}). Revisa la configuración de email.',
     deepLink: () => `/configuracion?tab=comunicacion`,
   },
   [`${EVENTOS.TRIAL_PROXIMO_A_EXPIRAR}#PROPIETARIO`]: {
@@ -1083,8 +1083,8 @@ export const PLANTILLAS: Record<string, Plantilla> = {
     deepLink: () => `/calendario`,
   },
   [`${EVENTOS.EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO`]: {
-    title: 'Tu horario está listo: falta que lo sepan tus alumnas',
-    body: 'Todavía no ha entrado ninguna reserva. Comparte el enlace de la app de tus alumnas por WhatsApp o Instagram: es lo que hace que llegue la primera.',
+    title: 'Tu horario está listo: falta que lo sepan tus clientes',
+    body: 'Todavía no ha entrado ninguna reserva. Comparte el enlace de la app de tus clientes por WhatsApp o Instagram: es lo que hace que llegue la primera.',
     // A «Comparte el enlace de tu app» (components/guia/compartir-desde-enlace.tsx), no a
     // /primeros-pasos: allí no se compartía nada (alta nueva, PR-5).
     deepLink: () => `/dashboard?compartir=1`,

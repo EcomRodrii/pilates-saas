@@ -39,7 +39,7 @@ test('frases verdaderas y cortas: sin «próximamente» ni palabras vacías', ()
   // serie; Cobros solo cobra solo con tarjeta o domiciliación; la Libreta no
   // lleva notas; Network está congelado).
   const f = FRASES();
-  assert.doesNotMatch(f['/sustituciones'], /busca sustituta sola|avisa a las alumnas|Network/i);
+  assert.doesNotMatch(f['/sustituciones'], /busca sustituta sola|avisa a los clientes|Network/i);
   assert.match(f['/sustituciones'], /visto bueno/);
   assert.doesNotMatch(f['/cobros'], /la mayoría se cobra sola/i);
   // Solo la tarjeta guardada se cobra sola; la domiciliación va por remesa al banco.

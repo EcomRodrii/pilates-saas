@@ -84,7 +84,7 @@ test('el menú «Producto» se abre y se cierra con el teclado, y cuelga del anc
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('link', { name: 'Reservas online' })).toBeVisible();
   // Las cinco áreas por resultado.
-  for (const area of ['Reservas y horario', 'Cobros, bonos y cuotas', 'Alumnas y app', 'Equipo y sustituciones', 'Informes y control']) {
+  for (const area of ['Reservas y horario', 'Cobros, bonos y cuotas', 'Clientes y app', 'Equipo y sustituciones', 'Informes y control']) {
     await expect(panel.getByText(area, { exact: true })).toBeVisible();
   }
   // Mismo ancho que la píldora.

@@ -44,7 +44,7 @@ export function FormCompraPublica({ showToast, onGuardado }: PropsFormularioCajo
   return (
     <>
       <div className="pb-6">
-        <p id={`${id}-pregunta`} className={labelCls}>Si alguien compra un bono desde tu enlace y aún no es alumna</p>
+        <p id={`${id}-pregunta`} className={labelCls}>Si alguien compra un bono desde tu enlace y aún no es cliente</p>
         <div role="radiogroup" aria-labelledby={`${id}-pregunta`} className="mt-2 space-y-2">
           {OPCIONES.map(([modo, titulo, detalle]) => (
             <label

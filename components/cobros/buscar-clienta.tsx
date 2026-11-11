@@ -27,8 +27,8 @@ export function BuscarClienta({ socios, valor, onCambio, className }: {
       {abierto && <div className="fixed inset-0 z-40" onClick={() => setAbierto(false)} />}
       <input
         className={cn('relative z-50 w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors focus:border-brand focus:outline-none', className)}
-        placeholder="Buscar alumna…"
-        aria-label="Alumna"
+        placeholder="Buscar cliente…"
+        aria-label="Cliente"
         value={abierto ? q : (elegida ? `${elegida.nombre} ${elegida.apellidos}` : '')}
         onClick={() => { if (!abierto) { setAbierto(true); setQ(''); } }}
         onKeyDown={e => {

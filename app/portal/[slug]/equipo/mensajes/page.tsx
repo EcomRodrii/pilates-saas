@@ -36,9 +36,9 @@ export default function MensajesInstructoraPage() {
   // `sin_leer` lo calcula el servidor (lib/mensajeria/resumen.ts).
   const pendientes = estado === 'ready' ? (data ?? []).filter((h) => h.sin_leer).length : 0;
   const sub = estado !== 'ready' ? undefined
-    : pendientes === 0 ? 'Con tus alumnas · todo leído'
-      : pendientes === 1 ? 'Con tus alumnas · 1 sin leer'
-        : `Con tus alumnas · ${pendientes} sin leer`;
+    : pendientes === 0 ? 'Con tus clientes · todo leído'
+      : pendientes === 1 ? 'Con tus clientes · 1 sin leer'
+        : `Con tus clientes · ${pendientes} sin leer`;
 
   return (
     <StudentShell modo="instructora">
@@ -52,14 +52,14 @@ export default function MensajesInstructoraPage() {
           <EmptyState
             ilustracion="charla"
             titulo="Aún no tienes conversaciones"
-            cuerpo="Para escribir a una alumna, abre su ficha en «Tus alumnas»."
-            accion="Ver tus alumnas"
+            cuerpo="Para escribir a un cliente, abre su ficha en «Tus clientes»."
+            accion="Ver tus clientes"
             onAccion={() => router.push(href('/equipo/alumnas'))}
           />
         )}
         {estado === 'ready' && data!.map((h) => {
           const sinLeer = h.sin_leer;
-          const nombre = h.alumna?.nombre ?? 'Alumna';
+          const nombre = h.alumna?.nombre ?? 'Cliente';
           return (
             <Link
               key={h.id}

@@ -66,7 +66,7 @@ export interface DatosCifras {
 }
 
 const ETIQUETAS: Record<string, { una: string; varias: string }> = {
-  socias: { una: 'Alumna', varias: 'Alumnas' },
+  socias: { una: 'Cliente', varias: 'Clientes' },
   clasesSemana: { una: 'Clase cada semana', varias: 'Clases cada semana' },
   instructoras: { una: 'Instructora', varias: 'Instructoras' },
   sedes: { una: 'Sede', varias: 'Sedes' },

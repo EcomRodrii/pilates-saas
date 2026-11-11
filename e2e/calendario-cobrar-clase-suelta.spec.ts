@@ -172,7 +172,7 @@ async function montarCalendario(page: Page, opts: {
 
 async function abrirAnadir(page: Page) {
   await page.getByRole('button', { name: /Reformer/ }).first().click({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Añadir alumna a la clase' }).click();
+  await page.getByRole('button', { name: 'Añadir cliente a la clase' }).click();
 }
 
 async function abrirBea(page: Page) {
@@ -183,7 +183,7 @@ async function abrirBea(page: Page) {
   await bea.click();
 }
 
-test.describe('Cobrar la clase suelta al añadir a una alumna', () => {
+test.describe('Cobrar la clase suelta al añadir a un cliente', () => {
   test('quien viene con su cuota dice con qué viene y entra de un toque, sin vender ni cobrar', async ({ page }) => {
     const { reservas, recibos, cobros } = await montarCalendario(page);
     await abrirAnadir(page);
@@ -264,7 +264,7 @@ test.describe('Cobrar la clase suelta al añadir a una alumna', () => {
   });
 
   for (const [caso, respuesta] of [
-    ['el servidor no da la plaza', { status: 400, body: { error: 'Esta alumna ya tiene una reserva a esa hora.' } }],
+    ['el servidor no da la plaza', { status: 400, body: { error: 'Este cliente ya tiene una reserva a esa hora.' } }],
     ['el precio ha cambiado', { status: 409, body: { error: 'El precio de esta clase ha cambiado: ahora son 18,00 €. Vuelve a abrirla para cobrar el de ahora.' } }],
     ['el servidor se cae', { status: 500, body: { error: 'No se ha podido apuntar. Inténtalo otra vez.' } }],
   ] as const) {
@@ -323,7 +323,7 @@ test.describe('Cobrar la clase suelta al añadir a una alumna', () => {
   test('⚠️ si la clase suelta no se pudo deshacer, nunca «elimina el recibo»: manda a mirar la clase y su ficha', async ({ page }) => {
     // Borrar solo el recibo dejaría su clase suelta viva y gratis.
     const { reservas, cobros } = await montarCalendario(page, {
-      reserva: { status: 400, body: { error: 'Esta alumna ya tiene una reserva a esa hora.', queda: 'revisar' } },
+      reserva: { status: 400, body: { error: 'Este cliente ya tiene una reserva a esa hora.', queda: 'revisar' } },
     });
     await abrirBea(page);
     await page.getByRole('button', { name: 'Efectivo', exact: true }).click();
@@ -523,13 +523,13 @@ test.describe('Darle la cuota al añadirla a la clase', () => {
     expect(cobros).toHaveLength(0);
   });
 
-  test('si esa cuota ya se cobró en el TPV sin alumna, no se da otra vez ni se la apunta', async ({ page }) => {
+  test('si esa cuota ya se cobró en el TPV sin cliente, no se da otra vez ni se la apunta', async ({ page }) => {
     const { boton, consultasTPV, altas, recibos, reservas } = await conCuota(page, {
       ventasTPV: [{ id: 'v-1', numero: 12, fecha: HOY, importe: 60 }],
     });
     await boton.click();
 
-    await expect(page.getByText(/«Mensual» ya está cobrada en el TPV sin alumna \(1 venta\)/)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/«Mensual» ya está cobrada en el TPV sin cliente \(1 venta\)/)).toBeVisible({ timeout: 30_000 });
     // Se preguntó de verdad al servidor: «no hizo nada» no es por no haber mirado.
     expect(consultasTPV()).toBeGreaterThan(0);
     expect(altas).toHaveLength(0);

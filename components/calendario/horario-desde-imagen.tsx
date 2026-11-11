@@ -127,7 +127,7 @@ export function HorarioDesdeImagen({ onVolver }: { onVolver: () => void }) {
         <div className="rounded-2xl border border-border bg-card p-5">
           <p className="text-[14px] font-semibold text-foreground">¿Ya tienes tu horario en tu web, en Instagram o en tu programa de ahora?</p>
           <p className="mt-1 text-[12.5px] text-muted-foreground">
-            Sube una captura del horario (sin listas de alumnas) o pega el texto. Lo leemos y te enseñamos la semana: no se crea nada hasta que lo revises.
+            Sube una captura del horario (sin listas de clientes) o pega el texto. Lo leemos y te enseñamos la semana: no se crea nada hasta que lo revises.
           </p>
           <div className="mt-4 flex flex-col gap-4 sm:flex-row">
             <button

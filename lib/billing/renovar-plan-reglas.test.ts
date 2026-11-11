@@ -14,7 +14,7 @@ import {
 const SI = { renovarSolaCuotaCancelada: true };
 const NO = { renovarSolaCuotaCancelada: false };
 
-test('una cuota en PAUSADA no la renueva la alumna: 409 con código que la app traduce', () => {
+test('una cuota en PAUSADA no la renueva el cliente: 409 con código que la app traduce', () => {
   assert.deepEqual(renovacionPorLaAlumna('PAUSADA', SI), { ok: false, codigo: 'cuota-en-pausa', error: MENSAJE_CUOTA_EN_PAUSA });
   assert.equal(CODIGO_CUOTA_EN_PAUSA, 'cuota-en-pausa');
   assert.equal(MENSAJE_CUOTA_EN_PAUSA, 'Tu cuota está en pausa. Habla con tu estudio para reanudarla.');
@@ -37,7 +37,7 @@ test('un estado que no se conoce no se renueva desde la app (falla cerrado)', ()
   assert.equal(renovacionPorLaAlumna(null, SI).ok, false);
 });
 
-test('pagar online: la renovación de una cuota pausada no; cualquier otro recibo de esa alumna, sí', () => {
+test('pagar online: la renovación de una cuota pausada no; cualquier otro recibo de ese cliente, sí', () => {
   assert.equal(pagoOnlineDeRenovacionPermitido({ es_renovacion: true }, 'PAUSADA'), false);
   assert.equal(pagoOnlineDeRenovacionPermitido({ es_renovacion: false }, 'PAUSADA'), true, 'una venta o una penalización no la descongela');
   assert.equal(pagoOnlineDeRenovacionPermitido({ es_renovacion: true }, 'ACTIVA'), true);

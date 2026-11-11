@@ -522,7 +522,7 @@ export function validarFilas(
     if (!emailRaw) return { ...base, estado: 'error' as const, motivo: 'Falta el email' };
     if (!emailValido(emailRaw)) return { ...base, estado: 'error' as const, motivo: 'Email no válido' };
     if (emailsVistos.has(email)) return { ...base, estado: 'duplicada' as const, motivo: 'Email repetido en el archivo' };
-    if (emailsExistentes?.has(email)) return { ...base, estado: 'duplicada' as const, motivo: 'Ya existe en tu lista de alumnas' };
+    if (emailsExistentes?.has(email)) return { ...base, estado: 'duplicada' as const, motivo: 'Ya existe en tu lista de clientes' };
 
     emailsVistos.add(email);
     const avisoTelefono = !!telefono && !telefonoValido(telefono);

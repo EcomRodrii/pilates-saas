@@ -50,7 +50,7 @@ export function AppEnElMovil({ nombre, slug, colorPrimario, faviconUrl, logoUrl 
         <div className="min-w-0">
           <p className="truncate text-[15px] font-semibold text-foreground" data-testid="nombre-app">{nombre}</p>
           <p className="text-[12px] leading-relaxed text-muted-foreground">
-            Así la verá tu alumna en su pantalla de inicio. Si el nombre es largo, el móvil lo recorta bajo el icono.
+            Así la verá tu cliente en su pantalla de inicio. Si el nombre es largo, el móvil lo recorta bajo el icono.
           </p>
         </div>
       </div>
@@ -71,7 +71,7 @@ export function AppEnElMovil({ nombre, slug, colorPrimario, faviconUrl, logoUrl 
             </button>
             {/* El cartel con el QR para imprimir (recepción, la puerta): antes solo estaba en «Mi web →
                 Dirección y enlaces», y desde «Mi web» guiada (21-oct-2026) el enlace de la app vive aquí. */}
-            {enlace && <BotonQr destino="app" url={enlace} slug={slug} estudio={nombre} nombreEnlace="App de tus alumnas" />}
+            {enlace && <BotonQr destino="app" url={enlace} slug={slug} estudio={nombre} nombreEnlace="App de tus clientes" />}
             {copiado !== null && (
               <span role="status" className="text-[12px] text-muted-foreground" data-testid="copiado-app">
                 {copiado ? 'Copiado.' : 'No hemos podido copiarlo. Selecciónalo y cópialo a mano.'}

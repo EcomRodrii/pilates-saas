@@ -149,7 +149,7 @@ function Remesa({ onCerrar, onOcupado }: { onCerrar: () => void; onOcupado: (o: 
       const extra = (caidos = 0) => [...(caidos > 0 ? [avisoYaNoPendientes(caidos)] : []), ...extras].map(t => ` ${t}`).join('');
       if (previa.nAdeudos === 0) {
         setAviso((previa.sinMandato > 0
-          ? `Ningún recibo pendiente tiene mandato SEPA (${previa.sinMandato} sin domiciliar). Añade el mandato en la ficha de cada alumna.`
+          ? `Ningún recibo pendiente tiene mandato SEPA (${previa.sinMandato} sin domiciliar). Añade el mandato en la ficha de cada cliente.`
           : 'No hay recibos pendientes que remesar.') + extra());
         return;
       }
@@ -288,7 +288,7 @@ function Remesa({ onCerrar, onOcupado }: { onCerrar: () => void; onOcupado: (o: 
       {vista.sinDomiciliar.recibos > 0 && (
         <p className="text-[12.5px] text-muted-foreground">
           {vista.sinDomiciliar.recibos} {vista.sinDomiciliar.recibos === 1 ? 'recibo' : 'recibos'}
-          {vista.sinDomiciliar.clientas > 0 ? ` de ${vista.sinDomiciliar.clientas} ${vista.sinDomiciliar.clientas === 1 ? 'clienta' : 'clientas'}` : ''}
+          {vista.sinDomiciliar.clientas > 0 ? ` de ${vista.sinDomiciliar.clientas} ${vista.sinDomiciliar.clientas === 1 ? 'cliente' : 'clientes'}` : ''}
           {' '}sin la domiciliación firmada (<CifraPrivada inline>{formatEuro(vista.sinDomiciliar.importe)}</CifraPrivada>) no van al banco: se cobran a mano.
         </p>
       )}

@@ -87,8 +87,8 @@ const labelCls = 'text-[12px] font-semibold text-foreground block mb-1.5';
 // selector de rol), no un catálogo duplicado en más sitios.
 const ROL_DESC: Record<Rol, string> = {
   PROPIETARIO: 'Acceso total: negocio, marketing, automatizaciones y equipo.',
-  MANAGER: 'Lleva el día a día de la sede: horario, alumnas, lista de espera, sustituciones y equipo. No ve facturación, informes de ingresos ni ajustes del negocio, y no puede dar acceso de propietaria.',
-  RECEPCION: 'Reservas, alumnas, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio.',
+  MANAGER: 'Lleva el día a día de la sede: horario, clientes, lista de espera, sustituciones y equipo. No ve facturación, informes de ingresos ni ajustes del negocio, y no puede dar acceso de propietaria.',
+  RECEPCION: 'Reservas, clientes, cobros y caja — sin acceso a marketing, informes ni ajustes del negocio.',
   INSTRUCTOR: 'Calendario, citas (sin precios), miembros, oferta digital, comunidad y mensajería — sin datos de facturación.',
 };
 
@@ -834,7 +834,7 @@ export default function EquipoPage() {
                 </button>
               )}
             </div>
-            <p className="text-[11px] text-muted-foreground -mt-2">Sube una foto de su cara — solo la cara, sin recortes raros: es la que verán las alumnas y el resto del equipo.</p>
+            <p className="text-[11px] text-muted-foreground -mt-2">Sube una foto de su cara — solo la cara, sin recortes raros: es la que verán los clientes y el resto del equipo.</p>
             {errorFoto && <p className="text-[11px] text-destructive -mt-2">{errorFoto}</p>}
             <div>
               <span id={`${uid}-avatar`} className={labelCls}>Avatar</span>
@@ -864,7 +864,7 @@ export default function EquipoPage() {
                 rows={3}
                 maxLength={400}
                 value={form.bio}
-                placeholder="Cuéntales a tus alumnas quién eres — aparece en tu web pública."
+                placeholder="Cuéntales a tus clientes quién eres — aparece en tu web pública."
                 onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
               />
               <p className="text-[11px] text-muted-foreground mt-1">{form.bio.length}/400</p>
@@ -1075,7 +1075,7 @@ export default function EquipoPage() {
               <div className="flex items-start gap-2.5 rounded-xl border border-warning/30 bg-warning/10 p-3 mt-1">
                 <AlertTriangle size={16} className="text-warning shrink-0 mt-0.5" />
                 <p className="text-[13px] leading-relaxed text-foreground/90">
-                  <strong>{dep.alumnasCautivasCount} {dep.alumnasCautivasCount === 1 ? 'alumna asiste' : 'alumnas asisten'} casi en exclusiva</strong> a las clases de {n} (el {dep.porcentajeFacturacion}% de tu facturación reciente). Al darla de baja, esa cartera queda expuesta a irse con ella — vale la pena repartir sus clases y reforzar el vínculo con el estudio antes de confirmar.
+                  <strong>{dep.alumnasCautivasCount} {dep.alumnasCautivasCount === 1 ? 'cliente asiste' : 'clientes asisten'} casi en exclusiva</strong> a las clases de {n} (el {dep.porcentajeFacturacion}% de tu facturación reciente). Al darla de baja, esa cartera queda expuesta a irse con ella — vale la pena repartir sus clases y reforzar el vínculo con el estudio antes de confirmar.
                 </p>
               </div>
             );
@@ -1421,7 +1421,7 @@ function ActividadTab({ actividadReciente, panelNuevo = false, cargado = true }:
         texto="Cada cambio que hace tu equipo en el panel queda apuntado con quién lo hizo y cuándo."
         ejemplos={[
           { accion: 'Alta o baja de alguien del equipo', cuando: 'y quién la hizo' },
-          { accion: 'Un cambio en un plan', cuando: 'o en la ficha de una alumna' },
+          { accion: 'Un cambio en un plan', cuando: 'o en la ficha de un cliente' },
           { accion: 'Una clase que pasa a otra instructora', cuando: 'con la hora del cambio' },
         ]}
       />
@@ -1566,7 +1566,7 @@ function ReasignarDialog({ instructor, instructores, sesiones, tiposClase, salas
                 ? 'No había ninguna clase suya en esas fechas.'
                 : `${resultado.movidas} clase${resultado.movidas === 1 ? '' : 's'} cambiada${resultado.movidas === 1 ? '' : 's'} de instructora.`}
               {resultado.conflictos > 0 && ` ${resultado.conflictos} se quedaron sin mover porque ya tenía otra clase a esa hora.`}
-              {resultado.avisadas > 0 && ` Se ha avisado a ${resultado.avisadas} alumna(s).`}
+              {resultado.avisadas > 0 && ` Se ha avisado a ${resultado.avisadas} cliente(s).`}
             </p>
             <button onClick={onClose} className="w-full py-2 rounded-xl text-[13px] font-bold text-primary-foreground bg-primary hover:brightness-95">
               Cerrar
@@ -1599,7 +1599,7 @@ function ReasignarDialog({ instructor, instructores, sesiones, tiposClase, salas
             <p className="text-[12.5px] text-muted-foreground">
               {candidatas.length === 0
                 ? 'No tiene ninguna clase en esas fechas.'
-                : `${candidatas.length} clase${candidatas.length === 1 ? '' : 's'} en ese periodo${apuntadas > 0 ? `, con ${apuntadas} alumna(s) apuntada(s)` : ', sin nadie apuntado'}.`}
+                : `${candidatas.length} clase${candidatas.length === 1 ? '' : 's'} en ese periodo${apuntadas > 0 ? `, con ${apuntadas} cliente(s) apuntada(s)` : ', sin nadie apuntado'}.`}
             </p>
 
             <label className="flex items-start gap-2.5 cursor-pointer">
@@ -1614,7 +1614,7 @@ function ReasignarDialog({ instructor, instructores, sesiones, tiposClase, salas
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={avisar} disabled={enviando} onChange={e => setAvisar(e.target.checked)} className="w-4 h-4 mt-0.5 rounded accent-brand" />
                 <span className="text-[12.5px] text-foreground">
-                  Avisar a las alumnas del cambio
+                  Avisar a los clientes del cambio
                   <span className="block text-[11.5px] text-muted-foreground">Por email y aviso en su app, una vez por clase.</span>
                 </span>
               </label>
@@ -1986,7 +1986,7 @@ function ValoracionesDialog({ instructor, tiposClase, onClose }: {
           <div className="py-10 text-center">
             <div className="w-12 h-12 rounded-2xl bg-[#FEF9C3] flex items-center justify-center mx-auto mb-3"><Star size={22} className="text-[#F5B301]" fill="#F5B301" /></div>
             <p className="text-[15px] font-bold text-foreground">Aún sin valoraciones</p>
-            <p className="text-[13px] text-muted-foreground mt-1">Cuando las alumnas valoren sus clases, aparecerán aquí.</p>
+            <p className="text-[13px] text-muted-foreground mt-1">Cuando los clientes valoren sus clases, aparecerán aquí.</p>
           </div>
         ) : (
           <div className="space-y-4">

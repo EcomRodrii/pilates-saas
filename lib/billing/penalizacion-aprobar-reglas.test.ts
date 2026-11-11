@@ -1504,7 +1504,7 @@ test('cobrar a mano: una FALLIDA dice qué hacer, sin prometer un pago desde la 
 
 // ── La alumna paga su recibo en el checkout (/api/stripe/checkout) ─────────
 
-test('⚠️ checkout de la alumna: el recibo de una penalización solo con RECIBO_CREADO o FALLIDA', () => {
+test('⚠️ checkout del cliente: el recibo de una penalización solo con RECIBO_CREADO o FALLIDA', () => {
   assert.deepEqual([...ESTADOS_QUE_DEJAN_PAGAR_A_LA_ALUMNA], ['RECIBO_CREADO', 'FALLIDA']);
   for (const estado of TODOS_LOS_ESTADOS) {
     const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'checkout_alumna');
@@ -1521,7 +1521,7 @@ test('⚠️ checkout de la alumna: el recibo de una penalización solo con RECI
   }
 });
 
-test('⚠️ checkout de la alumna: PENDIENTE_APROBACION y DETECTADA «todavía no», el resto «ya no»', () => {
+test('⚠️ checkout del cliente: PENDIENTE_APROBACION y DETECTADA «todavía no», el resto «ya no»', () => {
   for (const estado of ['DETECTADA', 'PENDIENTE_APROBACION'] as const) {
     const v = cobroManualDeRecibo(RECIBO_PEN, { ok: true, estado }, 'checkout_alumna');
     assert.ok(!v.ok && /todavía no se puede pagar/.test(v.mensaje), estado);
@@ -1532,7 +1532,7 @@ test('⚠️ checkout de la alumna: PENDIENTE_APROBACION y DETECTADA «todavía 
   }
 });
 
-test('checkout de la alumna: sin poder leer la penalización no se abre sesión (503), y lo que no es de una penalización pasa', () => {
+test('checkout del cliente: sin poder leer la penalización no se abre sesión (503), y lo que no es de una penalización pasa', () => {
   for (const lectura of [undefined, { ok: false } as const]) {
     const v = cobroManualDeRecibo(RECIBO_PEN, lectura, 'checkout_alumna');
     assert.ok(!v.ok);

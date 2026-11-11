@@ -314,7 +314,7 @@ function ConsentimientoSaludDialog({
               </span>
               <div role="radiogroup" aria-labelledby="consentimiento-salud-quien" className="grid gap-1.5 sm:grid-cols-2">
                 {([
-                  ['SOCIA', `La propia alumna (${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años o más)`],
+                  ['SOCIA', `El propio cliente (${EDAD_MINIMA_CONSENTIMIENTO_SALUD} años o más)`],
                   ['TUTOR_LEGAL', 'Su padre, madre o tutor legal'],
                 ] as const).map(([valor, etiqueta]) => (
                   <button
@@ -344,7 +344,7 @@ function ConsentimientoSaludDialog({
             <label htmlFor="consentimiento-salud-nombre" className="text-xs font-semibold text-muted-foreground mb-1.5 block">
               {tutor
                 ? 'Nombre completo del padre, madre o tutor legal (delante de ti)'
-                : 'Nombre completo de quien autoriza (la propia alumna, delante de ti)'}
+                : 'Nombre completo de quien autoriza (el propio cliente, delante de ti)'}
             </label>
             <input
               id="consentimiento-salud-nombre"
@@ -827,7 +827,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
         open={confirmarRevocar}
         onOpenChange={abierto => { if (!abierto && !revocando) setConfirmarRevocar(false); }}
         titulo="¿Retirar el consentimiento de salud?"
-        descripcion="Hazlo solo si la alumna lo pide. Desde ese momento nadie del estudio verá sus datos de salud (condiciones, notas de sesión, cuestionario): quedan bloqueados, no se borran, y no se podrán añadir nuevos. Si además quiere que se eliminen, es una solicitud de supresión aparte. Queda registrado quién lo retiró y cuándo."
+        descripcion="Hazlo solo si el cliente lo pide. Desde ese momento nadie del estudio verá sus datos de salud (condiciones, notas de sesión, cuestionario): quedan bloqueados, no se borran, y no se podrán añadir nuevos. Si además quiere que se eliminen, es una solicitud de supresión aparte. Queda registrado quién lo retiró y cuándo."
         textoConfirmar={revocando ? 'Retirando…' : 'Retirar consentimiento'}
         destructivo
         onConfirm={() => { if (!revocando) void revocarConsentimiento(); }}
@@ -837,7 +837,7 @@ export function FichaSalud({ socioId, now, onToast }: { socioId: string; now: Da
         open={aBorrar !== null}
         onOpenChange={abierto => { if (!abierto) setABorrar(null); }}
         titulo={aBorrar ? `¿Eliminar "${aBorrar.etiqueta}" de la ficha?` : ''}
-        descripcion="Se borra de la línea de tiempo clínica de la alumna. No se puede deshacer."
+        descripcion="Se borra de la línea de tiempo clínica del cliente. No se puede deshacer."
         textoConfirmar="Eliminar"
         destructivo
         onConfirm={async () => {

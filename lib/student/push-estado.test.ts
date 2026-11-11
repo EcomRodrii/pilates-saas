@@ -38,7 +38,7 @@ test('permiso bloqueado → sin acción posible desde la app, y se dice dónde a
   assert.match(t.cuerpo, /ajustes del navegador/);
 });
 
-test('sin clave VAPID → es cosa del servidor, no de la alumna, y no hay botón', () => {
+test('sin clave VAPID → es cosa del servidor, no del cliente, y no hay botón', () => {
   const t = textoPush(estadoPush({ ...base, hayClave: false }));
   assert.equal(t.accion, null);
   assert.match(t.cuerpo, /No es cosa tuya/);

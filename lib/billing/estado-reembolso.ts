@@ -90,7 +90,7 @@ export function estadoReembolso(
       etiqueta: 'Devuelto',
       // Se dice SIEMPRE, también en las devoluciones hechas desde Stripe (sin
       // `reembolsoSolicitadoEn`): la pregunta de la socia es la misma.
-      detalle: 'El dinero tarda entre 5 y 10 días hábiles en aparecer en el banco de la alumna. Eso lo marca su banco, no el estudio.',
+      detalle: 'El dinero tarda entre 5 y 10 días hábiles en aparecer en el banco del cliente. Eso lo marca su banco, no el estudio.',
     };
   }
 
@@ -105,7 +105,7 @@ export function estadoReembolso(
     return {
       fase: 'FALLIDA',
       etiqueta: 'Devolución fallida',
-      detalle: 'La devolución falló: la alumna NO ha recibido el dinero. Puedes volver a intentarla desde aquí.',
+      detalle: 'La devolución falló: el cliente NO ha recibido el dinero. Puedes volver a intentarla desde aquí.',
     };
   }
 

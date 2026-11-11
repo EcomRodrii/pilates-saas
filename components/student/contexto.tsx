@@ -39,7 +39,7 @@ export function StudentProvider({ estudio, children }: { estudio: EstudioStudent
 
 export function useEstudio(): ValorStudent {
   const v = useContext(StudentContext);
-  if (!v) throw new Error('useEstudio() fuera de <StudentProvider>. Toda pantalla de la alumna cuelga de app/portal/[slug]/layout.tsx.');
+  if (!v) throw new Error('useEstudio() fuera de <StudentProvider>. Toda pantalla del cliente cuelga de app/portal/[slug]/layout.tsx.');
   return v;
 }
 

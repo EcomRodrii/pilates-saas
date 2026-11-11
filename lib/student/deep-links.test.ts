@@ -47,7 +47,7 @@ test('el tablón ya tiene pantalla: comunidad (y un hilo concreto) van al tabló
   assert.equal(traducirEnlace(`/portal/${SLUG}/comunidad/hilo-1`, SLUG), `/portal/${SLUG}/comunidad`);
 });
 
-test('las rutas de STAFF no se cuelan en la app de la alumna', () => {
+test('las rutas de STAFF no se cuelan en la app del cliente', () => {
   // 52 de los 70 deep links del catálogo son de panel. Mandar a una alumna a
   // /calendario o /cobros la deja en una pantalla que no es suya.
   for (const staff of ['/calendario?sesion=s1', '/cobros?tab=pendientes', '/clientas/soc-1', '/dashboard']) {

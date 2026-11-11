@@ -68,8 +68,8 @@ export async function facturacionDelPeriodo(input: EntradaFacturacion, ctx: Cont
     { etiqueta: 'Cobrado', valor: euros(actual.neto), tipo: 'eur', href: '/cobros',
       ...(antes && p.frente && dif ? { comparacion: { texto: dif, tono: tono(actual.neto, antes.neto), frente: p.frente } } : {}) },
     { etiqueta: 'Cobros', valor: String(actual.nCobros), tipo: 'n' },
-    { etiqueta: 'Alumnas que pagaron', valor: String(actual.clientasQuePagaron), tipo: 'n' },
-    ...(actual.ingresoMedioPorClienta !== null ? [{ etiqueta: 'Ingreso medio por alumna', valor: euros(actual.ingresoMedioPorClienta), tipo: 'eur' as const }] : []),
+    { etiqueta: 'Clientes que pagaron', valor: String(actual.clientasQuePagaron), tipo: 'n' },
+    ...(actual.ingresoMedioPorClienta !== null ? [{ etiqueta: 'Ingreso medio por cliente', valor: euros(actual.ingresoMedioPorClienta), tipo: 'eur' as const }] : []),
   ];
   return {
     paraModelo: {
@@ -115,7 +115,7 @@ export async function pagosPendientes(input: EntradaPendientes, ctx: ContextoHer
       enElBancoSinConfirmar: euros(r.enCurso),
       clientasConDeuda: r.nClientasConDeuda,
       recibosSinCobrar: recibos.length,
-      recibos: filas.map(f => ({ alumna: f.ref ? marca(f.ref) : 'venta sin alumna', importe: f.importe, situacion: SITUACION[f.situacion], vence: f.vence })),
+      recibos: filas.map(f => ({ alumna: f.ref ? marca(f.ref) : 'venta sin cliente', importe: f.importe, situacion: SITUACION[f.situacion], vence: f.vence })),
     },
     bloques: [{
       tipo: 'recibos', titulo: 'Sin cobrar', href: '/cobros', total: recibos.length, importeTotal: euros(pendiente),

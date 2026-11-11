@@ -10,7 +10,7 @@ const csv = (cab: string[], filas: string[][]) => [cab.join(','), ...filas.map(f
 
 test('reservas de clase con instructora y sala: son RESERVAS, no citas', () => {
   const contenido = csv(
-    ['Email alumna', 'Clase', 'Fecha', 'Hora inicio', 'Instructora', 'Sala'],
+    ['Email cliente', 'Clase', 'Fecha', 'Hora inicio', 'Instructora', 'Sala'],
     [
       ['ana.garcia1@example.com', 'Pilates Máquinas', '2026-10-12', '08:00', 'Alba Pons', 'Sala 1'],
       ['lucia.lopez2@example.com', 'Yoga', '2026-10-12', '08:00', 'Carmen Prueba', 'Sala 2'],

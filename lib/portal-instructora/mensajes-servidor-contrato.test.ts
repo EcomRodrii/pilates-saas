@@ -22,7 +22,7 @@ function cuerpoDe(firma: string): string {
   return SERVIDOR.slice(inicio, fin < 0 ? undefined : fin);
 }
 
-test('esHiloSuyo: mismo estudio, tipo instructora–alumna y ella como parte STAFF', () => {
+test('esHiloSuyo: mismo estudio, tipo instructora–cliente y ella como parte STAFF', () => {
   const c = cuerpoDe('async function esHiloSuyo');
   assert.match(c, /\.eq\('studio_id', p\.studioId\)/);
   assert.match(c, /\.eq\('tipo', TIPO\)/);
@@ -49,7 +49,7 @@ test('la bandeja solo trae hilos de este estudio en los que ella es STAFF', () =
   assert.doesNotMatch(c, /email|telefono/);
 });
 
-test('abrir: la regla de alumna va antes de la RPC y con la instructora del token', () => {
+test('abrir: la regla de cliente va antes de la RPC y con la instructora del token', () => {
   const c = cuerpoDe('export async function abrirHiloConAlumna');
   const regla = c.indexOf('instructoraAtiendeSocia(');
   const rpc = c.indexOf(".rpc('abrir_conversacion'");

@@ -19,7 +19,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={1} titulo="Entra en tentare.app/crear-estudio">
         <p style={{ margin: '0 0 12px' }}>
-          Escribe el nombre de tu estudio (es el que verán tus alumnas) y, si quieres, tu ciudad y cómo conociste
+          Escribe el nombre de tu estudio (es el que verán tus clientes) y, si quieres, tu ciudad y cómo conociste
           Tentare — los dos últimos son opcionales y no bloquean el alta.
         </p>
         <AyudaCaptura

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   const ventaId = typeof body.ventaId === 'string' ? body.ventaId : '';
   const socioId = typeof body.socioId === 'string' ? body.socioId : '';
   if (!ventaId || !socioId) {
-    return NextResponse.json({ error: 'Falta la venta o la alumna' }, { status: 400 });
+    return NextResponse.json({ error: 'Falta la venta o el cliente' }, { status: 400 });
   }
 
   try {

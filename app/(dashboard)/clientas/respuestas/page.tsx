@@ -129,9 +129,9 @@ export default function RespuestasPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Respuestas de tus alumnas"
+        title="Respuestas de tus clientes"
         description="Lo que ha contestado cada una a tus preguntas de «Datos extra de la ficha»."
-        back={{ href: '/clientas', label: 'Volver a Alumnas' }}
+        back={{ href: '/clientas', label: 'Volver a Clientes' }}
         actions={exporta && preguntas.length > 0 && lista.length > 0 ? (
           <button
             onClick={exportar}
@@ -153,7 +153,7 @@ export default function RespuestasPage() {
           <EmptyState
             icono={ListChecks}
             titulo="Aún no haces ninguna pregunta"
-            descripcion="Crea tus preguntas en Configuración → Alta de alumnas → «Datos extra de la ficha» (su objetivo, cómo te conoció…) y aquí verás lo que contesta cada alumna."
+            descripcion="Crea tus preguntas en Configuración → Alta de clientes → «Datos extra de la ficha» (su objetivo, cómo te conoció…) y aquí verás lo que contesta cada cliente."
             cta={configura ? { label: 'Crear preguntas', href: '/configuracion?tab=altas', icono: Settings2 } : undefined}
           />
         </div>
@@ -161,7 +161,7 @@ export default function RespuestasPage() {
         <>
           {studio && !studio.preguntasAltaActivas && (
             <p role="note" className="rounded-lg border border-border bg-muted px-3 py-2.5 text-[13px] text-foreground">
-              Tus alumnas todavía no las contestan en su app: solo se rellenan desde su ficha.{' '}
+              Tus clientes todavía no las contestan en su app: solo se rellenan desde su ficha.{' '}
               {configura
                 ? <Link href="/configuracion?tab=altas" className="font-semibold underline underline-offset-2">Activa «Preguntar los datos extra en su app»</Link>
                 : 'Puede activarlo la propietaria en Configuración.'}
@@ -172,7 +172,7 @@ export default function RespuestasPage() {
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-[15px] font-semibold text-foreground">
-                <span className="tabular-nums">{completas}</span> de <span className="tabular-nums">{filas.length}</span> alumnas lo han contestado todo
+                <span className="tabular-nums">{completas}</span> de <span className="tabular-nums">{filas.length}</span> clientes lo han contestado todo
               </p>
               {filas.length - completas > 0 && (
                 <button onClick={() => { setFiltro('faltan'); setVisibles(PAGINA); }} className="text-[12px] font-semibold text-muted-foreground underline underline-offset-2 hover:text-foreground">
@@ -180,7 +180,7 @@ export default function RespuestasPage() {
                 </button>
               )}
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={filas.length} aria-valuenow={completas} aria-label="Alumnas con todo contestado">
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={filas.length} aria-valuenow={completas} aria-label="Clientes con todo contestado">
               <div className="h-full rounded-full bg-success" style={{ width: `${filas.length ? Math.round((completas / filas.length) * 100) : 0}%` }} />
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function RespuestasPage() {
 
           {/* Filtros */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar alumnas">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar clientes">
               {([
                 ['todas', `Todas (${filas.length})`],
                 ['faltan', `Les falta algo (${filas.length - completas})`],
@@ -212,12 +212,12 @@ export default function RespuestasPage() {
               ))}
             </div>
             <label className="relative sm:ml-auto sm:w-64">
-              <span className="sr-only">Buscar alumna</span>
+              <span className="sr-only">Buscar cliente</span>
               <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <input
                 value={busqueda}
                 onChange={(e) => { setBusqueda(e.target.value); setVisibles(PAGINA); }}
-                placeholder="Buscar alumna…"
+                placeholder="Buscar cliente…"
                 className="w-full rounded-xl border border-border bg-card py-2 pl-8 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none"
               />
             </label>
@@ -234,7 +234,7 @@ export default function RespuestasPage() {
                 <table className="w-full text-[13px]" data-testid="tabla-respuestas">
                   <thead>
                     <tr className="border-b border-muted bg-muted text-left">
-                      <th className="sticky left-0 z-10 bg-muted px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Alumna</th>
+                      <th className="sticky left-0 z-10 bg-muted px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Cliente</th>
                       {preguntas.map((p) => (
                         <th key={p.id} className="min-w-[140px] max-w-[240px] px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           {p.etiqueta}

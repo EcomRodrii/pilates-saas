@@ -11,7 +11,7 @@ test('la misma clave da SIEMPRE el mismo id de canje', () => {
   assert.match(idCanjeDeClave(BASE), /^rwd-[0-9a-f]{32}$/);
 });
 
-test('otra clave, otra alumna, otra recompensa u otro estudio NO colisionan con este canje', () => {
+test('otra clave, otro cliente, otra recompensa u otro estudio NO colisionan con este canje', () => {
   const base = idCanjeDeClave(BASE);
   for (const cambio of [{ clave: 'otra-clave-distinta' }, { socioId: 'so-2' }, { catalogItemId: 'it-2' }, { studioId: 'st-2' }]) {
     assert.notEqual(idCanjeDeClave({ ...BASE, ...cambio }), base, JSON.stringify(cambio));

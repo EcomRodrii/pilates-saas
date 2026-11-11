@@ -112,7 +112,7 @@ test('un texto no se pasa de largo: se lee en una tarjeta', () => {
   }
 });
 
-test('rutaCoincide: la ficha casa con cualquier alumna, no con el listado', () => {
+test('rutaCoincide: la ficha casa con cualquier cliente, no con el listado', () => {
   assert.equal(rutaCoincide('/clientas/*', '/clientas/abc'), true);
   assert.equal(rutaCoincide('/clientas/*', '/clientas'), false);
   assert.equal(rutaCoincide('/clientas/*', '/clientas/'), false);

@@ -178,7 +178,7 @@ export function MiAppDeTienda({ studioId }: { studioId: string }) {
         <span id="ayuda-nombre-app" className="text-[12px] text-muted-foreground">
           {largo
             ? `En la pantalla de inicio caben unas ${LETRAS_BAJO_EL_ICONO} letras: este nombre se verá recortado.`
-            : 'Es el que ve tu alumna en la pantalla de inicio de su móvil.'}
+            : 'Es el que ve tu cliente en la pantalla de inicio de su móvil.'}
           {' '}En la App Store no puede haber dos apps con el mismo nombre: si ya está cogido, te escribimos para elegir otro.
         </span>
       </label>

@@ -84,7 +84,7 @@ export function AvisoIntegracionesCaidas() {
             ))}
           </ul>
           <p className="text-[12px] text-muted-foreground mt-2 leading-snug">
-            Mientras tanto, lo que se mandaba por ahí no está llegando a tus alumnas.
+            Mientras tanto, lo que se mandaba por ahí no está llegando a tus clientes.
           </p>
           <Link
             href={hrefArreglar(caidas[0].integracion.tipo)}

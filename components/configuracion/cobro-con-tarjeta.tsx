@@ -216,13 +216,13 @@ export function DetalleCobroConTarjeta({ c, onGuardado }: { c: CobroConTarjeta }
   return (
     <div className="flex flex-col gap-5 pb-6">
       <p className="text-sm text-foreground text-pretty">
-        {c.bizum === 'active' ? 'Tus alumnas pueden pagarte con tarjeta y con Bizum.' : 'Tus alumnas pueden pagarte con tarjeta.'}
+        {c.bizum === 'active' ? 'Tus clientes pueden pagarte con tarjeta y con Bizum.' : 'Tus clientes pueden pagarte con tarjeta.'}
       </p>
       {/* Antes la propietaria se enteraba de que Bizum no funcionaba cuando una
           alumna se quejaba de un cobro roto (#1883). */}
       {bizumPendiente && (
         <p className="rounded-lg bg-warning/10 px-3 py-2.5 text-sm text-foreground text-pretty">
-          Bizum no está activo en tu cuenta de Stripe: tus alumnas no lo ven como forma de pago.
+          Bizum no está activo en tu cuenta de Stripe: tus clientes no lo ven como forma de pago.
         </p>
       )}
       <div className="flex flex-col gap-2 @sm/config:flex-row">

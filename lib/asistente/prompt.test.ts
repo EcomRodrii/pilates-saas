@@ -109,7 +109,7 @@ test('al modelo se le enseña UN solo juego de herramientas, el mismo para propi
 });
 
 test('el mapa conoce lo que se ha lanzado y lo que todavía no existe (preguntaron por la tarjeta regalo y por las clases por nivel)', () => {
-  for (const frase of ['Tarjeta regalo', 'Seleccionar varias', 'BORRAR', 'Facturar automáticamente', 'Demo:', 'Solo para alumnas autorizadas']) {
+  for (const frase of ['Tarjeta regalo', 'Seleccionar varias', 'BORRAR', 'Facturar automáticamente', 'Demo:', 'Solo para clientes autorizados']) {
     assert.ok(PROMPT_SISTEMA.includes(frase), `el mapa no dice «${frase}»`);
   }
   // Y no promete lo que no existe: reservar por nivel solo se menciona como «todavía no existe».

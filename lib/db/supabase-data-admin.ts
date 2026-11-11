@@ -3804,7 +3804,7 @@ export async function crearReservaMostrador(params: {
     // RPC lo comprueba, pero después de haber vendido).
     const { data: clienta } = await admin.from('socios').select('id')
       .eq('id', params.socioId).eq('studio_id', params.studioId).is('borrado_en', null).maybeSingle();
-    if (!clienta) return { ok: false, status: 404, error: 'No se encuentra esta alumna en el estudio.' };
+    if (!clienta) return { ok: false, status: 404, error: 'No se encuentra este cliente en el estudio.' };
     const plan = planDeClaseSuelta(cartera.planes, cartera.tipoClaseId);
     const importe = importeDeClaseSuelta(ses.precio_puntual as number | null, plan);
     if (!plan || importe == null) {
@@ -5014,10 +5014,10 @@ function plazaFijaDeFila(r: Record<string, unknown>): PlazaFijaServidor {
 export interface TextosPlazaFija { sinAutorizacion: string; sinCuota: string; duplicada: string; sitioOcupado: string }
 
 const TEXTOS_PLAZA_FIJA_PANEL: TextosPlazaFija = {
-  sinAutorizacion: 'Esta clase necesita autorización y esta alumna no la tiene. Dásela en su ficha y vuelve a intentarlo.',
+  sinAutorizacion: 'Esta clase necesita autorización y este cliente no la tiene. Dásela en su ficha y vuelve a intentarlo.',
   sinCuota: 'Para tener clase fija necesita una cuota activa que incluya esta clase. Con bono se reserva clase a clase.',
   duplicada: 'Ya tiene una clase fija en esa clase',
-  sitioOcupado: 'Ese sitio ya está asignado a otra alumna en esa clase',
+  sitioOcupado: 'Ese sitio ya está asignado a otro cliente en esa clase',
 };
 
 export const TEXTOS_PLAZA_FIJA_ALUMNA: TextosPlazaFija = {
@@ -5071,7 +5071,7 @@ export async function validarPlazaFijaDesdeSesion(
       .eq('id', datos.sesionId).eq('studio_id', studioId).maybeSingle(),
     admin.from('socios').select('id').eq('id', socioId).eq('studio_id', studioId).maybeSingle(),
   ]);
-  if (!socio) return { ok: false as const, error: 'Alumna no encontrada' };
+  if (!socio) return { ok: false as const, error: 'Cliente no encontrada' };
   if (!ses) return { ok: false as const, error: 'Clase no encontrada' };
   if (ses.cancelada) return { ok: false as const, error: 'Esta clase está cancelada: elige otra del horario.' };
   const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
@@ -5192,7 +5192,7 @@ async function guardarPlazaFijaDesdeSesion(
     const r = dada as { ok?: boolean; codigo?: string } | null;
     if (!r?.ok) {
       return r?.codigo === 'SIN_CUPO'
-        ? { ok: false, error: 'Esa clase ya ha llegado al tope de alumnas con clase fija que se dan sin pasar por el estudio.', codigo: 'SIN_CUPO' }
+        ? { ok: false, error: 'Esa clase ya ha llegado al tope de clientes con clase fija que se dan sin pasar por el estudio.', codigo: 'SIN_CUPO' }
         : { ok: false, error: 'No se pudo guardar la clase fija' };
     }
   }
@@ -5534,7 +5534,7 @@ async function aplicarEstadoPlazaFija(
 export async function cambiarEstadoPlazaFijaStaff(
   admin: SupabaseClient, params: { studioId: string; plazaId: string; estado: EstadoPlazaFija },
 ): Promise<ResultadoEstadoPlazaFija> {
-  return aplicarEstadoPlazaFija(admin, params, 'Ese sitio ya está asignado a otra alumna en ese día y hora');
+  return aplicarEstadoPlazaFija(admin, params, 'Ese sitio ya está asignado a otro cliente en ese día y hora');
 }
 
 // Pausa con fechas desde el panel (vacaciones, una lesión…). El motor se salta
@@ -5578,7 +5578,7 @@ export async function pausarPlazaFijaStaff(
     if (!pausa) {
       const v = await volverDePausaPlazaFija(admin, actual, { forzar: true });
       if ('error' in v) return { error: v.error };
-      if (v.accion !== 'VOLVER') return { error: 'Su sitio lo tiene ahora otra alumna: cámbiale el sitio de la clase fija o quítasela.' };
+      if (v.accion !== 'VOLVER') return { error: 'Su sitio lo tiene ahora otro cliente: cámbiale el sitio de la clase fija o quítasela.' };
       return { ok: true, plaza: v.plaza, canceladas: [], mantenidas: [], fallidas: 0, creadas: v.creadas };
     }
     // Hacer que empiece más tarde le devolvería un sitio que ya puede tener otra.
@@ -5995,7 +5995,7 @@ export async function dejarPlazaFijaAlumna(
   let canceladas = 0, mantenidas = 0, fallidas = 0, sinDejar = 0;
   for (const plazaId of ids) {
     const r = await aplicarEstadoPlazaFija(
-      admin, { studioId: p.studioId, plazaId, estado: 'BAJA', socioId: p.socioId }, 'Ese sitio ya está asignado a otra alumna.',
+      admin, { studioId: p.studioId, plazaId, estado: 'BAJA', socioId: p.socioId }, 'Ese sitio ya está asignado a otro cliente.',
     );
     if ('error' in r) { sinDejar++; continue; }
     canceladas += r.canceladas.length; mantenidas += r.mantenidas.length; fallidas += r.fallidas;
@@ -6078,7 +6078,7 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
   if (errTipos) throw new Error(errTipos.message);
   const nombreTipo = new Map((tipos ?? []).map(t => [t.id as string, t.nombre as string]));
   const nombreSocia = new Map((sociosRes.data ?? []).map(s =>
-    [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una alumna']));
+    [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Un cliente']));
   // Las clases fijas pedidas (crear o ampliar): su nombre y si todavía tienen sitio.
   const ofertas = filas.some(f => f.tipo === 'CREAR_CLASE_FIJA' || f.tipo === 'AMPLIAR_CLASE_FIJA')
     ? await (await import('@/lib/db/clases-fijas')).resumenOfertasPendientes(admin, studioId, filas.map(f => f.clase_fija_id).filter((x): x is string => !!x))
@@ -6098,7 +6098,7 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
         ? 'La clase fija está completa: si la aprueba, pasa del tope de plazas.'
         : o.estado === 'SIN_CLASES' ? 'Alguna de sus clases ya no está programada: no se le podrá dar.' : null;
       return [{
-        id: f.id, tipo: f.tipo, socioId: f.socio_id, socia: nombreSocia.get(f.socio_id) ?? 'Una alumna',
+        id: f.id, tipo: f.tipo, socioId: f.socio_id, socia: nombreSocia.get(f.socio_id) ?? 'Un cliente',
         franja: `Clase fija «${o.nombre}»`, superaLimite: f.supera_limite, desde: null, hasta: null, motivoSistema: null,
         creadaEn: f.creada_en,
         claseFija: {
@@ -6114,7 +6114,7 @@ export async function listarPeticionesPlazaFija(admin: SupabaseClient, studioId:
     const hora = (plaza ? plaza.horaInicio : f.hora_inicio ?? '').slice(0, 5);
     const tipo = nombreTipo.get((plaza ? plaza.tipoClaseId : f.tipo_clase_id) ?? '');
     return [{
-      id: f.id, tipo: f.tipo, socioId: f.socio_id, socia: nombreSocia.get(f.socio_id) ?? 'Una alumna',
+      id: f.id, tipo: f.tipo, socioId: f.socio_id, socia: nombreSocia.get(f.socio_id) ?? 'Un cliente',
       // Una petición suelta con duración: quien aprueba tiene que saber que la plaza terminará en una fecha.
       franja: `${DIAS_TITULO[dow] ?? ''} ${hora}${tipo ? ` · ${tipo}` : ''}${f.tipo === 'CREAR' && f.duracion_meses ? ` · ${etiquetaDuracion(f.duracion_meses)}` : ''}`,
       superaLimite: f.supera_limite,
@@ -6375,7 +6375,7 @@ export async function resolverPeticionPlazaFija(
     }
     if (v.accion !== 'VOLVER') {
       await reabrir('APROBADA');
-      return { error: 'Su sitio lo tiene ahora otra alumna: cámbiale el sitio desde su ficha o quítale la plaza.', status: 409 };
+      return { error: 'Su sitio lo tiene ahora otro cliente: cámbiale el sitio desde su ficha o quítale la plaza.', status: 409 };
     }
     await anotar({ resultado_plaza_id: v.plaza.id });
     await responder(`Tu clase fija de ${franja} vuelve después de tu pausa.`);

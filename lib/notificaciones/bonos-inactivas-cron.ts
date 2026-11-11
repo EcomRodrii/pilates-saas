@@ -167,14 +167,14 @@ async function inactivas(admin: SupabaseClient, studioId: string) {
     (lote, from, to) => admin.from('socios').select('id, nombre, apellidos')
       .eq('studio_id', studioId).in('id', lote).order('id').range(from, to),
   );
-  const nombre = new Map(socios.map((s) => [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una alumna']));
+  const nombre = new Map(socios.map((s) => [s.id as string, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Un cliente']));
   const mes = new Date(ahora).toISOString().slice(0, 7);
   let publicados = 0;
   for (const socioId of idsInactivas) {
     const dias = Math.floor((ahora - (ultima.get(socioId) ?? ahora)) / (24 * 3600_000));
     await publish({
       type: EVENTOS.SOCIA_INACTIVA, studioId,
-      data: { socia: nombre.get(socioId) ?? 'Una alumna', dias, socioId },
+      data: { socia: nombre.get(socioId) ?? 'Un cliente', dias, socioId },
       resource: { type: 'socio', id: socioId },
       dedupKey: `inactiva:${socioId}:${mes}`,
     });

@@ -55,7 +55,7 @@ export function estadoDeFicha(d: DatosEstadoFicha, ahora: Date): { pastilla: Pas
     case 'FINALIZADA':
       return {
         pastilla: { texto: 'Terminada', tono: 'neutro' },
-        cifra: d.apuntadas === 0 ? 'Sin alumnas' : `${d.asistidas} de ${d.apuntadas} ${d.asistidas === 1 ? 'vino' : 'vinieron'}`,
+        cifra: d.apuntadas === 0 ? 'Sin clientes' : `${d.asistidas} de ${d.apuntadas} ${d.asistidas === 1 ? 'vino' : 'vinieron'}`,
       };
     case 'SIN_INSTRUCTORA':
       if (Date.parse(d.fin) > ahora.getTime()) {

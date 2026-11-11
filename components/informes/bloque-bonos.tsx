@@ -32,7 +32,7 @@ export function BloqueBonos({ estado, hoy, nombreDe, nombrePlan }: {
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <Cifra etiqueta="Bonos en uso" valor={estado.vivos} nota="Sin caducar, les queden sesiones o no." />
-            <Cifra etiqueta="Sesiones por dar" valor={estado.sesionesQueQuedan} nota="Lo que les queda a tus alumnas entre todos sus bonos." />
+            <Cifra etiqueta="Sesiones por dar" valor={estado.sesionesQueQuedan} nota="Lo que les queda a tus clientes entre todos sus bonos." />
             <Cifra
               etiqueta={`Caducan en ${DIAS_CADUCAN_PRONTO} días`}
               valor={estado.caducanPronto.length}

@@ -36,7 +36,7 @@ export const TAREAS: Tarea[] = [
   // ── Día a día ──────────────────────────────────────────────────────────────
   {
     id: 'nueva-clienta',
-    label: 'Dar de alta a una alumna',
+    label: 'Dar de alta a un cliente',
     href: '/clientas?nuevo=1',
     claves: ['alta', 'nueva socia', 'nuevo cliente', 'apuntar', 'inscribir', 'registrar persona', 'miembro'],
   },
@@ -134,7 +134,7 @@ export const TAREAS: Tarea[] = [
   // ── Traerse el estudio de otro programa ────────────────────────────────────
   {
     id: 'importar-clientas',
-    label: 'Importar alumnas desde otro programa',
+    label: 'Importar clientes desde otro programa',
     href: '/clientas/importar',
     claves: ['importar', 'migrar', 'csv', 'excel', 'timp', 'nubapp', 'eversports', 'mindbody', 'bsport'],
   },

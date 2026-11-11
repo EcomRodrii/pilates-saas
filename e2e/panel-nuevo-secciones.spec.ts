@@ -122,10 +122,10 @@ test('Configuración: la columna, por grupos con su título, y el inicio, una ta
   await expect(rail.getByRole('list', { name: 'Tu estudio' }).getByRole('link', { name: 'Mi equipo' })).toBeVisible();
   await expect(rail.getByRole('list', { name: 'Reservas y cobros' }).getByRole('link', { name: 'Cobros y facturas' })).toBeVisible();
   await expect(rail.getByRole('list', { name: 'Tu cuenta' }).getByRole('link', { name: 'Plan de Tentare' })).toBeVisible();
-  await expect(page.getByRole('heading', { level: 2, name: 'Tus alumnas' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Tus clientes' })).toBeVisible();
   // Al abrir una sección, encima del título dice en qué grupo está.
-  await rail.getByRole('link', { name: 'Cómo reservan mis alumnas' }).click();
-  await expect(page.locator('#seccion-titulo')).toHaveText('Cómo reservan mis alumnas');
+  await rail.getByRole('link', { name: 'Cómo reservan mis clientes' }).click();
+  await expect(page.locator('#seccion-titulo')).toHaveText('Cómo reservan mis clientes');
   await expect(page.getByText('Reservas y cobros', { exact: true }).first()).toBeVisible();
 });
 

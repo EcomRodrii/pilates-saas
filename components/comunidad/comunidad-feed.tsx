@@ -172,7 +172,7 @@ export function ComunidadFeed() {
     }
     if (socios.length > 0 && conteosClientas) {
       const activas = conteosClientas.ACTIVA;
-      out.push({ emoji: '🎯', titulo: 'Tasa de alumnas activas', subtitulo: `${Math.round((activas / socios.length) * 100)}% (${activas} de ${socios.length})` });
+      out.push({ emoji: '🎯', titulo: 'Tasa de clientes activos', subtitulo: `${Math.round((activas / socios.length) * 100)}% (${activas} de ${socios.length})` });
     }
     const nueva = [...socios].sort((a, b) => (b.fechaAlta ?? '').localeCompare(a.fechaAlta ?? ''))[0];
     if (nueva) out.push({ emoji: '⭐', titulo: 'Última alta', subtitulo: `${nueva.nombre} ${nueva.apellidos}` });
@@ -276,7 +276,7 @@ export function ComunidadFeed() {
             tono="magenta"
             Icono={Megaphone}
             titulo="Tu tablón está en silencio"
-            texto="Lo que publiques aquí lo verán tus alumnas en su portal, sin tener que abrir el correo."
+            texto="Lo que publiques aquí lo verán tus clientes en su portal, sin tener que abrir el correo."
             ejemplos={[
               { accion: 'Un aviso', cuando: 'como «el lunes 3 la sala abre a las 8».' },
               { accion: 'Una foto', cuando: 'de la sala nueva o del último taller.' },
@@ -386,9 +386,9 @@ export function ComunidadFeed() {
           )}
         </TarjetaLateral>
 
-        <TarjetaLateral titulo="Alumnas activas">
+        <TarjetaLateral titulo="Clientes activos">
           {activeSocias.length === 0 ? (
-            <p className="text-[13px] text-muted-foreground">Sin alumnas activas</p>
+            <p className="text-[13px] text-muted-foreground">Sin clientes activos</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {activeSocias.map((socio, i) => (
@@ -432,7 +432,7 @@ export function ComunidadFeed() {
       open={borrarId !== null}
       onOpenChange={v => { if (!v) setBorrarId(null); }}
       titulo="¿Borrar esta publicación?"
-      descripcion="Desaparece del tablón y del portal de tus alumnas. No se puede deshacer."
+      descripcion="Desaparece del tablón y del portal de tus clientes. No se puede deshacer."
       textoConfirmar="Borrar"
       destructivo
       onConfirm={() => { if (borrarId) deletePost(borrarId); setBorrarId(null); }}

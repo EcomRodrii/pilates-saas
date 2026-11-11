@@ -4,8 +4,8 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        La Caja está en <strong>Negocio &gt; Caja</strong>, y es una pantalla de mostrador: se usa de pie, con la
-        alumna delante. Solo la ven la propietaria y recepción — quien no mueve dinero no la tiene en el menú.
+        La Caja está en <strong>Negocio &gt; Caja</strong>, y es una pantalla de mostrador: se usa de pie, con el
+        cliente delante. Solo la ven la propietaria y recepción — quien no mueve dinero no la tiene en el menú.
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Monta el ticket">
@@ -44,7 +44,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={3} titulo="Si vendes un bono, di de quién es">
         <p>
-          Al cobrar puedes asignar la venta a una alumna, y el bono se le entrega ahí mismo con sus sesiones
+          Al cobrar puedes asignar la venta a un cliente, y el bono se le entrega ahí mismo con sus sesiones
           contadas. El cobro le aparece en su historial como cualquier otro.
         </p>
         <p style={{ margin: 0 }}>
@@ -56,7 +56,7 @@ export default function Contenido() {
 
       <AyudaPaso numero={4} titulo="«Vengo a pagar la cuota»">
         <p style={{ margin: 0 }}>
-          Eso también se hace desde aquí: buscas a la alumna y le cobras el recibo que tenga pendiente. Hacerlo
+          Eso también se hace desde aquí: buscas al cliente y le cobras el recibo que tenga pendiente. Hacerlo
           en la Caja y no en Cobros no es un capricho — si el efectivo entra en el cajón sin pasar por la Caja,
           el recuento del cierre te sale sobrado y sin explicación.
         </p>
@@ -65,7 +65,7 @@ export default function Contenido() {
       <AyudaResultado>
         Cada venta, salvo en efectivo, lleva su factura, igual que cualquier otro cobro de Tentare (la de efectivo la
         haces desde Cobros si te la piden), y queda en <strong>Ventas</strong>{' '}
-        con su número y su método. Ojo con una cosa: la factura de una venta sin alumna se emite como{' '}
+        con su número y su método. Ojo con una cosa: la factura de una venta sin cliente se emite como{' '}
         <strong>simplificada</strong>, y asignarla después <em>no</em> le cambia el receptor — un documento fiscal
         ya sellado no se reescribe. Si hace falta la factura a su nombre, se hace una rectificativa desde Facturas.
       </AyudaResultado>

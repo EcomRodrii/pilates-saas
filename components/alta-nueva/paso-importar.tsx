@@ -152,7 +152,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
           Sube lo que tengas, en CSV o Excel. Te enseñamos el plan con ejemplos antes de importar nada, y se puede deshacer.
         </p>
         <div className="flex flex-wrap gap-1">
-          {['Alumnas', 'Bonos y cuotas', 'Clases', 'Reservas', 'Pagos', 'Recuperaciones'].map(c => (
+          {['Clientes', 'Bonos y cuotas', 'Clases', 'Reservas', 'Pagos', 'Recuperaciones'].map(c => (
             <span key={c} className="rounded-full bg-muted px-2 py-1 font-mono text-[11px] leading-none text-muted-foreground">{c}</span>
           ))}
         </div>
@@ -172,7 +172,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
       <div className="mt-auto grid gap-2 pt-1.5">
         <div className="grid gap-1.5">
           <button type="button" onClick={() => descargarPlantilla(PLANTILLA_CLIENTAS)} className="inline-flex items-center gap-1.5 text-left text-[13px] font-medium text-foreground underline-offset-2 hover:underline">
-            <Download size={14} aria-hidden /> Plantilla de alumnas (.csv)
+            <Download size={14} aria-hidden /> Plantilla de clientes (.csv)
           </button>
           <button type="button" onClick={() => descargarPlantilla(PLANTILLA_HORARIO)} className="inline-flex items-center gap-1.5 text-left text-[13px] font-medium text-foreground underline-offset-2 hover:underline">
             <Download size={14} aria-hidden /> Plantilla de horario (.csv)
@@ -193,8 +193,8 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
       <LineaDePasos actual={4} />
       <CabeceraPaso
         etiqueta="Paso 4 de 5 · opcional · unos 3 minutos"
-        titulo="¿Traes alumnas de otro sitio?"
-        sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Alumnas."
+        titulo="¿Traes clientes de otro sitio?"
+        sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Clientes."
         masTarde={{ onClick: () => void seguirIgual(onListo), disabled: ocupado }}
         tituloRef={titulo}
       />
@@ -224,7 +224,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
         <div role="status" className="mt-6 flex gap-2.5 rounded-2xl border border-success/30 bg-success/10 px-4 py-3.5">
           <Check size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />
           <p className="text-[14px] leading-[21px] text-foreground">
-            Empiezas de cero. Tus alumnas se darán de alta solas al reservar con tu enlace; si un día quieres traer una lista, está en Alumnas › Importar.
+            Empiezas de cero. Tus clientes se darán de alta solas al reservar con tu enlace; si un día quieres traer una lista, está en Clientes › Importar.
           </p>
         </div>
       ) : (

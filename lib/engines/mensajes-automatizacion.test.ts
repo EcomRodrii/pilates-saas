@@ -29,7 +29,7 @@ test('reescribir un mensaje no pisa los umbrales de la regla', () => {
   assert.equal((r.condicion as Record<string, unknown>).diasCritico, 25);
 });
 
-test('las variables se sustituyen por el dato de cada alumna', () => {
+test('las variables se sustituyen por el dato de cada cliente', () => {
   assert.equal(
     mensajeDe(regla(), 'pago_primer_aviso', { nombre: 'Pilar', importe: 75, concepto: 'Cuota mensual', dias: 3 }),
     'Pilar, tienes un pago pendiente de 75€ (Cuota mensual) desde hace 3 días. Puedes regularizarlo fácilmente desde tu área de socia o pasando por el estudio — si ya lo has hecho, ignora este aviso. ¡Gracias!',
@@ -70,7 +70,7 @@ test('las claves de mensaje no se repiten', () => {
   assert.equal(new Set(claves).size, claves.length);
 });
 
-test('cada regla que escribe a alumnas tiene al menos un mensaje que leer', () => {
+test('cada regla que escribe a clientes tiene al menos un mensaje que leer', () => {
   for (const trigger of ['AUSENCIA_DIAS', 'PAGO_PENDIENTE_DIAS', 'CLASE_MANANA', 'NUEVA_SOCIA', 'RENOVACION_COBRADA', 'CUMPLEANOS'] as const) {
     assert.ok(mensajesDeTrigger(trigger).length > 0, trigger);
   }

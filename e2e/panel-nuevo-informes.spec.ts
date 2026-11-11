@@ -68,7 +68,7 @@ const pestana = (page: Page, nombre: string) => page.getByRole('tab', { name: no
 
 test('pestañas por tema; el Resumen lleva las cifras del periodo y las de hoy', async ({ page }) => {
   await abrir(page);
-  for (const nombre of ['Resumen', 'Dinero', 'Clases', 'Alumnas', 'Bonos']) {
+  for (const nombre of ['Resumen', 'Dinero', 'Clases', 'Clientes', 'Bonos']) {
     await expect(pestana(page, nombre)).toBeVisible({ timeout: 30_000 });
   }
   await expect(pestana(page, 'Resumen')).toHaveAttribute('aria-selected', 'true');
@@ -99,18 +99,18 @@ test('Bonos: los que hay, lo que queda y los que caducan con sesiones, cada uno 
   await expect(page.getByRole('group', { name: 'Periodo' })).toHaveCount(0);
 });
 
-test('Alumnas en riesgo: las mismas listas que los filtros de Alumnas, y enlazan a ellos', async ({ page }) => {
+test('Clientes en riesgo: las mismas listas que los filtros de Clientes, y enlazan a ellos', async ({ page }) => {
   await abrir(page);
   await page.getByTestId('informe-hoy').getByRole('link', { name: 'Sin renovar' }).click({ timeout: 30_000 });
-  await expect(pestana(page, 'Alumnas')).toHaveAttribute('aria-selected', 'true');
-  await expect(page).toHaveURL(/\/informes\?pestana=alumnas$/);
+  await expect(pestana(page, 'Clientes')).toHaveAttribute('aria-selected', 'true');
+  await expect(page).toHaveURL(/\/informes\?pestana=clientas$/);
   const sinRenovar = page.getByTestId('informe-riesgo-sin-renovar');
   await expect(sinRenovar.getByRole('link', { name: 'Laura Martín' })).toHaveAttribute('href', '/clientas/soc-2');
-  await expect(sinRenovar.getByRole('link', { name: /Verlas en Alumnas/ })).toHaveAttribute('href', '/clientas?estado=SIN_RENOVAR');
+  await expect(sinRenovar.getByRole('link', { name: /Verlas en Clientes/ })).toHaveAttribute('href', '/clientas?estado=SIN_RENOVAR');
   const sinVenir = page.getByTestId('informe-riesgo-sin-venir');
   await expect(sinVenir.getByRole('link', { name: 'Carmen Del Río Sánchez' })).toBeVisible();
   await expect(sinVenir).toContainText('no ha venido nunca');
-  await expect(sinVenir.getByRole('link', { name: /Verlas en Alumnas/ })).toHaveAttribute('href', '/clientas?estado=ACTIVA&mas=sin_venir_30d');
+  await expect(sinVenir.getByRole('link', { name: /Verlas en Clientes/ })).toHaveAttribute('href', '/clientas?estado=ACTIVA&mas=sin_venir_30d');
   // María vino ayer: no está en riesgo.
   await expect(page.getByTestId('informe-riesgo')).not.toContainText('María');
 });
@@ -138,8 +138,8 @@ test('si las suscripciones no llegan, ni cifras de bonos ni listas de riesgo: un
   await expect(bloque).not.toContainText('Bonos en uso');
   await expect(page.getByTestId('informe-bonos-caducan')).toHaveCount(0);
 
-  await pestana(page, 'Alumnas').click();
-  await expect(page.getByTestId('informe-riesgo').getByRole('alert')).toContainText('No se han podido cargar tus alumnas');
+  await pestana(page, 'Clientes').click();
+  await expect(page.getByTestId('informe-riesgo').getByRole('alert')).toContainText('No se han podido cargar tus clientes');
   await expect(page.getByTestId('informe-riesgo-sin-renovar')).toHaveCount(0);
 });
 

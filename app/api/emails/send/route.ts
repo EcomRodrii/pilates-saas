@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     .limit(20);
   const socioIds = ((socias ?? []) as { id: string }[]).map(s => s.id);
   if (socioIds.length === 0) {
-    return json('Ese destinatario no es una alumna de tu estudio.', 403);
+    return json('Ese destinatario no es un cliente de tu estudio.', 403);
   }
 
   // Red de seguridad de volumen: generoso a propósito (la mensajería masiva ya
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       .select('concepto, importe, socio_id, fecha_cobro, estado')
       .eq('id', reciboId).eq('studio_id', sesion.studioId).maybeSingle();
     if (!recibo) return json('Recibo no encontrado.', 404);
-    if (!socioIds.includes(recibo.socio_id as string)) return json('Ese recibo no es de esa alumna.', 403);
+    if (!socioIds.includes(recibo.socio_id as string)) return json('Ese recibo no es de ese cliente.', 403);
     if (recibo.estado !== 'COBRADO') return json('Ese recibo no está cobrado.', 409);
     // Puede no existir: la factura se sella aparte. El email sale sin número.
     const { data: factura } = await admin.from('facturas')
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     // reservas, así que en ese momento siguen vivas.
     const { data: plaza } = await admin.from('reservas').select('id')
       .eq('sesion_id', clase.id).in('socio_id', socioIds).neq('estado', 'CANCELADA').limit(1);
-    if (!plaza || plaza.length === 0) return json('Esa alumna no tiene plaza en esa clase.', 403);
+    if (!plaza || plaza.length === 0) return json('Ese cliente no tiene plaza en esa clase.', 403);
     datos = {
       claseNombre: clase.clase, fecha: clase.fecha, hora: clase.hora,
       sala: clase.sala, instructor: clase.instructor,

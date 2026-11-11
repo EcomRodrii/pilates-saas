@@ -101,7 +101,7 @@ export default function ElegirComoEntrar() {
         testId="entrar-como-instructora"
         icono="instructoras"
         titulo="Como instructora"
-        texto="Tu agenda, tus alumnas y cuándo puedes dar clase."
+        texto="Tu agenda, tus clientes y cuándo puedes dar clase."
         ocupada={enviando === 'instructora'}
         bloqueada={enviando !== null}
         onClick={() => void comoInstructora()}
@@ -109,7 +109,7 @@ export default function ElegirComoEntrar() {
       <Opcion
         testId="entrar-como-alumna"
         icono="reservar"
-        titulo="Como alumna"
+        titulo="Como cliente"
         texto="Reservar clases y ver tus bonos."
         ocupada={enviando === 'alumna'}
         bloqueada={enviando !== null}
@@ -117,7 +117,7 @@ export default function ElegirComoEntrar() {
       />
 
       <p className="t-meta" style={{ margin: 0, lineHeight: 1.5 }}>
-        Si entras como alumna, tu parte de instructora te sigue esperando: entra con el enlace del correo que te mandó el estudio.
+        Si entras como cliente, tu parte de instructora te sigue esperando: entra con el enlace del correo que te mandó el estudio.
       </p>
 
       <button

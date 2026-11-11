@@ -173,7 +173,7 @@ function TiposDeClaseQueLaCambian({ tipos, cargo = false }: { tipos: TiposQueLaC
       <p>
         {enumerar(tipos.map(t => t.nombre))} {tipos.length === 1 ? 'tiene' : 'tienen'}{' '}
         {cargo
-          ? 'su propio cargo, y no se cobra: tus alumnas solo aceptaron el del estudio.'
+          ? 'su propio cargo, y no se cobra: tus clientes solo aceptaron el del estudio.'
           : `su propia regla: no ${tipos.length === 1 ? 'sigue' : 'siguen'} esta.`}
       </p>
       <Link
@@ -348,7 +348,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
           </div>
           <p className="text-xs text-muted-foreground">0 minutos = hasta que empieza.</p>
         </fieldset>
-        <Campo label="Reservas a la vez por alumna" ayuda="Reservas activas en clases futuras. Vacío = sin límite.">
+        <Campo label="Reservas a la vez por cliente" ayuda="Reservas activas en clases futuras. Vacío = sin límite.">
           {id => (
             <input
               id={id} type="number" min={0} max={99} inputMode="numeric" className={inputCls} placeholder="Sin límite"
@@ -357,7 +357,7 @@ export function FormReservar({ excepciones, ...props }: PropsCajonRegla) {
             />
           )}
         </Campo>
-        <Campo label="Clases al día por alumna" ayuda="Clases el mismo día, contando la lista de espera. Vacío = sin límite. Las clases por semana las pone cada plan, en Paquetes.">
+        <Campo label="Clases al día por cliente" ayuda="Clases el mismo día, contando la lista de espera. Vacío = sin límite. Las clases por semana las pone cada plan, en Paquetes.">
           {id => (
             <input
               id={id} type="number" min={1} max={20} inputMode="numeric" className={inputCls} placeholder="Sin límite"
@@ -468,7 +468,7 @@ export function FormRecuperaciones(props: PropsCajonRegla) {
     <>
       <div className={CUERPO}>
         {/* Lo aplica `crear_recuperacion` bajo su candado (migr 20260930215106). */}
-        <Campo label="Recuperaciones sin usar a la vez, por alumna" ayuda="De 1 a 20. Con esas, no se le da otra hasta que use o le caduque una.">
+        <Campo label="Recuperaciones sin usar a la vez, por cliente" ayuda="De 1 a 20. Con esas, no se le da otra hasta que use o le caduque una.">
           {id => (
             <input
               id={id} type="number" min={1} max={20} inputMode="numeric" className={cn(inputCls, 'max-w-40')}
@@ -539,7 +539,7 @@ export function FormClaseCancelada({ excepciones, ...props }: PropsCajonRegla) {
           on={form.cancelacionClaseDevuelveBono}
           onChange={v => cambiar('cancelacionClaseDevuelveBono', v)}
         />
-        <Campo label="Mínimo de alumnas para mantener la clase" ayuda="Vacío = sin mínimo.">
+        <Campo label="Mínimo de clientes para mantener la clase" ayuda="Vacío = sin mínimo.">
           {id => (
             <input
               id={id} type="number" min={0} inputMode="numeric" className={inputCls} placeholder="Sin mínimo"
@@ -695,7 +695,7 @@ export function FormAsistencia({ excepciones, confirmacion, showToast, onGuardad
           onChange={v => cambiar('controlAccesoQr', v)}
         >
           <span className="block text-sm text-muted-foreground text-pretty">
-            Cada alumna tiene su QR en la app. Al escanearlo, Tentare comprueba en el momento si tiene plaza en la clase.
+            Cada cliente tiene su QR en la app. Al escanearlo, Tentare comprueba en el momento si tiene plaza en la clase.
             {form.requiereCheckinQr ? ' Si puede entrar, su asistencia queda marcada.' : ''}
           </span>
         </InterruptorCampo>
@@ -873,7 +873,7 @@ function VistaPreviaPlazaFija({ activa, automatica }: { activa: boolean; automat
   return (
     <div data-testid="vista-previa-plaza-fija" className="rounded-xl border border-border bg-muted/40 p-3">
       <p className="text-[12px] font-semibold text-muted-foreground">
-        Así lo ve tu alumna, en la ficha de cada clase que se repite. En su app se llama «clase fija».
+        Así lo ve tu cliente, en la ficha de cada clase que se repite. En su app se llama «clase fija».
       </p>
       <div className={cn('mt-2 flex flex-col gap-2 rounded-lg border border-border bg-card p-3', !activa && 'opacity-50')}>
         <div className="flex items-center gap-3">
@@ -888,7 +888,7 @@ function VistaPreviaPlazaFija({ activa, automatica }: { activa: boolean; automat
       </div>
       {!activa && (
         <p className="mt-2 text-[12px] text-muted-foreground text-pretty">
-          Ahora tus alumnas no lo ven. Enciende «Pueden pedir clase fija» para que aparezca.
+          Ahora tus clientes no lo ven. Enciende «Pueden pedir clase fija» para que aparezca.
         </p>
       )}
     </div>
@@ -937,7 +937,7 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
             })}
             {form.plazaFijaAprobacion === 'AUTOMATICA' && (
               <div className="rounded-lg border border-border p-3" data-testid="tope-plaza-fija">
-                <p className="text-sm font-medium text-foreground">Cuántas alumnas con clase fija puede tener una clase</p>
+                <p className="text-sm font-medium text-foreground">Cuántos clientes con clase fija puede tener una clase</p>
                 <p className="mb-2 text-sm text-muted-foreground text-pretty">
                   Hasta este porcentaje de su aforo se dan solas; a partir de ahí, las apruebas tú. Así una clase no se llena de fijas sin que lo decidas.
                 </p>
@@ -989,7 +989,7 @@ export function FormPausaPlazaFija(props: PropsCajonRegla) {
       <div className={CUERPO}>
         <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PAUSA_PLAZA_FIJA}</p>
         <InterruptorCampo
-          titulo="Su sitio queda libre para otra alumna"
+          titulo="Su sitio queda libre para otro cliente"
           detalle="Mientras dura la pausa, si dura más de una semana. Apagado: conserva su plaza y su sitio."
           on={form.plazaFijaPausaLiberaSitio}
           onChange={v => cambiar('plazaFijaPausaLiberaSitio', v)}

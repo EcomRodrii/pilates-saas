@@ -128,7 +128,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
           ayuda={
             <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
               Tu logo completo: sale en tus correos, en las notificaciones y, si no subes
-              icono, en la app de tus alumnas. Quitamos solos los márgenes que le sobren.
+              icono, en la app de tus clientes. Quitamos solos los márgenes que le sobren.
             </p>
           }
         />
@@ -153,7 +153,7 @@ export function DetalleLogoYFavicon({ favicon, puedeEditarFavicon, soyPropietari
             conEnlace={false}
             ayuda={
               <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
-                Solo el símbolo, sin texto. Es tu icono en la pestaña, en la app de tus alumnas junto a tu nombre y en su móvil. Lo recortamos y centramos sobre blanco. Se aplica al momento.
+                Solo el símbolo, sin texto. Es tu icono en la pestaña, en la app de tus clientes junto a tu nombre y en su móvil. Lo recortamos y centramos sobre blanco. Se aplica al momento.
               </p>
             }
           />

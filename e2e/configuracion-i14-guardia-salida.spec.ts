@@ -42,7 +42,7 @@ test.describe('I-14: Horario de citas entra en la guardia de salida', () => {
 
     // Cambiar de sección pregunta, con el diálogo de siempre — antes se iba sin más.
     const rail = page.getByRole('navigation', { name: 'Secciones de Configuración' });
-    await rail.getByRole('link', { name: 'Cómo reservan mis alumnas', exact: true }).click();
+    await rail.getByRole('link', { name: 'Cómo reservan mis clientes', exact: true }).click();
     await expect(dialogoSalir(page)).toBeVisible();
     await expect(dialogoSalir(page)).toContainText('Los cambios de «Mis clases y citas» se perderán.');
     await dialogoSalir(page).getByRole('button', { name: 'Seguir editando' }).click();

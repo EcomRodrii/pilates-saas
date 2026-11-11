@@ -73,7 +73,7 @@ export function explicacionAcceso(motivo: MotivoVisible, d: DatosTexto): string 
     case 'CLIENTA_DESACTIVADA':
     case 'IMPAGO':
     case 'ESTADO_A_REVISAR':
-      return 'Esta alumna tiene un estado que requiere revisión.';
+      return 'Este cliente tiene un estado que requiere revisión.';
     case 'VARIAS_CLASES': return 'Tiene reserva en más de una clase de ahora. ¿A cuál entra?';
     case 'SIN_RESERVA':
       return d.clase ? 'No tiene una reserva para esta clase.' : 'No tiene reserva en ninguna de las clases de ahora.';

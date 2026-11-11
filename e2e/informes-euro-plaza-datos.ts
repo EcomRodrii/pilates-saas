@@ -82,7 +82,7 @@ function horarioCompleto() {
     for (const [hora, minuto] of [[9, 0], [10, 30], [18, 0], [19, 30]] as const) {
       k++;
       const alumna = `al-${k}`;
-      socios.push({ ...SOCIOS[0], id: alumna, nombre: `Alumna ${k}`, apellidos: '', email: `${alumna}@example.com` });
+      socios.push({ ...SOCIOS[0], id: alumna, nombre: `Cliente ${k}`, apellidos: '', email: `${alumna}@example.com` });
       suscripciones.push(sus(`sus-${alumna}`, alumna, 'pl-bono'));
       recibos.push(rec(`rec-${alumna}`, alumna, `sus-${alumna}`, 10 + ((k * 37) % 20) * 10));
       for (let i = 0; i < 4; i++) {

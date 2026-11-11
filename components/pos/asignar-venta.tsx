@@ -56,7 +56,7 @@ export function AsignarVenta({ ventaId, onHecho }: { ventaId: string; onHecho: (
         className="w-full h-12 rounded-xl border border-dashed border-border text-[15px] font-semibold text-foreground inline-flex items-center justify-center gap-2"
       >
         <UserPlus size={16} />
-        Asignar a una alumna
+        Asignar a un cliente
       </button>
     );
   }
@@ -76,7 +76,7 @@ export function AsignarVenta({ ventaId, onHecho }: { ventaId: string; onHecho: (
       {error && <p className="text-[12.5px] text-destructive">{error}</p>}
       <div className="max-h-64 overflow-y-auto -mx-1">
         {resultados.length === 0 && (
-          <p className="px-1 py-3 text-[13px] text-muted-foreground">No hay ninguna alumna que coincida.</p>
+          <p className="px-1 py-3 text-[13px] text-muted-foreground">No hay ningún cliente que coincida.</p>
         )}
         {resultados.map((s) => (
           <button

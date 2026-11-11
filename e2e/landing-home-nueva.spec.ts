@@ -54,7 +54,7 @@ test('las pestañas: con teclado, una seleccionada cada vez y su panel con su en
   await abrir(page, 1440);
   const lista = page.getByRole('tablist', { name: 'Áreas de Tentare' });
   const tabs = lista.getByRole('tab');
-  await expect(tabs).toHaveText(['Reservas', 'Cobros', 'Alumnas', 'Equipo', 'Informes']);
+  await expect(tabs).toHaveText(['Reservas', 'Cobros', 'Clientes', 'Equipo', 'Informes']);
   await expect(tabs.nth(0)).toHaveAttribute('aria-selected', 'true');
   // Hasta que React hidrata, los botones no responden: un clic que cambia la pestaña lo demuestra.
   await expect(async () => {

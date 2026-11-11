@@ -128,7 +128,7 @@ export function LoQueHeCobrado({ datos, acciones, avisos, nueva = false }: { dat
           </button>
         </div>
         <span className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
-          <Buscador valor={busqueda} onCambio={setBusqueda} texto="Buscar alumna o concepto" className="min-w-0 flex-1 sm:w-[250px] sm:flex-none" />
+          <Buscador valor={busqueda} onCambio={setBusqueda} texto="Buscar cliente o concepto" className="min-w-0 flex-1 sm:w-[250px] sm:flex-none" />
           <Link href="/pos" className="zona-tactil inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-muted">
             <Wallet size={15} aria-hidden />Caja
           </Link>

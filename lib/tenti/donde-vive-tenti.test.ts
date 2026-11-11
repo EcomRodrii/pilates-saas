@@ -352,7 +352,7 @@ const NOMBRES_DEL_SONIDO = /\b(sonarTenti|prepararSonidos|useSonidosDeTenti|pone
 const VETADOS: { grupo: string; motivo: string; rutas: string[]; deRebote: boolean }[] = [
   {
     grupo: 'marca blanca', deRebote: true,
-    motivo: 'ahí manda la marca del ESTUDIO: la alumna no conoce a Tentare',
+    motivo: 'ahí manda la marca del ESTUDIO: el cliente no conoce a Tentare',
     rutas: [
       'app/portal', 'app/reservar', 'app/kiosk', 'app/widget-bundle', 'app/widget-auth-retorno',
       'components/widget', 'components/widgets', 'components/checkout-widget', 'components/cuenta-widget',

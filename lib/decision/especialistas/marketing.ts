@@ -38,7 +38,7 @@ export const marketing: Especialista = {
     const confianza = confianzaPrepararCampana({ volumenSuficiente: n >= MIN_PUBLICO, sinCampanaReciente });
     if (!confianza) return [];
 
-    const motivoMotor = `Tienes ${n} alumnas que llevan un mes sin venir o que se apuntaron y nunca han venido. Una campaña de reactivación bien redactada podría traer de vuelta a unas cuantas — te la puedo preparar.`;
+    const motivoMotor = `Tienes ${n} clientes que llevan un mes sin venir o que se apuntaron y nunca han venido. Una campaña de reactivación bien redactada podría traer de vuelta a unas cuantas — te la puedo preparar.`;
     return [{
       especialista: 'MARKETING',
       tipo: 'PREPARAR_CAMPANA',

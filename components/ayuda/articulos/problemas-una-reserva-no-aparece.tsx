@@ -6,7 +6,7 @@ export default function Contenido() {
   return (
     <>
       <QueEstaPasando>
-        Una alumna dice que ha reservado una clase y tú no la ves en tu Calendario.
+        Un cliente dice que ha reservado una clase y tú no la ves en tu Calendario.
       </QueEstaPasando>
 
       <CausasComunes items={[

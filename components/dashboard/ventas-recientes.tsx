@@ -66,7 +66,7 @@ export function VentasRecientes() {
           importe: r.importe,
           estado: r.estado,
           fecha: r.fechaCobro ?? r.fechaVencimiento,
-          socia: socio ? `${socio.nombre} ${socio.apellidos}`.trim() : 'Alumna',
+          socia: socio ? `${socio.nombre} ${socio.apellidos}`.trim() : 'Cliente',
         };
       });
   }, [recibos, socios]);

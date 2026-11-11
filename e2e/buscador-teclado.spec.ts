@@ -14,7 +14,7 @@ async function abrirBuscador(page: Page) {
   await montar(page);
   await ir(page, 'dashboard');
   await page.getByRole('button', { name: /Qué quieres hacer o buscar/ }).first().click({ timeout: 30_000 });
-  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca una alumna, clase o pago…');
+  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca un cliente, clase o pago…');
   await expect(input).toBeVisible();
   return input;
 }

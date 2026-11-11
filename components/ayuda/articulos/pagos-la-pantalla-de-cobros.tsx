@@ -15,10 +15,10 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Quién me debe</h2>
       <p>
-        Una fila por alumna, con lo que debe en total y desde cuándo. Al pulsarla se abre su ficha de deuda al lado:
+        Una fila por cliente, con lo que debe en total y desde cuándo. Al pulsarla se abre su ficha de deuda al lado:
         cada recibo, cómo se le puede cobrar (su tarjeta, su domiciliación o en el mostrador) y, si el cobro automático
-        lo va a intentar solo, cuándo. Desde ahí cobras todo lo suyo de una vez o un recibo suelto. Para cobrar a varias
-        alumnas a la vez, «Seleccionar varias» y eliges cómo te han pagado.
+        lo va a intentar solo, cuándo. Desde ahí cobras todo lo suyo de una vez o un recibo suelto. Para cobrar a varios
+        clientes a la vez, «Seleccionar varias» y eliges cómo te han pagado.
       </p>
       <p>
         Si una tarjeta falló, el recibo sigue aquí marcado como «No se pudo cobrar». No hay que buscarlo en otro sitio: lo que no ha
@@ -32,7 +32,7 @@ export default function Contenido() {
         pagado: si es ahora, eliges cómo y queda cobrado; si lo paga después, queda en «Quién me debe» con su fecha.
         Antes de cobrar te dice si se apunta en la caja y si sale factura. En efectivo no sale factura sola: si te la
         pide, marca «Hacerle factura». Si has apagado «Facturar automáticamente» (Configuración → Cobros y facturas),
-        ninguna sale sola: la haces desde el recibo cobrado. Es el mismo diálogo que el «Nuevo cobro» de la ficha de la alumna.
+        ninguna sale sola: la haces desde el recibo cobrado. Es el mismo diálogo que el «Nuevo cobro» de la ficha del cliente.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Lo que está en el banco</h2>
@@ -46,7 +46,7 @@ export default function Contenido() {
         Los recibos que mandas al banco en una remesa salen como «En el banco»: todavía no son deuda, porque el
         banco no ha contestado. Cuando lo haga, márcalo: <strong>«El banco lo ha cobrado»</strong> (queda cobrado y,
         si era una cuota, se renueva) o <strong>«El banco lo devolvió»</strong> (vuelve a deberlo). Un recibo que
-        devolvió el banco puede volver a la próxima remesa con «Reintentar», si la alumna tiene la domiciliación vigente.
+        devolvió el banco puede volver a la próxima remesa con «Reintentar», si el cliente tiene la domiciliación vigente.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Devolver un cobro</h2>
@@ -65,7 +65,7 @@ export default function Contenido() {
         </li>
       </ul>
       <p>
-        Lo que se cobró por Stripe se devuelve por Stripe, desde la ficha de la alumna, y el recibo se marca solo.
+        Lo que se cobró por Stripe se devuelve por Stripe, desde la ficha del cliente, y el recibo se marca solo.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si se cancela una cuota</h2>
@@ -117,8 +117,8 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Eliminar un recibo</h2>
       <p>
         Solo se puede eliminar un recibo que aún <strong>no es dinero cobrado</strong>: uno pendiente, fallido o
-        anulado, sin factura y sin un pago abierto (por ejemplo, un enlace de pago que la alumna aún puede completar).
-        Al eliminarlo eliges un motivo —está duplicado, el importe estaba mal, se creó por error, la alumna se da de
+        anulado, sin factura y sin un pago abierto (por ejemplo, un enlace de pago que el cliente aún puede completar).
+        Al eliminarlo eliges un motivo —está duplicado, el importe estaba mal, se creó por error, el cliente se da de
         baja u otro motivo— y queda guardado, con quién lo eliminó y cuándo, en «Cambios del equipo».
       </p>
       <p>
@@ -133,7 +133,7 @@ export default function Contenido() {
         de un cobro, marca un recibo como devuelto por el banco o <strong>como cobrado a mano</strong> o por el banco,
         lo vuelve a pasar por el banco, <strong>lanza un cobro</strong> con el método de pago guardado, vende una clase suelta en el
         calendario, devuelve una venta de la caja, emite una factura rectificativa o aprueba cobrar una penalización, queda aquí: quién fue, cuándo, y qué valor había antes. Es lo que
-        necesitas para explicar un descuadre sin preguntar a todo el mundo. Lo de una alumna concreta también sale en
+        necesitas para explicar un descuadre sin preguntar a todo el mundo. Lo de un cliente concreta también sale en
         la pestaña «Pagos» de su ficha.
       </p>
       <p style={{ margin: 0 }}>

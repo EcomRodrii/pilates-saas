@@ -77,7 +77,7 @@ test('la fila con saldo ilegible se marca error y dice qué escribir', () => {
 // quedaba sin clasificar, y sin ninguna pista de por qué.
 
 test('un título antes de la cabecera ya no rompe el separador ;', () => {
-  const csv = 'Listado de alumnas 2026\n\nNombre;Apellidos;Email\nMaría;Soler;maria@gmail.com\n';
+  const csv = 'Listado de clientes 2026\n\nNombre;Apellidos;Email\nMaría;Soler;maria@gmail.com\n';
   const r = parseCsv(csv);
   assert.deepEqual(r.headers, ['Nombre', 'Apellidos', 'Email']);
   assert.equal(r.rows.length, 1);
@@ -86,7 +86,7 @@ test('un título antes de la cabecera ya no rompe el separador ;', () => {
 
 test('ni aunque el título lleve una coma suelta', () => {
   // El caso que ganaba antes: una coma en el título vencía a tres `;` reales.
-  const csv = 'Listado de alumnas, 2026\n\nNombre;Apellidos;Email\nNúria;Bonet;nuria@gmail.com\n';
+  const csv = 'Listado de clientes, 2026\n\nNombre;Apellidos;Email\nNúria;Bonet;nuria@gmail.com\n';
   assert.equal(detectarDelimitador(csv), ';');
   const r = parseCsv(csv);
   assert.deepEqual(r.headers, ['Nombre', 'Apellidos', 'Email']);
@@ -102,7 +102,7 @@ test('una fila de solo separadores no se toma como cabecera', () => {
   // `;;;;;` tiene el ancho correcto pero está vacía, así que "encajaba" y se
   // tomaba como cabecera: todas las columnas salían sin nombre y el archivo no
   // mapeaba ni un campo. Es la forma exacta que tiene un export de Excel.
-  const csv = 'Listado de alumnas - Momence export\n;;;;;\nfirstName;lastName;email\nMaría;Soler;maria@example.com\n';
+  const csv = 'Listado de clientes - Momence export\n;;;;;\nfirstName;lastName;email\nMaría;Soler;maria@example.com\n';
   const r = parseCsv(csv);
   assert.deepEqual(r.headers, ['firstName', 'lastName', 'email']);
   assert.equal(r.rows.length, 1);

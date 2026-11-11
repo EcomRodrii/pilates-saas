@@ -101,7 +101,7 @@ export function RiesgoPlanton() {
       if (apuntadas.length === 0) continue;
 
       const enRiesgo = apuntadas
-        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Alumna', riesgo: riesgoDe(socioId) }))
+        .map(socioId => ({ nombre: socioPorId.get(socioId)?.nombre ?? 'Cliente', riesgo: riesgoDe(socioId) }))
         .filter(x => x.riesgo.nivel === 'ALTO')
         .sort((a, b) => b.riesgo.score - a.riesgo.score);
 
@@ -169,8 +169,8 @@ export function RiesgoPlanton() {
       <p className="px-1 text-[11px] text-muted-foreground">
         Basado en su historial reciente de asistencia.{' '}
         {activo
-          ? 'Con la confirmación activada, se les pide venir y se libera su plaza si no responden a tiempo. Se cambia en Configuración → Cómo reservan mis alumnas.'
-          : 'Solo informativo — no se envía ningún aviso automático. Se activa en Configuración → Cómo reservan mis alumnas.'}
+          ? 'Con la confirmación activada, se les pide venir y se libera su plaza si no responden a tiempo. Se cambia en Configuración → Cómo reservan mis clientes.'
+          : 'Solo informativo — no se envía ningún aviso automático. Se activa en Configuración → Cómo reservan mis clientes.'}
       </p>
     </div>
   );

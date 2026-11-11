@@ -46,7 +46,7 @@ export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: stri
     case 'CERRADO':
       return {
         titulo: 'Tu estudio ha crecido',
-        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus alumnas sigue funcionando: reservan y pagan como siempre.`,
+        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus clientes sigue funcionando: reservan y pagan como siempre.`,
         tono: 'problema',
       };
     case 'SIN_MEDIR':
@@ -75,7 +75,7 @@ export function CabeceraPlanGratis({ className }: { className?: string }) {
           </p>
           <p className="mt-2 text-[15px] font-semibold text-foreground text-pretty">{FRASE_PLAN_GRATIS}</p>
           <p className="mt-1 text-[13.5px] text-muted-foreground text-pretty">
-            Todo Tentare menos varias sedes, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 alumnas activas y 250 reservas al mes. Si pasas de ahí, 29 €/mes, sin tope de alumnas ni de reservas; con ese plan, el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte.
+            Todo Tentare menos varias sedes, sin tarjeta y sin pagar nada, mientras tu estudio tenga hasta 150 clientes activos y 250 reservas al mes. Si pasas de ahí, 29 €/mes, sin tope de clientes ni de reservas; con ese plan, el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte.
           </p>
         </div>
       </div>
@@ -129,7 +129,7 @@ export function UsoPlanGratis({ gratis, className }: { gratis: EstadoGratisApi; 
         <div className="mt-4 grid gap-5 sm:grid-cols-2">
           <Medidor
             Icono={Users}
-            titulo="Alumnas activas"
+            titulo="Clientes activos"
             valor={u.alumnasActivas}
             limite={gratis.limites.alumnas}
             href="/clientas?estado=ACTIVA"

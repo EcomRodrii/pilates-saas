@@ -75,10 +75,10 @@ async function anillo(select: Locator) {
 }
 
 for (const oscuro of [false, true]) {
-  test.describe(`Alumnas: el foco de teclado en los filtros se ve (${oscuro ? 'oscuro' : 'claro'})`, () => {
+  test.describe(`Clientes: el foco de teclado en los filtros se ve (${oscuro ? 'oscuro' : 'claro'})`, () => {
     test('con Tab, el filtro enfocado lleva el anillo; el que deja, no', async ({ page }) => {
       await montar(page, oscuro);
-      const buscador = page.getByRole('searchbox', { name: 'Buscar alumnas' });
+      const buscador = page.getByRole('searchbox', { name: 'Buscar clientes' });
       const plan = page.getByRole('combobox', { name: 'Plan', exact: true });
       const mas = page.getByRole('combobox', { name: 'Más filtros', exact: true });
       await expect(plan).toBeAttached({ timeout: 30_000 });
@@ -107,7 +107,7 @@ for (const oscuro of [false, true]) {
 
     test('pinchar con el ratón no enciende el anillo; volver con el teclado, sí', async ({ page }) => {
       await montar(page, oscuro);
-      const buscador = page.getByRole('searchbox', { name: 'Buscar alumnas' });
+      const buscador = page.getByRole('searchbox', { name: 'Buscar clientes' });
       const plan = page.getByRole('combobox', { name: 'Plan', exact: true });
       await expect(plan).toBeAttached({ timeout: 30_000 });
 

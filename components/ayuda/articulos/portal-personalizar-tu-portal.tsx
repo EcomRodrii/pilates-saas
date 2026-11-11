@@ -9,8 +9,8 @@ export default function Contenido() {
     <>
       <p>
         En <Link href="/configuracion/apariencia" style={{ color: 'inherit', textDecoration: 'underline' }}>Configuración &gt; Marca &gt; Apariencia de tu app</Link>{' '}
-        eliges cómo se ve la app de tus alumnas. A la derecha tienes un móvil con tu app de verdad, con tus clases: cada
-        cambio se ve ahí al momento, y puedes navegar por ella. Tus alumnas no ven nada hasta que pulsas «Publicar».
+        eliges cómo se ve la app de tus clientes. A la derecha tienes un móvil con tu app de verdad, con tus clases: cada
+        cambio se ve ahí al momento, y puedes navegar por ella. Tus clientes no ven nada hasta que pulsas «Publicar».
       </p>
 
       <AyudaPaso numero={1} titulo="Elige un estilo">

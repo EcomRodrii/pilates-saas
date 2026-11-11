@@ -9,7 +9,7 @@
 export const COLUMNAS_EXTRA = [
   { id: 'frecuencia', titulo: 'Clases por semana' },
   { id: 'constancia', titulo: 'Constancia' },
-  { id: 'desde', titulo: 'Alumna desde' },
+  { id: 'desde', titulo: 'Cliente desde' },
   { id: 'telefono', titulo: 'Teléfono' },
   { id: 'email', titulo: 'Email' },
 ] as const;

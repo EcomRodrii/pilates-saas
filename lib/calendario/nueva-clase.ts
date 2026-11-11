@@ -234,7 +234,7 @@ export function fraseAlLlenarse(studio: Partial<Studio> | null | undefined, tipo
   const r = reglasEfectivasDeTipo(reglasGuardadas(studio), tipo);
   if (!r.permiteListaEspera) {
     const quien = tipo && tipo.permiteListaEspera != null ? `«${tipo.nombre}» no tiene` : 'tu estudio no tiene';
-    return `Al llenarse, tus alumnas ya no pueden reservarla: ${quien} lista de espera.`;
+    return `Al llenarse, tus clientes ya no pueden reservarla: ${quien} lista de espera.`;
   }
   const plazo = r.listaEsperaPlazoAceptacionMinutos > 0 ? r.listaEsperaPlazoAceptacionMinutos : 0;
   return plazo > 0

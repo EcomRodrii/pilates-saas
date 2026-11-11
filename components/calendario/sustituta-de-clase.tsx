@@ -234,12 +234,12 @@ export function SustitutaDeClase({
             <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
               {apuntadas > 0 && (avisoClientasApagado ? (
                 <p className="text-pretty text-[12.5px] text-muted-foreground">
-                  A las alumnas no se les avisa del cambio: ese aviso está apagado en Sustituciones.
+                  A los clientes no se les avisa del cambio: ese aviso está apagado en Sustituciones.
                 </p>
               ) : (
                 <label className="flex items-center gap-2 text-[12.5px] text-foreground">
                   <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={avisarClientas} onChange={e => setAvisarClientas(e.target.checked)} />
-                  Avisar a {apuntadas === 1 ? 'la alumna apuntada' : `las ${apuntadas} alumnas apuntadas`}
+                  Avisar a {apuntadas === 1 ? 'el cliente apuntado' : `las ${apuntadas} clientes apuntados`}
                 </label>
               ))}
               {whatsapp && (

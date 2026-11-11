@@ -310,7 +310,7 @@ export function resumenPlazoEspera(min: number): string {
 }
 
 export function resumenMinimoAsistentes(n: number): string {
-  return n <= 0 ? 'sin mínimo, la clase sale siempre' : `${n} ${n === 1 ? 'alumna' : 'alumnas'}`;
+  return n <= 0 ? 'sin mínimo, la clase sale siempre' : `${n} ${n === 1 ? 'cliente' : 'clientes'}`;
 }
 
 export function resumenPenalizacion(importe: number | null): string {

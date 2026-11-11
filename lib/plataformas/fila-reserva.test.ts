@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { avisoQuitarExterna, filaReserva } from './fila-reserva.ts';
 
-const nombre = (id: string) => (id === 's-1' ? 'Ana García' : 'Alumna');
+const nombre = (id: string) => (id === 's-1' ? 'Ana García' : 'Cliente');
 
 test('una socia: su nombre, enlace a la ficha y todas las acciones', () => {
   const f = filaReserva({ socioId: 's-1', origen: 'TENTARE' }, nombre);
@@ -24,7 +24,7 @@ test('una reserva de ClassPass: el nombre que dio la plataforma, sin ficha ni Re
 test('Urban Sports Club se etiqueta como USC y, sin nombre, dice de dónde viene', () => {
   const f = filaReserva({ socioId: null, origen: 'URBAN_SPORTS_CLUB', nombreExterno: '  ' }, nombre);
   assert.equal(f.siglaPlataforma, 'USC');
-  assert.equal(f.nombre, 'Alumna de Urban Sports Club');
+  assert.equal(f.nombre, 'Cliente de Urban Sports Club');
 });
 
 test('sin origen (código antiguo) se trata como socia; sin socia nunca enlaza a /alumnas/null', () => {

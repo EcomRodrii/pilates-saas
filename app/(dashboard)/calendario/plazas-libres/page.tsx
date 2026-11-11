@@ -150,7 +150,7 @@ export default function PlazasLibresPage() {
     <div className="space-y-4 pb-24" data-testid="plazas-libres">
       <PageHeader
         title="Plazas libres"
-        description="Cuántas plazas quedan en cada clase y dónde cabe otra alumna con clase fija."
+        description="Cuántas plazas quedan en cada clase y dónde cabe otro cliente con clase fija."
         back={{ href: '/calendario', label: 'Volver al calendario' }}
       />
 
@@ -164,7 +164,7 @@ export default function PlazasLibresPage() {
             Si hay una máquina averiada, ya está descontada.
           </p>
           <p>
-            <span className="font-semibold text-foreground">Para una clase fija: </span>lo que queda si además guardas el sitio de las alumnas con clase fija
+            <span className="font-semibold text-foreground">Para una clase fija: </span>lo que queda si además guardas el sitio de los clientes con clase fija
             que aún no tienen esa clase reservada, como las que están en pausa. Solo se enseña cuando es distinto de «libres».
           </p>
           {modo === 'mes' && <p>Cada fila es una franja del horario (día, hora, sala y tipo de clase). Los números son sus clases: rellenos, con sitio para otra clase fija.</p>}

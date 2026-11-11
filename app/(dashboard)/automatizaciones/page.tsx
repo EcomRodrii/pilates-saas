@@ -79,10 +79,10 @@ const resultadoConfig: Record<ResultadoLog, { label: string; color: string; bg: 
 };
 
 const triggerLabels: Record<string, string> = {
-  AUSENCIA_DIAS:       'Ausencia de alumna',
+  AUSENCIA_DIAS:       'Ausencia de cliente',
   PAGO_PENDIENTE_DIAS: 'Pago pendiente',
   BONO_SESIONES_BAJAS: 'Bono casi agotado',
-  NUEVA_SOCIA:         'Nueva alumna',
+  NUEVA_SOCIA:         'Nuevo cliente',
   CLASE_MANANA:        'Clase mañana',
   RENOVACION_COBRADA:  'Renovación cobrada',
   CLASE_LLENA_RECURRENTE: 'Clase con demanda sostenida',
@@ -98,7 +98,7 @@ const triggerLabels: Record<string, string> = {
 // fuego en ningún sitio.
 const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces' | 'ultimaEjecucion' | 'creadaEn'>[] = [
   {
-    nombre: 'Alumna ausente', descripcion: 'Recuerda a las alumnas que llevan días sin venir, pregunta cómo están a las 2 semanas, y ofrece una vuelta con descuento si la ausencia se alarga',
+    nombre: 'Cliente ausente', descripcion: 'Recuerda a los clientes que llevan días sin venir, pregunta cómo están a las 2 semanas, y ofrece una vuelta con descuento si la ausencia se alarga',
     icono: '👤', trigger: 'AUSENCIA_DIAS', condicion: { dias: 7, diasCheckin: 14, diasCritico: 25, descuentoPct: 15 }, pasos: [], activa: false,
   },
   {
@@ -115,11 +115,11 @@ const REGLAS_SUGERIDAS: Omit<AutomationRule, 'id' | 'studioId' | 'ejecutadaVeces
     icono: '📈', trigger: 'CLASE_LLENA_RECURRENTE', condicion: { semanasConsecutivas: 3, ocupacionMinima: 0.95 }, pasos: [], activa: false,
   },
   {
-    nombre: 'Bono casi agotado', descripcion: 'Si una alumna compra el mismo bono varias veces seguidas, te propone ofrecerle pasarse a un plan ilimitado (con tu aprobación)',
+    nombre: 'Bono casi agotado', descripcion: 'Si un cliente compra el mismo bono varias veces seguidas, te propone ofrecerle pasarse a un plan ilimitado (con tu aprobación)',
     icono: '🔁', trigger: 'BONO_SESIONES_BAJAS', condicion: { comprasSeguidas: 3 }, pasos: [], activa: false,
   },
   {
-    nombre: 'Seguimiento de alumna nueva', descripcion: 'Si no ha reservado en 2 días le anima a hacerlo; si a los 10 días sigue sin venir a ninguna clase, te avisa a ti para que la llames',
+    nombre: 'Seguimiento de cliente nuevo', descripcion: 'Si no ha reservado en 2 días le anima a hacerlo; si a los 10 días sigue sin venir a ninguna clase, te avisa a ti para que la llames',
     icono: '🌱', trigger: 'NUEVA_SOCIA', condicion: { diasSinReservar: 2, diasSinAsistir: 10 }, pasos: [], activa: false,
   },
   {
@@ -168,10 +168,10 @@ const TRIGGERS_QUE_ESCRIBEN_A_CLIENTAS = new Set<AutomationRule['trigger']>([
 //   · valoración después de clase → lib/inngest/valoraciones.ts
 const HECHO_DE_SERIE: string[] = [
   'Recuerda cada clase a quien ha reservado: 24 h antes por email y en su app (y por WhatsApp si lo tienes conectado), y 1 h antes en su app. Si reserva con menos de 24 h, el email y el WhatsApp le llegan poco después de reservar (si falta más de 1 h y cuarto).',
-  'Confirma cada reserva en la app de la alumna en cuanto la hace.',
+  'Confirma cada reserva en la app del cliente en cuanto la hace.',
   'Cuando alguien cancela, pasa la plaza a la siguiente de la lista de espera y se lo cuenta.',
-  'Avisa a la alumna cuando su bono se queda sin clases o está a punto de caducar.',
-  'Reintenta los cobros con tarjeta guardada que fallan, y avisa a la alumna.',
+  'Avisa al cliente cuando su bono se queda sin clases o está a punto de caducar.',
+  'Reintenta los cobros con tarjeta guardada que fallan, y avisa al cliente.',
   'Pide una valoración después de clase.',
 ];
 
@@ -500,7 +500,7 @@ function RuleCard({
           {mensajes.length > 0 && (
             <div className="mt-4">
               <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-                Qué le llega a tu alumna
+                Qué le llega a tu cliente
               </p>
               <div className="space-y-2">
                 {mensajes.map(def => (
@@ -616,7 +616,7 @@ function EditorMensaje({ rule, def, soloLectura }: {
             className="w-full rounded-md border border-border bg-card px-2.5 py-2 text-[11.5px] leading-relaxed text-foreground outline-none focus:border-brand resize-none"
           />
           <p className="text-[10.5px] text-muted-foreground">
-            Entre llaves van los datos de cada alumna:{' '}
+            Entre llaves van los datos de cada cliente:{' '}
             {def.variables.map((v, i) => (
               <span key={v.clave}>
                 {i > 0 && ' · '}
@@ -720,7 +720,7 @@ function LogItem({
               <p className="text-xs text-foreground whitespace-pre-wrap">{log.mensajeCliente}</p>
             ) : (
               <p className="text-xs text-destructive">
-                No se ha podido redactar un mensaje para la alumna — no se puede enviar todavía.
+                No se ha podido redactar un mensaje para el cliente — no se puede enviar todavía.
               </p>
             )}
           </div>
@@ -749,7 +749,7 @@ function LogItem({
         <button
           onClick={onAprobarEnvio}
           disabled={approving || !log.mensajeCliente}
-          title={!log.mensajeCliente ? 'No se pudo redactar un mensaje para la alumna' : undefined}
+          title={!log.mensajeCliente ? 'No se pudo redactar un mensaje para el cliente' : undefined}
           className="shrink-0 mt-0.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
         >
           {approving ? <Loader2 size={12} className="animate-spin" /> : <Gift size={12} />}
@@ -776,7 +776,7 @@ function LogItem({
 function AlcanceDelCumple({ alcance }: { alcance: AlcanceCumpleCliente | null }) {
   // «Clientas» a secas y no «activas»: cuenta las que no están de baja, que no
   // es la cifra «Activa» de Resumen (lib/clientas/estado.ts).
-  const deTus = (n: number) => (n === 1 ? 'de tu única alumna' : `de tus ${n} clientas`);
+  const deTus = (n: number) => (n === 1 ? 'de tu única cliente' : `de tus ${n} clientes`);
   const cuantas = (n: number, una: string, varias: string) => (n === 0 ? `ninguna ${una}` : `${n} ${n === 1 ? una : varias}`);
   return (
     <>
@@ -794,13 +794,13 @@ function AlcanceDelCumple({ alcance }: { alcance: AlcanceCumpleCliente | null })
           Solo escribe a quien tiene guardada su fecha de nacimiento, es mayor de edad y ha aceptado
           recibir novedades de tu estudio. Ahora mismo llegaría a{' '}
           <span className="font-semibold text-foreground">
-            {alcance.activas === 1 ? 'tu única alumna' : `${alcance.alcanzables} de tus ${alcance.activas} clientas`}
+            {alcance.activas === 1 ? 'tu única cliente' : `${alcance.alcanzables} de tus ${alcance.activas} clientes`}
           </span>.
         </p>
       ) : alcance.activas === 0 ? (
         <p>
           Ahora mismo <span className="font-semibold text-foreground">no felicitaría a nadie</span>: todavía
-          no tienes alumnas.
+          no tienes clientes.
         </p>
       ) : (
         <p>
@@ -811,8 +811,8 @@ function AlcanceDelCumple({ alcance }: { alcance: AlcanceCumpleCliente | null })
           {alcance.conFecha === 0 || alcance.conConsentimiento === 0
             ? 'Hacen falta las dos cosas, y ser mayor de edad.'
             : 'Ninguna cumple todo a la vez: fecha, consentimiento, ser mayor de edad y un correo que funcione.'}{' '}
-          Si la activas, empezará a escribir en cuanto alguna lo cumpla. La fecha llega cuando la
-          alumna la pone al apuntarse desde tu web o al firmar su ficha de salud, o si la importas.
+          Si la activas, empezará a escribir en cuanto alguna lo cumpla. La fecha llega cuando el
+          cliente la pone al apuntarse desde tu web o al firmar su ficha de salud, o si la importas.
         </p>
       )}
     </>
@@ -839,10 +839,10 @@ const ICONO_DE_TRIGGER: Record<string, { Icono: React.ElementType; tono: Tono }>
 
 /** «Cuándo» salta cada regla, en una frase. */
 const CUANDO_DE_TRIGGER: Record<string, string> = {
-  AUSENCIA_DIAS: 'Cuando una alumna lleva días sin venir',
+  AUSENCIA_DIAS: 'Cuando un cliente lleva días sin venir',
   PAGO_PENDIENTE_DIAS: 'Cuando un recibo lleva días sin pagarse',
-  BONO_SESIONES_BAJAS: 'Cuando una alumna compra el mismo bono varias veces',
-  NUEVA_SOCIA: 'Cuando se da de alta una alumna nueva',
+  BONO_SESIONES_BAJAS: 'Cuando un cliente compra el mismo bono varias veces',
+  NUEVA_SOCIA: 'Cuando se da de alta un cliente nuevo',
   CLASE_MANANA: 'El día antes de cada clase',
   RENOVACION_COBRADA: 'Cuando se cobra la renovación de una cuota',
   CLASE_LLENA_RECURRENTE: 'Cuando una franja se llena varias semanas seguidas',
@@ -907,7 +907,7 @@ function CifrasAutomatizaciones({ logs, reglas }: { logs: AutomationLog[]; regla
         href={null}
         valor={String(fallidas)}
         arriba={fallidas > 0 ? <span style={{ color: 'var(--destructive)' }}>Revisa el registro</span> : undefined}
-        abajo={fallidas > 0 ? 'p. ej., una alumna sin email' : 'todo salió bien'}
+        abajo={fallidas > 0 ? 'p. ej., un cliente sin email' : 'todo salió bien'}
       />
     </div>
   );
@@ -1027,7 +1027,7 @@ function RuleCardNueva({
           </div>
           {mensajes.length > 0 && (
             <div>
-              <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá tu alumna</p>
+              <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá tu cliente</p>
               <div className="mt-3 space-y-2">
                 {mensajes.map(def => (
                   <EditorMensaje key={def.clave} rule={rule} def={def} soloLectura={soloLectura} />
@@ -1188,12 +1188,12 @@ export default function AutomatizacionesPage() {
     // interna, para la propietaria) aquí sería reintroducir el bug que mandaba
     // ese texto tal cual a la socia.
     if (!log.mensajeCliente) {
-      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'No se pudo redactar el mensaje para la alumna — no se envió nada.' });
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'No se pudo redactar el mensaje para el cliente — no se envió nada.' });
       return;
     }
     const socio = socios.find(s => s.id === log.socioId);
     if (!socio?.email) {
-      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'La alumna no tiene email registrado' });
+      actualizarLog(log.id, { resultado: 'FALLIDO', detalle: 'El cliente no tiene email registrado' });
       return;
     }
     setApprovingId(log.id);
@@ -1440,7 +1440,7 @@ export default function AutomatizacionesPage() {
                   </h2>
                   {reglasCumple.length === 0 && (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Llega apagada, como las demás. Antes de encenderla, Tentare te dice a cuántas alumnas escribiría.
+                      Llega apagada, como las demás. Antes de encenderla, Tentare te dice a cuántos clientes escribiría.
                     </p>
                   )}
                 </div>
@@ -1514,7 +1514,7 @@ export default function AutomatizacionesPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
-              Esto va a escribir a tus alumnas
+              Esto va a escribir a tus clientes
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-2 text-[13px] text-muted-foreground">
@@ -1527,7 +1527,7 @@ export default function AutomatizacionesPage() {
                 {cumpleEnMarketing && (
                   <p className="rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-foreground">
                     Hay otra felicitación de cumpleaños activa en la pantalla antigua de Marketing: con las
-                    dos, a una alumna le llegarían dos correos ese día.
+                    dos, a un cliente le llegarían dos correos ese día.
                   </p>
                 )}
               </DialogDescription>
@@ -1538,7 +1538,7 @@ export default function AutomatizacionesPage() {
                   Los mensajes salen solos cada mañana, en nombre de tu estudio y sin
                   volver a preguntarte. Ahora mismo puede escribir a{' '}
                   <span className="font-semibold text-foreground">
-                    {contactables} {contactables === 1 ? 'clienta' : 'clientas'}
+                    {contactables} {contactables === 1 ? 'cliente' : 'clientes'}
                   </span>{' '}
                   que {contactables === 1 ? 'tiene' : 'tienen'} email o teléfono.
                 </p>

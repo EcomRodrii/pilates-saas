@@ -47,7 +47,7 @@ test('sin reloj (null) no se afirma nada: ni en curso ni terminada', () => {
 // La regla es UNA. Si alguien la duplicase en la app de la alumna, este test
 // seguiría pasando pero el de abajo dejaría de tener sentido: se comprueba que
 // el resultado es literalmente el de `enCursoEn`, la que usa el panel.
-test('la alumna y el panel usan la MISMA regla', () => {
+test('el cliente y el panel usan la MISMA regla', () => {
   for (const hhmm of ['13:30', '13:59', '14:00', '14:30', '14:54', '14:55', '15:30']) {
     const ms = enPunto(hhmm);
     assert.equal(

@@ -6,7 +6,7 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Mensajería junta en una pantalla las cuatro formas de hablar con tus alumnas —y de que el sistema hable
+        Mensajería junta en una pantalla las cuatro formas de hablar con tus clientes —y de que el sistema hable
         por ti—, para no tenerlas repartidas por medio panel.
       </AyudaAntesDeEmpezar>
 
@@ -32,7 +32,7 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Enviar mensaje</h2>
       <p style={{ margin: 0 }}>
         Escribir tú a un grupo: a las que están en prueba, a las que llevan tiempo sin venir, a las que se han
-        dado de baja. Los estados son los mismos que ves en Alumnas, así que lo que filtras aquí es exactamente
+        dado de baja. Los estados son los mismos que ves en Clientes, así que lo que filtras aquí es exactamente
         lo que ves allí.
       </p>
 

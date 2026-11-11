@@ -97,7 +97,7 @@ export function DialogoRepetirMes({ mes, onCerrar, onHecho, onIncierto }: {
   return (
     <ConfirmarFechas
       titulo={tituloRepetir(mes)}
-      descripcion="Se crean las clases que se repiten cada semana, con su sala, su instructora y su aforo. Las alumnas con clase fija siguen en ellas."
+      descripcion="Se crean las clases que se repiten cada semana, con su sala, su instructora y su aforo. Los clientes con clase fija siguen en ellas."
       fechas={fechas}
       marcadas={dias}
       onCambiar={setDias}

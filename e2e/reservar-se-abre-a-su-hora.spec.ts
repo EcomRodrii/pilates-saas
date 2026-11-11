@@ -49,7 +49,7 @@ test('/reservar: dice cuándo se abre, no manda nada antes, y a su hora se encie
   await expect.poll(() => intentos.length, { timeout: 15_000 }).toBe(1);
 });
 
-test('app de la alumna: la hoja espera con «Se abre…» y se enciende a su hora', async ({ page }) => {
+test('app del cliente: la hoja espera con «Se abre…» y se enciende a su hora', async ({ page }) => {
   const intentos = await sembrar(page);
   await page.goto(`/portal/${SLUG}/reservar/${SESION_ID}`);
   const espera = page.getByTestId('reserva-aun-no-abre');

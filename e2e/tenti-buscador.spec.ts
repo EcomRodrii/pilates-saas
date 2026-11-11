@@ -68,7 +68,7 @@ async function montar(page: Page, { rol = 'PROPIETARIO' as 'PROPIETARIO' | 'RECE
 
 const boton = (page: Page) => page.getByRole('button', { name: /Qué quieres hacer o buscar/ });
 const hoja = (page: Page) => page.getByRole('dialog', { name: 'Buscar' });
-const campo = (page: Page) => page.getByPlaceholder('¿Qué quieres hacer? O busca una alumna, clase o pago…');
+const campo = (page: Page) => page.getByPlaceholder('¿Qué quieres hacer? O busca un cliente, clase o pago…');
 const tenti = (page: Page) => hoja(page).locator('canvas[data-tenti]');
 const lupa = (page: Page) => hoja(page).locator('svg.lucide-search');
 
@@ -158,7 +158,7 @@ test('recepción también lo ve: el buscador es de todos', async ({ page }) => {
   // Que entra de verdad como recepción: la sección «Equipo» no es suya y el
   // buscador no la ofrece (la propietaria sí la vería).
   await campo(page).fill('Equipo');
-  await expect(hoja(page).getByText(/^Acciones$|^Alumnas$|Sin resultados/).first()).toBeVisible();
+  await expect(hoja(page).getByText(/^Acciones$|^Clientes$|Sin resultados/).first()).toBeVisible();
   await expect(hoja(page).getByRole('button', { name: /^Equipo$/ })).toHaveCount(0);
   await expect(tenti(page)).toHaveAttribute('data-estado', 'reposo');
 });

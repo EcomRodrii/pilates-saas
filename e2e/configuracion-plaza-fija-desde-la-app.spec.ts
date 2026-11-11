@@ -43,7 +43,7 @@ async function abrirAjuste(page: Page, columnas: Record<string, unknown> = {}) {
 test.describe('Configuración · peticiones de clase fija desde la app', () => {
   test.describe.configure({ timeout: 180_000 });
 
-  test('de serie ya viene encendido: explica cómo se marcan las alumnas y enseña lo que ven, sin el aviso de que no lo ven', async ({ page }) => {
+  test('de serie ya viene encendido: explica cómo se marcan los clientes y enseña lo que ven, sin el aviso de que no lo ven', async ({ page }) => {
     await abrirAjuste(page);
 
     // La explicación dice lo que hace de serie, cómo se pide y el límite de la cuota.
@@ -51,26 +51,26 @@ test.describe('Configuración · peticiones de clase fija desde la app', () => {
     await expect(page.getByText(/con bono se reserva clase a clase/)).toBeVisible();
 
     const vista = page.getByTestId('vista-previa-plaza-fija');
-    await expect(vista).toContainText('Así lo ve tu alumna');
+    await expect(vista).toContainText('Así lo ve tu cliente');
     await expect(vista).toContainText('¿Vienes los martes a las 10:00?');
     await expect(vista).toContainText('se te reserva sola cada semana');
     await expect(vista).toContainText('Tu estudio tiene que confirmarla');
     await expect(vista).toContainText('Clase fija');
     await expect(vista).toContainText('Los martes a las 10:00, reservada cada semana');
-    await expect(vista).not.toContainText('Ahora tus alumnas no lo ven');
+    await expect(vista).not.toContainText('Ahora tus clientes no lo ven');
   });
 
   test('apagado a mano, se ve atenuado con el aviso de que no lo ven', async ({ page }) => {
     await abrirAjuste(page, { plaza_fija_solicitar_desde_app: false });
     await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('¿Vienes los martes a las 10:00?');
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus alumnas no lo ven');
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus clientes no lo ven');
   });
 
   test('apagarlo (de serie viene encendido) manda solo sus columnas al guardar', async ({ page }) => {
     const { patches } = await abrirAjuste(page);
     await page.getByRole('switch', { name: /Pueden pedir clase fija/ }).click();
 
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus alumnas no lo ven');
+    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus clientes no lo ven');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
     // La tarjeta manda TODAS sus columnas: también quién aprueba y el tope (sin tocar: manual y 50 %, lo de siempre).

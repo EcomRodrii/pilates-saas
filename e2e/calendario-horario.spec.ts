@@ -114,7 +114,7 @@ test.describe('Calendario · las clases que se repiten', () => {
   // ajuste apagado sin motivo era justo lo que impedía verse la opción), pero un
   // estudio lo puede seguir apagando, y esta vista es donde trabaja con ellas:
   // aquí se le dice cómo está y, si es la propietaria, se le lleva al ajuste.
-  test('«Horario» dice que las alumnas no pueden pedir su clase fija desde la app cuando el estudio lo ha apagado, y lleva al ajuste', async ({ page }) => {
+  test('«Horario» dice que los clientes no pueden pedir su clase fija desde la app cuando el estudio lo ha apagado, y lleva al ajuste', async ({ page }) => {
     await abrirCalendario(page, () => ({ body: HORARIO }));
     // Después de `montar`, que registra su fila del estudio: gana esta.
     await page.route('**/rest/v1/studios**', r => json(r, {
@@ -125,7 +125,7 @@ test.describe('Calendario · las clases que se repiten', () => {
 
     const aviso = page.getByTestId('aviso-peticiones-plaza-fija');
     await expect(aviso).toBeVisible({ timeout: 30_000 });
-    await expect(aviso).toContainText('Tus alumnas no pueden pedir su clase fija desde la app');
+    await expect(aviso).toContainText('Tus clientes no pueden pedir su clase fija desde la app');
     const enlace = aviso.getByRole('link', { name: 'Dejar que la pidan ellas' });
     await expect(enlace).toHaveAttribute('href', '/configuracion?tab=reservas#plaza-fija-desde-la-app');
   });
@@ -140,7 +140,7 @@ test.describe('Calendario · las clases que se repiten', () => {
     await irAHorario(page);
 
     const aviso = page.getByTestId('aviso-peticiones-plaza-fija');
-    await expect(aviso).toContainText('Tus alumnas pueden pedir su clase fija desde la app; lo decides en Resumen.', { timeout: 30_000 });
+    await expect(aviso).toContainText('Tus clientes pueden pedir su clase fija desde la app; lo decides en Resumen.', { timeout: 30_000 });
     await expect(aviso.getByRole('link')).toHaveCount(0);
   });
 
@@ -169,7 +169,7 @@ test.describe('Calendario · las clases que se repiten', () => {
     expect(envios.some(e => e.accion === 'renovar')).toBe(false);
   });
 
-  test('«+ Clase fija» pide primero la alumna', async ({ page }) => {
+  test('«+ Clase fija» pide primero el cliente', async ({ page }) => {
     await abrirCalendario(page, () => ({ body: HORARIO }));
     await irAHorario(page);
 
@@ -177,7 +177,7 @@ test.describe('Calendario · las clases que se repiten', () => {
     const dialogo = page.getByRole('dialog');
     await expect(dialogo.getByRole('heading', { name: 'Añadir clase fija' })).toBeVisible();
     await expect(dialogo.getByText(NOMBRE)).toBeVisible();
-    await expect(dialogo.getByLabel('Alumna')).toBeFocused();
+    await expect(dialogo.getByLabel('Cliente')).toBeFocused();
   });
 
   test('si el horario no carga, lo dice y «Reintentar» lo vuelve a pedir', async ({ page }) => {

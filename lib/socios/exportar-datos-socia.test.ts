@@ -362,7 +362,7 @@ test('mensajes desde el panel: recepción solo se lleva los del hilo con el estu
   assert.ok(!JSON.stringify(r).includes('Laura, ¿me cambias el ejercicio?'));
 });
 
-test('mensajes: la propietaria y la propia alumna se llevan también los de su instructora', async () => {
+test('mensajes: la propietaria y el propio cliente se llevan también los de su instructora', async () => {
   for (const puerta of ['alumna', { estudio: 'PROPIETARIO' }] as const) {
     const r = await exportarDatosSocia(bdFalsa(fixtureModeracion()).db,
       { studioId: 'st1', socioId: 's1', incluirSalud: false, saludSoloConConsentimiento: true, puerta, ahora: AHORA });

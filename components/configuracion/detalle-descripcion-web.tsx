@@ -36,7 +36,7 @@ export function DetalleDescripcionWeb({ showToast, onGuardado }: {
       <div className="flex flex-col gap-5 pb-6">
         <Campo
           label="Cómo te presentas"
-          ayuda="Sale en tu página de reservas, en «El estudio», y en Tentare Network. No sale en la app de tus alumnas."
+          ayuda="Sale en tu página de reservas, en «El estudio», y en Tentare Network. No sale en la app de tus clientes."
         >
           {id => (
             <textarea

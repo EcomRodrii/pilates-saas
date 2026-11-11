@@ -96,7 +96,7 @@ test('la nota fijada va en una línea, y una vacía no se pinta', () => {
   assert.deepEqual(piezasDeTarjeta(t, { ...BASE, notaFijada: '   ' }, PROPIETARIA), []);
 });
 
-test('la nota fijada de cada alumna: la más reciente de EQUIPO, nunca privada, de sistema ni sin fijar', () => {
+test('la nota fijada de cada cliente: la más reciente de EQUIPO, nunca privada, de sistema ni sin fijar', () => {
   const n = (socioId: string, texto: string, creadoEn: string, extra: Record<string, unknown> = {}) =>
     ({ socioId, texto, tipo: 'NOTA', fijada: true, creadoEn, visibilidad: 'EQUIPO', ...extra });
   const m = notaFijadaPorSocia([
@@ -181,6 +181,6 @@ test('primera vez: solo con el histórico cargado y nunca a quien trae historial
   assert.equal(esPrimeraVez({ ...base, historialPrevio: null }), false);
 });
 
-test('una fila sin alumna del estudio (una plataforma) no lleva «con qué viene»', () => {
+test('una fila sin cliente del estudio (una plataforma) no lleva «con qué viene»', () => {
   assert.deepEqual(piezasDeTarjeta({ ...DE_SERIE, conQueViene: true }, BASE, PROPIETARIA), []);
 });

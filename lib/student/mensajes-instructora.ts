@@ -26,6 +26,6 @@ export type MotivoNoAbrir = 'SIN_CUENTA' | 'SIN_CLASE_CONFIRMADA' | 'MENOR';
 export function textoNoAbrir(motivo: MotivoNoAbrir): string {
   if (motivo === 'MENOR') return TEXTO_MENOR_CHAT;
   return motivo === 'SIN_CUENTA'
-    ? 'Esta alumna todavía no usa la app, así que no puede recibir mensajes.'
+    ? 'Este cliente todavía no usa la app, así que no puede recibir mensajes.'
     : 'Podrás escribirle cuando tenga una clase confirmada contigo.';
 }

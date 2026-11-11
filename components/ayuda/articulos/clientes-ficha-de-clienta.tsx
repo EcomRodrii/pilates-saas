@@ -6,20 +6,20 @@ export default function Contenido() {
   return (
     <>
       <p>
-        La ficha de una alumna reúne todo lo que hay de ella en un sitio: sus datos, su plan o bono activo, el
+        La ficha de un cliente reúne todo lo que hay de ella en un sitio: sus datos, su plan o bono activo, el
         historial de clases a las que ha asistido o faltado, sus pagos y facturas, y las notas que tu equipo va
         dejando sobre su progreso.
       </p>
 
       <AyudaCaptura
         src="/help/clientes/ficha-de-clienta.png"
-        alt="Ficha de una alumna: plan activo, clase fija, recuperaciones y excepciones de automatizaciones"
-        caption="La ficha de una alumna real — resumen, plan y las pestañas de reservas, salud, pagos, comunicaciones y documentos."
+        alt="Ficha de un cliente: plan activo, clase fija, recuperaciones y excepciones de automatizaciones"
+        caption="La ficha de un cliente real — resumen, plan y las pestañas de reservas, salud, pagos, comunicaciones y documentos."
       />
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Notas de progreso</h2>
       <p>
-        Sirven para dejar constancia de cómo va una alumna sesión a sesión — no son una valoración de la alumna,
+        Sirven para dejar constancia de cómo va un cliente sesión a sesión — no son una valoración del cliente,
         son un apunte de seguimiento pensado para que tú o sus instructoras retoméis el hilo. Como son datos de
         salud, exigen su consentimiento, y recepción no las ve: ve solo las notas internas.
       </p>
@@ -27,7 +27,7 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Ficha de salud: quién la ve</h2>
       <p>
         Si usas la ficha de salud (lesiones, zonas y adaptaciones), es un dato sensible con visibilidad restringida a
-        propósito: la propietaria ve el detalle de todas; cada instructora, solo el de sus alumnas; recepción y
+        propósito: la propietaria ve el detalle de todas; cada instructora, solo el de sus clientes; recepción y
         responsable de sede solo ven el semáforo de color (si hay algo que tener en cuenta o no), nunca el motivo. No es un descuido de la interfaz — es la regla, y
         está igual de protegida en el servidor.
       </p>

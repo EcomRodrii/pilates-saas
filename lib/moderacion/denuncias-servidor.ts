@@ -157,7 +157,7 @@ async function nombresPorCuenta(admin: SupabaseClient, studioId: string, cuentas
     admin.from('studios').select('owner_auth_user_id, nombre').eq('id', studioId).maybeSingle(),
   ]);
   for (const s of (socias ?? []) as { auth_user_id: string; nombre: string | null; apellidos: string | null }[]) {
-    out.set(s.auth_user_id, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Una alumna');
+    out.set(s.auth_user_id, `${s.nombre ?? ''} ${s.apellidos ?? ''}`.trim() || 'Un cliente');
   }
   for (const e of (equipo ?? []) as { auth_user_id: string; nombre: string | null }[]) {
     if (!out.has(e.auth_user_id)) out.set(e.auth_user_id, `${e.nombre ?? 'Alguien'} (equipo)`);

@@ -39,9 +39,9 @@ const inputCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-
 const selectCls = 'w-full rounded-lg border border-border px-3 py-2 text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-foreground/10'
 
 const destinatariosLabel: Record<string, string> = {
-  TODAS: 'Todas las alumnas',
-  ACTIVAS: 'Alumnas activas',
-  INACTIVAS: 'Alumnas inactivas',
+  TODAS: 'Todos los clientes',
+  ACTIVAS: 'Clientes activos',
+  INACTIVAS: 'Clientes inactivos',
   SIN_PLAN: 'Sin plan',
   BONO: 'Con bono',
   VIP: 'VIP',
@@ -53,8 +53,8 @@ const destinatariosLabel: Record<string, string> = {
 const triggerLabel: Record<string, string> = {
   SUSCRIPCION_EXPIRA_7D: 'Suscripción expira en 7 días',
   SUSCRIPCION_EXPIRA_1D: 'Suscripción expira mañana',
-  CUMPLEANOS: 'Cumpleaños de alumna',
-  NUEVA_ALTA: 'Nueva alumna registrada',
+  CUMPLEANOS: 'Cumpleaños de cliente',
+  NUEVA_ALTA: 'Nuevo cliente registrado',
   INACTIVIDAD_30D: 'Sin actividad 45 días',
   BONO_AGOTADO: 'Bono agotado',
   BONO_QUEDA_1: 'Queda 1 sesión en bono',
@@ -66,8 +66,8 @@ const triggerLabel: Record<string, string> = {
 const triggerDesc: Record<string, string> = {
   SUSCRIPCION_EXPIRA_7D: 'Cuando una suscripción caduca en 7 días',
   SUSCRIPCION_EXPIRA_1D: 'El día antes de que caduque la suscripción',
-  CUMPLEANOS: 'El día del cumpleaños de la alumna',
-  NUEVA_ALTA: 'Cuando se registra una nueva alumna',
+  CUMPLEANOS: 'El día del cumpleaños del cliente',
+  NUEVA_ALTA: 'Cuando se registra un nuevo cliente',
   INACTIVIDAD_30D: 'Si no hay actividad en los últimos 45 días — si ya usas "Automatizaciones" con la regla de Ausencia, esta se solapa con su secuencia (días 7/14/25); actívala solo si no usas aquella',
   BONO_AGOTADO: 'Cuando se agota el bono de sesiones',
   BONO_QUEDA_1: 'Cuando solo queda 1 sesión en el bono',
@@ -83,7 +83,7 @@ const accionDesc: Record<string, string> = {
   // nada a la clienta. Útil para "que se entere el equipo" sin generar
   // contacto automático con ella (p.ej. suscripción cancelada: mejor que lo
   // gestione una persona a que la trate un email genérico).
-  NOTIFICACION: 'Crea un aviso interno para el equipo (no llega nada a la alumna)',
+  NOTIFICACION: 'Crea un aviso interno para el equipo (no llega nada al cliente)',
 }
 
 // Email templates
@@ -242,7 +242,7 @@ function TopClasesCard({ sesiones, reservas, tiposClase }: {
           compacto
           icono={Calendar}
           titulo="Aún no hay reservas"
-          descripcion="Cuando tus alumnas empiecen a reservar clases, verás aquí el ranking real de demanda."
+          descripcion="Cuando tus clientes empiecen a reservar clases, verás aquí el ranking real de demanda."
         />
       ) : (
         <div className="space-y-3">
@@ -1337,7 +1337,7 @@ export default function MarketingPage() {
           </DialogHeader>
           <div className="space-y-3 mt-2 text-[13px] text-muted-foreground">
             <p>
-              Tienes activa <span className="font-semibold text-foreground">&quot;Ausencia de alumna&quot;</span> en
+              Tienes activa <span className="font-semibold text-foreground">&quot;Ausencia de cliente&quot;</span> en
               Automatizaciones (Automatizaciones → días 7/14/25 sin venir). Se solapa con{' '}
               <span className="font-semibold text-foreground">&quot;{confirmarSolape?.nombre}&quot;</span>:
               una socia inactiva podría recibir avisos de las dos.
@@ -1446,9 +1446,9 @@ export default function MarketingPage() {
                   // al guardar, donde ya no se veía de dónde salía el valor.
                   onChange={e => setNewCampana(p => ({ ...p, destinatarios: e.target.value as DestinatariosCampana }))}
                 >
-                  <option value="TODAS">Todas las alumnas</option>
-                  <option value="ACTIVAS">Alumnas activas</option>
-                  <option value="INACTIVAS">Alumnas inactivas</option>
+                  <option value="TODAS">Todos los clientes</option>
+                  <option value="ACTIVAS">Clientes activos</option>
+                  <option value="INACTIVAS">Clientes inactivos</option>
                   <option value="SIN_PLAN">Sin plan</option>
                   <option value="BONO">Con bono</option>
                   <option value="VIP">VIP</option>
@@ -1465,7 +1465,7 @@ export default function MarketingPage() {
               <FF label="Objetivo (opcional)">
                 <input
                   className={inputCls}
-                  placeholder="Ej. recuperar alumnas inactivas"
+                  placeholder="Ej. recuperar clientes inactivos"
                   value={newCampana.objetivo}
                   onChange={e => setNewCampana(p => ({ ...p, objetivo: e.target.value }))}
                 />
@@ -1677,7 +1677,7 @@ export default function MarketingPage() {
                   checked={newCodigo.soloNuevas}
                   onChange={e => setNewCodigo(p => ({ ...p, soloNuevas: e.target.checked }))}
                 />
-                <span className="text-sm text-foreground">Solo alumnas nuevas</span>
+                <span className="text-sm text-foreground">Solo clientes nuevos</span>
               </label>
             </div>
             <div className="flex justify-end gap-2 pt-2">

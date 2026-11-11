@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     // Las dos pantallas que llaman aquí mandan siempre la socia: una nota de
     // sesión sin socia no pasaría la RLS de `notas_progreso` al guardarla.
     if (typeof socioId !== 'string' || !socioId) {
-      return NextResponse.json({ error: 'Falta la alumna de la nota' }, { status: 400 });
+      return NextResponse.json({ error: 'Falta el cliente de la nota' }, { status: 400 });
     }
     const acceso = await comprobarAccesoSaludSocia(sesion, socioId, { exigirConsentimiento: true });
     if (!acceso.ok) return NextResponse.json({ error: acceso.error }, { status: acceso.status });

@@ -51,13 +51,13 @@ test('la RPC del TPV no rechaza una venta sin ficha por el mero hecho de llevar 
   );
 });
 
-test('…pero una CUOTA sigue exigiendo alumna, y lo decide el tipo del plan', () => {
+test('…pero una CUOTA sigue exigiendo cliente, y lo decide el tipo del plan', () => {
   const { fichero, cuerpo } = ultimaDefinicion();
   // La cláusula, no la palabra: nombrar `MENSUAL` no es mirarlo.
   assert.match(
     cuerpo,
     /p_socio_id\s+IS\s+NULL\s+AND\s+v_plan_tipo\s*=\s*'MENSUAL'/i,
-    `${fichero}: falta el veto de cuota sin alumna (#1957). Sin él, una mensualidad se ` +
+    `${fichero}: falta el veto de cuota sin cliente (#1957). Sin él, una mensualidad se ` +
       'vende en el mostrador sin ficha y queda cobrada y sin entregar a nadie.',
   );
   // Y el tipo tiene que salir del catálogo en la misma consulta que el precio.

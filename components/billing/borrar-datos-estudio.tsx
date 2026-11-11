@@ -61,13 +61,13 @@ export function BorrarDatosEstudio({ className }: { className?: string }) {
       </div>
       {estado.pedidaEn ? (
         <p className="text-[12.5px] text-foreground">
-          Lo pediste el {fecha(estado.pedidaEn)}. Borraremos los datos de tus alumnas y tu equipo, y te lo confirmaremos por correo.
+          Lo pediste el {fecha(estado.pedidaEn)}. Borraremos los datos de tus clientes y tu equipo, y te lo confirmaremos por correo.
         </p>
       ) : (
         <>
           <p className="text-[12px] text-muted-foreground">
             Tu suscripción terminó el {fecha(estado.contratoTerminadoEn)}. Guardaremos los datos hasta el {fecha(estado.borradoPrevistoEn)} para
-            que puedas descargarlos. Si no vas a volver, puedes pedir que los borremos ya: las fichas de tus alumnas y tu equipo, la salud,
+            que puedas descargarlos. Si no vas a volver, puedes pedir que los borremos ya: las fichas de tus clientes y tu equipo, la salud,
             las notas, los mensajes y las copias de seguridad. Descárgalos antes: después no se pueden recuperar. Las facturas y lo que la ley
             obliga a guardar se conservan durante su plazo.
           </p>

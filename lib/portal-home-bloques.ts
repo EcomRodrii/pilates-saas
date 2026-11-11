@@ -756,7 +756,7 @@ export const REGISTRO_BLOQUES: Record<ClaveBloque, DefinicionBloque> = {
       {
         nombre: 'Solo texto',
         descripcion: 'Sin imagen, para un aviso corto.',
-        config: { titulo: 'Cambio de horario', texto: 'Cuéntaselo aquí a tus alumnas.' },
+        config: { titulo: 'Cambio de horario', texto: 'Cuéntaselo aquí a tus clientes.' },
       },
       {
         nombre: 'Con botón',

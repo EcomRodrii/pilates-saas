@@ -51,7 +51,7 @@ test('las etiquetas NO llevan adjetivos que no podamos contar', () => {
   // El diseño decía «alumnas felices» e «instructoras expertas»: ninguna de las
   // dos se puede contar, y las estaríamos afirmando en nombre del estudio.
   assert.ok(!/feli|expert/i.test(textos));
-  assert.deepEqual(c.map(x => x.etiqueta), ['Alumnas', 'Instructoras']);
+  assert.deepEqual(c.map(x => x.etiqueta), ['Clientes', 'Instructoras']);
 });
 
 test('singular y plural, para no dejar «1 Instructoras»', () => {

@@ -24,7 +24,7 @@ export function MovimientosBono({ slug, bonoId, compacta, hrefTodo }: {
 }) {
   const limite = compacta ? 4 : 30;
   const cargar = useCallback(() => getDetalleBonos(slug, { bono: bonoId, limite }), [slug, bonoId, limite]);
-  const { data, estado, reintentar } = useAsync(cargar, (d) => !d.movimientos || d.movimientos.movimientos.length === 0, `alumna:${slug}:bono-movimientos:${bonoId}:${limite}`);
+  const { data, estado, reintentar } = useAsync(cargar, (d) => !d.movimientos || d.movimientos.movimientos.length === 0, `cliente:${slug}:bono-movimientos:${bonoId}:${limite}`);
   const ahoraMs = useAhoraMs();
   const [mas, setMas] = useState<MovimientoBonoVista[]>([]);
   const [hayMasExtra, setHayMasExtra] = useState<boolean | null>(null);

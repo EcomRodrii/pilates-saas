@@ -43,7 +43,7 @@ async function montar(page: Page) {
   return cobros;
 }
 
-test.describe('App de la alumna · tienda', () => {
+test.describe('App del cliente · tienda', () => {
   test.describe.configure({ timeout: 120_000 });
   test.use({ viewport: { width: 390, height: 844 } });
 

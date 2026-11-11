@@ -43,7 +43,7 @@ const PASO_DE_FASE: Record<Fase, number> = { retomar: 0, centro: 0, datos: 1, te
 interface Datos { nombre: string; estudio: string; email: string; telefono: string }
 const DATOS_VACIOS: Datos = { nombre: '', estudio: '', email: '', telefono: '' };
 const EJEMPLOS = [
-  'Quiero ver qué pasa con un bono cuando la alumna avisa de que no va',
+  'Quiero ver qué pasa con un bono cuando el cliente avisa de que no va',
   '¿Gana una recuperación si cancela a tiempo?',
   '¿De qué bono se descuenta la sesión si tiene varios?',
 ];

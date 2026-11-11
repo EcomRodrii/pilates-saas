@@ -50,7 +50,7 @@ test('el tipo de un mensaje se dice en español y lo desconocido no revienta', (
 
 test('el extracto recorta sin partir palabras y no toca lo corto', () => {
   assert.equal(extractoMensaje('  No me  carga\nel calendario  '), 'No me carga el calendario');
-  const largo = 'No me deja cobrar la cuota de una alumna desde su ficha porque aparece un error rojo';
+  const largo = 'No me deja cobrar la cuota de un cliente desde su ficha porque aparece un error rojo';
   const e = extractoMensaje(largo, 40);
   assert.ok(e.endsWith('…') && e.length <= 41, e);
   assert.ok(!e.slice(0, -1).endsWith(' '), 'sin espacio colgando');

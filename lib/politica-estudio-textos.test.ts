@@ -21,7 +21,7 @@ test('de fábrica: lo que hace hoy un estudio que no ha tocado nada', () => {
     'Si cancela con menos de 12 h, no recupera la sesión.',
     'Si se cancela una clase entera —la cancelas tú, por el mínimo o por un cierre—, devuelve la sesión.',
     'Si se libera una plaza, se la da al momento a la primera de la lista de espera.',
-    'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, avisa a sus alumnas por email y en su app.',
+    'Si una clase cambia de instructora, se mueve o se cancela en Sustituciones, avisa a sus clientes por email y en su app.',
   ]);
 });
 
@@ -87,9 +87,9 @@ test('lista de espera: permitida × plazo de aceptación', () => {
   }
 });
 
-test('aviso a las alumnas: encendido, apagado y sin leer', () => {
-  assert.match(frase({ ...FABRICA, avisarAlumnas: true }, 'cambia-la-clase')!.texto, /avisa a sus alumnas por email y en su app/);
-  assert.match(frase({ ...FABRICA, avisarAlumnas: false }, 'cambia-la-clase')!.texto, /no avisa a sus alumnas/);
+test('aviso a los clientes: encendido, apagado y sin leer', () => {
+  assert.match(frase({ ...FABRICA, avisarAlumnas: true }, 'cambia-la-clase')!.texto, /avisa a sus clientes por email y en su app/);
+  assert.match(frase({ ...FABRICA, avisarAlumnas: false }, 'cambia-la-clase')!.texto, /no avisa a sus clientes/);
   // Sin el valor no se afirma nada: ni «avisa» ni «no avisa».
   assert.equal(frase({ ...FABRICA, avisarAlumnas: null }, 'cambia-la-clase'), undefined);
 });

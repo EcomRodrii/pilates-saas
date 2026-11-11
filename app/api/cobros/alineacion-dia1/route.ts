@@ -32,7 +32,7 @@ async function puerta(req: NextRequest, limite: number) {
   const sesion = await verificarSesionStaff(req);
   if (!sesion) return { error: NextResponse.json({ error: 'No autorizado' }, { status: 401 }) } as const;
   if (sesion.rol !== 'PROPIETARIO') {
-    return { error: NextResponse.json({ error: 'Solo la propietaria puede cambiar cuándo se cobra a las alumnas.' }, { status: 403 }) } as const;
+    return { error: NextResponse.json({ error: 'Solo la propietaria puede cambiar cuándo se cobra a los clientes.' }, { status: 403 }) } as const;
   }
   const limitado = await enforceRateLimit(req, 'cobros-alineacion-dia-1', { max: limite, windowSeconds: 60 }, sesion.userId);
   if (limitado) return { error: limitado } as const;

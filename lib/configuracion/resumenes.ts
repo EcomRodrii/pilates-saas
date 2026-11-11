@@ -265,7 +265,7 @@ export function avisosDeConfiguracion(d: DatosConfiguracion): AvisoConfiguracion
     && avisoVentaOnline({ stripeAccountId: s.stripeAccountId, reservaExigirPlan: s.reservaExigirPlan, numPlanesActivos: d.numPlanesActivos })) {
     avisos.push({
       id: 'venta-online',
-      texto: 'Una alumna nueva no puede comprar online el bono que pides para reservar',
+      texto: 'Un cliente nuevo no puede comprar online el bono que pides para reservar',
       etiqueta: 'Sin venta online',
       tono: 'pendiente',
       ...en(d.stripeDisponible ? 'integracion-stripe' : 'reservar'),
@@ -814,7 +814,7 @@ export function resumenCongelacion(s: Partial<Pick<Studio, 'congelacionPermitida
 /** «Cada alumna en su aniversario» o «Todas el día 1 de cada mes». */
 export function resumenCobroDia1(s: Partial<Pick<Studio, 'cobroDia1Activo' | 'cobroProporcionalAltaActivo' | 'cobroDia1Modo'>>): string | null {
   if (s.cobroDia1Activo === undefined) return null;
-  const base = s.cobroDia1Activo ? 'Todas el día 1 de cada mes' : 'Cada alumna en su aniversario';
+  const base = s.cobroDia1Activo ? 'Todas el día 1 de cada mes' : 'Cada cliente en su aniversario';
   const conAlta = s.cobroProporcionalAltaActivo ? `${base} · parte proporcional al alta` : base;
   return s.cobroDia1Activo && s.cobroDia1Modo === 'PROPORCIONAL' ? `${conAlta} · parte proporcional a las actuales` : conAlta;
 }
@@ -942,7 +942,7 @@ export function resumenRegla(
       return u([
         r.cancelacionClaseDevuelveBono ? 'devuelve la sesión' : 'no devuelve la sesión',
         excepciones,
-        r.minimoAsistentesPorClase > 0 ? `mínimo ${contar(r.minimoAsistentesPorClase, 'alumna', 'alumnas')}` : 'sin mínimo',
+        r.minimoAsistentesPorClase > 0 ? `mínimo ${contar(r.minimoAsistentesPorClase, 'cliente', 'clientes')}` : 'sin mínimo',
       ]);
     case 'lista-de-espera': {
       const plazo = r.listaEsperaPlazoAceptacionMinutos;
@@ -1379,7 +1379,7 @@ export function resumenModoSustituciones(s: { modoAutonomia?: string | null; pla
 /** «Avisos a las alumnas», que vive en Cómo reservan mis alumnas. `null`/ausente = sin leer. */
 export function resumenAvisarAlumnas(avisar: boolean | null | undefined): string | null {
   if (avisar === true) return 'Les avisa por email y en su app';
-  if (avisar === false) return 'No avisa a las alumnas';
+  if (avisar === false) return 'No avisa a los clientes';
   return null;
 }
 

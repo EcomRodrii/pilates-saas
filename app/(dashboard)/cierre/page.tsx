@@ -391,7 +391,7 @@ export default function CierreDeAnoPage() {
             <p className="m-0 mt-1">
               {sinRectificar.length === 1 ? 'Sigue' : 'Siguen'} sumando en este cierre, IVA incluido, aunque ese dinero ya no es tuyo,
               y {sinRectificar.length === 1 ? 'necesita' : 'necesitan'} una factura rectificativa antes de que tu gestoría presente el IVA del trimestre.
-              Si el cobro se devolvió entero, la emites desde los pagos de la ficha de la alumna; si se devolvió solo una parte,
+              Si el cobro se devolvió entero, la emites desde los pagos de la ficha del cliente; si se devolvió solo una parte,
               pídesela a tu gestoría:{' '}
               {sinRectificar.map((f, i) => (
                 <span key={f.id}>
@@ -744,7 +744,7 @@ export default function CierreDeAnoPage() {
         )}
         <div className="flex-1 min-w-0">
           <div className="text-sm font-bold">Modelo 347 · operaciones con terceros</div>
-          <div className="text-xs text-muted-foreground mt-0.5">Alumnas que te pagaron más de <b className="tabular-nums">3.005,06 €</b> en el año (declaración informativa de febrero).</div>
+          <div className="text-xs text-muted-foreground mt-0.5">Clientes que te pagaron más de <b className="tabular-nums">3.005,06 €</b> en el año (declaración informativa de febrero).</div>
         </div>
         <span
           className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0"

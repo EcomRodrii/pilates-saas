@@ -74,7 +74,7 @@ test('propietaria sin consultas: la tarjeta con los tres packs en el chat; compr
   await abrirDesdeLaBarra(page);
   // Con 0 la tarjeta ya sale en la bienvenida, antes de chocar con el «sin saldo».
   await expect(chat(page).getByTestId('sin-consultas')).toBeVisible();
-  await sugerencia(page, '¿Cuántas alumnas activas tengo?').click();
+  await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByRole('alert')).toHaveText('Has usado las consultas de este mes. Vuelven el 1 de noviembre.');
   expect(n.preguntas).toBeGreaterThan(0);
   const tarjeta = chat(page).getByTestId('sin-consultas').last();
@@ -147,7 +147,7 @@ test('gerente sin consultas: «pídeselo a la propietaria» y ni un botón de pa
   await expect(chat(page).getByTestId('saldo-bajo')).toHaveText('Pídele más a la propietaria');
 
   saldo = { ...saldo, disponibles: 0 };
-  await sugerencia(page, '¿Cuántas alumnas activas tengo?').click();
+  await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByRole('alert')).toHaveText('Has usado las consultas de este mes. Vuelven el 1 de noviembre.');
   expect(n.preguntas).toBeGreaterThan(0);
   const tarjeta = chat(page).getByTestId('sin-consultas');
@@ -215,7 +215,7 @@ test('capturas: móvil y oscuro', async ({ page }) => {
   await conSuscripcion(page);
   await page.emulateMedia({ colorScheme: 'dark' });
   await abrirDesdeLaBarra(page);
-  await sugerencia(page, '¿Cuántas alumnas activas tengo?').click();
+  await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByTestId('sin-consultas').last()).toBeVisible();
   await captura(page, 'chat-sin-consultas-1280-oscuro');
   await page.goto('/suscripcion');
@@ -241,7 +241,7 @@ test('capturas: móvil en claro', async ({ page }) => {
   await conSuscripcion(page);
   await page.goto('/asistente');
   await expect(chat(page).getByText(/¿En qué te ayudo hoy/)).toBeVisible({ timeout: 60_000 });
-  await sugerencia(page, '¿Cuántas alumnas activas tengo?').click();
+  await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByTestId('sin-consultas').last()).toBeVisible();
   await captura(page, 'chat-sin-consultas-390-claro');
   await page.goto('/suscripcion');

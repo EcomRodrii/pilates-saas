@@ -922,7 +922,7 @@ test.describe('la vista previa a 1440', () => {
 
   test('la portada vacía enseña su horario DE VERDAD en el móvil (no un hueco en blanco), sin dejarse tocar', async ({ page }) => {
     await montar(page, { plataforma: null });
-    const escaparate = page.getByTitle('Tu horario, como lo verá tu alumna');
+    const escaparate = page.getByTitle('Tu horario, como lo verá tu cliente');
     await expect(escaparate).toBeVisible({ timeout: 60_000 });
     await expect(escaparate).toHaveAttribute('inert', '');
     const marco = await escaparate.elementHandle();
@@ -1116,7 +1116,7 @@ test.describe('capturas de la vista previa (solo con CAPTURAS_PR3=<carpeta>)', (
     await page.setViewportSize({ width: 1440, height: 900 });
     await montar(page, { direccion: 'pilatescentro.example.com' });
     await expect(page.getByRole('heading', { name: 'Pon tu horario en tu web' })).toBeVisible({ timeout: 60_000 });
-    const escaparate = await page.getByTitle('Tu horario, como lo verá tu alumna').elementHandle();
+    const escaparate = await page.getByTitle('Tu horario, como lo verá tu cliente').elementHandle();
     await (await escaparate!.contentFrame())!.locator('#horario').waitFor({ timeout: 120_000 });
     await foto(page, 'vacio-pon-tu-horario-1440');
     await page.evaluate(() => localStorage.setItem('panel-dark-mode', '1'));

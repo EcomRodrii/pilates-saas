@@ -59,7 +59,7 @@ async function panel(page: Page, { comoRecepcion = false } = {}) {
 // e2e/buscador-global-secciones.spec.ts): el del menú lateral no está en todas.
 async function abrirBuscador(page: Page) {
   await page.getByRole('button', { name: /Qué quieres hacer o buscar/ }).click({ timeout: 30_000 });
-  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca una alumna, clase o pago…');
+  const input = page.getByPlaceholder('¿Qué quieres hacer? O busca un cliente, clase o pago…');
   await expect(input).toBeVisible();
   return input;
 }
@@ -92,10 +92,10 @@ test.describe('⌘K encuentra los ajustes de Configuración', () => {
 
     const input = await abrirBuscador(page);
     await input.fill('lista de espera');
-    await page.getByRole('button', { name: /^Lista de espera\s*Cómo reservan mis alumnas$/ }).click();
+    await page.getByRole('button', { name: /^Lista de espera\s*Cómo reservan mis clientes$/ }).click();
 
     await expect(input).toBeHidden();
-    await expect(tituloSeccion(page, 'Cómo reservan mis alumnas')).toBeVisible({ timeout: 15_000 });
+    await expect(tituloSeccion(page, 'Cómo reservan mis clientes')).toBeVisible({ timeout: 15_000 });
     await expect(page).toHaveURL(/\/configuracion\?tab=reservas#lista-de-espera$/);
     await expect(page.locator('#lista-de-espera')).toBeInViewport({ timeout: 15_000 });
     // Al cerrarse, ⌘K devuelve el foco a su botón; el shell lo lleva después a
@@ -113,7 +113,7 @@ test.describe('⌘K encuentra los ajustes de Configuración', () => {
     // pasaría también antes de buscar. Recepción sí encuentra la acción de
     // facturar («iva» es una de sus claves), que no sale con la caja vacía.
     await expect(page.getByRole('button', { name: /Emitir una factura/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Dar de alta a una alumna/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Dar de alta a un cliente/ })).toHaveCount(0);
     await expect(page.getByText('Ajustes', { exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Datos fiscales e IVA/ })).toHaveCount(0);
   });

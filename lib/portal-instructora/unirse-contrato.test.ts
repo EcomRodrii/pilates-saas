@@ -94,7 +94,7 @@ test('la ficha pendiente por correo solo es de INSTRUCTORA activa, sin cuenta y 
   assert.doesNotMatch(cuerpo, /\.(update|insert|upsert|delete)\(/, 'buscar la ficha no puede escribir nada');
 });
 
-test('el alta de alumna no se hace sola si el estudio la tiene como instructora', () => {
+test('el alta de cliente no se hace sola si el estudio la tiene como instructora', () => {
   assert.match(socio, /fichaInstructoraPendiente\(adminGuardia, user\.email, body\.studioId\)/);
   assert.match(socio, /code: 'INVITACION_INSTRUCTORA'/);
 });

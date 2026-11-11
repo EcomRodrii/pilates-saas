@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   // falló (y ya avisa a Sentry). Sincronizar media lista y responder «hecho»
   // sería peor que fallar: nadie volvería a darle.
   if (errSocios) {
-    return NextResponse.json({ error: 'No hemos podido leer tus alumnas completas. Inténtalo de nuevo en un momento.' }, { status: 502 });
+    return NextResponse.json({ error: 'No hemos podido leer tus clientes completas. Inténtalo de nuevo en un momento.' }, { status: 502 });
   }
   const filas = socios ?? [];
   const perfiles: PerfilSincronizar[] = filas

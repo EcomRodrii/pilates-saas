@@ -48,8 +48,8 @@ export const clases: Capitulo = {
       await g.escribe(page.getByLabel('Nombre del servicio'), 'Clase privada');
       await g.escribe(page.getByLabel('Precio (€, opcional)'), '45');
     });
-    await g.mientras('Este interruptor, que viene encendido, hace que tus alumnas puedan reservarla solas: sale en tu página de reservas y en su app. Lo dejamos así y creamos el servicio.', async () => {
-      await g.ir(page.getByRole('switch', { name: 'Tus alumnas pueden reservarla solas' }));
+    await g.mientras('Este interruptor, que viene encendido, hace que tus clientes puedan reservarla solas: sale en tu página de reservas y en su app. Lo dejamos así y creamos el servicio.', async () => {
+      await g.ir(page.getByRole('switch', { name: 'Tus clientes pueden reservarla solas' }));
       await g.clic(page.getByRole('button', { name: 'Crear servicio' }));
       await g.pausa(900);
     });

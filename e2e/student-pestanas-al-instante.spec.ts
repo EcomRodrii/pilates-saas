@@ -55,7 +55,7 @@ test.describe('Student PWA · pestañas al instante', () => {
     await expect(page.locator('.shell[data-revisita]')).toHaveCount(1);
   });
 
-  test('si en el dispositivo entra OTRA alumna, no ve ni un instante lo que vio la anterior', async ({ page }) => {
+  test('si en el dispositivo entra Otro cliente, no ve ni un instante lo que vio la anterior', async ({ page }) => {
     await sembrarSociaCompleta(page, { reservada: true });
 
     // La segunda alumna: otro token, otra ficha, ninguna reserva. Lo decide el
@@ -98,6 +98,6 @@ test.describe('Student PWA · pestañas al instante', () => {
     await expect(page.getByText('No tienes clases próximas')).toBeVisible({ timeout: 45_000 });
     // Contador: la pantalla de verdad se pidió con la sesión de la segunda.
     expect(pedidasPorB).toBeGreaterThan(0);
-    expect((await visto(page)).texto, 'la clase de la primera alumna no puede asomar en la pantalla de la segunda').toBe(false);
+    expect((await visto(page)).texto, 'la clase del primer cliente no puede asomar en la pantalla de la segunda').toBe(false);
   });
 });

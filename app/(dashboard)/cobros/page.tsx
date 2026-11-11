@@ -255,7 +255,7 @@ function LineaResumen({ datos }: { datos: DatosCobros }) {
   return (
     <span data-tour="cobros-resumen" className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[15px] text-foreground" data-testid="linea-resumen-cobros">
       <span>Te deben <b className="font-semibold tabular-nums"><CifraPrivada inline>{formatEuro(r.deben)}</CifraPrivada></b></span>
-      {r.clientas > 0 && <span className="text-muted-foreground">· {r.clientas} {r.clientas === 1 ? 'clienta' : 'clientas'}</span>}
+      {r.clientas > 0 && <span className="text-muted-foreground">· {r.clientas} {r.clientas === 1 ? 'cliente' : 'clientes'}</span>}
       {r.enElBanco > 0 && <span className="text-muted-foreground">· <CifraPrivada inline>{formatEuro(r.enElBanco)}</CifraPrivada> en el banco</span>}
       <span className="mx-1 hidden text-border sm:inline" aria-hidden>|</span>
       <span className="basis-full sm:basis-auto">Cobrado en {r.nombreMes} <b className="font-semibold tabular-nums"><CifraPrivada inline>{formatEuro(r.cobrado)}</CifraPrivada></b></span>

@@ -31,7 +31,7 @@ import type { DatosCobros } from './use-datos-cobros';
 /** A dónde lleva cada cifra. */
 export type DestinoCifra = 'cobrado' | 'deudas' | 'atencion' | 'proximas';
 
-const clientas = (n: number) => `${n} ${n === 1 ? 'clienta' : 'clientas'}`;
+const clientas = (n: number) => `${n} ${n === 1 ? 'cliente' : 'clientes'}`;
 
 export function CifrasCobros({ datos, onIr }: { datos: DatosCobros; onIr: (d: DestinoCifra) => void }) {
   const { recibos } = useStudio();

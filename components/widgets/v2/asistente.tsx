@@ -46,10 +46,10 @@ export const PASOS_V2: readonly PasoV2[] = ['que', 'donde', 'como', 'ponlo'];
 function nombres(plataforma: PlataformaWeb | null): Record<PasoV2, { corto: string; titulo: string; sub: string }> {
   const sinWeb = plataforma === 'sinweb';
   return {
-    que: { corto: 'Qué pones', titulo: 'Elige qué pones en tu web', sub: 'Una pieza de tu estudio dentro de tu web y qué enseña. En la vista previa la ves tal como la verá tu alumna.' },
+    que: { corto: 'Qué pones', titulo: 'Elige qué pones en tu web', sub: 'Una pieza de tu estudio dentro de tu web y qué enseña. En la vista previa la ves tal como la verá tu cliente.' },
     donde: { corto: 'Dónde va', titulo: 'Elige dónde va', sub: 'Dentro de una página, como un botón o como un enlace. Te decimos qué funciona mejor en la tuya.' },
     // «a la derecha» no era verdad en el móvil, donde la vista previa va encima.
-    como: { corto: 'Cómo se ve', titulo: 'Cómo se ve', sub: 'Míralo en la vista previa, tal como lo verá tu alumna. El estilo es el mismo para todos tus widgets.' },
+    como: { corto: 'Cómo se ve', titulo: 'Cómo se ve', sub: 'Míralo en la vista previa, tal como lo verá tu cliente. El estilo es el mismo para todos tus widgets.' },
     ponlo: sinWeb
       ? { corto: 'Compártelo', titulo: 'Compártelo', sub: 'Copia el enlace y ponlo donde quieras: Instagram, WhatsApp o tu newsletter.' }
       : { corto: 'Ponlo en tu web', titulo: 'Ponlo en tu web', sub: 'Copia el código y pégalo en tu web, o mándaselo a quien te la lleva.' },

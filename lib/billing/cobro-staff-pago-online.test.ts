@@ -54,7 +54,7 @@ const fila = (extra: Partial<FilaReciboReserva> = {}): FilaReciboReserva => ({
 });
 const ahora = new Date('2026-10-05T10:00:00.000Z');
 
-test('si la reserva pierde porque la alumna abrió OTRO pago online, es «pago online en marcha», no un cambio cualquiera', () => {
+test('si la reserva pierde porque el cliente abrió OTRO pago online, es «pago online en marcha», no un cambio cualquiera', () => {
   assert.deepEqual(
     clasificarReservaPerdida(fila({ checkout_session_id: 'cs_nueva' }), { clave: RESERVA.clave, via: 'STAFF', cuota: null, ahora, checkoutLeido: null }),
     { tipo: 'EN_MARCHA', por: 'PAGO_ONLINE' },

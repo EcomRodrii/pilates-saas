@@ -54,7 +54,7 @@ export function correoEstudioVencido(p: {
   const baja = (p.motivo ?? (p.fase === 'aviso_baja' ? 'baja' : 'prueba_vencida')) === 'baja';
   // Lo que de verdad borra `purgar_estudio_vencido`: los datos de las clientas
   // y del equipo. La cuenta y las facturas se conservan.
-  const queSeBorra = 'los datos personales de tus alumnas y de tu equipo, con notas, mensajes y copias de seguridad';
+  const queSeBorra = 'los datos personales de tus clientes y de tu equipo, con notas, mensajes y copias de seguridad';
   const queDiceLaFecha = !final
     ? baja
       ? p.purgaArmada
@@ -63,10 +63,10 @@ export function correoEstudioVencido(p: {
       : 'Conservamos sus datos hasta ese día. Desde hoy ya no hacemos copias de seguridad nuevas del estudio.'
     : p.purgaArmada
       ? `Ese día borraremos ${queSeBorra}.`
-      : 'A partir de ese día los datos personales de tus alumnas y de tu equipo quedan listos para borrarse.';
+      : 'A partir de ese día los datos personales de tus clientes y de tu equipo quedan listos para borrarse.';
   // Lo que lleva la descarga, en una frase. Si cambia lo que exporta
   // /api/exportar/mis-datos, cambia aquí.
-  const queLleva = 'un CSV por tabla con alumnas, reservas, cobros, ficha de salud, notas y consentimientos';
+  const queLleva = 'un CSV por tabla con clientes, reservas, cobros, ficha de salud, notas y consentimientos';
   const exportar = { href: p.urlExportar, texto: 'Descargar los datos del estudio' };
   return correoTentare({
     preheader: baja
@@ -102,7 +102,7 @@ export function correoDatosBorrados(p: { estudioNombre: string; fecha: string })
     antetitulo: 'Tu estudio',
     titular: 'Hemos borrado los datos de tu estudio',
     parrafos: [
-      `El ${p.fecha} borramos de Tentare los datos personales de las alumnas y del equipo de ${p.estudioNombre}: sus fichas quedan anonimizadas, y se han borrado la salud, las notas, los mensajes, las credenciales de las integraciones y las copias de seguridad.`,
+      `El ${p.fecha} borramos de Tentare los datos personales de los clientes y del equipo de ${p.estudioNombre}: sus fichas quedan anonimizadas, y se han borrado la salud, las notas, los mensajes, las credenciales de las integraciones y las copias de seguridad.`,
     ],
     nota: 'Conservamos bloqueados, solo durante el plazo que marca la ley, las facturas, los recibos, los registros de facturación y los mandatos SEPA. Este correo es la confirmación del borrado: guárdalo si lo necesitas.',
     motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,

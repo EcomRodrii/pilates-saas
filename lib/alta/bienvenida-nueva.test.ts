@@ -24,7 +24,7 @@ test('la línea son los cinco pasos del alta; obligatorios 1, 2 y 3', () => {
 
 test('«Tus primeros pasos» cuenta las tareas que vienen, con los nombres de «Pon en marcha tu estudio»', () => {
   assert.deepEqual(PRIMEROS_PASOS_DEL_ALTA.map(p => p.titulo), [
-    'Crea tu primera clase', 'Comparte el enlace de tu app', 'Trae a tus alumnas', 'Recibe tu primera reserva',
+    'Crea tu primera clase', 'Comparte el enlace de tu app', 'Trae a tus clientes', 'Recibe tu primera reserva',
   ]);
   // La primera clase lo crea todo: lo que faltaba (sala, quién la da, precio) se dice.
   const clase = PRIMEROS_PASOS_DEL_ALTA[0].que;
@@ -113,7 +113,7 @@ test('la vía que le toca pasa delante y se marca; empezar de cero no recomienda
 test('«Qué exportar»: sin rutas de menú inventadas, y «reconocemos» solo donde es verdad', () => {
   for (const p of PROGRAMAS) {
     const t = queExportar(p.valor);
-    assert.match(t, /exportar tus alumnas a CSV o Excel/);
+    assert.match(t, /exportar tus clientes a CSV o Excel/);
     assert.doesNotMatch(t, /›|>|menú|Ajustes|Configuración/i, `${p.valor}: nada de rutas de menú`);
     const dice = /las reconocemos solas/.test(t);
     assert.equal(dice, (PROGRAMAS_RECONOCIDOS as readonly string[]).includes(p.valor), p.valor);
@@ -136,6 +136,6 @@ test('⚠️ cada programa que decimos reconocer tiene un export con sus columna
   };
   for (const programa of PROGRAMAS_RECONOCIDOS) {
     const plan = analizarDeterminista(archivos[programa]);
-    assert.ok(plan.archivos.some(a => a.entidad === 'socias' && a.origen === 'auto' && a.ok > 0), `${programa}: no se reconocen sus alumnas`);
+    assert.ok(plan.archivos.some(a => a.entidad === 'socias' && a.origen === 'auto' && a.ok > 0), `${programa}: no se reconocen sus clientes`);
   }
 });

@@ -134,7 +134,7 @@ export default function ImportarCitasPage() {
           <div className="flex items-start gap-2.5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
             <Info size={15} className="mt-0.5 shrink-0 text-[#92400E]" />
             <p className="text-[12.5px] text-[#92400E]">
-              <span className="font-semibold">Importa antes las alumnas.</span> Cada cita se empareja por email;
+              <span className="font-semibold">Importa antes los clientes.</span> Cada cita se empareja por email;
               las filas cuya socia no exista se omiten y te las listamos.
             </p>
           </div>
@@ -283,7 +283,7 @@ export default function ImportarCitasPage() {
             <div className="rounded-2xl border border-border bg-card p-4">
               <div className="flex flex-col gap-1 text-[12.5px] text-muted-foreground">
                 {resultado.duplicadas > 0 && <p>{resultado.duplicadas} ya estaban y no se han duplicado</p>}
-                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin socia: ese email no está en tus alumnas</p>}
+                {resultado.sinSocia > 0 && <p>{resultado.sinSocia} sin socia: ese email no está en tus clientes</p>}
                 {resultado.sinInstructor > 0 && <p>{resultado.sinInstructor} sin instructora: no se encontró ese nombre</p>}
                 {resultado.sinServicioCatalogo > 0 && (
                   <p>

@@ -174,7 +174,7 @@ export function SelectorAudiencia({
                 {activo && <Check size={12} className="shrink-0 text-brand-medio" aria-hidden />}
               </span>
               <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                {n === undefined ? seg.descripcion : `${n} ${n === 1 ? 'clienta' : 'clientas'} · ${seg.descripcion}`}
+                {n === undefined ? seg.descripcion : `${n} ${n === 1 ? 'cliente' : 'clientes'} · ${seg.descripcion}`}
               </span>
             </span>
           </button>
@@ -886,7 +886,7 @@ export function FeedVacio({ onEmpezar }: { onEmpezar: () => void }) {
       </div>
       <p className="mt-5 text-[17px] font-bold text-foreground">Tu tablón está en silencio</p>
       <p className="mt-2 max-w-sm text-[13.5px] leading-relaxed text-muted-foreground">
-        Un aviso, una foto de la sala nueva o el evento del sábado. Lo que publiques aquí lo verán tus alumnas
+        Un aviso, una foto de la sala nueva o el evento del sábado. Lo que publiques aquí lo verán tus clientes
         en su portal, sin tener que abrir el correo.
       </p>
       <button

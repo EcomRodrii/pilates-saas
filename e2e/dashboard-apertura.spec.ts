@@ -188,7 +188,7 @@ test.describe('Apertura del estudio en la home', () => {
 
   test('un estudio que ya opera no ve nada', async ({ page }) => {
     const peticiones = await montar(page, { inicial: { visible: false } });
-    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: ARRANQUE_MS });
     // La petición sale al montar la sección, no a la vez que el resto de la home.
     await expect.poll(() => peticiones.get).toBeGreaterThan(0);
     await expect(page.getByText(/Preparemos tu apertura|Abres en/)).toHaveCount(0);
@@ -199,7 +199,7 @@ test.describe('Apertura del estudio en la home', () => {
       rol: 'RECEPCION',
       inicial: { visible: true, fechaApertura: null, diasHastaApertura: null, fase: null, analisis: ANALISIS, supuestos: SUPUESTOS },
     });
-    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: ARRANQUE_MS });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: ARRANQUE_MS });
     expect(peticiones.get).toBe(0);
     await expect(page.getByText('Preparemos tu apertura')).toHaveCount(0);
   });

@@ -17,7 +17,7 @@ const eur = (n: number) => `${Math.round(n).toLocaleString('es-ES')} €`;
 
 function porque(s: InstructorDependencySnapshot, nombre: string, ventana: number): string {
   const n = nombre.split(' ')[0];
-  const base = `${s.alumnasCautivasCount} ${s.alumnasCautivasCount === 1 ? 'alumna asiste' : 'alumnas asisten'} casi en exclusiva a las clases de ${nombre} (≥80% de sus reservas) y ${s.alumnasCautivasCount === 1 ? 'genera' : 'generan'} ${eur(s.ingresosCautivos)} — el ${s.porcentajeFacturacion}% de tu facturación de los últimos ${ventana} días.`;
+  const base = `${s.alumnasCautivasCount} ${s.alumnasCautivasCount === 1 ? 'cliente asiste' : 'clientes asisten'} casi en exclusiva a las clases de ${nombre} (≥80% de sus reservas) y ${s.alumnasCautivasCount === 1 ? 'genera' : 'generan'} ${eur(s.ingresosCautivos)} — el ${s.porcentajeFacturacion}% de tu facturación de los últimos ${ventana} días.`;
   const riesgo = s.nivelRiesgo === 'ALTO'
     ? ` Su fidelidad es hacia ${n}, no hacia el estudio: si se marchara, ese ${s.porcentajeFacturacion}% de ingresos es el que más papeletas tiene de irse con ${n}.`
     : ` Empieza a haber concentración de cartera en ${n}; todavía no es crítico, pero conviene vigilarlo antes de que crezca.`;
@@ -26,7 +26,7 @@ function porque(s: InstructorDependencySnapshot, nombre: string, ventana: number
 
 const accion = (nombre: string) => {
   const n = nombre.split(' ')[0];
-  return `Reparte parte de las clases de ${n} entre otros instructores y crea vínculo de esas alumnas con el estudio (probar otra profe, eventos, retos) para que la relación no dependa solo de ${n}.`;
+  return `Reparte parte de las clases de ${n} entre otros instructores y crea vínculo de esos clientes con el estudio (probar otra profe, eventos, retos) para que la relación no dependa solo de ${n}.`;
 };
 
 function TarjetaDetalle({ s, nombre, ventana }: { s: InstructorDependencySnapshot; nombre: string; ventana: number }) {
@@ -52,7 +52,7 @@ function TarjetaDetalle({ s, nombre, ventana }: { s: InstructorDependencySnapsho
           <>
             <button onClick={() => setAbierto(v => !v)} className="mt-2.5 flex items-center gap-1 text-[12px] font-medium text-foreground hover:underline">
               <ChevronDown size={14} className={cn('transition-transform', abierto && 'rotate-180')} />
-              {abierto ? 'Ocultar' : `Ver las ${s.detalle.length} alumnas cautivas`}
+              {abierto ? 'Ocultar' : `Ver las ${s.detalle.length} clientes cautivas`}
             </button>
             {abierto && (
               <ul className="mt-2 divide-y divide-border">
@@ -147,7 +147,7 @@ export function EspecialistaCartera() {
 
           <div className="flex items-center justify-between gap-3 mt-1 mb-1">
             <p className="text-[13px] text-muted-foreground">
-              Alumnas que dependen de un instructor concreto (≥80% de sus asistencias), últimos {ventana} días.
+              Clientes que dependen de un instructor concreto (≥80% de sus asistencias), últimos {ventana} días.
             </p>
             <button onClick={handleRecalcular} disabled={recalculando}
               className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 shrink-0">
@@ -166,7 +166,7 @@ export function EspecialistaCartera() {
             <div className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
               <ShieldCheck size={18} className="text-success shrink-0" />
               <p className="text-[13px] text-muted-foreground">
-                Ningún instructor concentra más del {studio?.depUmbralMedio ?? 15}% de la facturación en alumnas cautivas. Sin riesgo de fuga por dependencia.
+                Ningún instructor concentra más del {studio?.depUmbralMedio ?? 15}% de la facturación en clientes cautivas. Sin riesgo de fuga por dependencia.
               </p>
             </div>
           )}

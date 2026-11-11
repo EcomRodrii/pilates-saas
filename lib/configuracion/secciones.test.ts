@@ -89,7 +89,7 @@ test('«Plan de Tentare» es de la propietaria; a «Mi cuenta» llega todo el pe
   }
 });
 
-test('el copy dice «alumna», nunca «alumna» ni «socia»', () => {
+test('el copy dice «cliente», nunca «cliente» ni «socia»', () => {
   const textos = [
     ...SECCIONES.flatMap(s => [s.titulo, s.resumen, s.frase]),
     ...todas.flatMap(t => [t.titulo, t.frase]),
@@ -114,7 +114,7 @@ test('cada tarjeta es de UNA sección, y ya ninguna se pinta en la de otra', () 
   assert.equal(seccionDeTarjeta('ajuste-instructoras-crean-clases'), 'equipo');
 });
 
-test('«Cómo reservan mis alumnas»: las seis reglas con su cajón y el aviso, en ese orden', () => {
+test('«Cómo reservan mis clientes»: las seis reglas con su cajón y el aviso, en ese orden', () => {
   const ids = seccionPorId('reservas').tarjetas.map(t => t.id);
   assert.deepEqual(ids, [...TARJETAS_REGLAS, 'ajuste-avisar-alumnas']);
   // Las reglas esperan al «Guardar» de su cajón; el aviso se guarda al pulsar.
@@ -176,7 +176,7 @@ test('las filas que llevan a otra pantalla: «Plan de Tentare» a /suscripcion y
 });
 
 test('seis grupos en el inicio: cada sección en uno solo, y la lista en su mismo orden', () => {
-  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus alumnas', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']);
+  assert.deepEqual(GRUPOS.map(g => g.titulo), ['Lo básico', 'Tus clientes', 'Tu imagen', 'Equipo', 'Conectar y proteger', 'Tu cuenta']);
   const enGrupos = GRUPOS.flatMap(g => g.secciones);
   // En el mismo orden que SECCIONES: la columna de la izquierda y el inicio no
   // pueden contar dos órdenes distintos.

@@ -61,7 +61,7 @@ export function planificarCambioConDiferencia(e: {
 }): PlanDeCambio {
   const { cuota, planActual, planNuevo } = e;
   if (!cuota || cuota.socioId !== e.socioId) {
-    return { ok: false, status: 404, codigo: 'CUOTA_NO_ENCONTRADA', error: 'No se encuentra la cuota de esta alumna.' };
+    return { ok: false, status: 404, codigo: 'CUOTA_NO_ENCONTRADA', error: 'No se encuentra la cuota de este cliente.' };
   }
   if (cuota.estado !== 'ACTIVA') {
     return { ok: false, status: 409, codigo: 'CUOTA_NO_ACTIVA', error: 'Esa cuota ya no está activa (puede que el cambio ya se haya hecho). Recarga la ficha.' };

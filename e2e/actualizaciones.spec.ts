@@ -21,11 +21,11 @@ const FOTO = 'https://dwqvdycjcffqwfkzapvi.supabase.co/storage/v1/object/public/
 
 const VERSIONES = [
   { id: '1', version: '0.38', titulo: 'Renovar el bono en un toque', fecha_publicacion: '2026-09-07', changelog_cambios: [
-    { etiqueta: 'NUEVA_FUNCIONALIDAD', texto: 'Tus alumnas renuevan su bono desde la app.', orden: 0, imagen_url: FOTO },
+    { etiqueta: 'NUEVA_FUNCIONALIDAD', texto: 'Tus clientes renuevan su bono desde la app.', orden: 0, imagen_url: FOTO },
     { etiqueta: 'ARREGLO', texto: 'Una reserva podía confirmarse sin descontar la sesión del bono.', orden: 1, imagen_url: null },
   ] },
   { id: '2', version: '0.37', titulo: 'Clases online con Zoom', fecha_publicacion: '2026-08-21', changelog_cambios: [
-    { etiqueta: 'MEJORA', texto: 'El listado de alumnas carga más rápido.', orden: 0 },
+    { etiqueta: 'MEJORA', texto: 'El listado de clientes carga más rápido.', orden: 0 },
   ] },
 ];
 
@@ -94,7 +94,7 @@ test('el filtro recorta los CAMBIOS, no solo las versiones', async ({ page }) =>
   await expect(page.getByRole('button', { name: /Renovar el bono en un toque/ })).toBeVisible();
   // …pero SIN su función nueva: si siguiera ahí, el filtro no filtraría nada,
   // solo escondería versiones enteras.
-  await expect(page.getByText('Tus alumnas renuevan su bono desde la app.')).toHaveCount(0);
+  await expect(page.getByText('Tus clientes renuevan su bono desde la app.')).toHaveCount(0);
   // Y la 0.37, que es solo una mejora, desaparece entera.
   await expect(page.getByRole('button', { name: /Clases online con Zoom/ })).toHaveCount(0);
 });

@@ -34,7 +34,7 @@ function Mark({ v, label }: { v: Verdict; label: string }) {
  */
 const POR_QUE = [
   { titulo: 'Pensado para Pilates y yoga', texto: 'Plaza por reformer, plazas fijas, bonos y lista de espera pensados para tu estudio, no para un gimnasio.' },
-  { titulo: 'Si falla una instructora, Tentare busca quién la cubre', texto: 'Propone sustituta y, con tu visto bueno, la contacta y avisa a tus alumnas. Sin llamadas ni grupos de WhatsApp.' },
+  { titulo: 'Si falla una instructora, Tentare busca quién la cubre', texto: 'Propone sustituta y, con tu visto bueno, la contacta y avisa a tus clientes. Sin llamadas ni grupos de WhatsApp.' },
   { titulo: 'Cobras tú, sin comisión', texto: 'La tarjeta, directa a tu cuenta con Stripe; la domiciliación, con la remesa SEPA para tu banco. Tentare no se queda nada de cada cobro.' },
 ];
 

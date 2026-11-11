@@ -150,8 +150,8 @@ test.describe('Editar una serie: primero se ve qué va a pasar', () => {
     await expect(dialogo).toContainText('11:00–11:50');
     // Ana ×4, Bea ×1 y Dani ×1 = 6 reservas confirmadas de 3 alumnas; Cris (en espera) no recibe aviso.
     await expect(dialogo).toContainText('6 reservas confirmadas cambian de hora.');
-    await expect(dialogo).toContainText('Se avisará a 3 alumnas, una sola vez a cada una aunque cambien varias de sus clases.');
-    await expect(dialogo).toContainText('1 alumna tiene clase fija en estas clases: su plaza se mueve con la serie.');
+    await expect(dialogo).toContainText('Se avisará a 3 clientes, una sola vez a cada una aunque cambien varias de sus clases.');
+    await expect(dialogo).toContainText('1 cliente tiene clase fija en estas clases: su plaza se mueve con la serie.');
     await expect(dialogo).toContainText('1 persona en lista de espera de estas clases (no reciben aviso).');
     await expect(dialogo).toContainText('1 reserva se hizo gastando una recuperación.');
 
@@ -207,7 +207,7 @@ test.describe('Editar una serie: primero se ve qué va a pasar', () => {
 // en cada edición de serie. Cambiar solo el aforo —o las notas— mandaba a cada
 // alumna un «cambio de horario» que no existía.
 // ─────────────────────────────────────────────────────────────────────────────
-test.describe('Un cambio que las alumnas no ven no las avisa', () => {
+test.describe('Un cambio que los clientes no ven no las avisa', () => {
   test.describe.configure({ timeout: 90_000 });
 
   test('cambiar solo el aforo: la vista previa dice que no se avisa, y no sale ningún aviso', async ({ page }) => {
@@ -218,7 +218,7 @@ test.describe('Un cambio que las alumnas no ven no las avisa', () => {
 
     const dialogo = page.getByTestId('dialogo-impacto-serie');
     await expect(dialogo).toContainText('Aforo:');
-    await expect(dialogo).toContainText('Este cambio no genera avisos a las alumnas.');
+    await expect(dialogo).toContainText('Este cambio no genera avisos a los clientes.');
     await expect(dialogo).not.toContainText('cambian de hora');
 
     await dialogo.getByTestId('confirmar-serie').click();

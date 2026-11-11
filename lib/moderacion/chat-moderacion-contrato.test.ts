@@ -14,7 +14,7 @@ import { TEXTO_MENOR_CHAT } from './reglas.ts';
 const RAIZ = join(import.meta.dirname, '..', '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8');
 
-test('la alumna: quién es sale del token y de su ficha en ESTE estudio, nunca del body', () => {
+test('el cliente: quién es sale del token y de su ficha en ESTE estudio, nunca del body', () => {
   for (const ruta of [
     'app/api/public/mensajeria/conversaciones/[id]/denunciar/route.ts',
     'app/api/public/mensajeria/conversaciones/[id]/bloquear/route.ts',

@@ -216,7 +216,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     // que el favicon ni viaja ni se pisa, y el borrador no se reescribe.
     expect(publicaciones[1]).toEqual({ campos: { primary: '#224466' } });
     expect(borradores()).toBe(0);
-    await expect(page.getByText('Publicado. Tus alumnas ya ven tu app así.')).toBeVisible();
+    await expect(page.getByText('Publicado. Tus clientes ya ven tu app así.')).toBeVisible();
     // Y el favicon sigue puesto: la fila de Marca lo dice.
     await page.goto('/configuracion?tab=marca');
     await expect(page.locator('#logo-y-favicon [data-resumen]')).toHaveText(/con favicon/, { timeout: 30_000 });

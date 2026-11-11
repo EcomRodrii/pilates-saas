@@ -52,7 +52,7 @@ export function AppDeMuestra({ nombre, escala }: { nombre: string; escala: numbe
       <iframe
         ref={ref}
         name={NOMBRE_MARCO_SOLO_MIRAR}
-        title="La app de tus alumnas, con el nombre de tu estudio"
+        title="La app de tus clientes, con el nombre de tu estudio"
         src={`/portal/${SLUG_MUESTRA}/acceso/login`}
         // Los márgenes del iPhone (isla arriba, indicador abajo): los mismos que la vista previa de Apariencia.
         onLoad={() => {

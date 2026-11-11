@@ -88,7 +88,7 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     detalle: 'Las suyas (`recipient_socio_id`, o su cuenta como SOCIA), las del staff que la nombran (`data.socioId` / `data.socioIds`) y los avisos de mensajes de sus conversaciones (`data.conversacionId`: llevan su nombre como remitente). `notification_delivery` en cascada.',
   },
   tareas: { accion: 'BORRAR', detalle: 'Tareas del staff sobre ella (título con su nombre), seguimientos incluidos.' },
-  consultas_contacto: { accion: 'BORRAR', detalle: 'Lo que preguntó antes de ser alumna: las enlazadas a su ficha y las de su mismo email.' },
+  consultas_contacto: { accion: 'BORRAR', detalle: 'Lo que preguntó antes de ser cliente: las enlazadas a su ficha y las de su mismo email.' },
   bajas_clienta: { accion: 'BORRAR', detalle: 'Motivo de cada baja y su vuelta.' },
   intentos_reserva_fallidos: { accion: 'BORRAR', detalle: 'Log de intentos.' },
   socios_qr_acceso: { accion: 'BORRAR', detalle: 'Su QR de acceso (solo el hash) y los revocados.' },

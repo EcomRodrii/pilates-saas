@@ -64,7 +64,7 @@ async function montar(page: Page) {
 }
 
 async function irAlContrato(page: Page) {
-  await page.getByRole('button', { name: /Nueva alumna|Añadir primera alumna/ }).first().click({ timeout: 30_000 });
+  await page.getByRole('button', { name: /Nuevo cliente|Añadir primer cliente/ }).first().click({ timeout: 30_000 });
   // Regex anclada: con el alta en un paso, la firma («Nombre completo de la
   // clienta…») está en la misma pantalla y `name: 'Nombre'` es subcadena.
   await page.getByRole('textbox', { name: /^Nombre\s*\*?$/ }).fill('María');
@@ -75,7 +75,7 @@ async function irAlContrato(page: Page) {
 }
 
 test.describe('La firma del contrato dice de quién es', () => {
-  test('se puede dar de alta SIN firmar: la alumna queda pendiente', async ({ page }) => {
+  test('se puede dar de alta SIN firmar: el cliente queda pendiente', async ({ page }) => {
     const inserts = await montar(page);
     await irAlContrato(page);
 
@@ -83,7 +83,7 @@ test.describe('La firma del contrato dice de quién es', () => {
     await expect(page.getByRole('dialog')).toContainText('Queda pendiente de firma');
     await expect(page.getByRole('dialog')).toContainText('firmará ella');
 
-    const boton = page.getByRole('button', { name: 'Crear alumna', exact: true });
+    const boton = page.getByRole('button', { name: 'Crear cliente', exact: true });
     await expect(boton).toBeEnabled();
     await boton.click();
 
@@ -98,13 +98,13 @@ test.describe('La firma del contrato dice de quién es', () => {
   test('si se firma en el estudio, queda marcado como recogido en mostrador', async ({ page }) => {
     const inserts = await montar(page);
     await irAlContrato(page);
-    await page.getByPlaceholder(/Nombre completo de la alumna/i).fill('María Soler Puig');
+    await page.getByPlaceholder(/Nombre completo del cliente/i).fill('María Soler Puig');
 
     // Se dice claramente que la recoge el estudio, no que la firma la clienta.
     await expect(page.getByRole('dialog')).toContainText('Firmado en el estudio');
     await expect(page.getByRole('dialog')).toContainText('recogido presencialmente por el estudio');
 
-    await page.getByRole('button', { name: 'Crear alumna y firmar' }).click();
+    await page.getByRole('button', { name: 'Crear cliente y firmar' }).click();
     await expect(page.getByRole('dialog')).toBeHidden({ timeout: 15_000 });
 
     expect(inserts).toHaveLength(1);

@@ -449,7 +449,7 @@ function ModalClasesRecurrentes({
         <DialogHeader className="shrink-0 px-5 pt-5 pb-3 pr-12">
           <DialogTitle className="text-lg font-semibold text-foreground">Nueva clase semanal</DialogTitle>
           <p className="text-sm text-muted-foreground mt-0.5 text-pretty">
-            Se crea en tu horario cada semana, los días y a la hora que elijas. Tus alumnas pueden tenerla como clase
+            Se crea en tu horario cada semana, los días y a la hora que elijas. Tus clientes pueden tenerla como clase
             fija: se la das tú o la activan desde su app.
           </p>
         </DialogHeader>
@@ -1321,7 +1321,7 @@ export default function Calendario() {
   }
 
   function avisoPlazaFijaNoSeMueve(n: number): string {
-    return `${n === 1 ? 'Una alumna tiene clase fija' : `${n} alumnas tienen clase fija`} a esta hora. Solo se mueve esta clase: la clase fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la clase fija desde la ficha de la alumna.`;
+    return `${n === 1 ? 'Un cliente tiene clase fija' : `${n} clientes tienen clase fija`} a esta hora. Solo se mueve esta clase: la clase fija sigue anclada a su día y hora de siempre. Para cambiar el horario fijo, edita la serie o la clase fija desde la ficha del cliente.`;
   }
 
   async function avisarCambioInstructora(aviso: NonNullable<typeof avisoInstructora>) {
@@ -1335,7 +1335,7 @@ export default function Calendario() {
 
     const faltan = r.sinEmail > 0 ? ` · ${r.sinEmail} sin email guardado` : '';
     if (r.enviados > 0) {
-      showToast(`Avisada${r.enviados !== 1 ? 's' : ''} ${r.enviados} clienta${r.enviados !== 1 ? 's' : ''} por email${faltan}`);
+      showToast(`Avisada${r.enviados !== 1 ? 's' : ''} ${r.enviados} cliente${r.enviados !== 1 ? 's' : ''} por email${faltan}`);
     } else if (r.enApp > 0) {
       showToast(`Aviso puesto en la app${faltan}`);
     } else {
@@ -1401,7 +1401,7 @@ export default function Calendario() {
       if (fallos.length) {
         showToastError(`${hechas} de ${mueven.length} clases pasadas a ${nueva}. ${fallos.length} no se pudieron cambiar.`);
       } else {
-        showToast(`${hechas} clase${hechas === 1 ? '' : 's'} ${hechas === 1 ? 'pasada' : 'pasadas'} a ${nueva}${avisar ? ' · alumnas avisadas' : ''}`);
+        showToast(`${hechas} clase${hechas === 1 ? '' : 's'} ${hechas === 1 ? 'pasada' : 'pasadas'} a ${nueva}${avisar ? ' · clientes avisados' : ''}`);
       }
       salirDeSeleccion();
       void refrescarVista();
@@ -1451,8 +1451,8 @@ export default function Calendario() {
       setEliminarLote({ hechas: hechas + fallos.length, total: borran.length });
     }
     const pendiente = [
-      bonosSinDevolver > 0 ? `En ${bonosSinDevolver === 1 ? '1 clase' : `${bonosSinDevolver} clases`} no hemos podido devolver la sesión al bono de alguna alumna: revísalo a mano.` : null,
-      sinAvisar > 0 ? `A ${sinAvisar === 1 ? '1 alumna no le ha' : `${sinAvisar} alumnas no les ha`} llegado el aviso: escríbeles o llámalas.` : null,
+      bonosSinDevolver > 0 ? `En ${bonosSinDevolver === 1 ? '1 clase' : `${bonosSinDevolver} clases`} no hemos podido devolver la sesión al bono de algún cliente: revísalo a mano.` : null,
+      sinAvisar > 0 ? `A ${sinAvisar === 1 ? '1 cliente no le ha' : `${sinAvisar} clientes no les ha`} llegado el aviso: escríbeles o llámalas.` : null,
     ].filter(Boolean).join(' ');
     (fallos.length || pendiente ? showToastError : showToast)(fallos.length
       ? `${hechas} de ${borran.length} clases eliminadas. ${fallos.length} no se pudieron borrar: ${fallos[0]}${pendiente ? ` ${pendiente}` : ''}`
@@ -1829,7 +1829,7 @@ export default function Calendario() {
       const socio = socios.find(s => s.id === socioId);
       setConfirmarEspera({
         sesionId, socioId,
-        nombre: socio ? `${socio.nombre} ${socio.apellidos}`.trim() : 'Esta alumna',
+        nombre: socio ? `${socio.nombre} ${socio.apellidos}`.trim() : 'Este cliente',
         posicion: posicionEspera ?? 1,
       });
       return;
@@ -1840,7 +1840,7 @@ export default function Calendario() {
   // `prefijo`: lo que ya ha pasado antes de reservar (p. ej. «Cuota … asignada»), para que el aviso lo cuente todo.
   async function confirmarAddReserva(sesionId: string, socioId: string, prefijo = ''): Promise<boolean> {
     const socio = socios.find(s => s.id === socioId);
-    const nombre = socio ? socio.nombre : 'La alumna';
+    const nombre = socio ? socio.nombre : 'El cliente';
     // Walk-in (pilar 6): si la clase ya ha empezado, quien se añade desde aquí
     // está delante en ese momento — se marca asistencia en el mismo paso en vez
     // de exigir un segundo clic en "Check-in" sobre la fila recién creada.
@@ -1920,7 +1920,7 @@ export default function Calendario() {
     const precio = precioSueltaDe(sesionId);
     if (precio == null || precio <= 0) return false;
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
-    const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'La alumna';
+    const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'El cliente';
     const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
     const reserva = await addReserva(sesionId, socioId, undefined, {
       checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
@@ -1970,7 +1970,7 @@ export default function Calendario() {
     const precio = precioSueltaDe(sesionId);
     if (precio == null || precio <= 0) return false;
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
-    const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'La alumna';
+    const nombre = socios.find(s => s.id === socioId)?.nombre ?? 'El cliente';
     const esWalkIn = !!sesion && new Date(sesion.inicio) <= now;
     const reserva = await addReserva(sesionId, socioId, undefined, {
       checkInInmediato: esWalkIn, avisar: avisarAlumna, claseSuelta: { importeEsperado: precio },
@@ -2009,7 +2009,7 @@ export default function Calendario() {
     const plan = planesTarifa.find(p => p.id === planId);
     if (!plan) return false;
     const socio = socios.find(s => s.id === socioId);
-    const nombre = socio ? socio.nombre : 'La alumna';
+    const nombre = socio ? socio.nombre : 'El cliente';
     const sesion = sesionesEnriquecidas.find(s => s.id === sesionId);
     // Antes de tocar nada: a una clase terminada o cancelada no se la puede apuntar,
     // y la cuota quedaría dada sin la clase por la que se dio.
@@ -2027,7 +2027,7 @@ export default function Calendario() {
     // aquí la cobraría dos veces. Si la consulta falla se sigue: el aviso ayuda, no bloquea.
     const tpv = await ventasPorAsignarDePlan(planId);
     if (!esError(tpv) && Array.isArray(tpv.ventas) && tpv.ventas.length > 0) {
-      showToastError(`«${plan.nombre}» ya está cobrada en el TPV sin alumna (${tpv.ventas.length === 1 ? '1 venta' : `${tpv.ventas.length} ventas`}). Asígnasela desde su ficha para no cobrarla dos veces.`);
+      showToastError(`«${plan.nombre}» ya está cobrada en el TPV sin cliente (${tpv.ventas.length === 1 ? '1 venta' : `${tpv.ventas.length} ventas`}). Asígnasela desde su ficha para no cobrarla dos veces.`);
       return false;
     }
     let importeCuota = 0;
@@ -2067,7 +2067,7 @@ export default function Calendario() {
   // la propietaria vea quién regaló qué — solo si de verdad entró.
   async function anadirCortesia(sesionId: string, socioId: string) {
     const socio = socios.find(s => s.id === socioId);
-    const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'La alumna';
+    const nombre = socio ? `${socio.nombre} ${socio.apellidos}` : 'El cliente';
     if (await confirmarAddReserva(sesionId, socioId)) {
       addActividadReciente('NUEVA_RESERVA', `Cortesía · ${nombre} añadida sin bono (sin cargo)`, socioId);
     }
@@ -3002,7 +3002,7 @@ export default function Calendario() {
 
   const nombreClientaResolver = useCallback((socioId: string) => {
     const s = socios.find(x => x.id === socioId);
-    return s ? `${s.nombre} ${s.apellidos}` : 'Alumna';
+    return s ? `${s.nombre} ${s.apellidos}` : 'Cliente';
   }, [socios]);
 
   // ── Ficha clínica / semáforo / IA (sin cambios de fondo, solo reubicados) ──
@@ -3291,7 +3291,7 @@ export default function Calendario() {
     ...(!empezadaActual ? [
       ...(!canceladaActual ? [{
         texto: 'Cancelar esta clase', icono: Ban, peligro: true, separar: true, onClick: () => setConfirmCancelar(true),
-        nota: apuntadasActual > 0 ? `Avisa a ${apuntadasActual === 1 ? 'la apuntada' : `las ${apuntadasActual} apuntadas`}` : 'No tiene alumnas apuntadas',
+        nota: apuntadasActual > 0 ? `Avisa a ${apuntadasActual === 1 ? 'la apuntada' : `las ${apuntadasActual} apuntadas`}` : 'No tiene clientes apuntados',
       }] : []),
       ...(!esInstructor ? [{ texto: 'Eliminar', icono: Trash2, peligro: true, separar: canceladaActual, onClick: () => setConfirmEliminar(true), nota: 'Solo si la creaste por error' }] : []),
     ] as AccionMenu[] : []),
@@ -3436,8 +3436,8 @@ export default function Calendario() {
       // `desactivado` llega con total 0 (el servidor ni las cuenta): se mira
       // antes que el total, o el «no se las ha avisado» no salía nunca.
       const sobreClientas = !alumnas || alumnas.skipped ? ''
-        : alumnas.desactivado ? (apuntadas > 0 ? ' · sin avisar a las alumnas (el aviso está apagado en Sustituciones)' : '')
-        : (alumnas.total ?? 0) > 0 ? ` · avisadas ${alumnas.avisadas ?? 0} de ${alumnas.total} clientas` : '';
+        : alumnas.desactivado ? (apuntadas > 0 ? ' · sin avisar a los clientes (el aviso está apagado en Sustituciones)' : '')
+        : (alumnas.total ?? 0) > 0 ? ` · avisadas ${alumnas.avisadas ?? 0} de ${alumnas.total} clientes` : '';
       showToast(`Clase cubierta con ${nombreInstructor(instructorId)}${sobreClientas}`);
       setSustitutaPara(null);
     });
@@ -3534,7 +3534,7 @@ export default function Calendario() {
       onAnterior={vecinasActual.anterior ? () => { setSesionId(vecinasActual.anterior); setAbiertaSola(false); setPestanaPanel('clientas'); } : undefined}
       onSiguiente={vecinasActual.siguiente ? () => { setSesionId(vecinasActual.siguiente); setAbiertaSola(false); setPestanaPanel('clientas'); } : undefined}
       menu={menuClase}
-      pieMenu={empezadaActual && esPropiaClase ? 'Una clase que ya ha empezado no se cancela ni se borra: su asistencia es la historia de tus alumnas.' : undefined}
+      pieMenu={empezadaActual && esPropiaClase ? 'Una clase que ya ha empezado no se cancela ni se borra: su asistencia es la historia de tus clientes.' : undefined}
       principal={hayPrincipal ? principalFicha : undefined}
       pestana={pestanaPanel}
       onPestana={setPestanaPanel}
@@ -3805,7 +3805,7 @@ export default function Calendario() {
             resumen={resumen}
             activo={filtroResumenVivo}
             onFiltro={setFiltroResumen}
-            enlace={plazasLibresOk ? { href: '/calendario/plazas-libres', texto: 'Plazas libres', titulo: 'Cuántas plazas quedan en cada clase y dónde cabe otra alumna con clase fija' } : null}
+            enlace={plazasLibresOk ? { href: '/calendario/plazas-libres', texto: 'Plazas libres', titulo: 'Cuántas plazas quedan en cada clase y dónde cabe otro cliente con clase fija' } : null}
             extra={esHoyEnDia && siguienteHoyId ? (() => {
               const t = tarjetasPorId.get(siguienteHoyId);
               if (!t) return null;
@@ -4082,8 +4082,8 @@ export default function Calendario() {
         onOpenChange={setConfirmCancelar}
         titulo="¿Cancelar esta clase?"
         descripcion={apuntadasSesionActual > 0
-          ? `${apuntadasSesionActual} alumna${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
-          : 'La clase no tiene alumnas apuntadas.'}
+          ? `${apuntadasSesionActual} cliente${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
+          : 'La clase no tiene clientes apuntados.'}
         textoConfirmar="Cancelar clase"
         destructivo
         onConfirm={() => void cancelarSesion()}
@@ -4094,8 +4094,8 @@ export default function Calendario() {
         onOpenChange={setConfirmCancelarSerie}
         titulo={`¿Cancelar ${sesionesSerieRestantes.length === 1 ? 'la próxima clase' : `${sesionesSerieRestantes.length} clases`} de esta serie?`}
         descripcion={`${sinEstaEnLaSerie ? `Desde la próxima: ${sinEstaEnLaSerie}.` : 'Desde esta clase en adelante.'} ${apuntadasSerieRestante > 0
-          ? `${apuntadasSerieRestante} reserva${apuntadasSerieRestante !== 1 ? 's' : ''} se cancelará${apuntadasSerieRestante !== 1 ? 'n' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — se les devuelve la sesión del bono' : ''} y las alumnas recibirán un aviso. Las clases anteriores de la serie no se tocan.`
-          : 'Ninguna tiene alumnas apuntadas, y las clases anteriores de la serie no se tocan.'}`}
+          ? `${apuntadasSerieRestante} reserva${apuntadasSerieRestante !== 1 ? 's' : ''} se cancelará${apuntadasSerieRestante !== 1 ? 'n' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — se les devuelve la sesión del bono' : ''} y los clientes recibirán un aviso. Las clases anteriores de la serie no se tocan.`
+          : 'Ninguna tiene clientes apuntados, y las clases anteriores de la serie no se tocan.'}`}
         textoConfirmar="Cancelar serie"
         destructivo
         onConfirm={() => void cancelarSerie()}
@@ -4106,8 +4106,8 @@ export default function Calendario() {
         onOpenChange={setConfirmEliminar}
         titulo="¿Eliminar esta clase?"
         descripcion={apuntadasSesionActual > 0
-          ? `${apuntadasSesionActual} alumna${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza${apuntadasSesionActual !== 1 ? 's' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
-          : 'La clase no tiene alumnas apuntadas.'}
+          ? `${apuntadasSesionActual} cliente${apuntadasSesionActual !== 1 ? 's' : ''} apuntada${apuntadasSesionActual !== 1 ? 's' : ''} se quedará${apuntadasSesionActual !== 1 ? 'n' : ''} sin plaza${apuntadasSesionActual !== 1 ? 's' : ''}${(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá${apuntadasSesionActual !== 1 ? 'n' : ''} un aviso.`
+          : 'La clase no tiene clientes apuntados.'}
         textoConfirmar="Eliminar clase"
         destructivo
         onConfirm={() => void eliminarSesion()}
@@ -4385,7 +4385,7 @@ export default function Calendario() {
               <span className="min-w-0">
                 <span className="block text-sm font-bold text-foreground">Clase</span>
                 <span className="block text-xs text-muted-foreground text-pretty">
-                  Un día concreto, o varios si la repites: una clase suelta, un taller o una clase extra. Tus alumnas la reservan.
+                  Un día concreto, o varios si la repites: una clase suelta, un taller o una clase extra. Tus clientes la reservan.
                 </span>
               </span>
             </button>
@@ -4399,7 +4399,7 @@ export default function Calendario() {
               <span className="min-w-0">
                 <span className="block text-sm font-bold text-foreground">Clase semanal</span>
                 <span className="block text-xs text-muted-foreground text-pretty">
-                  Se repite cada semana a la misma hora. Tus alumnas pueden tenerla como clase fija y no tienen que
+                  Se repite cada semana a la misma hora. Tus clientes pueden tenerla como clase fija y no tienen que
                   reservarla cada semana.
                 </span>
               </span>
@@ -4507,10 +4507,10 @@ export default function Calendario() {
                 </DialogHeader>
                 <p className="mt-2 text-[13px] text-muted-foreground">
                   {enCurso
-                    ? 'No cierres esta ventana: cada clase avisa a sus alumnas antes de borrarse.'
+                    ? 'No cierres esta ventana: cada clase avisa a sus clientes antes de borrarse.'
                     : alumnas === 0
-                      ? 'Ninguna tiene alumnas apuntadas.'
-                      : <><strong className="text-foreground">{alumnas} alumna{alumnas === 1 ? '' : 's'}</strong> apuntada{alumnas === 1 ? '' : 's'} se quedará{alumnas === 1 ? '' : 'n'} sin plaza{(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá{alumnas === 1 ? '' : 'n'} un aviso por cada clase suya que se borre.</>}
+                      ? 'Ninguna tiene clientes apuntados.'
+                      : <><strong className="text-foreground">{alumnas} cliente{alumnas === 1 ? '' : 's'}</strong> apuntada{alumnas === 1 ? '' : 's'} se quedará{alumnas === 1 ? '' : 'n'} sin plaza{(studio?.cancelacionClaseDevuelveBono ?? true) ? ' — su bono se devuelve' : ''} y recibirá{alumnas === 1 ? '' : 'n'} un aviso por cada clase suya que se borre.</>}
                   {!enCurso && descartadas > 0 && (
                     <> {descartadas} de las marcadas no se {descartadas === 1 ? 'borra' : 'borran'}: ya {descartadas === 1 ? 'empezó' : 'empezaron'}.</>
                   )}
@@ -4554,8 +4554,8 @@ export default function Calendario() {
               <>
                 <p className="text-[13px] text-muted-foreground mt-2">
                   {alumnas === 0
-                    ? 'No hay ninguna alumna apuntada en esas clases.'
-                    : <>Hay <strong className="text-foreground">{alumnas} alumna{alumnas === 1 ? '' : 's'}</strong> apuntada{alumnas === 1 ? '' : 's'} en total. Si avisas, {alumnas === 1 ? 'recibe' : 'reciben'} un correo por cada clase suya que cambie.</>}
+                    ? 'No hay ningún cliente apuntado en esas clases.'
+                    : <>Hay <strong className="text-foreground">{alumnas} cliente{alumnas === 1 ? '' : 's'}</strong> apuntada{alumnas === 1 ? '' : 's'} en total. Si avisas, {alumnas === 1 ? 'recibe' : 'reciben'} un correo por cada clase suya que cambie.</>}
                   {descartadas > 0 && (
                     <> {descartadas} de las marcadas no se {descartadas === 1 ? 'mueve' : 'mueven'}: ya {descartadas === 1 ? 'la da' : 'las da'} esa instructora, o la clase ya empezó.</>
                   )}
@@ -4594,8 +4594,8 @@ export default function Calendario() {
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
               ¿Aviso a {avisoInstructora?.apuntadas === 0
-                ? 'las alumnas apuntadas'
-                : avisoInstructora?.apuntadas === 1 ? 'la alumna' : `las ${avisoInstructora?.apuntadas} clientas`}?
+                ? 'los clientes apuntados'
+                : avisoInstructora?.apuntadas === 1 ? 'el cliente' : `las ${avisoInstructora?.apuntadas} clientes`}?
             </DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground mt-2">
@@ -4630,7 +4630,7 @@ export default function Calendario() {
           <DialogHeader>
             <DialogTitle className="text-[15px] font-semibold text-foreground">
               ¿Mover {confirmarArrastre?.destinoTexto} y avisar a{' '}
-              {confirmarArrastre?.apuntadas === 1 ? 'la alumna' : `las ${confirmarArrastre?.apuntadas} clientas`}?
+              {confirmarArrastre?.apuntadas === 1 ? 'el cliente' : `las ${confirmarArrastre?.apuntadas} clientes`}?
             </DialogTitle>
           </DialogHeader>
           <p className="text-[13px] text-muted-foreground mt-2">
@@ -4688,7 +4688,7 @@ export default function Calendario() {
             abierto
             titulo={`Ajustar aforo a ${sala.capacidad}`}
             cuerpo={<p>{permitido
-              ? `Se bajará el aforo de esta clase a ${sala.capacidad} (capacidad de ${sala.nombre}). No afecta a ninguna alumna confirmada.`
+              ? `Se bajará el aforo de esta clase a ${sala.capacidad} (capacidad de ${sala.nombre}). No afecta a ningún cliente confirmado.`
               : motivoAforoBloqueado(confirmadas, sala.capacidad)}</p>}
             onConfirmar={permitido ? () => void ejecutarAjustarAforo(s.id, sala.capacidad) : null}
             textoConfirmar="Ajustar"

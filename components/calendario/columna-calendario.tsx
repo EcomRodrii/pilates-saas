@@ -56,7 +56,7 @@ export function ColumnaCalendario({
           onChange={e => onSoloConApuntadas(e.target.checked)}
           className="size-4 rounded border-border accent-[color:var(--primary)]"
         />
-        Solo con alumnas apuntadas
+        Solo con clientes apuntados
       </label>
 
       {tipos.length > 0 && <Lista titulo="Clases" filas={tipos} onAlternar={onTipo} conPunto />}

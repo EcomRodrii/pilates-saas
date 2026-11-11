@@ -369,7 +369,7 @@ test('las marcas de «ya se enseñó» valen pase el día que pase; las medidas,
 const extra = (o: Partial<{ conStripe: boolean; alumnasCargadas: number; alumnasConCuenta: number }> = {}) =>
   ({ conStripe: false, alumnasCargadas: 0, alumnasConCuenta: 0, ...o });
 
-test('«cómo está hoy»: cuántos estudios tienen alumnas cargadas, alumnas en la app y Stripe', () => {
+test('«cómo está hoy»: cuántos estudios tienen clientes cargados, clientes en la app y Stripe', () => {
   const filas = [
     fila({ diaAlta: '2026-10-28', extra: extra({ alumnasCargadas: 61, alumnasConCuenta: 61 }) }),
     fila({ diaAlta: '2026-10-28', extra: extra({ alumnasCargadas: ALUMNAS_CARGADAS_MINIMO, conStripe: true }) }),
@@ -383,7 +383,7 @@ test('«cómo está hoy»: cuántos estudios tienen alumnas cargadas, alumnas en
   for (const p of Object.values(por)) assert.equal(p.nota, 'hoy', 'estado de hoy, sin fecha de cuándo ocurrió');
 });
 
-test('sin poder leer alumnas ni Stripe es «—», nunca 0; y se cuenta solo sobre los que sí se leyeron', () => {
+test('sin poder leer clientes ni Stripe es «—», nunca 0; y se cuenta solo sobre los que sí se leyeron', () => {
   const sinLeer = pasosDeHoy([fila({ diaAlta: '2026-10-28' }), fila({ diaAlta: '2026-10-28' })]);
   for (const p of sinLeer) assert.deepEqual([p.n, p.de], [null, null], p.id);
   const mezcla = pasosDeHoy([fila({ diaAlta: '2026-10-28', extra: extra({ conStripe: true }) }), fila({ diaAlta: '2026-10-28' })]);

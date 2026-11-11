@@ -58,11 +58,11 @@ test.describe('Student PWA · código de descuento', () => {
     // por hecho «clienta nueva», así que a una socia de siempre le confirmaba
     // un código `soloNuevas` que el cobro luego ignoraba en silencio.
     let recibido: Record<string, unknown> | null = null;
-    await montar(page, { validar: (b) => { recibido = b; return { ok: false, motivo: 'Ese código es solo para alumnas nuevas' }; } });
+    await montar(page, { validar: (b) => { recibido = b; return { ok: false, motivo: 'Ese código es solo para clientes nuevos' }; } });
     await abrirCompra(page);
     await page.getByLabel('Código de descuento').fill('SOLONUEVAS');
     await page.getByRole('button', { name: 'Aplicar' }).click();
-    await expect(page.getByTestId('codigo-resultado')).toContainText('solo para alumnas nuevas');
+    await expect(page.getByTestId('codigo-resultado')).toContainText('solo para clientes nuevos');
     expect(recibido).toBeTruthy();
     expect((recibido as unknown as Record<string, unknown>).socioId).toBe('socio-e2e-1');
   });

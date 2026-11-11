@@ -189,7 +189,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
           tituloRef={titulo}
         />
         <p className="mt-2.5 max-w-[48ch] text-[16px] leading-[25px] text-muted-foreground">
-          Tu logo y tu color en la app de tus alumnas, y también en tu página de reservas. Lo cambias cuando quieras en Configuración › Marca.
+          Tu logo y tu color en la app de tus clientes, y también en tu página de reservas. Lo cambias cuando quieras en Configuración › Marca.
         </p>
 
         {/* Móvil: la franja fija con su marca y «Ver en grande». */}
@@ -297,7 +297,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
           </div>
 
           <div>
-            <label htmlFor={`${id}-nombre`} className={CLASE_ETIQUETA}>Nombre que verán tus alumnas</label>
+            <label htmlFor={`${id}-nombre`} className={CLASE_ETIQUETA}>Nombre que verán tus clientes</label>
             <input
               id={`${id}-nombre`}
               className={cn(CLASE_CAMPO, 'mt-1.5')}
@@ -315,8 +315,8 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
         <NavPaso onAtras={onAtras} trabajando={ocupado} />
       </form>
 
-      <aside aria-label="Así lo verá tu alumna" className="hidden min-w-0 flex-col items-center gap-4 self-start rounded-3xl bg-muted/70 p-8 text-center lg:flex">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así lo verá tu alumna · en vivo</p>
+      <aside aria-label="Así lo verá tu cliente" className="hidden min-w-0 flex-col items-center gap-4 self-start rounded-3xl bg-muted/70 p-8 text-center lg:flex">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así lo verá tu cliente · en vivo</p>
         {studio.slug && publicado
           ? <AppEnVivo slug={studio.slug} css={css} recarga={recarga} escala={escala} />
           : <p className="py-24 text-[13px] text-muted-foreground">{sinTema ? 'No hemos podido cargar tu app.' : 'Cargando tu app…'}</p>}
@@ -326,11 +326,11 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
         <DashboardSheet
           open={verGrande}
           onClose={() => setVerGrande(false)}
-          label="Así lo verá tu alumna"
+          label="Así lo verá tu cliente"
           sheetClassName="flex max-h-[96dvh] w-full max-w-sm flex-col items-center gap-3 overflow-y-auto rounded-3xl bg-card p-4"
         >
           <div className="flex w-full items-center justify-between">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así lo verá tu alumna</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así lo verá tu cliente</p>
             <button type="button" onClick={() => setVerGrande(false)} className={cn(BOTON_BORDE, 'h-9 px-3')}>Cerrar</button>
           </div>
           {publicado

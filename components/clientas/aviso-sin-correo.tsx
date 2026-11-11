@@ -45,7 +45,7 @@ export function AvisoSinCorreo({ studioId, n, onVer }: {
   return (
     <section
       role="status"
-      aria-label="Alumnas sin correo"
+      aria-label="Clientes sin correo"
       data-testid="aviso-sin-correo"
       className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/10 px-3.5 py-3"
     >

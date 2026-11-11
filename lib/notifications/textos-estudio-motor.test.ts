@@ -37,7 +37,7 @@ const clase = (recipients: { role: 'SOCIA' | 'INSTRUCTOR'; userId: string }[]) =
   recipients, dedupKey: `clase-cancelada:${recipients.map(r => r.userId).join(',')}`,
 });
 
-test('la alumna recibe el texto del estudio; la instructora, el suyo', async () => {
+test('el cliente recibe el texto del estudio; la instructora, el suyo', async () => {
   const { admin, notifs, lecturasPlantilla } = fakeAdmin({
     title_tpl: 'Hoy no hay {clase}', body_tpl: 'Lo sentimos: la de {cuando} no se da. Te devolvemos la sesión.',
   });
@@ -56,7 +56,7 @@ test('una plantilla guardada con una variable que el evento no trae: sale la de 
   assert.equal(notifs[0].title, 'Clase cancelada');
 });
 
-test('sin alumnas entre los destinatarios ni se lee la plantilla', async () => {
+test('sin clientes entre los destinatarios ni se lee la plantilla', async () => {
   const { admin, lecturasPlantilla } = fakeAdmin(null);
   await crearInApp(admin, clase([{ role: 'INSTRUCTOR', userId: 'u-i' }]));
   assert.equal(lecturasPlantilla.length, 0);

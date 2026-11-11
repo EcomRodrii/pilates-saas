@@ -131,7 +131,7 @@ test.describe('Archivar un tipo de clase', () => {
     const dialogo = page.getByRole('dialog', { name: 'Archivar «Mat»' });
     await expect(dialogo).toBeVisible();
     await expect(dialogo).toContainText('No podrás programar más clases de este tipo hasta que lo recuperes.');
-    await expect(dialogo).toContainText('Tiene 2 clases programadas, la última el 12 de octubre, con 2 alumnas apuntadas. Se quedan como están y se pueden seguir reservando.');
+    await expect(dialogo).toContainText('Tiene 2 clases programadas, la última el 12 de octubre, con 2 clientes apuntados. Se quedan como están y se pueden seguir reservando.');
     await expect(dialogo).toContainText('Su clase que se repite deja de renovarse: termina con la última fecha que ya tiene.');
     await expect(dialogo).toContainText('«Bono Mat» solo sirve para este tipo');
     await expect(dialogo).toContainText('Su historial (asistencias, informes, cobros) no se toca.');

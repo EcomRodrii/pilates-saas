@@ -68,7 +68,7 @@ export function SeccionDatos({ showToast }: { showToast: (m: string) => void }) 
     setRedaccionIA(data.activo);
     showToast(data.activo
       ? 'La IA vuelve a redactar tus sugerencias y automatizaciones'
-      : 'Apagado: ya no se envía nada de tus alumnas a la IA sin que pulses un botón');
+      : 'Apagado: ya no se envía nada de tus clientes a la IA sin que pulses un botón');
     return null;
   }
 

@@ -82,7 +82,7 @@ const POLITICAS: [tabla: string, politica: string][] = [
   ['notas_progreso', 'salud_notas_progreso_delete'],
 ];
 
-test('las políticas de salud: estudio + consentimiento + (propietaria o instructora con su alumna)', () => {
+test('las políticas de salud: estudio + consentimiento + (propietaria o instructora con su cliente)', () => {
   for (const [tabla, politica] of POLITICAS) {
     const bloque = SALUD.match(new RegExp(String.raw`create policy ${politica} on public\.${tabla}\b[\s\S]*?;`, 'i'))?.[0];
     assert.ok(bloque, `falta ${politica} en ${tabla}`);
@@ -110,7 +110,7 @@ test('ninguna migración posterior vuelve a abrir la salud a toda instructora de
       const reabre = new RegExp(
         String.raw`create policy \w+ on public\.${tabla}\b[^;]*in \('PROPIETARIO', 'INSTRUCTOR'\)`, 'i',
       );
-      assert.doesNotMatch(sql, reabre, `${nombre} redefine una política de ${tabla} sin la regla de alumna asignada`);
+      assert.doesNotMatch(sql, reabre, `${nombre} redefine una política de ${tabla} sin la regla de cliente asignado`);
     }
   }
 });
@@ -136,7 +136,7 @@ test('las rutas de servidor que sirven salud comprueban rol clínico, estudio y 
   assert.match(helper, /\.is\('borrado_en', null\)/);
 });
 
-test('app de la instructora: la salud de una alumna sale con su regla, su consentimiento y la lectura apuntada antes', () => {
+test('app de la instructora: la salud de un cliente sale con su regla, su consentimiento y la lectura apuntada antes', () => {
   const servidor = leer('lib/portal-instructora/alumnas-servidor.ts');
   const inicio = servidor.indexOf('export async function saludDeAlumna');
   assert.ok(inicio >= 0, 'falta saludDeAlumna');
@@ -149,7 +149,7 @@ test('app de la instructora: la salud de una alumna sale con su regla, su consen
   const registro = pos(/from\('lecturas_ficha_salud'\)\.insert\(/);
   const falloCerrado = pos(/if \(eLectura\) throw/);
   const devuelve = pos(/notas: notasPropias\(/);
-  assert.ok(regla < consentimiento && consentimiento < lecturaClinica, 'regla de alumna y consentimiento antes de leer salud');
+  assert.ok(regla < consentimiento && consentimiento < lecturaClinica, 'regla de cliente y consentimiento antes de leer salud');
   assert.ok(registro < falloCerrado && falloCerrado < devuelve, 'la lectura se apunta, y si falla no se devuelve nada');
   // Nunca las notas libres de la condición, y las notas de progreso solo suyas.
   assert.doesNotMatch(salud, /select\('[^']*\bnotas\b[^']*'\)/);

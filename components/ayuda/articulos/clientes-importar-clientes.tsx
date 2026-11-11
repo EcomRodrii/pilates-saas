@@ -7,15 +7,15 @@ export default function Contenido() {
   return (
     <>
       <AyudaAntesDeEmpezar>
-        Exporta tus alumnas de tu software actual a un archivo .csv o .xlsx antes de empezar — no hace falta que
+        Exporta tus clientes de tu software actual a un archivo .csv o .xlsx antes de empezar — no hace falta que
         conectes ninguna cuenta ni des permisos a Tentare sobre tu plataforma anterior.
       </AyudaAntesDeEmpezar>
 
       <AyudaPaso numero={1} titulo="Sube tu archivo">
-        <p>Desde Alumnas &gt; Importar, arrastra tu CSV o Excel. Las columnas mínimas que necesita son <strong>Nombre</strong> y <strong>Email</strong>; puedes descargar una plantilla de ejemplo si no la tienes clara.</p>
+        <p>Desde Clientes &gt; Importar, arrastra tu CSV o Excel. Las columnas mínimas que necesita son <strong>Nombre</strong> y <strong>Email</strong>; puedes descargar una plantilla de ejemplo si no la tienes clara.</p>
         <AyudaCaptura
           src="/help/clientes/importar-clientes.png"
-          alt="Pantalla de importación de alumnas: subir archivo CSV o Excel, con enlaces a migración automática, importar bonos e importar clases fijas"
+          alt="Pantalla de importación de clientes: subir archivo CSV o Excel, con enlaces a migración automática, importar bonos e importar clases fijas"
           caption="Paso 1 de 3 — subir archivo."
         />
       </AyudaPaso>
@@ -29,7 +29,7 @@ export default function Contenido() {
       </AyudaPaso>
 
       <AyudaResultado>
-        Esta pantalla importa solo los datos de la alumna. Si además quieres traer sus bonos y membresías activas, o
+        Esta pantalla importa solo los datos del cliente. Si además quieres traer sus bonos y membresías activas, o
         sus clases fijas semanales, esta misma pantalla enlaza a esos dos importadores aparte — o, si vienes de otra
         plataforma entera, prueba la migración automática (arrastras tus exports tal cual y Tentare los reconoce
         solos, con deshacer).

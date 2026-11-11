@@ -26,7 +26,7 @@ export const MENSAJE_RESERVA_RPC: Record<string, string> = {
   // Decir «su tope» a secas sería mentir a medias — le quedan clases, pero de
   // la otra.
   LIMITE_SEMANAL_ACTIVIDAD: 'Ha alcanzado el máximo semanal de esa actividad. Puede que aún le queden clases de otra.',
-  NECESITA_AUTORIZACION: 'Esta clase es solo para alumnas autorizadas. Autorízala en su ficha y vuelve a apuntarla.',
+  NECESITA_AUTORIZACION: 'Esta clase es solo para clientes autorizados. Autorízala en su ficha y vuelve a apuntarla.',
   RESERVA_BLOQUEADA_IMPAGO: 'Tiene un recibo sin cobrar. Márcalo como cobrado desde Cobros y vuelve a apuntarla.',
   // RES-4: Verificación de entitlement ahora atómica dentro del lock.
   // Si la socia no tiene plan/bono activo, la RPC rechaza dentro de la
@@ -41,7 +41,7 @@ export const MENSAJE_RESERVA_RPC: Record<string, string> = {
   // se le cuenta el detalle interno, pero tampoco se le enseña el código.
   NO_AUTORIZADO: 'No tienes permiso para apuntar a nadie en esta clase.',
   STUDIO_MISMATCH: 'Esa clase no es de este estudio. Recarga la página.',
-  SOCIO_NO_PERTENECE_AL_STUDIO: 'Esa alumna no es de este estudio. Recarga la página.',
+  SOCIO_NO_PERTENECE_AL_STUDIO: 'Ese cliente no es de este estudio. Recarga la página.',
 };
 
 /**

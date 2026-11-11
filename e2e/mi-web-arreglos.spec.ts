@@ -166,7 +166,7 @@ async function abrirWidgets(page: Page, opts: { oculta: boolean | null; panelNue
     return opts.oculta === null ? json(r, { error: 'no' }, 500) : json(r, { oculta: opts.oculta, tieneClave: false });
   });
   await page.goto('/configuracion?tab=web&abrir=widgets', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'Así lo verá tu alumna' })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole('heading', { name: 'Así lo verá tu cliente' })).toBeVisible({ timeout: 60_000 });
   return lecturas;
 }
 
@@ -194,7 +194,7 @@ for (const panelNuevo of [true, false]) {
     await abrirWidgets(page, { oculta: false, panelNuevo });
     const barra = page.locator('[data-panel-topbar]');
     await expect(barra).toBeVisible();
-    const cabecera = page.getByRole('heading', { name: 'Así lo verá tu alumna' });
+    const cabecera = page.getByRole('heading', { name: 'Así lo verá tu cliente' });
     // Bajar lo bastante para que la vista previa tenga que pegarse.
     await page.mouse.move(400, 600);
     for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 400);

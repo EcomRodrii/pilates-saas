@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 };
 
 const VENTAJAS = [
-  'Tus alumnas reservan y cancelan solas desde el móvil',
+  'Tus clientes reservan y cancelan solas desde el móvil',
   'Los bonos se descuentan solos y las cuotas se cobran con la tarjeta guardada',
   'Si falla una instructora, Tentare busca sustituta por ti',
 ];

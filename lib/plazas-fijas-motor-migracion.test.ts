@@ -59,6 +59,6 @@ test('un horizonte NULL sigue sin reservar nada en el envoltorio público', () =
   assert.match(SQL, /if p_horizonte_dias is null then\s+return 0;\s+end if;/);
 });
 
-test('el motor mira más lejos de lo que se avisa a la alumna', () => {
+test('el motor mira más lejos de lo que se avisa al cliente', () => {
   assert.ok(HORIZONTE_MATERIALIZAR_DIAS > HORIZONTE_AVISOS_PLAZA_FIJA_DIAS);
 });

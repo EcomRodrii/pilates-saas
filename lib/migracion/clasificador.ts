@@ -56,7 +56,7 @@ interface DefEntidad {
 // las Fila*Validada comparten la forma {fila, datos, estado, motivo}.
 export const ENTIDADES: Record<EntidadMigracion, DefEntidad> = {
   socias: {
-    etiqueta: 'Alumnas',
+    etiqueta: 'Clientes',
     campos: CAMPOS_SOCIA,
     mapear: (h) => autoMapear(h) as Record<string, number>,
     validar: (r, m) => validarFilas(r, m as Parameters<typeof validarFilas>[1]) as unknown as FilaValidadaComun[],
@@ -457,7 +457,7 @@ export function avisosGlobalesYOrden(resultados: ArchivoAnalizado[]): { orden: E
   const presentes = new Set(resultados.map(r => r.entidad).filter((e): e is EntidadMigracion => e !== null));
   const avisos: string[] = [];
   if (presentes.has('membresias') && !presentes.has('socias')) {
-    avisos.push('Hay bonos/membresías pero ningún archivo de alumnas: las membresías de emails que no existan ya en Tentare fallarán.');
+    avisos.push('Hay bonos/membresías pero ningún archivo de clientes: las membresías de emails que no existan ya en Tentare fallarán.');
   }
   if (presentes.has('reservas') && !presentes.has('clases')) {
     avisos.push('Hay reservas pero ningún archivo de clases: las reservas de clases que no existan ya en Tentare fallarán.');

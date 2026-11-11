@@ -86,7 +86,7 @@ test('⚠️ el servidor manda las acciones en el rechazo de crear (API pública
   assert.match(v1, /accionesDeRechazo\(resultado\.codigo\)/);
 });
 
-test('la pantalla de la alumna decide el botón de comprar por las acciones, con la frase solo de respaldo', () => {
+test('la pantalla del cliente decide el botón de comprar por las acciones, con la frase solo de respaldo', () => {
   const estado = leer('components/student/domain/BookingStatus.tsx');
   assert.match(estado, /acciones\?\.includes\('comprar_plan'\)/);
   assert.match(estado, /seArreglaComprando\(mensaje\)/, 'el respaldo para respuestas sin código sigue');

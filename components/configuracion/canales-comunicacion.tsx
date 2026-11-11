@@ -200,10 +200,10 @@ export function FormRemitente({ remitente, onGuardado }: { remitente: Remitente 
   return (
     <>
       <div className={CUERPO}>
-        <Campo label="Nombre que verán tus alumnas" ayuda="Vacío = el nombre de tu estudio.">
+        <Campo label="Nombre que verán tus clientes" ayuda="Vacío = el nombre de tu estudio.">
           {id => <input id={id} className={inputCls} value={form.fromName} placeholder={studio?.nombre ?? ''} onChange={e => { const v = e.target.value; setForm(f => ({ ...f, fromName: v })); }} />}
         </Campo>
-        <Campo label="Email para respuestas" ayuda="Vacío = el email de tu estudio." error={emailMal ? 'Ese email no es válido: tus alumnas no podrían responderte.' : null}>
+        <Campo label="Email para respuestas" ayuda="Vacío = el email de tu estudio." error={emailMal ? 'Ese email no es válido: tus clientes no podrían responderte.' : null}>
           {id => <input id={id} className={inputCls} type="email" inputMode="email" value={form.fromEmail} placeholder={studio?.email ?? 'hola@tuestudio.es'} aria-invalid={emailMal} onChange={e => { const v = e.target.value; setForm(f => ({ ...f, fromEmail: v })); }} />}
         </Campo>
         {asi && <p data-consecuencia="" className="rounded-lg bg-muted px-3 py-2.5 text-sm text-foreground text-pretty">Así llegan: {asi}.</p>}
@@ -297,7 +297,7 @@ const PASOS_WHATSAPP = [
   'En WhatsApp → Introducción, copia el «ID del número de teléfono».',
   'En la misma pantalla, genera un token de acceso permanente (token de usuario del sistema, no el temporal de 24 h de prueba).',
   'Pega aquí el token y el ID del número, y pulsa «Guardar».',
-  'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24 h desde el último mensaje de la alumna. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto «recordatorio_clase», categoría «Utilidad», idioma «Español» y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Cuando te la aprueben, marca su casilla.',
+  'Los recordatorios los manda un proceso automático, no una respuesta tuya, así que Meta exige una plantilla aprobada para que lleguen pasadas 24 h desde el último mensaje del cliente. En WhatsApp Manager → Plantillas de mensaje, crea una con nombre exacto «recordatorio_clase», categoría «Utilidad», idioma «Español» y este cuerpo con 5 variables: «Recordatorio · {{1}}. Tienes {{2}} el {{3}} a las {{4}} en {{5}}.» Cuando te la aprueben, marca su casilla.',
   'Los avisos de hueco libre («Rellenar hueco», en la agenda de la home) necesitan su PROPIA plantilla, porque para Meta son marketing. Crea otra con nombre exacto «hueco_disponible», categoría «Marketing», idioma «Español» y este cuerpo con 6 variables: «¡Hola {{1}}! Se ha quedado un hueco en {{2}} el {{3}} a las {{4}} en {{5}}. Reserva tu plaza aquí: {{6}} ¡Te esperamos!» Cuando te la aprueben, marca su casilla: la del recordatorio no vale para esta.',
   'Si usas las sustituciones, crea también «sustitucion_urgente», categoría «Marketing», idioma «Español», con este cuerpo de 4 variables: «Hola {{1}}, ¿puedes cubrir {{2}} el {{3}}? Confírmalo en un toque aquí: {{4}} Gracias por echar un cable.» Es la que se le manda a la instructora cuando no ha contestado al email. Sí, «Marketing» aunque no venda nada: Meta reserva «Utilidad» para mensajes sobre el pedido o la cuenta de un cliente.',
   'Lo demás (campañas, automatizaciones y los mensajes sueltos de Mensajería) no necesita plantilla ni puede tenerla: llega a quien te haya escrito en las últimas 24 horas, y al resto Meta lo rechaza y verás el motivo en esta fila.',
@@ -510,7 +510,7 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
   return (
     <div className={CUERPO}>
       <p className="text-sm text-muted-foreground text-pretty">
-        Al desconectarlo dejamos de guardar {queSeBorra} Las alumnas que trajiste se quedan.
+        Al desconectarlo dejamos de guardar {queSeBorra} Los clientes que trajiste se quedan.
       </p>
       <div className="flex flex-col gap-2 @sm/config:flex-row @sm/config:flex-wrap">
         <button type="button" onClick={() => setPreguntando(true)} disabled={desconectando} className={cn(btnSecondary, 'text-destructive')}>
@@ -522,7 +522,7 @@ export function DetalleGmail({ g, onGuardado }: { g: CanalGmail } & PropsFormula
         open={preguntando}
         onOpenChange={setPreguntando}
         titulo="¿Desconectar Gmail?"
-        descripcion={`Dejaremos de guardar ${queSeBorra} Las alumnas que trajiste se quedan.`}
+        descripcion={`Dejaremos de guardar ${queSeBorra} Los clientes que trajiste se quedan.`}
         textoConfirmar="Sí, desconectar"
         destructivo
         onConfirm={() => { void desconectar(); }}

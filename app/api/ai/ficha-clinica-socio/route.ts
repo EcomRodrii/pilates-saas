@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
     // De quién son: la regla de acceso se decide por socia. Si alguna condición
     // dice ser de otra, no se mezcla.
     const socioId = typeof body.socioId === 'string' ? body.socioId : '';
-    if (!socioId) return NextResponse.json({ error: 'Falta la alumna' }, { status: 400 });
+    if (!socioId) return NextResponse.json({ error: 'Falta el cliente' }, { status: 400 });
     if (body.condiciones.some(c => c?.socioId && c.socioId !== socioId)) {
-      return NextResponse.json({ error: 'Las condiciones no son de esta alumna' }, { status: 400 });
+      return NextResponse.json({ error: 'Las condiciones no son de este cliente' }, { status: 400 });
     }
     // Mismas cerraduras que la RLS de `condiciones_salud`: consentimiento
     // vigente y, si es instructora, que sea su alumna.

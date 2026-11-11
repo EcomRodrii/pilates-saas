@@ -127,7 +127,7 @@ for (const vista of VISTAS) {
       await expect(page.getByText('No conectado', { exact: true })).toHaveCount(0);
       const titulos = await grupos(page);
       expect(titulos).toEqual([
-        'Cobrar a tus alumnas', 'Escribir a tus alumnas', 'Tu agenda y tus clases online', 'Marketing',
+        'Cobrar a tus clientes', 'Escribir a tus clientes', 'Tu agenda y tus clases online', 'Marketing',
         'Plataformas que venden tus clases', 'Automatizar y dar acceso a tus datos',
       ]);
       await expect(valor(page, 'aplicaciones-con-acceso')).toHaveText('Ninguna app tiene acceso');
@@ -162,7 +162,7 @@ for (const vista of VISTAS) {
       await expect(titulo(page, 'Dirección y enlaces')).toBeFocused();
       await expect(cajon(page).getByRole('textbox', { name: 'Dirección de tu app' })).toHaveValue('pilates-centro');
       await expect(cajon(page).getByText('Página de reservas', { exact: true })).toBeVisible();
-      await expect(cajon(page).getByText('App de tus alumnas', { exact: true })).toBeVisible();
+      await expect(cajon(page).getByText('App de tus clientes', { exact: true })).toBeVisible();
       await expect(guardar(page), 'sin cambios, ni barra ni «Guardar» gris').toHaveCount(0);
     });
 
@@ -175,7 +175,7 @@ for (const vista of VISTAS) {
       // Una sola pantalla (20-oct): los cinco bloques en orden, y los códigos de descuento ya no.
       for (const id of ['reglas', 'recompensas', 'logros', 'niveles', 'retos']) await expect(page.locator(`#${id}`)).toBeVisible();
       await expect(page.locator('#fila-herramienta-codigos-descuento')).toHaveCount(0);
-      await expect(page.getByRole('figure', { name: 'Vista previa de la app de tu alumna' })).toBeVisible();
+      await expect(page.getByRole('figure', { name: 'Vista previa de la app de tu cliente' })).toBeVisible();
       expect(await desborde(page), 'Motivación se sale de lado').toBeLessThanOrEqual(0);
       await page.screenshot({ path: test.info().outputPath(`motivacion-${vista.ancho}.png`), fullPage: true });
 
@@ -278,7 +278,7 @@ test.describe('Guardar de verdad', () => {
 
     await guardar(page).click();
     const confirmacion = page.getByRole('dialog').filter({ hasText: '¿Ocultar tu página?' });
-    await expect(confirmacion).toContainText('la app de tus alumnas');
+    await expect(confirmacion).toContainText('la app de tus clientes');
     expect(puts, 'sin confirmar no se escribe').toHaveLength(0);
     await confirmacion.getByRole('button', { name: 'Ocultar', exact: true }).click();
 

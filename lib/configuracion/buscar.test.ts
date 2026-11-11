@@ -133,7 +133,7 @@ test('⌘K: «IVA» da la tarjeta, su sección y el enlace a su ancla', () => {
   const espera = ajustesParaBuscadorGlobal('lista de espera', PROPIETARIA).find(a => a.id === 'tarjeta-lista-de-espera')!;
   assert.deepEqual(
     { donde: espera.donde, href: espera.href },
-    { donde: 'Cómo reservan mis alumnas', href: '/configuracion?tab=reservas#lista-de-espera' },
+    { donde: 'Cómo reservan mis clientes', href: '/configuracion?tab=reservas#lista-de-espera' },
   );
   // Una sección entera lleva a la sección, y dice que es de Configuración.
   const motivacion = ajustesParaBuscadorGlobal('motivación', PROPIETARIA).find(a => a.id === 'seccion-motivacion')!;

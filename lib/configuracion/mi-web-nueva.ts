@@ -15,7 +15,7 @@ import type { HerramientaId, SeccionId } from './secciones.ts';
 // cada uno con su entrada en la columna y su tarjeta en la portada.
 const GRUPO_JUNTO = 'tu-app-y-tu-web';
 const GRUPOS_SEPARADOS = [
-  { id: 'mi-app', titulo: 'Mi app', frase: 'La app de tus alumnas: cómo se ve, qué enseña y dónde se descarga.', secciones: ['marca'] },
+  { id: 'mi-app', titulo: 'Mi app', frase: 'La app de tus clientes: cómo se ve, qué enseña y dónde se descarga.', secciones: ['marca'] },
   { id: 'mi-web', titulo: 'Mi web', frase: 'Tu página de reservas y lo que pones en tu propia web.', secciones: ['web'] },
 ] as const;
 
@@ -38,7 +38,7 @@ export const PRESENTACION_MI_WEB: Partial<Record<SeccionId, { titulo: string; re
   marca: {
     titulo: 'Mi app', resumen: 'Cómo se ve, qué enseña y dónde se descarga',
     // La pantalla guiada (21-oct-2026) empieza por aquí: lo que es y cómo se recorre.
-    frase: 'La app que tus alumnas llevan en el móvil. Sigue los pasos en orden: con los dos primeros ya la puedes compartir; los demás la hacen tuya.',
+    frase: 'La app que tus clientes llevan en el móvil. Sigue los pasos en orden: con los dos primeros ya la puedes compartir; los demás la hacen tuya.',
   },
   web: {
     // La pantalla guiada (21-oct-2026) empieza por aquí: lo que es y cómo se recorre.

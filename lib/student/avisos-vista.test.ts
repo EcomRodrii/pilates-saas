@@ -10,7 +10,7 @@ import {
 
 // ── Filtros ──────────────────────────────────────────────────────────────────
 
-test('cada evento de alumna cae en su filtro por la categoría REAL del catálogo', () => {
+test('cada evento de cliente cae en su filtro por la categoría REAL del catálogo', () => {
   for (const ev of EVENTOS_DE_ALUMNA) {
     const regla = REGLAS[ev];
     if (!regla) continue;
@@ -86,7 +86,7 @@ test('qué botón lleva cada aviso', () => {
   assert.equal(accionDeAviso(null), null);
 });
 
-test('los eventos con botón existen en el catálogo y son de la alumna', () => {
+test('los eventos con botón existen en el catálogo y son del cliente', () => {
   for (const ev of ['reserva.oferta_lista_espera', 'bono.por_caducar', 'bono.agotado', 'reserva.confirmada', 'reserva.plaza_liberada']) {
     assert.ok(REGLAS[ev], ev);
     assert.ok(EVENTOS_DE_ALUMNA.has(ev), ev);

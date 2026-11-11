@@ -118,7 +118,7 @@ for (const vista of VISTAS) {
       await expect(valor(page, 'datos-extra-de-la-ficha')).toHaveText('3 datos extra · 1 obligatorio');
       await expect(valor(page, 'cuestionario-de-salud')).toHaveText('2 preguntas');
       await expect(page.getByRole('switch', { name: 'Valoración inicial' })).toHaveAttribute('aria-checked', 'false');
-      expect(await desborde(page), 'Alta de alumnas se sale de lado').toBeLessThanOrEqual(0);
+      expect(await desborde(page), 'Alta de clientes se sale de lado').toBeLessThanOrEqual(0);
 
       await page.locator('#compra-desde-tu-enlace').click();
       await expect(titulo(page, 'Compra desde tu enlace')).toBeFocused();
@@ -197,7 +197,7 @@ test.describe('Cobros y altas: guardar', () => {
 
     await interruptor.click();
     // Sin preguntas activas en el estudio, el aviso dice que falta crearlas.
-    await expect(page.getByText(/Activado\. Añade alguna pregunta|Tus alumnas contestarán tus preguntas en su app/)).toBeVisible();
+    await expect(page.getByText(/Activado\. Añade alguna pregunta|Tus clientes contestarán tus preguntas en su app/)).toBeVisible();
     await expect(interruptor).toHaveAttribute('aria-checked', 'true');
     expect(patches).toEqual([{ preguntas_alta_activas: true }]);
   });

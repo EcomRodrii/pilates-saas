@@ -85,7 +85,7 @@ test('compra pública: límites, trampa, captcha de SERVIDOR y el importe nunca 
   assert.doesNotMatch(r, /body\.studioId/);
 });
 
-test('canje: sesión real de alumna, límite por IP y por cuenta, captcha de servidor', () => {
+test('canje: sesión real de cliente, límite por IP y por cuenta, captcha de servidor', () => {
   const r = ruta('app/api/public/regalo/canjear/route.ts');
   assert.match(r, /verificarUsuarioSupabase\(req\)/);
   assert.match(r, /socioAutenticado\(user\.userId/);

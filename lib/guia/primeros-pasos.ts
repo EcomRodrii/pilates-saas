@@ -52,12 +52,12 @@ export const TAREAS: readonly TareaPrimerosPasos[] = [
   {
     id: 'bonos',
     titulo: 'Pon a la venta una cuota o un bono',
-    para: 'Para que tus alumnas paguen por adelantado y no clase a clase.',
+    para: 'Para que tus clientes paguen por adelantado y no clase a clase.',
     href: '/productos',
   },
   {
     id: 'clientes',
-    titulo: 'Trae a tus alumnas',
+    titulo: 'Trae a tus clientes',
     para: 'Dalas de alta o tráelas de tu programa anterior.',
     href: '/clientas?nuevo=1',
     otro: { label: 'Importar', href: '/migracion' },
@@ -152,9 +152,9 @@ export interface TareaAlta {
 
 /** Los textos de la maqueta, tal cual. */
 export const TAREAS_ALTA_NUEVA: readonly TareaAlta[] = [
-  { id: 'cuenta', titulo: 'Crea tu cuenta', para: 'Hecho: la app de tus alumnas ya existe.' },
+  { id: 'cuenta', titulo: 'Crea tu cuenta', para: 'Hecho: la app de tus clientes ya existe.' },
   {
-    id: 'primera-clase', titulo: 'Crea tu primera clase', para: 'Con una clase y su precio, tus alumnas ya pueden reservar.',
+    id: 'primera-clase', titulo: 'Crea tu primera clase', para: 'Con una clase y su precio, tus clientes ya pueden reservar.',
     accion: { label: 'Crear mi primera clase', href: ENTRADA_PRIMERA_CLASE }, minutos: 5,
   },
   {
@@ -162,16 +162,16 @@ export const TAREAS_ALTA_NUEVA: readonly TareaAlta[] = [
     accion: { label: 'Compartir mi enlace', abre: 'compartir' }, minutos: 2,
   },
   {
-    id: 'alumnas', titulo: 'Trae a tus alumnas', para: 'Impórtalas de tu programa o de tu Excel, o añádelas una a una.',
+    id: 'alumnas', titulo: 'Trae a tus clientes', para: 'Impórtalas de tu programa o de tu Excel, o añádelas una a una.',
     // La Migración Mágica lee el export de su programa y un Excel; una a una, en Clientas.
     accion: { label: 'Importar', href: '/migracion' }, otro: { label: 'Añadir una', href: '/clientas?nuevo=1' }, minutos: 3,
   },
-  { id: 'primera-reserva', titulo: 'Recibe tu primera reserva', para: 'Se marca sola cuando una alumna reserve desde tu app.' },
+  { id: 'primera-reserva', titulo: 'Recibe tu primera reserva', para: 'Se marca sola cuando un cliente reserve desde tu app.' },
 ];
 
 /** «Recibe tu primera reserva» cuando el enlace ya está compartido y nadie ha reservado: qué ayuda, no «espera». */
 export const TEXTO_PRIMERA_RESERVA_TRAS_COMPARTIR =
-  'Suele hacer falta pedírselo: escribe a tus alumnas con el enlace, deja el QR en recepción y date de alta a las que ya tienes, con su correo.';
+  'Suele hacer falta pedírselo: escribe a tus clientes con el enlace, deja el QR en recepción y date de alta a las que ya tienes, con su correo.';
 
 export type IdOpcionalAlta = 'marca' | 'stripe' | 'fiscales' | 'equipo' | 'sedes';
 

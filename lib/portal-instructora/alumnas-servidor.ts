@@ -200,7 +200,7 @@ export async function fichaDeAlumna(
   const admin = adminOLanza();
   const filas = await filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora);
   // `null` = no se pudo comprobar: nunca se lee como «sí».
-  if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
+  if (filas === null) throw new Error('No se ha podido comprobar si es su cliente');
   if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return null;
 
   const { data: socio, error } = await admin.from('socios').select('id, nombre, apellidos, foto_url, auth_user_id')
@@ -267,7 +267,7 @@ export async function guardarNotaDeSesion(
 ): Promise<ResultadoNotaDeSesion> {
   const admin = adminOLanza();
   const filas = await filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora);
-  if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
+  if (filas === null) throw new Error('No se ha podido comprobar si es su cliente');
   if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return 'NO_ES_SUYA';
 
   const { data: socio, error } = await admin.from('socios')
@@ -342,7 +342,7 @@ export async function saludDeAlumna(
 ): Promise<SaludAlumna | null> {
   const admin = adminOLanza();
   const filas = await filasDeSociaConInstructora(admin, p.studioId, p.instructorId, p.socioId, ahora);
-  if (filas === null) throw new Error('No se ha podido comprobar si es su alumna');
+  if (filas === null) throw new Error('No se ha podido comprobar si es su cliente');
   if (!instructoraAtiendeSocia(filas, p.instructorId, ahora)) return null;
 
   const { data: socio, error } = await admin.from('socios')

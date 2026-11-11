@@ -91,7 +91,7 @@ test('cada campo que la app declara leer lo manda el servidor', () => {
   );
 });
 
-test('los campos de gamificación de los que depende el tope por alumna siguen ahí', () => {
+test('los campos de gamificación de los que depende el tope por cliente siguen ahí', () => {
   // Explícito y por nombre, no solo por la comprobación general de arriba: son
   // los que decidieron el diseño de #1776 y los que romperían el aviso de
   // «ya la has canjeado» sin que nada falle.

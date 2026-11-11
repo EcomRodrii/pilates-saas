@@ -10,7 +10,7 @@ import type { Referencia } from '@/lib/asistente/estado-ui';
 
 export const ReferenciasCtx = createContext<Record<string, Referencia>>({});
 
-const GENERICO: Record<string, string> = { ALUMNA: 'Una alumna', EQUIPO: 'Alguien del equipo', PERSONA: 'Esa persona' };
+const GENERICO: Record<string, string> = { ALUMNA: 'Un cliente', EQUIPO: 'Alguien del equipo', PERSONA: 'Esa persona' };
 
 export function nombreDe(ref: string, refs: Record<string, Referencia>): Referencia {
   return refs[ref] ?? { nombre: GENERICO[ref.split('_')[0]] ?? 'Alguien', href: null };

@@ -214,13 +214,13 @@ export function euros(n: number): string {
 export type EstadoPrecio = 'gratis' | 'falta' | 'error' | 'cero' | 'raro' | 'ok';
 
 export const TEXTO_PRECIO = {
-  pista: 'Lo que paga la alumna. Es lo único que no ponemos por ti.',
+  pista: 'Lo que paga el cliente. Es lo único que no ponemos por ti.',
   falta: 'Falta el precio: es lo único que no podemos poner por ti.',
   formato: 'Escribe solo el número, por ejemplo 20 o 18,50.',
   negativo: 'El precio no puede ser negativo.',
   cero: 'Con 0 € la clase sería gratis. Si es lo que quieres, marca «Esta clase es gratis»; si no, escribe su precio.',
   ok: 'Se pondrá a la venta en cuanto publiques.',
-  gratis: 'Gratis: tus alumnas la reservan sin pagar nada, y no se pone ninguna tarifa a la venta.',
+  gratis: 'Gratis: tus clientes la reservan sin pagar nada, y no se pone ninguna tarifa a la venta.',
 } as const;
 
 /**

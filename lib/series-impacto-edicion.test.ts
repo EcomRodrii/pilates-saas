@@ -51,7 +51,7 @@ test('sin tocar nada no cambia nada, y así se dice', () => {
   assert.deepEqual(lineasDeImpacto(i), [{ tono: 'calma', texto: 'Estas clases ya tienen estos datos: no cambia nada.' }]);
 });
 
-test('cambiar la hora: cada reserva confirmada cambia y cada alumna recibe UN aviso', () => {
+test('cambiar la hora: cada reserva confirmada cambia y cada cliente recibe UN aviso', () => {
   // Ana está en las 4 clases, Marta solo en la 3.ª, Lucía en la 1.ª y en la 2.ª.
   const reservas = [
     ...[0, 1, 2, 3].map(i => res(`a${i}`, `s${i}`, 'ana')),
@@ -61,10 +61,10 @@ test('cambiar la hora: cada reserva confirmada cambia y cada alumna recibe UN av
   const i = calcular({ edicion: { horaInicio: '13:00', horaFin: '14:00' }, reservas });
   assert.equal(i.cambian.hora, 4);
   assert.equal(i.reservasAfectadas, 7);
-  assert.equal(i.alumnasAvisadas, 3, 'tres alumnas distintas, no siete avisos');
+  assert.equal(i.alumnasAvisadas, 3, 'tres clientes distintas, no siete avisos');
   const l = lineasDeImpacto(i).map(x => x.texto);
   assert.ok(l.includes('7 reservas confirmadas cambian de hora.'));
-  assert.ok(l.includes('Se avisará a 3 alumnas, una sola vez a cada una aunque cambien varias de sus clases.'));
+  assert.ok(l.includes('Se avisará a 3 clientes, una sola vez a cada una aunque cambien varias de sus clases.'));
 });
 
 test('SOLO las reservas confirmadas cuentan: la lista de espera no recibe aviso, pero se dice', () => {
@@ -99,7 +99,7 @@ test('cambiar solo la instructora avisa; cambiar solo aforo o notas NO', () => {
   const aforo = calcular({ edicion: { aforoMaximo: 10 }, reservas });
   assert.equal(aforo.alumnasAvisadas, 0);
   assert.equal(aforo.reservasAfectadas, 0);
-  assert.deepEqual(lineasDeImpacto(aforo), [{ tono: 'calma', texto: 'Este cambio no genera avisos a las alumnas.' }]);
+  assert.deepEqual(lineasDeImpacto(aforo), [{ tono: 'calma', texto: 'Este cambio no genera avisos a los clientes.' }]);
 
   const notas = calcular({ edicion: { notas: 'Traer calcetines' }, reservas });
   assert.equal(notas.cambian.notas, 4);
@@ -116,10 +116,10 @@ test('varios cambios a la vez se enumeran: «hora y sala», «hora, sala e instr
 
 test('con avisos y nadie apuntada, lo dice en vez de callar', () => {
   const i = calcular({ edicion: { horaInicio: '13:00', horaFin: '14:00' } });
-  assert.deepEqual(lineasDeImpacto(i), [{ tono: 'calma', texto: 'Ninguna alumna está apuntada a estas clases: no se avisa a nadie.' }]);
+  assert.deepEqual(lineasDeImpacto(i), [{ tono: 'calma', texto: 'Ningún cliente está apuntada a estas clases: no se avisa a nadie.' }]);
 });
 
-test('plazas fijas: cuenta alumnas (no plazas), y dice que se mueven solo si cambia hora o sala', () => {
+test('plazas fijas: cuenta clientes (no plazas), y dice que se mueven solo si cambia hora o sala', () => {
   const plazasFijas = [
     plaza('ana'), plaza('ana', { id: 'pf-ana-2' }), // dos plazas de la misma alumna = una alumna
     plaza('bea', { estado: 'PAUSADA' }),
@@ -128,10 +128,10 @@ test('plazas fijas: cuenta alumnas (no plazas), y dice que se mueven solo si cam
   ];
   const hora = calcular({ edicion: { horaInicio: '13:00', horaFin: '14:00' }, plazasFijas });
   assert.equal(hora.alumnasConPlazaFija, 2);
-  assert.ok(lineasDeImpacto(hora).some(x => x.texto === '2 alumnas tienen clase fija en estas clases: su plaza se mueve con la serie.'));
+  assert.ok(lineasDeImpacto(hora).some(x => x.texto === '2 clientes tienen clase fija en estas clases: su plaza se mueve con la serie.'));
 
   const aforo = calcular({ edicion: { aforoMaximo: 10 }, plazasFijas });
-  assert.ok(lineasDeImpacto(aforo).some(x => x.texto === '2 alumnas tienen clase fija en estas clases.'), 'sin cambio de hora ni sala no se dice que se mueva');
+  assert.ok(lineasDeImpacto(aforo).some(x => x.texto === '2 clientes tienen clase fija en estas clases.'), 'sin cambio de hora ni sala no se dice que se mueva');
 });
 
 test('plaza fija con vigencia terminada antes de la serie: no cuenta', () => {
@@ -201,8 +201,8 @@ test('el ejemplo del informe: 14 clases, con todo lo que conlleva', () => {
   assert.equal(i.alumnasAvisadas, 5);
   assert.deepEqual(lineasDeImpacto(i).map(x => x.texto), [
     '57 reservas confirmadas cambian de hora.',
-    'Se avisará a 5 alumnas, una sola vez a cada una aunque cambien varias de sus clases.',
-    '2 alumnas tienen clase fija en estas clases: su plaza se mueve con la serie.',
+    'Se avisará a 5 clientes, una sola vez a cada una aunque cambien varias de sus clases.',
+    '2 clientes tienen clase fija en estas clases: su plaza se mueve con la serie.',
     '1 persona en lista de espera de estas clases (no reciben aviso).',
     '1 reserva se hizo gastando una recuperación.',
   ]);

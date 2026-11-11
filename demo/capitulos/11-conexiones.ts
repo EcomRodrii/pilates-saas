@@ -19,14 +19,14 @@ export const conexiones: Capitulo = {
       await g.ir(fila(page, 'integracion-zoom'));
     });
     g.momento('integracion-kisi');
-    await g.mientras('Kisi abre la puerta de tu estudio sola con cada check-in de tus alumnas. Se conecta con una clave de API y, si tienes varias cerraduras, el identificador de la que quieres.', async () => {
+    await g.mientras('Kisi abre la puerta de tu estudio sola con cada check-in de tus clientes. Se conecta con una clave de API y, si tienes varias cerraduras, el identificador de la que quieres.', async () => {
       await abrirCajon(g, 'integracion-kisi');
     });
     await g.mientras('Cerramos sin escribir nada.', async () => {
       await cerrarCajon(g);
     });
     g.momento('integracion-klaviyo');
-    await g.mientras('Klaviyo y Mailchimp llevan a tus listas de marketing a las alumnas que aceptaron recibir marketing, cada vez que pulsas Sincronizar ahora. Solo las que dieron su permiso.', async () => {
+    await g.mientras('Klaviyo y Mailchimp llevan a tus listas de marketing a los clientes que aceptaron recibir marketing, cada vez que pulsas Sincronizar ahora. Solo las que dieron su permiso.', async () => {
       await g.ir(fila(page, 'integracion-klaviyo'));
       await g.ir(fila(page, 'integracion-mailchimp'));
     });
@@ -40,7 +40,7 @@ export const conexiones: Capitulo = {
       await g.ir(fila(page, 'aplicaciones-con-acceso'));
     });
     g.momento('api-publica');
-    await g.mientras('Por último, la API para tu contabilidad. Son claves para que tu programa de contabilidad, u otro, lea tus cobros, facturas y alumnas. Se activa por estudio; si la necesitas, escríbenos y la activamos.', async () => {
+    await g.mientras('Por último, la API para tu contabilidad. Son claves para que tu programa de contabilidad, u otro, lea tus cobros, facturas y clientes. Se activa por estudio; si la necesitas, escríbenos y la activamos.', async () => {
       await g.ir(fila(page, 'api-publica'));
     });
   },

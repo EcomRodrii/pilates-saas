@@ -140,7 +140,7 @@ test('ocultar-nivel y ocultar-sustituta apagan cada uno lo suyo', async ({ page 
   // `mocks()` la taparía y la sesión nunca se reconocería.
   await page.route('**/api/public/session', r => r.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Cliente E2E', email: 'e2e@test.com' }),
   }));
   await page.goto(`/reservar/${SLUG}?embed=1&tab=clases&ocultar-nivel=1&ocultar-sustituta=1`);
   await page.locator('#horario').waitFor({ timeout: 150_000 });
@@ -241,7 +241,7 @@ test('⚠️ Modo B (bundle real): data-fuente/data-fuente-display pintan el sha
   });
   await page.route('**/api/public/session', r => r.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Cliente E2E', email: 'e2e@test.com' }),
   }));
   await page.route('**/host-widget-e2e', r => r.fulfill({
     contentType: 'text/html',
@@ -361,7 +361,7 @@ test('⚠️ Modo B (bundle real): "Planes" carga el checkout bajo demanda (widg
   });
   await page.route('**/api/public/session', r => r.fulfill({
     status: 200, contentType: 'application/json',
-    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Alumna E2E', email: 'e2e@test.com' }),
+    body: JSON.stringify({ socioId: 'socio-e2e', nombre: 'Cliente E2E', email: 'e2e@test.com' }),
   }));
   await page.route('**/host-widget-e2e', r => r.fulfill({
     contentType: 'text/html',

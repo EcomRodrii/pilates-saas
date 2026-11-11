@@ -21,7 +21,7 @@ test.use({ timezoneId: 'Europe/Madrid', viewport: { width: 1280, height: 860 } }
 // La primera visita a /pos compila la ruta en el `next dev`.
 test.describe.configure({ timeout: 90_000 });
 
-test('con alumna y su primer plan, el ticket y la hoja de cobro llevan la matrícula, y con tarjeta se afirma y se manda ese total', async ({ page }) => {
+test('con cliente y su primer plan, el ticket y la hoja de cobro llevan la matrícula, y con tarjeta se afirma y se manda ese total', async ({ page }) => {
   const cuenta = await abrirCaja(page, (r) => json(r, CON_MATRICULA), (r) => json(r, ventaHecha(145, null)));
   await bonoParaLaura(page);
 
@@ -136,7 +136,7 @@ test('si el servidor dice que el total no es ese, no lo da por registrado, dice 
   expect(cuenta.ventas[1]).toMatchObject({ totalEsperado: 145 });
 });
 
-test('sin alumna ni descuento no se pregunta, y la venta manda el total del ticket; con un descuento, sí se pregunta', async ({ page }) => {
+test('sin cliente ni descuento no se pregunta, y la venta manda el total del ticket; con un descuento, sí se pregunta', async ({ page }) => {
   const cuenta = await abrirCaja(page, (r, cuerpo) => json(r, { total: cuerpo.descuentoTipo ? 117 : 130, matricula: 0, matriculaPlanId: null }), (r) => json(r, ventaHecha(130, 0)));
   await page.getByRole('button', { name: /^Bono 10 clases/ }).click();
   await page.getByRole('button', { name: 'Cobrar 130,00 €' }).click();

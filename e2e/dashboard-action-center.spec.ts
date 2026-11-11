@@ -127,7 +127,7 @@ test.describe('El dashboard trae lo que necesita atención, sin ir a buscarlo', 
   test('sin nada pendiente no ocupa ni un píxel (nada de "todo en orden" cada mañana)', async ({ page }) => {
     await montarDashboard(page, { prioridades: [] });
     // El dashboard carga...
-    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: 30_000 });
     // ...y del Action Center no hay ni rastro.
     await expect(page.getByText(/necesitan tu atención|necesita tu atención/)).toHaveCount(0);
     await expect(page.getByText('Ver y decidir')).toHaveCount(0);
@@ -145,7 +145,7 @@ test.describe('El dashboard trae lo que necesita atención, sin ir a buscarlo', 
     // error servido con 200 o un despliegue a medias.
     await montarDashboard(page, { decisionesRotas: true });
 
-    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: 30_000 });
     assertSinErrores(errores);
   });
 
@@ -154,7 +154,7 @@ test.describe('El dashboard trae lo que necesita atención, sin ir a buscarlo', 
       rol: 'RECEPCION',
       prioridades: [rec({ id: 'r-1', titulo: 'Laura lleva 21 días sin venir' })],
     });
-    await expect(page.getByText('Alumnas hoy')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Clientes hoy')).toBeVisible({ timeout: 30_000 });
     // Un enlace a una pantalla que su guardia de ruta le vacía no es un enlace.
     await expect(page.getByText('Ver y decidir')).toHaveCount(0);
   });

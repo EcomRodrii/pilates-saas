@@ -114,7 +114,7 @@ test.describe('La instructora escanea el QR desde «Pasar lista»', () => {
 
     const resultado = page.getByTestId('resultado-acceso');
     await expect(resultado).toHaveAttribute('data-veredicto', 'REVISAR', { timeout: 30_000 });
-    await expect(resultado).toContainText('Esta alumna tiene un estado que requiere revisión.');
+    await expect(resultado).toContainText('Este cliente tiene un estado que requiere revisión.');
     await expect(resultado).not.toContainText(/impag|recibo/i);
 
     await resultado.getByRole('button', { name: 'Dejar pasar' }).click();

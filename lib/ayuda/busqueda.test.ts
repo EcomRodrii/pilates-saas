@@ -10,13 +10,13 @@ test('buscarArticulos con query vacía devuelve todos los artículos publicados'
 
 test('buscarArticulos encuentra por un término de sinónimo, no solo por el título', () => {
   // "acceso-de-una-clienta" no lleva "login" en el título, pero sí en `terminos`.
-  const resultados = buscarArticulos('login alumna');
+  const resultados = buscarArticulos('login cliente');
   assert.ok(resultados.some((r) => r.articulo.slug === 'acceso-de-una-clienta'));
 });
 
 test('buscarArticulos es insensible a mayúsculas y acentos', () => {
-  const conAcento = buscarArticulos('cómo entra una alumna');
-  const sinAcento = buscarArticulos('como entra una alumna');
+  const conAcento = buscarArticulos('cómo entra un cliente');
+  const sinAcento = buscarArticulos('como entra un cliente');
   assert.deepEqual(conAcento.map((r) => r.href), sinAcento.map((r) => r.href));
 });
 

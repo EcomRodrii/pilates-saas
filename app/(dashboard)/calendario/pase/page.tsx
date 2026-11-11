@@ -186,7 +186,7 @@ export default function ControlDeAccesoPage() {
     else setErrorDecision(r.error);
   };
 
-  const cabecera = <PageHeader title="Control de acceso" description="Escanea el QR de la alumna: Tentare comprueba en el momento si puede entrar a su clase." back={{ href: '/calendario', label: 'Volver al calendario' }} />;
+  const cabecera = <PageHeader title="Control de acceso" description="Escanea el QR del cliente: Tentare comprueba en el momento si puede entrar a su clase." back={{ href: '/calendario', label: 'Volver al calendario' }} />;
 
   if (dataLoaded && studio && studio.controlAccesoQr === false) {
     return (
@@ -196,7 +196,7 @@ export default function ControlDeAccesoPage() {
           <QrCode className="size-7 text-muted-foreground" aria-hidden />
           <p className="text-sm font-semibold">El control de acceso con QR está desactivado</p>
           <p className="text-sm text-muted-foreground text-pretty">
-            Tus alumnas no ven su QR en la app. Puedes activarlo en Configuración → Cómo reservan mis alumnas → Asistencia y acceso.
+            Tus clientes no ven su QR en la app. Puedes activarlo en Configuración → Cómo reservan mis clientes → Asistencia y acceso.
           </p>
           <Link href="/configuracion?tab=reservas#asistencia" className="text-sm font-bold underline mt-1">Ir a Configuración</Link>
         </div>

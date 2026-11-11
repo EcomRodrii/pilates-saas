@@ -39,13 +39,13 @@ async function preparar(page: Page, publicar: (cuerpo: { campos: Record<string, 
 }
 
 /** Nombre de la alumna con la que entra la vista previa: el saludo de Inicio lo lleva. */
-const ALUMNA = 'Alumna Prueba';
+const ALUMNA = 'Cliente Prueba';
 
 /** El saludo de Inicio sin nombre: el de la propietaria, que no es alumna. */
 // El saludo de Inicio desde la maqueta de oct-2026: «Hola» sin sesión, «Hola, <nombre de pila>» con ella.
 const SALUDO_SIN_NOMBRE = /^Hola$/;
 const SALUDO_ALUMNA = new RegExp(`^Hola, ${ALUMNA.split(' ')[0]}$`);
-const VISTA_PREVIA = 'iframe[title="Vista previa de la app de tus alumnas"]';
+const VISTA_PREVIA = 'iframe[title="Vista previa de la app de tus clientes"]';
 
 /**
  * Una alumna con sesión en el mismo navegador: la vista previa enseña entonces
@@ -105,7 +105,7 @@ test.describe('Apariencia de tu app', () => {
     await expect.poll(() => fondoDeLaApp(page)).toBe('#F4EEE5');
 
     await page.getByRole('button', { name: 'Publicar' }).click();
-    await expect(page.getByText('Publicado. Tus alumnas ya ven tu app así.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Publicado. Tus clientes ya ven tu app así.')).toBeVisible({ timeout: 30_000 });
     expect(envios.length).toBe(1);
     // Solo lo que ha cambiado: ni el color ni el secundario viajan si no se tocaron.
     expect(envios[0].campos).toEqual({
@@ -168,7 +168,7 @@ test.describe('Apariencia de tu app', () => {
     await expect(marco.getByRole('heading', { name: SALUDO_ALUMNA })).toHaveCount(0);
   });
 
-  test('la vista previa cambia entre Inicio y Entrada, sin que la propietaria sea alumna', async ({ page }) => {
+  test('la vista previa cambia entre Inicio y Entrada, sin que la propietaria sea cliente', async ({ page }) => {
     await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
     // Lo que pida la app del iframe a `/api/public/*`: el catálogo sí, y SIN token.
     // Enseñar Inicio no puede hacerse pasar por nadie.
@@ -202,7 +202,7 @@ test.describe('Apariencia de tu app', () => {
     await expect(marco.locator('.st-auth-hero')).toHaveCount(0);
   });
 
-  test('con sesión de alumna, la vista previa enseña SU Inicio', async ({ page }) => {
+  test('con sesión de cliente, la vista previa enseña SU Inicio', async ({ page }) => {
     await preparar(page, () => ({ status: 200, cuerpo: DEFAULT_THEME }));
     const alumna = await conAlumna(page);
     await ir(page, 'configuracion/apariencia');

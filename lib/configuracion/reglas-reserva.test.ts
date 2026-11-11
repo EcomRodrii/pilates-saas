@@ -227,7 +227,7 @@ test('la consecuencia de cada cajón: una línea que dice lo que va a pasar', ()
   assert.equal(consecuenciaRegla('cancelar-y-recuperar', { ...r, cancelacionVentanaHoras: 0 }), 'Recupera la sesión cancele cuando cancele: no hay plazo de cancelación.');
   assert.match(consecuenciaRegla('si-se-cancela-una-clase', r), /—, devuelve la sesión\.$/);
   assert.equal(consecuenciaRegla('si-se-cancela-una-clase', { ...r, minimoAsistentesPorClase: 3, cancelacionClaseDevuelveBono: false }),
-    'Si a 2 h del inicio hay menos de 3 alumnas, se cancela sola y no devuelve la sesión.');
+    'Si a 2 h del inicio hay menos de 3 clientes, se cancela sola y no devuelve la sesión.');
   assert.equal(consecuenciaRegla('lista-de-espera', { ...r, listaEsperaPlazoAceptacionMinutos: 30 }),
     'Si se libera una plaza, la primera de la lista tiene 30 min para aceptarla; si no, pasa a la siguiente.');
   assert.equal(consecuenciaRegla('reservar', r), 'Se puede reservar con cualquier antelación, hasta que empieza la clase.');
@@ -263,7 +263,7 @@ test('el cargo pregunta antes con lo que pasa, y con lo que NO pasa', () => {
     /Con tus términos propios no se cobrará/);
   const quitar = confirmarPenalizacion({ ...antes, penalizacionImporteEur: 5 }, antes, { terminosPropios: false, tiposConCargoPropio: 2 });
   assert.equal(quitar.titulo, '¿Quitar el cargo?');
-  assert.equal(quitar.descripcion, 'Desde ahora, cancelar tarde o no venir no le cuesta nada a tus alumnas, tampoco en los tipos de clase con su propio cargo.');
+  assert.equal(quitar.descripcion, 'Desde ahora, cancelar tarde o no venir no le cuesta nada a tus clientes, tampoco en los tipos de clase con su propio cargo.');
   // Un importe nuevo no se cobra a quien aceptó el texto anterior.
   assert.match(poner.descripcion, /quien las aceptó antes de este cambio no paga hasta que las vuelva a aceptar\.$/);
   const soloAutomatico = confirmarPenalizacion({ ...antes, penalizacionImporteEur: 5 }, { ...antes, penalizacionImporteEur: 5, penalizacionCobroAutomatico: true }, { terminosPropios: false, tiposConCargoPropio: 0 });

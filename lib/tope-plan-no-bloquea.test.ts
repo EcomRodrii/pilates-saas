@@ -44,7 +44,7 @@ test('ninguna ruta ni módulo bloquea altas por el tope del plan', () => {
 const LEEN_EL_TOPE: Record<string, string> = {
   'lib/billing/entitlements.ts': 'lo define, por plan',
   'lib/billing/catalogo-planes.ts': 'la comparativa de planes y el resumen corto del alta',
-  'lib/billing/uso-tope.ts': '«N de 150 alumnas activas»',
+  'lib/billing/uso-tope.ts': '«N de 150 clientes activos»',
   'app/precios/page.tsx': 'el tope de cada tarjeta de /precios',
   'app/suscripcion/page.tsx': 'enseña cuántas lleva el estudio',
 };

@@ -489,7 +489,7 @@ export function FormularioNuevaClase({
               </span>
             </summary>
             <div className="space-y-2 border-t border-border px-4 py-3 text-xs text-muted-foreground">
-              {inicioPrimera && <p>Así lo vive tu alumna en la clase del {instante(new Date(inicioPrimera))}:</p>}
+              {inicioPrimera && <p>Así lo vive tu cliente en la clase del {instante(new Date(inicioPrimera))}:</p>}
               <ol className="space-y-1.5">
                 {pasosReserva.map(p => (
                   <li key={p.id} className="text-pretty">

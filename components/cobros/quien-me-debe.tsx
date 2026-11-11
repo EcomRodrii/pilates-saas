@@ -127,7 +127,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
         </ChipFiltro>
       )}
       <span className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
-        <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar alumna o concepto" className="flex-1 sm:w-[250px] sm:flex-none" />
+        <Buscador valor={busqueda} onCambio={v => { setBusqueda(v); setCuantas(POR_PAGINA); }} texto="Buscar cliente o concepto" className="flex-1 sm:w-[250px] sm:flex-none" />
         {grupos.length > 0 && !nueva && (
           <button
             type="button"
@@ -200,7 +200,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
         </button>
       )}
       <div className="flex items-center justify-between border-t border-border bg-muted/40 px-4 py-2.5 text-[12.5px] text-muted-foreground">
-        <span>{filtrados.length} {filtrados.length === 1 ? 'clienta' : 'clientas'} · {nRecibos} {nRecibos === 1 ? 'recibo' : 'recibos'} · la deuda más antigua primero</span>
+        <span>{filtrados.length} {filtrados.length === 1 ? 'cliente' : 'clientes'} · {nRecibos} {nRecibos === 1 ? 'recibo' : 'recibos'} · la deuda más antigua primero</span>
         <span className="whitespace-nowrap font-semibold tabular-nums text-foreground"><CifraPrivada inline>{formatEuro(total)}</CifraPrivada></span>
       </div>
     </>
@@ -211,12 +211,12 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
       <div className="min-w-0 flex-1 space-y-3">
         {nueva ? (
           grupos.length === 0 ? (
-            <VacioPositivo titulo="Nadie te debe nada" texto="Cuando una alumna tenga un recibo sin cobrar, saldrá aquí con lo que debe y cómo se le puede cobrar." />
+            <VacioPositivo titulo="Nadie te debe nada" texto="Cuando un cliente tenga un recibo sin cobrar, saldrá aquí con lo que debe y cómo se le puede cobrar." />
           ) : (
             <section aria-label="Quién me debe" className="overflow-hidden rounded-t-card border border-border bg-card shadow-t-card">
               <div className="space-y-3 border-b border-border px-4 py-4 sm:px-5">
                 <CabeceraTarjeta
-                  tono="azul" Icono={Clock} titulo="Quién me debe" sub="Una fila por alumna, con todo lo que debe"
+                  tono="azul" Icono={Clock} titulo="Quién me debe" sub="Una fila por cliente, con todo lo que debe"
                   derecha={marcables.length > 0 ? (idsLote.length > 0 ? (
                     <MenuAcciones
                       etiqueta={`Marcar ${marcadas.size} como cobrado`}
@@ -245,7 +245,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
           <>
             {barra}
             {grupos.length === 0 ? (
-              <EmptyState titulo="Nadie te debe nada" descripcion="Cuando una alumna tenga un recibo sin cobrar, aparecerá aquí con lo que debe y cómo se le puede cobrar." />
+              <EmptyState titulo="Nadie te debe nada" descripcion="Cuando un cliente tenga un recibo sin cobrar, aparecerá aquí con lo que debe y cómo se le puede cobrar." />
             ) : filtrados.length === 0 ? (
               <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">Nadie coincide con «{coincidencia}».</p>
             ) : (

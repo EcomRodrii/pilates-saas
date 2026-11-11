@@ -64,7 +64,7 @@ test.describe('Inicio · clases que se repiten y se acaban', () => {
     });
     const fila = page.getByTestId('serie-por-renovar');
     await expect(fila.getByText(NOMBRE)).toBeVisible();
-    await expect(fila.getByText(/3 alumnas con clase fija/)).toBeVisible();
+    await expect(fila.getByText(/3 clientes con clase fija/)).toBeVisible();
 
     await page.getByRole('button', { name: `Revisar y renovar ${NOMBRE}` }).click();
     const dialogo = page.getByRole('dialog');

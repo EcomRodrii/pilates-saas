@@ -193,7 +193,7 @@ function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos:
   return (
     <section aria-label="Recordatorios de clase" className="flex flex-col gap-3">
       <p className="text-[13.5px] text-muted-foreground">
-        Elige qué recordatorios reciben tus alumnas antes de su clase. Cada uno se enciende o se apaga por separado.
+        Elige qué recordatorios reciben tus clientes antes de su clase. Cada uno se enciende o se apaga por separado.
       </p>
       {recordatorios.map(r => (
         <div key={r.evento} data-testid={`recordatorio-${r.evento}`} data-activo={r.activo}
@@ -228,7 +228,7 @@ function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos:
                   </span>
                 ))}
               </div>
-              <p className="mt-1.5 text-[12px] text-muted-foreground">Cada alumna puede apagar cualquiera de estos canales desde su app.</p>
+              <p className="mt-1.5 text-[12px] text-muted-foreground">Cada cliente puede apagar cualquiera de estos canales desde su app.</p>
 
               {textos.fallo
                 ? <p className="mt-4 text-[13px] text-destructive">No hemos podido cargar el texto. Recarga la página.</p>
@@ -325,7 +325,7 @@ function TextoEnLinea({ evento, textos, datos }: { evento: string; textos: Texto
 
   return (
     <>
-      <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Qué se le dice a la alumna?</p>
+      <p className="mt-4 text-[13.5px] font-semibold text-foreground">¿Qué se le dice al cliente?</p>
       {variables.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1.5">
           {variables.map(v => (
@@ -438,7 +438,7 @@ function Antelacion({ showToast }: { showToast: MostrarToast }) {
         </Field>
       </div>
       <p className="text-xs text-muted-foreground">
-        Cada alumna puede apagar cualquiera de los dos desde su app.
+        Cada cliente puede apagar cualquiera de los dos desde su app.
       </p>
     </section>
   );
@@ -473,7 +473,7 @@ function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: Mo
       <div>
         <h3 className="text-sm font-semibold">Lo que dicen los avisos</h3>
         <p className="text-xs text-muted-foreground mt-0.5">
-          El texto que ve cada alumna en su móvil y en los avisos de su app. Si no cambias nada, sale el de Tentare.
+          El texto que ve cada cliente en su móvil y en los avisos de su app. Si no cambias nada, sale el de Tentare.
         </p>
       </div>
       {TIPOS_CON_TEXTO_EDITABLE.filter(g => !sinRecordatorios || !g.tipos.some(x => x.evento === EVENTOS.RECORDATORIO_24H || x.evento === EVENTOS.RECORDATORIO_1H)).map(grupo => (
@@ -623,12 +623,12 @@ function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado 
         </div>
       )}
       {panelNuevo ? (
-        <div aria-label="Así lo verá la alumna">
+        <div aria-label="Así lo verá el cliente">
           <p className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá (con datos de ejemplo)</p>
           <NotificacionMovil title={muestra.title} body={muestra.body} />
         </div>
       ) : (
-      <div className="rounded-xl border border-border bg-card p-3" aria-label="Así lo verá la alumna">
+      <div className="rounded-xl border border-border bg-card p-3" aria-label="Así lo verá el cliente">
         <p className="text-[11px] text-muted-foreground mb-1">Así lo verá (con datos de ejemplo)</p>
         <p className="text-[13px] font-semibold">{muestra.title || '—'}</p>
         <p className="text-[13px]">{muestra.body || '—'}</p>

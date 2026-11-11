@@ -148,7 +148,7 @@ test('cumpleanos_en_proximos_dias: ignora el año de nacimiento', () => {
   assert.equal(evaluarSegmento(def, s, ctx([s])), true);
 });
 
-test('«Estado»: el mismo que enseña Alumnas (Activa con cuota vigente, Interesada sin nada)', () => {
+test('«Estado»: el mismo que enseña Clientes (Activa con cuota vigente, Interesada sin nada)', () => {
   const activa = socio({ id: 'a' });
   const interesada = socio({ id: 'i' });
   const sus: Suscripcion[] = [

@@ -76,7 +76,7 @@ const VENTAS: readonly { id: Venta; texto: string; etiquetaPrecio: string }[] = 
   { id: 'cuota', texto: 'Cuota mensual', etiquetaPrecio: 'Precio al mes' },
 ];
 
-const AVISO_ONLINE_SIN_STRIPE = 'Hasta que conectes Stripe, una alumna nueva no podrá pagar online ni reservar. Te pide tus datos y una cuenta bancaria; puedes hacerlo justo después de publicar.';
+const AVISO_ONLINE_SIN_STRIPE = 'Hasta que conectes Stripe, un cliente nuevo no podrá pagar online ni reservar. Te pide tus datos y una cuenta bancaria; puedes hacerlo justo después de publicar.';
 
 /** Un id por intento de publicar. `randomUUID` solo existe en contextos seguros. */
 function nuevoIntento(): string {
@@ -259,7 +259,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
 
   const etiquetaPrecio = VENTAS.find(v => v.id === form.venta)?.etiquetaPrecio ?? 'Precio';
   const textoPrecio = precio.estado === 'falta' && !intentado && !tocados.has('precio')
-    ? { clase: CLASE_AYUDA, texto: 'Lo que paga la alumna. Es lo único que no ponemos por ti.' }
+    ? { clase: CLASE_AYUDA, texto: 'Lo que paga el cliente. Es lo único que no ponemos por ti.' }
     : precio.estado === 'ok' || precio.estado === 'gratis'
       ? { clase: CLASE_AYUDA, texto: precio.texto }
       : precio.estado === 'raro'
@@ -275,7 +275,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
         <CabeceraPaso
           etiqueta={enCalendario ? 'Unos 5 minutos' : 'Paso 6 de 7 · obligatorio · unos 5 minutos'}
           titulo="Tu primera clase"
-          sub="Con una clase y su precio, tus alumnas ya pueden reservar. Todo viene puesto menos el precio: eso solo lo sabes tú."
+          sub="Con una clase y su precio, tus clientes ya pueden reservar. Todo viene puesto menos el precio: eso solo lo sabes tú."
           tituloRef={titulo}
         />
         {whatsapp && (
@@ -440,7 +440,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
               <div>
                 <span className="flex items-center gap-1.5">
                   <span className={CLASE_ETIQUETA} id={`${id}-plazas`}>Plazas</span>
-                  <InfoTip label="Qué son las plazas">Cuántas alumnas caben: las máquinas o esterillas que tienes en esa sala.</InfoTip>
+                  <InfoTip label="Qué son las plazas">Cuántos clientes caben: las máquinas o esterillas que tienes en esa sala.</InfoTip>
                 </span>
                 <div role="group" aria-labelledby={`${id}-plazas`} className="mt-1.5 inline-flex h-11 items-center gap-1 rounded-xl border border-input bg-card p-1">
                   <button type="button" aria-label="Una plaza menos" disabled={form.plazas <= 1} onClick={() => cambiar({ plazas: Math.max(1, form.plazas - 1) })} className="grid size-9 place-items-center rounded-lg text-foreground hover:bg-muted disabled:opacity-40">
@@ -474,7 +474,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
               />
               <span>
                 <b className="block text-[14px] font-semibold text-foreground">Esta clase es gratis</b>
-                <span className="block text-[13px] leading-[18px] text-muted-foreground">Tus alumnas la reservan sin pagar nada.</span>
+                <span className="block text-[13px] leading-[18px] text-muted-foreground">Tus clientes la reservan sin pagar nada.</span>
               </span>
             </label>
             {form.gratis ? (
@@ -604,20 +604,20 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
         </div>
       </form>
 
-      <aside aria-label="Así la verá tu alumna" className="hidden min-w-0 flex-col gap-4 self-start rounded-3xl bg-muted/70 p-8 lg:sticky lg:top-6 lg:flex">
-        <p className="text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así la verá tu alumna · en vivo</p>
+      <aside aria-label="Así la verá tu cliente" className="hidden min-w-0 flex-col gap-4 self-start rounded-3xl bg-muted/70 p-8 lg:sticky lg:top-6 lg:flex">
+        <p className="text-center text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así la verá tu cliente · en vivo</p>
         <VistaPreviaClase studio={studio} form={form} instructora={form.quien === 'yo' ? yo : form.otraPersona} />
-        <p className="text-center text-[12.5px] text-muted-foreground">Tu clase antes de publicarla: nombre, hora, plazas y precio como los verá tu alumna en la app.</p>
+        <p className="text-center text-[12.5px] text-muted-foreground">Tu clase antes de publicarla: nombre, hora, plazas y precio como los verá tu cliente en la app.</p>
       </aside>
 
       <DashboardSheet
         open={verVista}
         onClose={() => setVerVista(false)}
-        label="Así la verá tu alumna"
+        label="Así la verá tu cliente"
         sheetClassName="flex max-h-[96dvh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-3xl bg-card p-4"
       >
         <div className="flex w-full items-center justify-between">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así la verá tu alumna</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así la verá tu cliente</p>
           <button type="button" onClick={() => setVerVista(false)} className={cn(BOTON_BORDE, 'h-9 px-3')}>Cerrar</button>
         </div>
         <VistaPreviaClase studio={studio} form={form} instructora={form.quien === 'yo' ? yo : form.otraPersona} />

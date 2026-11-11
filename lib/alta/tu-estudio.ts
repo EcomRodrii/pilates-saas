@@ -104,7 +104,7 @@ export type ErroresDonde = Partial<Record<keyof DatosDonde, string>>;
 export function erroresDonde(d: DatosDonde): ErroresDonde {
   const e: ErroresDonde = {};
   if (!d.nombre.trim()) e.nombre = 'Escribe tu nombre: así te saludamos.';
-  if (!d.direccion.trim()) e.direccion = 'Escribe la calle y el número: es lo que verán tus alumnas.';
+  if (!d.direccion.trim()) e.direccion = 'Escribe la calle y el número: es lo que verán tus clientes.';
   if (!provinciaDeCp(d.codigoPostal)) e.codigoPostal = 'Escribe los cinco números de tu código postal.';
   if (!d.ciudad.trim()) e.ciudad = 'Escribe la ciudad.';
   return e;

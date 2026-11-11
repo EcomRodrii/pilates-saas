@@ -111,7 +111,7 @@ async function montarCobros(
 const lista = (page: Page) => page.getByRole('region', { name: 'Quién me debe' });
 
 test.describe('Marcar como cobrado varias a la vez (panel nuevo)', () => {
-  test('abre sin nada marcado, con la casilla de cada alumna a la vista', async ({ page }) => {
+  test('abre sin nada marcado, con la casilla de cada cliente a la vista', async ({ page }) => {
     await montarCobros(page);
     await expect(lista(page).getByRole('button', { name: 'Marcar a Ana Ruiz' })).toBeVisible({ timeout: 30_000 });
     await expect(lista(page).getByRole('button', { name: 'Marcar a Bea López' })).toHaveAttribute('aria-pressed', 'false');

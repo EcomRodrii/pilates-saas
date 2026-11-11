@@ -66,9 +66,9 @@ export const AYUDA_POR_PANTALLA = {
 
   '/calendario': {
     titulo: 'Calendario',
-    valor: 'Tu semana entera: cada clase con su instructora, su sala y las alumnas que han reservado.',
+    valor: 'Tu semana entera: cada clase con su instructora, su sala y los clientes que han reservado.',
     resumen:
-      'Tu semana entera: cada clase con su instructora, su sala y las alumnas que han reservado. Creas una clase, la repites cada semana si quieres, y cualquier cambio les llega a ellas sin que avises una por una.',
+      'Tu semana entera: cada clase con su instructora, su sala y los clientes que han reservado. Creas una clase, la repites cada semana si quieres, y cualquier cambio les llega a ellas sin que avises una por una.',
     ahorra: 'El cuadrante en papel y el «¿quién viene hoy?» de cada mañana.',
     destino: { categoria: 'reservas', slug: 'crear-una-clase' },
     tutorial: { version: 1 },
@@ -84,10 +84,10 @@ export const AYUDA_POR_PANTALLA = {
   },
 
   '/clientas': {
-    titulo: 'Alumnas',
-    valor: 'Cada alumna con lo que le queda, cuándo vino por última vez y quién lleva semanas sin venir. Su historial, en su ficha.',
+    titulo: 'Clientes',
+    valor: 'Cada cliente con lo que le queda, cuándo vino por última vez y quién lleva semanas sin venir. Su historial, en su ficha.',
     resumen:
-      'Todas tus alumnas en una lista: qué le queda a cada una, cuándo vino por última vez y quién lleva semanas sin aparecer. Abres una ficha y tienes su historial entero, sus bonos y tus notas.',
+      'Todas tus clientes en una lista: qué le queda a cada una, cuándo vino por última vez y quién lleva semanas sin aparecer. Abres una ficha y tienes su historial entero, sus bonos y tus notas.',
     ahorra: 'La libreta, y preguntar por WhatsApp «¿a esta le quedaban clases?».',
     destino: { categoria: 'clientes', slug: 'ficha-de-clienta' },
     tutorial: { version: 1 },
@@ -95,9 +95,9 @@ export const AYUDA_POR_PANTALLA = {
 
   '/mensajeria': {
     titulo: 'Mensajería',
-    valor: 'Lo que te escriben tus alumnas y lo que les mandas tú, en un solo sitio y sin dar tu WhatsApp personal.',
+    valor: 'Lo que te escriben tus clientes y lo que les mandas tú, en un solo sitio y sin dar tu WhatsApp personal.',
     resumen:
-      'Las cuatro formas de hablar con tus alumnas en un sitio: los avisos que te llegan a ti, el tablón, lo que te escriben ellas y los mensajes que mandas tú a un grupo.',
+      'Las cuatro formas de hablar con tus clientes en un sitio: los avisos que te llegan a ti, el tablón, lo que te escriben ellas y los mensajes que mandas tú a un grupo.',
     ahorra: 'Tener las conversaciones repartidas entre tu WhatsApp personal y el correo.',
     destino: { categoria: 'automatizaciones', slug: 'mensajeria' },
   },
@@ -105,7 +105,7 @@ export const AYUDA_POR_PANTALLA = {
   '/comunidad': {
     titulo: 'Comunidad',
     resumen:
-      'El tablón de tu estudio: publicas algo aquí y tus alumnas lo ven en su portal. Un cambio de horario, el cierre de agosto, la foto de la clase del sábado.',
+      'El tablón de tu estudio: publicas algo aquí y tus clientes lo ven en su portal. Un cambio de horario, el cierre de agosto, la foto de la clase del sábado.',
     ahorra: 'Montar un grupo de WhatsApp con ochenta personas para contar una cosa.',
     destino: { categoria: 'app', slug: 'comunidad' },
   },
@@ -186,20 +186,20 @@ export const AYUDA_POR_PANTALLA = {
   },
 
   '/libreta': {
-    titulo: 'Libreta de alumnas',
-    valor: 'Una hoja para imprimir o guardar en PDF con cada alumna activa, su plan, lo que le queda y su clase fija. Por si cae internet.',
+    titulo: 'Libreta de clientes',
+    valor: 'Una hoja para imprimir o guardar en PDF con cada cliente activo, su plan, lo que le queda y su clase fija. Por si cae internet.',
     resumen:
-      'Tus alumnas en una hoja para imprimir, siempre al día. La sacas en papel o la guardas en PDF y la tienes a mano aunque te quedes sin internet.',
+      'Tus clientes en una hoja para imprimir, siempre al día. La sacas en papel o la guardas en PDF y la tienes a mano aunque te quedes sin internet.',
     ahorra: 'Quedarte sin saber a quién llamar el día que se cae la wifi.',
     destino: { categoria: 'clientes', slug: 'la-libreta' },
   },
 
   '/migracion': {
     titulo: 'Traer mis datos',
-    valor: 'Trae tus alumnas y sus bonos del programa que usabas (Bsport, Momence u otro).',
+    valor: 'Trae tus clientes y sus bonos del programa que usabas (Bsport, Momence u otro).',
     resumen:
       'Trae tu estudio desde el programa que usabas antes: arrastras lo que tengas, repasas el plan y confirmas. No se aplica nada hasta que lo apruebas, y se puede deshacer.',
-    ahorra: 'Volver a teclear tus alumnas y sus bonos una por una.',
+    ahorra: 'Volver a teclear tus clientes y sus bonos una por una.',
     destino: { categoria: 'clientes', slug: 'importar-clientes' },
   },
 
@@ -215,19 +215,19 @@ export const AYUDA_POR_PANTALLA = {
   },
 
   '/configuracion?tab=reservas': {
-    titulo: 'Cómo reservan mis alumnas',
+    titulo: 'Cómo reservan mis clientes',
     resumen:
       'Las reglas de tu estudio para reservar, cancelar y la lista de espera. Valen para todas las clases, salvo las que cambie un tipo de clase.',
-    ahorra: 'Explicar a cada alumna, una por una, hasta cuándo puede cancelar.',
+    ahorra: 'Explicar a cada cliente, una por una, hasta cuándo puede cancelar.',
     destino: { categoria: 'reservas', slug: 'reglas-de-reserva-por-clase' },
     tutorial: { version: 1 },
   },
 
   '/configuracion': {
     titulo: 'Configuración',
-    valor: 'Las reglas de tu estudio: salas, tipos de clase, cómo reservan y cancelan tus alumnas, cómo cobras y qué ven en su app.',
+    valor: 'Las reglas de tu estudio: salas, tipos de clase, cómo reservan y cancelan tus clientes, cómo cobras y qué ven en su app.',
     resumen:
-      'Cómo funciona tu estudio, por preguntas: tus datos y salas, tus clases, cómo reservan tus alumnas, cómo cobras y qué ven en su app. Se toca poco, pero de aquí salen las reglas del resto.',
+      'Cómo funciona tu estudio, por preguntas: tus datos y salas, tus clases, cómo reservan tus clientes, cómo cobras y qué ven en su app. Se toca poco, pero de aquí salen las reglas del resto.',
     ahorra: 'Repetir la misma configuración cada vez que creas una clase.',
     destino: { categoria: 'configuracion', slug: 'datos-del-estudio' },
   },
@@ -259,9 +259,9 @@ export const AYUDA_POR_PANTALLA = {
 
   '/suscripcion': {
     titulo: 'Plan de Tentare',
-    valor: 'Lo que pagas tú a Tentare: tu plan, tus facturas y tu tarjeta. Lo que cobras a tus alumnas va en Cobros.',
+    valor: 'Lo que pagas tú a Tentare: tu plan, tus facturas y tu tarjeta. Lo que cobras a tus clientes va en Cobros.',
     resumen:
-      'Lo que le pagas tú a Tentare: tu plan, tus facturas y la tarjeta con la que se cobra. Nada que ver con lo que cobras a tus alumnas, que va por Cobros.',
+      'Lo que le pagas tú a Tentare: tu plan, tus facturas y la tarjeta con la que se cobra. Nada que ver con lo que cobras a tus clientes, que va por Cobros.',
     ahorra: 'Confundir tu cuota con el dinero de tu estudio.',
     destino: { categoria: 'pagos', slug: 'prueba-de-7-dias' },
   },

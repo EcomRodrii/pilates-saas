@@ -42,7 +42,7 @@ test('sesión abierta → se EXPIRA y entonces sí se puede anular la venta', as
   assert.equal(llamadas.expire, 1, 'el QR tiene que cerrarse de verdad, no solo anularse la venta');
 });
 
-test('⚠️ la alumna pagó entre el rechazo y ahora → NO se anula', async () => {
+test('⚠️ el cliente pagó entre el rechazo y ahora → NO se anula', async () => {
   const { stripe } = fakeStripe({ listado: [{ id: 'cs_1', status: 'open' }], expire: 'error', retrieve: 'complete' });
   assert.equal(await cerrarCheckoutDeBizumFallido(stripe, 'pi_1', 'acct_1'), 'pagada');
 });

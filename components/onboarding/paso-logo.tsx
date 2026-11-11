@@ -124,7 +124,7 @@ export function PasoLogo({
         </p>
       )}
       <p style={{ margin: '10px 2px 0', fontSize: 12.5, color: 'var(--valor-tenue)', lineHeight: 1.45 }}>
-        Sale en tu página de reservas, en la app de tus alumnas y en los correos que reciben.
+        Sale en tu página de reservas, en la app de tus clientes y en los correos que reciben.
       </p>
     </div>
   );

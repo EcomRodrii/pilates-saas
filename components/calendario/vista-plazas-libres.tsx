@@ -57,8 +57,8 @@ function FilaClase({ s, nombres, ofertaOcupa }: { s: HuecoSesion; nombres: Nombr
     ofertaOcupa && s.ofrecidas > 0 && `${s.ofrecidas} ${s.ofrecidas === 1 ? 'ofrecida' : 'ofrecidas'} a la lista de espera`,
     s.enEspera > 0 && `+${s.enEspera} en espera`,
     s.porAprobar > 0 && `${s.porAprobar} por aprobar`,
-    s.vuelvenDePausa > 0 && `guarda el sitio de ${plural(s.vuelvenDePausa, 'alumna en pausa', 'alumnas en pausa')}`,
-    sinReservar > 0 && `guarda el sitio de ${plural(sinReservar, 'alumna con clase fija que aún no la ha reservado', 'alumnas con clase fija que aún no la han reservado')}`,
+    s.vuelvenDePausa > 0 && `guarda el sitio de ${plural(s.vuelvenDePausa, 'cliente en pausa', 'clientes en pausa')}`,
+    sinReservar > 0 && `guarda el sitio de ${plural(sinReservar, 'cliente con clase fija que aún no la ha reservado', 'clientes con clase fija que aún no la han reservado')}`,
   ].filter(Boolean) as string[];
   return (
     <li>

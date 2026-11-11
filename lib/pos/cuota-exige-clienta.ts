@@ -23,4 +23,4 @@ export function cuotaSinClienta(
   return tiposDePlan.some((t) => t === 'MENSUAL');
 }
 
-export const MENSAJE_CUOTA_SIN_CLIENTA = 'Una cuota necesita alumna: búscala o crea su ficha antes de cobrar.';
+export const MENSAJE_CUOTA_SIN_CLIENTA = 'Una cuota necesita cliente: búscala o crea su ficha antes de cobrar.';

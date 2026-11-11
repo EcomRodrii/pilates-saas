@@ -92,7 +92,7 @@ test('el panel ofrece «Cobrar» en los tres estados de deuda, no en dos', () =>
 });
 
 // La otra mitad del mismo bug: lo que la alumna lee.
-test('a la alumna no se le dice que le devolvieron el dinero cuando lo debe', () => {
+test('al cliente no se le dice que le devolvieron el dinero cuando lo debe', () => {
   const item = leer('components/student/domain/PaymentItem.tsx');
   // `refunded` (DEVUELTO por el banco) nunca puede decir «Reembolsado». El
   // reembolso de verdad es otro estado (`reimbursed`, F0) y ese sí lo dice.

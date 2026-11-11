@@ -90,7 +90,7 @@ export async function historialDeAccesos(
       asistenciaMarcada: f.asistencia_marcada,
       // Una socia suprimida ya no está (anonimizar_socio borra sus filas); una
       // sin nombre resuelto se enseña sin él, nunca con el id.
-      alumna: f.socio_id ? { id: f.socio_id, nombre: socias.get(f.socio_id) || 'Alumna' } : null,
+      alumna: f.socio_id ? { id: f.socio_id, nombre: socias.get(f.socio_id) || 'Cliente' } : null,
       clase: clase ? { nombre: clase.nombre, inicio: clase.inicio, sala: clase.sala } : null,
       quien: equipo.get(f.actor_uid) ?? ROL_LEGIBLE[f.actor_rol] ?? 'Equipo',
     };

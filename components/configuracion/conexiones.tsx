@@ -213,8 +213,8 @@ const OAUTH: Record<TipoOAuth, ConfigOAuth> = {
     proveedor: 'klaviyo',
     campo: 'klaviyoAccountName',
     ruta: '/api/integrations/klaviyo',
-    paraQue: 'Conéctalo para llevar tus alumnas a tus listas',
-    alDesconectar: 'Las alumnas que ya enviaste se quedan en Klaviyo; no se envía ninguna más.',
+    paraQue: 'Conéctalo para llevar tus clientes a tus listas',
+    alDesconectar: 'Los clientes que ya enviaste se quedan en Klaviyo; no se envía ninguna más.',
     avisos: {
       klaviyo_connected: () => 'Klaviyo conectado',
       klaviyo_error: v => `Error al conectar Klaviyo: ${v}`,
@@ -369,7 +369,7 @@ export function SincronizarKlaviyo() {
       ruta="/api/integrations/klaviyo/sync"
       texto="Sincronizar ahora"
       textoEnCurso="Sincronizando…"
-      bien={d => `Hecho: ${d.sincronizadas} alumnas enviadas a Klaviyo.`}
+      bien={d => `Hecho: ${d.sincronizadas} clientes enviados a Klaviyo.`}
     />
   );
 }
@@ -417,7 +417,7 @@ const CON_CLAVE: Record<TipoConClave, ConfigConClave> = {
     tipo: 'MAILCHIMP',
     tarjeta: 'integracion-mailchimp',
     nombre: 'Mailchimp',
-    paraQue: 'Conéctalo para llevar tus alumnas a tu audiencia',
+    paraQue: 'Conéctalo para llevar tus clientes a tu audiencia',
     campos: [
       { key: 'apiKey', label: 'Clave API', placeholder: 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-us6', secreto: true },
       { key: 'audienceId', label: 'ID de audiencia', placeholder: 'a1b2c3d4e5' },
@@ -431,7 +431,7 @@ const CON_CLAVE: Record<TipoConClave, ConfigConClave> = {
     ],
     probar: '/api/integrations/mailchimp/probar',
     sincronizar: '/api/integrations/mailchimp/sync',
-    alDesconectar: 'Dejas de poder enviar alumnas a Mailchimp. Las que ya enviaste se quedan allí.',
+    alDesconectar: 'Dejas de poder enviar clientes a Mailchimp. Las que ya enviaste se quedan allí.',
   },
 };
 
@@ -512,7 +512,7 @@ export function DetalleConexionConClave({ c, onGuardado }: { c: ConexionConClave
                 ruta={config.sincronizar}
                 texto="Sincronizar ahora"
                 textoEnCurso="Sincronizando…"
-                bien={d => `Hecho: ${d.sincronizadas} alumnas enviadas a ${config.nombre}.`}
+                bien={d => `Hecho: ${d.sincronizadas} clientes enviados a ${config.nombre}.`}
               />
             )}
             <AccionServidor ruta={config.probar} texto="Probar conexión" textoEnCurso="Probando…" bien={() => `La conexión con ${config.nombre} funciona.`} />

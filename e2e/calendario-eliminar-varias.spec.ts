@@ -134,7 +134,7 @@ test('el diálogo cuenta personas distintas y no promete deshacer', async ({ pag
   const dialogo = page.getByTestId('eliminar-lote');
   await expect(dialogo.getByText('¿Eliminar 3 clases?')).toBeVisible();
   // Ana está en dos clases y Bea en una → 2 personas, no 3 reservas.
-  await expect(dialogo.getByText(/2 alumnas/)).toBeVisible();
+  await expect(dialogo.getByText(/2 clientes/)).toBeVisible();
   await expect(dialogo.getByText('No se puede deshacer.')).toBeVisible();
 });
 

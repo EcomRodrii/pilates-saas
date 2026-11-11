@@ -94,7 +94,7 @@ export async function cargarAnalisis(
   ]);
   const error = sesionesR.error ?? suscripcionesR.error ?? planesR.error;
   if (error) throw error;
-  if (!estados) throw new Error('No se ha podido calcular el estado de las alumnas');
+  if (!estados) throw new Error('No se ha podido calcular el estado de los clientes');
   const interesadas = [...estados.values()].filter(e => e.estado === 'INTERESADA').length;
 
   const suscripciones: SuscripcionDemanda[] = (suscripcionesR.data ?? []).map(s => ({

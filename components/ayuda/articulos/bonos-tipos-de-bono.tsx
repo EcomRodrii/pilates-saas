@@ -4,7 +4,7 @@ import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 export default function Contenido() {
   return (
     <>
-      <p>Tentare soporta tres tipos de plan, y puedes combinarlos: una alumna puede tener a la vez, por ejemplo, una cuota y un bono suelto.</p>
+      <p>Tentare soporta tres tipos de plan, y puedes combinarlos: un cliente puede tener a la vez, por ejemplo, una cuota y un bono suelto.</p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, margin: '20px 0' }}>
         {[
@@ -26,7 +26,7 @@ export default function Contenido() {
 
       <AyudaResultado>
         No hay un cuarto modelo de &ldquo;clase fija con recuperaciones&rdquo; como plan separado — la clase fija se asigna
-        aparte, en la ficha de la alumna (bloque «Clase fija»), sobre el plan que tenga. Sigue con{' '}
+        aparte, en la ficha del cliente (bloque «Clase fija»), sobre el plan que tenga. Sigue con{' '}
         <Link href="/ayuda/bonos/crear-un-plan" style={{ color: 'inherit', textDecoration: 'underline' }}>cómo crear un plan</Link>.
       </AyudaResultado>
     </>

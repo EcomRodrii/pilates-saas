@@ -52,7 +52,7 @@ test('las respuestas se leen en castellano', () => {
   for (const nada of [null, undefined, '', '  ']) assert.equal(textoRespuesta(COMO, nada), '—');
 });
 
-test('el CSV no deja que Excel ejecute lo que escribió una alumna', () => {
+test('el CSV no deja que Excel ejecute lo que escribió un cliente', () => {
   for (const peligro of ['=HYPERLINK("x")', '+1', '-2+3', '@SUM(A1)', '\tx']) {
     assert.ok(celdaSegura(peligro).replace(/^"/, '').startsWith("'"), peligro);
   }

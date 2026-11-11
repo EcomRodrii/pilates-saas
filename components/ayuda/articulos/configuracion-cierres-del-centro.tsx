@@ -46,7 +46,7 @@ export default function Contenido() {
         </li>
         <li>
           <strong>Los bonos y las recuperaciones duran esos días más</strong>. Y no solo los de quien tenía clase
-          reservada: los de <strong>todas</strong> tus alumnas. Si cierras siete días, cualquier bono pierde siete
+          reservada: los de <strong>todas</strong> tus clientes. Si cierras siete días, cualquier bono pierde siete
           días de vigencia, hubiera reservado o no.
         </li>
       </ul>
@@ -67,7 +67,7 @@ export default function Contenido() {
         otra:
       </p>
       <ul style={lista}>
-        <li><strong>Un cierre futuro</strong>: «Quitar este cierre». Tus alumnas podrán volver a reservar esos días.</li>
+        <li><strong>Un cierre futuro</strong>: «Quitar este cierre». Tus clientes podrán volver a reservar esos días.</li>
         <li><strong>Un cierre en curso</strong>: «Reabrir desde hoy». Se reabre de hoy en adelante, no hacia atrás.</li>
         <li><strong>Un cierre pasado</strong>: no se toca. Ya ocurrió.</li>
       </ul>
@@ -114,7 +114,7 @@ export default function Contenido() {
       <AyudaResultado>
         Si solo quieres regalar días de bono sin cerrar —una compensación, un detalle con un grupo—, eso es otra
         cosa: se hace desde{' '}
-        <Link href="/ayuda/bonos/ampliar-caducidades-en-lote" style={enlace}>Alumnas, ampliando la caducidad</Link>{' '}
+        <Link href="/ayuda/bonos/ampliar-caducidades-en-lote" style={enlace}>Clientes, ampliando la caducidad</Link>{' '}
         a quien tú elijas. El cierre es para cuando de verdad no hay clases.
       </AyudaResultado>
     </>

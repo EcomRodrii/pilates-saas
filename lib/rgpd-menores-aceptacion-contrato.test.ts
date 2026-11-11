@@ -47,7 +47,7 @@ test('consentimiento_salud_cambiar: sigue siendo solo service_role', () => {
   assert.doesNotMatch(MENORES, new RegExp(String.raw`grant execute on function ${firma} to [^;]*(anon|authenticated)`));
 });
 
-test('la ruta de la alumna decide por edad ANTES de consentir; el panel exige tutor con una menor', () => {
+test('la ruta del cliente decide por edad ANTES de consentir; el panel exige tutor con una menor', () => {
   const alumna = leer('app/api/public/valoracion/route.ts');
   assert.match(alumna, /bloqueoConsentimientoPortal\(porEdad\)/);
   assert.match(alumna, /consentimientoSaludPorEdad\(await leerFechaNacimiento\(studioId, socioId\)/);

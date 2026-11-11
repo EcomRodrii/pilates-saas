@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   const texto = (v: unknown) => (typeof v === 'string' && v ? v : null);
   const socioId = texto(body.socioId);
   const conversacionId = texto(body.conversacionId);
-  if (accion === 'abrir' && !socioId) return NextResponse.json({ error: 'Falta la alumna' }, { status: 400 });
+  if (accion === 'abrir' && !socioId) return NextResponse.json({ error: 'Falta el cliente' }, { status: 400 });
   if (accion !== 'hilos' && accion !== 'abrir' && !conversacionId) {
     return NextResponse.json({ error: 'Falta la conversación' }, { status: 400 });
   }
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
 
       case 'abrir': {
         const r = await abrirHiloConAlumna({ ...suya, socioId: socioId as string });
-        if (!r) return NextResponse.json({ error: 'No encontramos a esta alumna.' }, { status: 404 });
+        if (!r) return NextResponse.json({ error: 'No encontramos a este cliente.' }, { status: 404 });
         if (!r.ok) return NextResponse.json({ error: textoNoAbrir(r.motivo), motivo: r.motivo }, { status: 409 });
         return NextResponse.json({ id: r.id });
       }

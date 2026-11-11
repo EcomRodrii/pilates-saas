@@ -3621,8 +3621,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
           const fallos = await devolverBonosEnServidor(aDevolver.map(r => r.id), motivo);
           if (fallos > 0) {
             avisoBono = fallos === 1
-              ? 'No hemos podido devolver la sesión al bono de una alumna. Revísalo a mano.'
-              : `No hemos podido devolver la sesión al bono de ${fallos} alumnas. Revísalo a mano.`;
+              ? 'No hemos podido devolver la sesión al bono de un cliente. Revísalo a mano.'
+              : `No hemos podido devolver la sesión al bono de ${fallos} clientes. Revísalo a mano.`;
           }
         }
       }
@@ -4560,8 +4560,8 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       return {
         ok: false,
         error: enEspera
-          ? 'Esa alumna todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
-          : 'No hemos encontrado la reserva de esa alumna en esta clase.',
+          ? 'Ese cliente todavía no tiene la plaza confirmada. Confírmala primero y luego asígnale el sitio.'
+          : 'No hemos encontrado la reserva de ese cliente en esta clase.',
       };
     }
     const anterior = reserva;
@@ -5455,7 +5455,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
       const res = await dbCanjearRecompensa(redemptionId, catalogItemId, studioId, socioId);
       if ('error' in res) {
         const msg = res.error === 'SIN_STOCK' ? 'Esta recompensa está agotada.'
-          : res.error === 'LIMITE_ALCANZADO' ? 'Esta alumna ya la ha canjeado el máximo de veces.'
+          : res.error === 'LIMITE_ALCANZADO' ? 'Este cliente ya la ha canjeado el máximo de veces.'
             : res.error === 'FUERA_DE_VIGENCIA' ? 'Esta recompensa no está disponible en esta fecha.'
               : res.error === 'NO_DISPONIBLE' ? 'Esta recompensa ya no está disponible.'
                 : res.error === 'SALDO_INSUFICIENTE' ? 'Saldo insuficiente para este canje.'
@@ -5662,7 +5662,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
   const umbralOcupado = (umbral: number, id: string | null) =>
     levelDefinitions.some(l => l.activo && l.id !== id && l.umbralCreditos === umbral);
   const textoBajarian = (n: number) =>
-    n < 0 ? 'No se han podido comprobar los créditos de todas tus alumnas (aún cargan, o son demasiadas para este editor), y no se baja a nadie de nivel a ciegas. Espera un momento y reintenta; si sigue, avísanos.' : `Con este cambio ${n === 1 ? '1 alumna bajaría' : `${n} alumnas bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`;
+    n < 0 ? 'No se han podido comprobar los créditos de todas tus clientes (aún cargan, o son demasiadas para este editor), y no se baja a nadie de nivel a ciegas. Espera un momento y reintenta; si sigue, avísanos.' : `Con este cambio ${n === 1 ? '1 cliente bajaría' : `${n} clientes bajarían`} de nivel, y lo que ya tienen no se toca. No se ha guardado nada: baja ese umbral o deja ese nivel.`;
   /** `orden` = posición por umbral (solo presentación): panel y app ordenan por umbral. */
   const ordenDeUmbral = (umbral: number, id: string | null) =>
     levelDefinitions.filter(l => l.activo && l.id !== id && l.umbralCreditos < umbral).length;

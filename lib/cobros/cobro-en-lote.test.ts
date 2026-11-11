@@ -12,7 +12,7 @@ test('entran lo pendiente, lo rechazado y lo devuelto por el banco (antes solo l
   for (const estado of ['PENDIENTE', 'FALLIDO', 'DEVUELTO']) assert.equal(entraEnCobroEnLote(r({ estado })), true, estado);
 });
 
-test('no entran: lo que está en el banco, lo que se reintenta solo, lo reembolsado, lo cobrado ni lo que no tiene alumna', () => {
+test('no entran: lo que está en el banco, lo que se reintenta solo, lo reembolsado, lo cobrado ni lo que no tiene cliente', () => {
   assert.equal(entraEnCobroEnLote(r({ estado: 'EN_CURSO' })), false, 'el banco aún no ha contestado');
   assert.equal(entraEnCobroEnLote(r({ estado: 'PENDIENTE', proximoReintento: '2026-10-05T08:00:00Z' })), false, 'se cobraría dos veces');
   assert.equal(entraEnCobroEnLote(r({ estado: 'DEVUELTO', importeDevuelto: 30 })), false, 'un reembolso no se vuelve a cobrar');

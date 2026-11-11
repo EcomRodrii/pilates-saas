@@ -141,7 +141,7 @@ test('plantilla de email apagada: calla SOLO el email', () => {
   assert.deepEqual(canalesRecordatorio({ ...BASE, plantillaEmailEncendida: false, franja: '1h' }), SOLO_PUSH);
 });
 
-test('preferencias de la alumna: cada canal por su lado; sin fila o a null, quiere', () => {
+test('preferencias del cliente: cada canal por su lado; sin fila o a null, quiere', () => {
   assert.deepEqual(canalesRecordatorio({ ...BASE, preferencias: { email: false, whatsapp: true } }), { push: true, email: false, whatsapp: true });
   assert.deepEqual(canalesRecordatorio({ ...BASE, preferencias: { email: true, whatsapp: false } }), { push: true, email: true, whatsapp: false });
   assert.deepEqual(canalesRecordatorio({ ...BASE, preferencias: { email: null, whatsapp: null } }), TODOS);
@@ -176,7 +176,7 @@ function tablasBase(): Record<string, Fila[]> {
     instructores: [{ id: 'ins-1', nombre: 'Instructora' }],
     reservas: [{ id: 'res-1', studio_id: 'studio-1', socio_id: 'soc-1', sesion_id: 'ses-1', estado: 'CONFIRMADA' }],
     socio_excepciones: [],
-    socios: [{ id: 'soc-1', nombre: 'Alumna', email: 'alumna@example.com', telefono: '600000000', auth_user_id: 'auth-1' }],
+    socios: [{ id: 'soc-1', nombre: 'Cliente', email: 'alumna@example.com', telefono: '600000000', auth_user_id: 'auth-1' }],
     notification_preference: [],
     integraciones: [],
     plantillas_email: [],
@@ -348,7 +348,7 @@ test('todas las lecturas van paginadas y la de reservas pide solo CONFIRMADA', a
 
 test('camino viejo (Inngest) y barrido juntos, en cualquier orden: un solo email', async () => {
   const data = datosClaseRecordatorio({ inicioISO: CLASE_24H, nombre: 'Reformer', sala: 'Sala grande', instructor: 'Instructora', estudioNombre: 'Pilates Luz', zoomJoinUrl: null });
-  const envio = { sesionId: 'ses-1', socioId: 'soc-1', studioId: 'studio-1', to: 'alumna@example.com', toName: 'Alumna', data };
+  const envio = { sesionId: 'ses-1', socioId: 'soc-1', studioId: 'studio-1', to: 'alumna@example.com', toName: 'Cliente', data };
 
   const viejoPrimero = montar();
   try {
@@ -405,7 +405,7 @@ test('reserva ASISTIDA: nada por ningún canal', async () => {
     const reserva: ReservaParaRecordar = {
       id: 'res-1', estado: 'ASISTIDA', sesionId: 'ses-1', studioId: 'studio-1', socioId: 'soc-1', slug: 'pilates-luz',
       clase: { inicioISO: CLASE_24H, nombre: 'Reformer', sala: null, instructor: null, estudioNombre: null, zoomJoinUrl: null },
-      socia: { nombre: 'Alumna', email: 'alumna@example.com', telefono: '600000000' },
+      socia: { nombre: 'Cliente', email: 'alumna@example.com', telefono: '600000000' },
       exenta: false, preferencias: null, plantillaEmailEncendida: true, whatsapp: { token: 't', phoneId: '1', plantillaRecordatorio: false, plantillaHueco: false, plantillaSustitucion: false },
     };
     const res = await enviarRecordatorioClase(m.admin, reserva, '24h', m.puertos);
@@ -463,7 +463,7 @@ test('WhatsApp conectado: un mensaje en dos pasadas, y la salud se anota una vez
   } finally { m.desmontar(); }
 });
 
-test('preferencias de la alumna: sin email ni WhatsApp si los quitó; el push sale igual', async () => {
+test('preferencias del cliente: sin email ni WhatsApp si los quitó; el push sale igual', async () => {
   const tablas = tablasBase();
   tablas.integraciones.push({ studio_id: 'studio-1', tipo: 'WHATSAPP', activo: true, config: { token: 't', phoneId: '1' } });
   tablas.notification_preference.push({ user_id: 'auth-1', category: 'reservas', email: false, whatsapp: false });

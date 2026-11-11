@@ -74,7 +74,7 @@ test('la tabla: RLS activa, sin política de INSERT, grants justos y la purga qu
   assert.ok(!/create policy[^;]*on public\.consultas_contacto[^;]*for insert/.test(sql), 'nadie del cliente inserta: solo el endpoint con service-role');
   assert.ok(sql.includes('revoke all on table public.consultas_contacto from public, anon, authenticated'));
   assert.ok(sql.includes('grant update (estado, atendida_en, atendida_por) on table public.consultas_contacto to authenticated'));
-  assert.ok(sql.includes('puede_gestionar_clientas()'), 'mismo trío que Alumnas: INSTRUCTOR fuera');
+  assert.ok(sql.includes('puede_gestionar_clientas()'), 'mismo trío que Clientes: INSTRUCTOR fuera');
   // «Como máximo N meses» en el formulario = el tope del pg_cron.
   assert.ok(sql.includes(`creada_en < now() - interval '${CONSERVACION_MESES * 30} days'`), 'el tope del cron no cuadra con CONSERVACION_MESES');
   assert.ok(sql.includes("'purgar-consultas-contacto'"));

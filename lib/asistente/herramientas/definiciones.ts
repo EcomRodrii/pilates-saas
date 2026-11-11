@@ -112,7 +112,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'resumen_del_estudio',
     clase: 'lectura',
-    descripcion: 'Resumen general del estudio ahora mismo: alumnas activas y de prueba, cuántas llevan más de 30 días sin venir, las clases de hoy (cuántas, alumnas apuntadas, huecos libres) y lo que espera una decisión. Si quien pregunta puede ver el dinero, añade lo cobrado en lo que va de mes frente al mismo tramo del mes anterior y lo pendiente de cobro. Úsala para «hazme un resumen», «¿cómo va el estudio?» o como primera mirada cuando la pregunta es general.',
+    descripcion: 'Resumen general del estudio ahora mismo: clientes activos y de prueba, cuántas llevan más de 30 días sin venir, las clases de hoy (cuántas, clientes apuntados, huecos libres) y lo que espera una decisión. Si quien pregunta puede ver el dinero, añade lo cobrado en lo que va de mes frente al mismo tramo del mes anterior y lo pendiente de cobro. Úsala para «hazme un resumen», «¿cómo va el estudio?» o como primera mirada cuando la pregunta es general.',
     esquema: objeto({}),
     zod: sinEntrada,
     permitida: rol => delAsistente(rol) && puedeGestionarClientas(rol) && puedeGestionarCalendario(rol),
@@ -130,16 +130,16 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'contar_alumnas',
     clase: 'lectura',
-    descripcion: 'Cuántas alumnas hay en cada estado (activa, de prueba, sin renovar, pausada, inactiva, de baja, interesada), con la definición de cada estado. Son las mismas cifras que el chip de Alumnas y que «Alumnas activas» del Resumen. Úsala para «¿cuántas alumnas activas tengo?», «¿cuántas están de prueba?» o «¿cuántas se me han ido?».',
+    descripcion: 'Cuántos clientes hay en cada estado (activa, de prueba, sin renovar, pausada, inactiva, de baja, interesada), con la definición de cada estado. Son las mismas cifras que el chip de Clientes y que «Clientes activos» del Resumen. Úsala para «¿cuántos clientes activos tengo?», «¿cuántas están de prueba?» o «¿cuántas se me han ido?».',
     esquema: objeto({}),
     zod: sinEntrada,
     permitida: rol => delAsistente(rol) && puedeGestionarClientas(rol),
-    etiqueta: () => 'Contando tus alumnas…',
+    etiqueta: () => 'Contando tus clientes…',
   }),
   def({
     nombre: 'alumnas_sin_venir',
     clase: 'lectura',
-    descripcion: 'Las alumnas que llevan más de 30 días sin venir a clase (desde su última clase, o desde su alta si nunca han venido; las interesadas no cuentan). Es la misma lista que «Sin venir 30d» del Resumen. Devuelve el total y hasta 20, con los días que llevan sin venir y su estado. Úsala para «¿quién lleva más de un mes sin venir?» o «¿a quién debería escribir?».',
+    descripcion: 'Los clientes que llevan más de 30 días sin venir a clase (desde su última clase, o desde su alta si nunca han venido; las interesadas no cuentan). Es la misma lista que «Sin venir 30d» del Resumen. Devuelve el total y hasta 20, con los días que llevan sin venir y su estado. Úsala para «¿quién lleva más de un mes sin venir?» o «¿a quién debería escribir?».',
     esquema: objeto({ orden: enumerado(['mas_recientes', 'mas_antiguas'], 'mas_recientes: primero las que dejaron de venir hace menos (más fáciles de recuperar); mas_antiguas: primero las que llevan más tiempo.') }),
     zod: zSinVenir,
     permitida: rol => delAsistente(rol) && puedeGestionarClientas(rol),
@@ -188,7 +188,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'actividad_del_periodo',
     clase: 'lectura',
-    descripcion: 'La actividad de un periodo: clases dadas, ocupación, cuántas alumnas distintas vinieron y las 5 que más vinieron, comparado con el mismo tramo del periodo anterior. Es la misma cifra que Informes. Úsala para «¿cómo ha ido la semana?», «¿viene más gente que el mes pasado?» o «¿quién viene más?».',
+    descripcion: 'La actividad de un periodo: clases dadas, ocupación, cuántos clientes distintas vinieron y las 5 que más vinieron, comparado con el mismo tramo del periodo anterior. Es la misma cifra que Informes. Úsala para «¿cómo ha ido la semana?», «¿viene más gente que el mes pasado?» o «¿quién viene más?».',
     esquema: objeto({
       periodo: enumerado(PERIODO, 'El periodo.'),
       cual: enumerado(CUAL, 'actual: el periodo en curso, hasta hoy; anterior: el periodo anterior entero.'),
@@ -200,7 +200,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'facturacion_del_periodo',
     clase: 'lectura',
-    descripcion: 'Lo cobrado en un periodo (bruto con IVA, antes de comisiones, neto de devoluciones, por la fecha de cobro), el número de cobros, el desglose por motivo (cuotas, bonos, clases sueltas, sesiones privadas, caja, otros), cuántas alumnas pagaron y el ingreso medio por alumna, comparado con el mismo tramo del periodo anterior. Es la misma cifra que «Lo que he cobrado» y que Informes › Dinero. Úsala para «¿cuánto he facturado este mes?» o «¿cuánto cobré el trimestre pasado?».',
+    descripcion: 'Lo cobrado en un periodo (bruto con IVA, antes de comisiones, neto de devoluciones, por la fecha de cobro), el número de cobros, el desglose por motivo (cuotas, bonos, clases sueltas, sesiones privadas, caja, otros), cuántos clientes pagaron y el ingreso medio por cliente, comparado con el mismo tramo del periodo anterior. Es la misma cifra que «Lo que he cobrado» y que Informes › Dinero. Úsala para «¿cuánto he facturado este mes?» o «¿cuánto cobré el trimestre pasado?».',
     esquema: objeto({
       periodo: enumerado(PERIODO_CON_ANIO, 'El periodo (anio = año natural).'),
       cual: enumerado(CUAL, 'actual: el periodo en curso, hasta hoy; anterior: el periodo anterior entero.'),
@@ -212,7 +212,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'pagos_pendientes',
     clase: 'lectura',
-    descripcion: 'Lo que está sin cobrar: lo que se debe (por cobrar más impagado), aparte lo que está en el banco sin confirmar, cuántas alumnas deben algo y hasta 20 recibos con su importe, su situación y su vencimiento. Es la misma lista que «Sin cobrar» de Cobros. Úsala para «¿qué pagos tengo pendientes?» o «¿quién me debe dinero?».',
+    descripcion: 'Lo que está sin cobrar: lo que se debe (por cobrar más impagado), aparte lo que está en el banco sin confirmar, cuántos clientes deben algo y hasta 20 recibos con su importe, su situación y su vencimiento. Es la misma lista que «Sin cobrar» de Cobros. Úsala para «¿qué pagos tengo pendientes?» o «¿quién me debe dinero?».',
     esquema: objeto({ orden: enumerado(['mas_antiguos', 'mayor_importe'], 'mas_antiguos: primero los que vencieron antes; mayor_importe: primero los más grandes.') }),
     zod: zPendientes,
     permitida: rol => delAsistente(rol) && puedeVerFinanzas(rol),
@@ -268,7 +268,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'proponer_evento',
     clase: 'accion',
-    descripcion: 'Prepara (no publica) un evento o taller para la Comunidad de la app (avisa a las alumnas al confirmar). texto = el anuncio, sin nombres de alumnas; aforo y lugar solo si los dice (si no, omítelos).',
+    descripcion: 'Prepara (no publica) un evento o taller para la Comunidad de la app (avisa a los clientes al confirmar). texto = el anuncio, sin nombres de clientes; aforo y lugar solo si los dice (si no, omítelos).',
     esquema: objeto({
       texto: { type: 'string', description: 'El anuncio.' },
       fecha: { type: 'string', description: 'AAAA-MM-DD.' },
@@ -283,7 +283,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'proponer_cita',
     clase: 'accion',
-    descripcion: 'Prepara (no crea) una cita 1:1, sin precio ni cobro, para que la propietaria la confirme. alumna e instructora con su marca exacta ([ALUMNA_n], [EQUIPO_n]); duracion_min solo si la dice (si no, omítela: 60).',
+    descripcion: 'Prepara (no crea) una cita 1:1, sin precio ni cobro, para que la propietaria la confirme. cliente e instructora con su marca exacta ([ALUMNA_n], [EQUIPO_n]); duracion_min solo si la dice (si no, omítela: 60).',
     esquema: objeto({
       alumna: { type: 'string', description: '[ALUMNA_n].' },
       instructora: { type: 'string', description: '[EQUIPO_n].' },
@@ -330,7 +330,7 @@ export const DEFINICIONES: readonly DefinicionHerramienta<unknown>[] = [
   def({
     nombre: 'eventos_proximos',
     clase: 'lectura',
-    descripcion: 'Los eventos de la comunidad publicados que aún no han pasado (talleres, quedadas, clases especiales): de qué es cada uno, el día y la hora, el lugar, el aforo y cuántas alumnas se han apuntado. Hasta 10, el más próximo primero. Úsala para «¿cuántos eventos tengo?», «¿cómo va el taller del sábado?» o «¿qué eventos hay esta semana?».',
+    descripcion: 'Los eventos de la comunidad publicados que aún no han pasado (talleres, quedadas, clases especiales): de qué es cada uno, el día y la hora, el lugar, el aforo y cuántos clientes se han apuntado. Hasta 10, el más próximo primero. Úsala para «¿cuántos eventos tengo?», «¿cómo va el taller del sábado?» o «¿qué eventos hay esta semana?».',
     esquema: objeto({}),
     zod: sinEntrada,
     permitida: rol => delAsistente(rol) && puedeModerarComunidad(rol),

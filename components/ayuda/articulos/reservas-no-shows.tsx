@@ -11,7 +11,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Cómo se marca un no-show</h2>
       <p>
-        Cada noche, cualquier reserva de una clase ya terminada que seguía CONFIRMADA sin que la alumna asistiera
+        Cada noche, cualquier reserva de una clase ya terminada que seguía CONFIRMADA sin que el cliente asistiera
         pasa sola a NO_ASISTIO — no hace falta que tú la marques a mano, aunque también puedes hacerlo desde la
         lista de asistentes de la clase si lo ves antes.
       </p>
@@ -25,17 +25,17 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Penalización económica (opcional)</h2>
       <p>
         Si tu estudio la ha activado, un no-show o una cancelación tardía puede generar un cargo a la tarjeta
-        guardada de la alumna — con cobro automático o pendiente de tu aprobación, según cómo lo hayas configurado.
-        Los que esperan tu aprobación aparecen en Resumen, en «Lo que espera tu visto bueno», con el nombre de la
-        alumna y el importe: se aprueban ahí mismo con «Aprobar y cobrar». Si se corta la conexión a mitad, puedes
+        guardada del cliente — con cobro automático o pendiente de tu aprobación, según cómo lo hayas configurado.
+        Los que esperan tu aprobación aparecen en Resumen, en «Lo que espera tu visto bueno», con el nombre del
+        cliente y el importe: se aprueban ahí mismo con «Aprobar y cobrar». Si se corta la conexión a mitad, puedes
         volver a pulsarlo: un cargo que ya entró no se cobra dos veces.
-        No se cobra nunca sin que la alumna haya aceptado antes las condiciones que incluyen esa penalización.
+        No se cobra nunca sin que el cliente haya aceptado antes las condiciones que incluyen esa penalización.
         Una clase que cancela el propio estudio (por ejemplo, por mínimo de asistentes no alcanzado) nunca genera
         penalización a nadie.
       </p>
 
       <AyudaResultado>
-        Un no-show no bloquea a la alumna para reservar de nuevo — es un registro en su historial, no una
+        Un no-show no bloquea al cliente para reservar de nuevo — es un registro en su historial, no una
         restricción automática. Si un cobro por penalización falla, sigue el mismo camino que cualquier otro cobro:
         ver <Link href="/ayuda/pagos/cobros-fallidos" style={{ color: 'inherit', textDecoration: 'underline' }}>cobros fallidos</Link>.
       </AyudaResultado>

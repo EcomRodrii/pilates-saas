@@ -32,10 +32,10 @@ export function avisoTrasCancelar(r: ResultadoCancelacion): { texto: string; err
   if (r.avisoBono) pendiente.push(r.avisoBono.trim());
   if (r.sinAvisar > 0) {
     pendiente.push(r.sinAvisar === 1
-      ? 'A 1 alumna no le ha llegado el aviso: escríbele o llámala.'
-      : `A ${r.sinAvisar} alumnas no les ha llegado el aviso: escríbeles o llámalas.`);
+      ? 'A 1 cliente no le ha llegado el aviso: escríbele o llámala.'
+      : `A ${r.sinAvisar} clientes no les ha llegado el aviso: escríbeles o llámalas.`);
   }
   if (r.enApp === false) pendiente.push('El aviso en su app no ha salido.');
   if (pendiente.length > 0) return { texto: `${pendiente.join(' ')} ${r.confirmacion}.`, error: true };
-  return { texto: `${r.hecho} · ${r.avisadas > 0 ? 'alumnas avisadas' : 'sin alumnas a las que avisar'}`, error: false };
+  return { texto: `${r.hecho} · ${r.avisadas > 0 ? 'clientes avisados' : 'sin clientes a las que avisar'}`, error: false };
 }

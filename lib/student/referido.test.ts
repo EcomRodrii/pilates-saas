@@ -34,7 +34,7 @@ test('el enlace lleva el estudio y el referidor, y escapa lo que haga falta', ()
   assert.ok(!u.includes('es//portal'));
 });
 
-test('el texto invita y NO promete un premio que la alumna no controla', () => {
+test('el texto invita y NO promete un premio que el cliente no controla', () => {
   // La regla de créditos es opcional por estudio y se paga cuando la invitada
   // ASISTE, no al registrarse. Prometer «ganáis las dos» aquí sería vender
   // algo que puede no existir.

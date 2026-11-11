@@ -79,7 +79,7 @@ export default function MisReservasPage() {
     return { reservas, clases, instructoras, plazaFija };
   }, [estudio.slug]);
 
-  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `alumna:${estudio.slug}:mis-clases`);
+  const { data, estado, reintentar, refrescar } = useAsync(cargar, () => false, `cliente:${estudio.slug}:mis-clases`);
   // El reloj compartido de la app, que AVANZA (ver `useAhoraMs`).
   //
   // Antes era `useState(() => Date.now())`, congelado al montar. Eso ya no basta

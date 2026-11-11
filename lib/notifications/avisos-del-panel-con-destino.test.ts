@@ -38,7 +38,7 @@ test('todo aviso al panel (propietaria, gerencia, recepción) tiene destino', ()
   assert.deepEqual(sinDestino, [], 'avisos que al pulsarlos solo se marcan como leídos');
 });
 
-test('«Penalización sin cobrar» lleva a la ficha de la alumna que no ha aceptado el contrato', () => {
+test('«Penalización sin cobrar» lleva a la ficha del cliente que no ha aceptado el contrato', () => {
   const destino = plantillaDe(EVENTOS.PAGO_PENALIZACION_BLOQUEADA, 'PROPIETARIO')?.deepLink?.(DATOS);
   assert.equal(destino, '/clientas/so-1');
   // Y quien lo emite manda ese id: sin él el enlace saldría a `/clientas/`.

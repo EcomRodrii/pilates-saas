@@ -355,7 +355,7 @@ export async function PATCH(req: NextRequest) {
 
     if (marc.error) {
       return errorInterno('sustituciones:reprogramar:marcar-sustitucion', marc.error,
-        'La clase se movió y avisamos a las alumnas, pero no se ha podido cerrar la sustitución. Recarga la página.');
+        'La clase se movió y avisamos a los clientes, pero no se ha podido cerrar la sustitución. Recarga la página.');
     }
     return NextResponse.json({ ok: true, alumnas });
   }
@@ -443,7 +443,7 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         alumnas,
-        aviso: 'La clase se ha cancelado y hemos avisado a las alumnas, pero no hemos podido liberar sus reservas ni devolver los bonos. Revísalo en el calendario.',
+        aviso: 'La clase se ha cancelado y hemos avisado a los clientes, pero no hemos podido liberar sus reservas ni devolver los bonos. Revísalo en el calendario.',
       });
     }
     if (cancelacion.fallos > 0) {
@@ -451,8 +451,8 @@ export async function PATCH(req: NextRequest) {
         ok: true,
         alumnas,
         aviso: cancelacion.fallos === 1
-          ? 'La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de una alumna. Revísalo a mano.'
-          : `La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de ${cancelacion.fallos} alumnas. Revísalo a mano.`,
+          ? 'La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de un cliente. Revísalo a mano.'
+          : `La clase se ha cancelado, pero no hemos podido devolver la sesión al bono de ${cancelacion.fallos} clientes. Revísalo a mano.`,
       });
     }
 

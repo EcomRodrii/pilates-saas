@@ -4,11 +4,11 @@ import { abrirCajon, abrirSeccion, cajon, cerrarCajon, guardarYCerrar, volverDeH
 export const comunicacion: Capitulo = {
   id: 'comunicacion',
   titulo: 'Cómo me comunico',
-  frase: 'Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.',
+  frase: 'Los correos que Tentare envía sola a tus clientes y los canales para escribirles.',
   async guion(g, pos) {
     const { page } = g;
     await abrirSeccion(g, pos, 'comunicacion', 'Cómo me comunico', 'Los correos y avisos que Tentare envía por ti.',
-      'Sexto capítulo: cómo te comunicas. Los correos que Tentare envía sola a tus alumnas y los canales para escribirles.');
+      'Sexto capítulo: cómo te comunicas. Los correos que Tentare envía sola a tus clientes y los canales para escribirles.');
 
     // ── Correos automáticos ──
     g.momento('correos-automaticos');
@@ -23,7 +23,7 @@ export const comunicacion: Capitulo = {
       await g.clic(page.getByRole('button', { name: /Cambiar solo el saludo/ }));
       await g.escribe(page.getByLabel('Saludo'), 'Hola, ya tienes tu plaza en Estudio Aurora.');
     });
-    await g.mientras('A la derecha ves cómo lo recibe tu alumna, con datos de ejemplo. Debajo hay opciones de foto, colores, botón y pie, y siempre puedes volver a como viene de fábrica. También puedes enviarte una prueba. Guardamos.', async () => {
+    await g.mientras('A la derecha ves cómo lo recibe tu cliente, con datos de ejemplo. Debajo hay opciones de foto, colores, botón y pie, y siempre puedes volver a como viene de fábrica. También puedes enviarte una prueba. Guardamos.', async () => {
       await g.ir(page.getByRole('button', { name: 'Dejarlo como viene de fábrica' }));
       await g.clic(page.getByRole('button', { name: 'Guardar', exact: true }));
       await g.pausa(900);
@@ -32,7 +32,7 @@ export const comunicacion: Capitulo = {
 
     // ── Avisos en el móvil ──
     g.momento('avisos-del-movil');
-    await g.mientras('Avisos en el móvil. Son los avisos que le llegan a cada alumna a su móvil: cuándo recibe el recordatorio de su clase y qué dice cada aviso, con tus palabras.', async () => {
+    await g.mientras('Avisos en el móvil. Son los avisos que le llegan a cada cliente a su móvil: cuándo recibe el recordatorio de su clase y qué dice cada aviso, con tus palabras.', async () => {
       await g.clic(page.locator('#fila-herramienta-avisos-del-movil'));
       await page.getByRole('heading', { name: 'Avisos en el móvil', exact: true }).waitFor();
     });
@@ -52,12 +52,12 @@ export const comunicacion: Capitulo = {
 
     // ── Remitente ──
     g.momento('integracion-resend');
-    await g.mientras('Nombre y respuesta de tus correos. El nombre que ven tus alumnas como remitente y la dirección donde llegan sus respuestas. Ponemos el nombre del estudio.', async () => {
+    await g.mientras('Nombre y respuesta de tus correos. El nombre que ven tus clientes como remitente y la dirección donde llegan sus respuestas. Ponemos el nombre del estudio.', async () => {
       await abrirCajon(g, 'integracion-resend');
-      await g.escribe(cajon(page).getByLabel('Nombre que verán tus alumnas'), 'Estudio Aurora');
+      await g.escribe(cajon(page).getByLabel('Nombre que verán tus clientes'), 'Estudio Aurora');
       await g.escribe(cajon(page).getByLabel('Email para respuestas'), 'hola@example.com');
     });
-    await g.mientras('Así, cuando una alumna contesta a un correo, te llega a ti. Guardamos.', async () => {
+    await g.mientras('Así, cuando un cliente contesta a un correo, te llega a ti. Guardamos.', async () => {
       await guardarYCerrar(g);
     });
 

@@ -145,7 +145,7 @@ test('los dos sitios que mandan esos correos construyen la dirección de la app'
 test('la plantilla del correo del código dice la app, no «enlace de reservas»', () => {
   const html = leer('supabase/templates/confirmation.html');
   assert.doesNotMatch(html, /enlace de reservas/i);
-  assert.match(html, /El enlace de la app de tus alumnas, listo para mandar/);
+  assert.match(html, /El enlace de la app de tus clientes, listo para mandar/);
 });
 
 // ── El aviso de las 72 h sin reservas ────────────────────────────────────────
@@ -155,7 +155,7 @@ test('el aviso de las 72 h sin reservas manda a compartir la app', () => {
   const i = catalogo.indexOf('EMBUDO_SIN_PRIMERA_RESERVA}#PROPIETARIO');
   assert.ok(i > 0);
   const entrada = catalogo.slice(i, i + 900);
-  assert.match(entrada, /Comparte el enlace de la app de tus alumnas/);
+  assert.match(entrada, /Comparte el enlace de la app de tus clientes/);
   assert.doesNotMatch(entrada, /página de reservas/);
 });
 
@@ -189,7 +189,7 @@ const REPARTE_LA_PAGINA = /\/reservar\/|\/reservar\b[`'"]|qr-reservas|destino="r
 /** Excepciones con su motivo. Vacía: ninguna pantalla de esta lista debe repartir la página de reservas. */
 const EXCEPCIONES: Record<string, string> = {};
 
-test('ninguna pantalla que da el enlace para las alumnas da la página de reservas', () => {
+test('ninguna pantalla que da el enlace para los clientes da la página de reservas', () => {
   for (const f of PANTALLAS_CON_ENLACE_PARA_ALUMNAS) {
     if (EXCEPCIONES[f]) continue;
     const codigo = sinComentarios(leer(f));
@@ -219,9 +219,9 @@ test('Configuración › Dirección y enlaces: la app va primero y la página de
   assert.doesNotMatch(fila, /rutaPaginaReservas|\/reservar\//);
   // En el cajón, la app antes que la página de reservas.
   const cajon = codigo.slice(codigo.indexOf('export function DetalleDireccionYEnlaces'));
-  const iApp = cajon.indexOf('titulo="App de tus alumnas"');
+  const iApp = cajon.indexOf('titulo="App de tus clientes"');
   const iPagina = cajon.indexOf('titulo="Página de reservas"');
-  assert.ok(iApp > 0 && iPagina > iApp, 'la app de tus alumnas va ANTES que la página de reservas');
+  assert.ok(iApp > 0 && iPagina > iApp, 'la app de tus clientes va ANTES que la página de reservas');
   assert.match(cajon.slice(iPagina, iPagina + 400), /Para tu web/);
   // Y la dirección corta de la fila es la de la app.
   assert.equal(resumenDireccion({ slug: 'estudio-alba', origen: 'https://www.example.com' }), 'example.com/portal/estudio-alba');
@@ -243,7 +243,7 @@ test('los borradores de la apertura y «Dirección» llevan a la app', () => {
 
 // ── Guía y visita: lo que dicen del enlace ──────────────────────────────────
 
-test('la guía y la visita guiada hablan de «la app de tus alumnas» como enlace, no de «tu enlace de reservas»', () => {
+test('la guía y la visita guiada hablan de «la app de tus clientes» como enlace, no de «tu enlace de reservas»', () => {
   for (const f of ['lib/guia/primeros-pasos.ts', 'lib/guia/curriculo.ts', 'lib/tour/capitulos.ts', 'lib/alta/bienvenida-nueva.ts', 'lib/onboarding.ts']) {
     const codigo = sinComentarios(leer(f));
     assert.doesNotMatch(codigo, /(?:tu|el) enlace de reservas|Comparte tu enlace de reservas|Ver mi página de reservas/i, `${f}: «enlace de reservas» como el enlace a repartir`);

@@ -6,7 +6,7 @@ export default function Contenido() {
     <>
       <p>
         Una cuota (mensual, trimestral, semestral o anual) con tarjeta guardada se cobra sola al vencer —
-        no hace falta que tú ni la alumna hagáis nada para que siga activa. Si la cobras por domiciliación (con su
+        no hace falta que tú ni el cliente hagáis nada para que siga activa. Si la cobras por domiciliación (con su
         mandato firmado), el recibo queda pendiente y entra en la próxima remesa que prepares para tu banco. Sin
         ninguna de las dos, el recibo queda pendiente en Cobros para cobrarlo a mano.
       </p>
@@ -20,7 +20,7 @@ export default function Contenido() {
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Bonos, no</h2>
       <p>
-        Un bono de sesiones no se renueva solo: al agotarse o caducar, la alumna necesita comprar uno nuevo o que se
+        Un bono de sesiones no se renueva solo: al agotarse o caducar, el cliente necesita comprar uno nuevo o que se
         lo asignes tú. Solo las cuotas tienen renovación automática.
       </p>
 

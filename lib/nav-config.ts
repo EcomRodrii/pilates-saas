@@ -69,7 +69,7 @@ const allSections: NavSection[] = [
     items: [
       { href: '/calendario', label: 'Calendario', icon: Calendar },
       { href: '/citas', label: 'Citas', icon: Clock },
-      { href: '/clientas', label: 'Alumnas', icon: Users },
+      { href: '/clientas', label: 'Clientes', icon: Users },
       // «Comunidad» ya no tiene entrada propia: /comunidad pintaba el MISMO
       // `ComunidadFeed` que la pestaña Comunidad de Mensajería, así que eran
       // dos entradas de menú para una sola pantalla. La ruta sigue viva (hay
@@ -145,7 +145,7 @@ const allSections: NavSection[] = [
       // saberse la URL. Se llama "Traer mis datos" y no "Migración" porque nadie
       // que viene de otra app piensa en migrar, piensa en traerse lo suyo.
       { href: '/migracion', label: 'Traer mis datos', icon: DownloadCloud },
-      { href: '/libreta', label: 'Libreta de alumnas', icon: Notebook },
+      { href: '/libreta', label: 'Libreta de clientes', icon: Notebook },
       { href: '/actualizaciones', label: 'Actualizaciones', icon: Megaphone, alias: ['novedades', 'changelog', 'versiones', 'que hay de nuevo'] },
       // Wallet y no CreditCard: CreditCard ya es /cobros (dinero de las socias)
       // y repetirlo aquí hacía indistinguibles dos conceptos opuestos — cobrar
@@ -193,7 +193,7 @@ export function rutaFueraDelMenu(ruta: string): boolean {
 export const bottomNavItems: NavItemDef[] = [
   { href: '/dashboard', label: 'Resumen', icon: LayoutDashboard },
   { href: '/calendario', label: 'Clases', icon: Calendar },
-  { href: '/clientas', label: 'Alumnas', icon: Users },
+  { href: '/clientas', label: 'Clientes', icon: Users },
   { href: '/cobros', label: 'Cobros', icon: CreditCard },
 ];
 

@@ -85,7 +85,7 @@ test.describe('«Pon en marcha tu estudio» del alta nueva', () => {
     expect(red.estado).toBeGreaterThan(0);
   });
 
-  test('se marca con lo que dice el servidor: con la clase reservable y el enlace compartido, se ofrecen las alumnas', async ({ page }) => {
+  test('se marca con lo que dice el servidor: con la clase reservable y el enlace compartido, se ofrecen los clientes', async ({ page }) => {
     await montar(page, { estado: { ...RECIEN, claseReservable: true, enlaceCompartido: true } });
     await expect(tarjeta(page).getByTestId('paso-de-cinco')).toHaveText('Paso 4 de 5', { timeout: 60_000 });
     await expect(tarea(page, 'primera-clase')).toHaveAttribute('data-estado', 'hecha');
@@ -94,8 +94,8 @@ test.describe('«Pon en marcha tu estudio» del alta nueva', () => {
     await expect(tarea(page, 'alumnas').getByRole('link', { name: 'Importar' })).toHaveAttribute('href', '/migracion');
   });
 
-  test('con clase que una alumna nueva no puede reservar, dice qué falta en vez de «crea tu primera clase»', async ({ page }) => {
-    await montar(page, { estado: { ...RECIEN, avisoClase: { texto: 'Una alumna nueva todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online.', href: '/configuracion?tab=conexiones#integracion-stripe' } } });
+  test('con clase que un cliente nuevo no puede reservar, dice qué falta en vez de «crea tu primera clase»', async ({ page }) => {
+    await montar(page, { estado: { ...RECIEN, avisoClase: { texto: 'Un cliente nuevo todavía no puede reservar desde tu app: pides bono para reservar y, sin Stripe, no puede comprarlo online.', href: '/configuracion?tab=conexiones#integracion-stripe' } } });
     const clase = tarea(page, 'primera-clase');
     await expect(clase).toContainText('sin Stripe, no puede comprarlo online', { timeout: 60_000 });
     await expect(clase.getByRole('link', { name: 'Ver qué falta' })).toHaveAttribute('href', '/configuracion?tab=conexiones#integracion-stripe');
@@ -133,7 +133,7 @@ test.describe('«Pon en marcha tu estudio» del alta nueva', () => {
     await expect(dialogo).not.toContainText('/reservar/');
     // El QR para recepción es el de la app (no el de la página de reservas).
     await dialogo.getByRole('button', { name: 'Código QR' }).click();
-    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus alumnas' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Código QR · App de tus clientes' })).toBeVisible();
     await page.keyboard.press('Escape');
     await dialogo.getByRole('button', { name: 'Copiar' }).click();
     await expect(dialogo.getByRole('button', { name: 'Copiado' })).toBeVisible();
@@ -173,7 +173,7 @@ test.describe('«Pon en marcha tu estudio» del alta nueva', () => {
     await montar(page);
     await tarea(page, 'primera-clase').getByRole('button', { name: 'Omitir' }).click({ timeout: 60_000 });
     await tarea(page, 'compartir').getByRole('button', { name: 'Compartir mi enlace' }).click();
-    await expect(page.getByTestId('compartir-enlace')).toContainText('todavía no hay ninguna clase que una alumna nueva pueda reservar');
+    await expect(page.getByTestId('compartir-enlace')).toContainText('todavía no hay ninguna clase que un cliente nuevo pueda reservar');
   });
 
   test('si el servidor falla, la lista sigue con lo que sabe el panel y no enseña ni recorrido ni plan', async ({ page }) => {
@@ -257,7 +257,7 @@ test.describe('«Tu plan, sin sorpresas», una vez tras la primera reserva', () 
     const plan = page.getByTestId('tu-plan');
     await expect(plan.getByRole('heading', { name: 'Tu plan, sin sorpresas' })).toBeVisible({ timeout: 60_000 });
     await expect(plan).toContainText('Founding Studio · gratis');
-    await expect(plan.getByRole('meter', { name: 'Alumnas activas' })).toHaveAttribute('aria-valuenow', '2');
+    await expect(plan.getByRole('meter', { name: 'Clientes activos' })).toHaveAttribute('aria-valuenow', '2');
     await expect(plan.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '250');
     await expect(plan).toContainText('Centro de Control, sustituciones automáticas y redacción con IA aparte');
     await expect(plan.getByRole('link', { name: 'Ver los planes' })).toHaveAttribute('href', '/suscripcion');
@@ -314,7 +314,7 @@ test.describe('los vacíos que enseñan', () => {
     await expect(vacio.getByRole('heading', { name: 'Crea tu primera clase' })).toBeVisible({ timeout: 60_000 });
     await expect(vacio).toContainText('Calendario · esta semana');
     await expect(vacio.getByLabel('Tu horario: de 07:00 a 22:00, todavía sin clases')).toBeVisible();
-    await expect(vacio).toContainText('En cuanto haya una clase aquí, tus alumnas podrán reservarla desde su app.');
+    await expect(vacio).toContainText('En cuanto haya una clase aquí, tus clientes podrán reservarla desde su app.');
     await expect(vacio.getByRole('link', { name: 'Importar mi horario (Excel)' })).toHaveAttribute('href', '/calendario/importar');
     await vacio.getByRole('button', { name: 'Crear mi primera clase' }).click();
     await expect(page.getByTestId('primera-clase-en-calendario')).toBeVisible();
@@ -327,10 +327,10 @@ test.describe('los vacíos que enseñan', () => {
     await expect(page.getByText(/Para crear la clase falta/)).toHaveCount(0);
   });
 
-  test('Alumnas sin alumnas: «Aún no tienes alumnas» y las tres maneras', async ({ page }) => {
+  test('Clientes sin clientes: «Aún no tienes clientes» y las tres maneras', async ({ page }) => {
     await montar(page);
     await page.goto('/clientas');
-    await expect(page.getByRole('heading', { name: 'Aún no tienes alumnas' })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('heading', { name: 'Aún no tienes clientes' })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByText('Tres maneras')).toBeVisible();
     await expect(page.getByText('y se dan de alta solas al reservar.')).toBeVisible();
     await expect(page.getByText('de tu Excel o de tu programa anterior.')).toBeVisible();

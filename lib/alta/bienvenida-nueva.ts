@@ -73,13 +73,13 @@ export const PRIMEROS_PASOS_DEL_ALTA: readonly { titulo: string; que: string; cu
     cuanto: '≈ 2 min',
   },
   {
-    titulo: 'Trae a tus alumnas',
+    titulo: 'Trae a tus clientes',
     que: 'Impórtalas de tu programa o de tu Excel, o añádelas una a una.',
     cuanto: '≈ 3 min',
   },
   {
     titulo: 'Recibe tu primera reserva',
-    que: 'Se marca sola cuando una alumna reserve desde tu app.',
+    que: 'Se marca sola cuando un cliente reserve desde tu app.',
     cuanto: 'sola',
   },
 ];
@@ -245,8 +245,8 @@ export function queExportar(programa: string): string {
   const reconocido = (PROGRAMAS_RECONOCIDOS as readonly string[]).includes(programa);
   const nombre = programa === OTRO_SOFTWARE ? 'tu programa' : PROGRAMAS.find(p => p.valor === programa)?.etiqueta ?? 'tu programa';
   return reconocido
-    ? `Busca en ${nombre} la opción de exportar tus alumnas a CSV o Excel (y, si la tiene, sus bonos y cuotas). Sus columnas las reconocemos solas.`
-    : `Busca en ${nombre} la opción de exportar tus alumnas a CSV o Excel. Si alguna columna no la reconocemos, eliges tú qué es cada una antes de importar nada.`;
+    ? `Busca en ${nombre} la opción de exportar tus clientes a CSV o Excel (y, si la tiene, sus bonos y cuotas). Sus columnas las reconocemos solas.`
+    : `Busca en ${nombre} la opción de exportar tus clientes a CSV o Excel. Si alguna columna no la reconocemos, eliges tú qué es cada una antes de importar nada.`;
 }
 
 /** «Momence, Eversports y Mindbody», para la frase de la tarjeta. */

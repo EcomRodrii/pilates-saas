@@ -135,7 +135,7 @@ export function PasoDonde({ studio, sedes, onSedes, onListo, saliendo }: {
         <CabeceraPaso
           etiqueta={etiquetaDonde(sedes)}
           titulo={tituloDonde(sedes)}
-          sub="Lo verán tus alumnas en su app. Lo demás ya viene puesto."
+          sub="Lo verán tus clientes en su app. Lo demás ya viene puesto."
           tituloRef={titulo}
         />
 
@@ -182,8 +182,8 @@ export function PasoDonde({ studio, sedes, onSedes, onListo, saliendo }: {
         <NavPaso trabajando={trabajando || saliendo} />
       </form>
 
-      <aside aria-label="Así te verán tus alumnas" className="flex min-w-0 flex-col items-center gap-5 self-start rounded-3xl bg-muted/70 p-6 text-center lg:min-h-[560px] lg:justify-center lg:p-8">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así te verán tus alumnas</p>
+      <aside aria-label="Así te verán tus clientes" className="flex min-w-0 flex-col items-center gap-5 self-start rounded-3xl bg-muted/70 p-6 text-center lg:min-h-[560px] lg:justify-center lg:p-8">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Así te verán tus clientes</p>
         <div className="w-full max-w-[300px] rounded-2xl border border-border bg-card p-4 text-left shadow-xs" aria-hidden>
           <div className="flex items-center gap-3">
             <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-foreground text-[14px] font-bold text-background">

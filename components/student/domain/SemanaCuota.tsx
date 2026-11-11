@@ -20,7 +20,7 @@ export function useSemanaCuota(slug: string, suscripcionId: string | null, activ
     () => (suscripcionId && activo ? getDetalleBonos(slug, { semanaDe: [suscripcionId] }) : Promise.resolve(null)),
     [slug, suscripcionId, activo],
   );
-  const { data, estado, reintentar } = useAsync(cargar, () => false, `alumna:${slug}:bono-semana:${suscripcionId ?? '-'}`);
+  const { data, estado, reintentar } = useAsync(cargar, () => false, `cliente:${slug}:bono-semana:${suscripcionId ?? '-'}`);
   const semana = data?.semanas.find((s) => s.suscripcionId === suscripcionId) ?? null;
   return { semana, estado, reintentar };
 }

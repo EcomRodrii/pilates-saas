@@ -682,7 +682,7 @@ export function HojaCobro({
               {fase.entrega && (
                 <ul className="text-[13px] text-muted-foreground space-y-0.5">
                   {fase.entrega.bonos > 0 && <li>✓ {fase.entrega.bonos === 1 ? 'Bono añadido a su ficha' : `${fase.entrega.bonos} bonos añadidos a su ficha`}</li>}
-                  {fase.entrega.creditos > 0 && <li>✓ {fase.entrega.creditos} créditos para la alumna</li>}
+                  {fase.entrega.creditos > 0 && <li>✓ {fase.entrega.creditos} créditos para el cliente</li>}
                   {fase.entrega.facturaSellada && <li>✓ Factura emitida</li>}
                   {fase.entrega.avisos.map((a) => (
                     <li key={a} className="text-warning">· {a}</li>

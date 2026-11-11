@@ -87,7 +87,7 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
         <DialogHeader>
           <DialogTitle className="text-lg font-semibold text-foreground">Comparte el enlace de tu app</DialogTitle>
           <DialogDescription className="text-[13.5px] text-muted-foreground text-pretty">
-            Pégalo en tu Instagram o en el grupo de WhatsApp de tus alumnas. Entran con su email, sin descargarse nada, y reservan desde el móvil.
+            Pégalo en tu Instagram o en el grupo de WhatsApp de tus clientes. Entran con su email, sin descargarse nada, y reservan desde el móvil.
           </DialogDescription>
         </DialogHeader>
 
@@ -146,10 +146,10 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
             url={url}
             slug={slug}
             estudio={nombreEstudio}
-            nombreEnlace="App de tus alumnas"
+            nombreEnlace="App de tus clientes"
             onDescargado={() => compartido('qr')}
           />
-          <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus alumnas.</p>
+          <p className="mt-1.5 text-[12px] text-muted-foreground">Imprímelo para recepción: al escanearlo, se abre la app de tus clientes.</p>
         </div>
 
         {/* Lo que se vio en octubre: compartir el enlace no basta, hay que pedirlo (dos estudios lo
@@ -157,10 +157,10 @@ export function CompartirEnlace({ abierto, onCerrar, slug, nombreEstudio, esProp
         <div className="rounded-xl bg-muted/60 px-3 py-2.5" data-testid="compartir-ideas">
           <p className="text-[12.5px] font-semibold text-foreground">Lo que más ayuda a tener las primeras reservas</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12.5px] leading-snug text-muted-foreground">
-            <li>Mándalo tú al grupo de WhatsApp de tus alumnas y pídeles que reserven su próxima clase.</li>
+            <li>Mándalo tú al grupo de WhatsApp de tus clientes y pídeles que reserven su próxima clase.</li>
             <li>Ponlo en la bio de tu Instagram.</li>
             <li>Deja el QR impreso en recepción.</li>
-            <li>Si ya tienes alumnas, dalas de alta con su correo: sin correo no pueden entrar a la app.</li>
+            <li>Si ya tienes clientes, dalas de alta con su correo: sin correo no pueden entrar a la app.</li>
           </ul>
         </div>
 

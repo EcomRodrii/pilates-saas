@@ -103,7 +103,7 @@ test('alertaPreClase compone nombre + condición principal + restricciones + rev
   assert.match(alerta!, /Revisión vencida hace 20 d\./);
 });
 
-test('adaptacionPreClase es la misma alerta sin el nombre (la fila de la alumna ya lo lleva)', () => {
+test('adaptacionPreClase es la misma alerta sin el nombre (la fila del cliente ya lo lleva)', () => {
   const condiciones = [cond({ id: 'c1', etiqueta: 'Lesión lumbar', severidad: 'ALTA', restricciones: ['EVITAR_FLEXION'], revisarEn: '2026-06-22' })];
   assert.equal(`Ana — ${adaptacionPreClase(condiciones, HOY)}`, alertaPreClase('Ana', condiciones, HOY));
   assert.equal(adaptacionPreClase([], HOY), null);
@@ -131,7 +131,7 @@ test('restriccionesDeZona devuelve el catálogo de la zona', () => {
 });
 
 // ── resumenSaludClase (agregado anónimo para IA) ─────────────────────────────
-test('resumenSaludClase cuenta alumnas, semáforos, categorías y zonas sin nombres', () => {
+test('resumenSaludClase cuenta clientes, semáforos, categorías y zonas sin nombres', () => {
   const alumnas = [
     [cond({ id: 'a1', categoria: 'LESION', zona: 'COLUMNA', severidad: 'MEDIA', restricciones: ['EVITAR_FLEXION'] })],       // ámbar
     [cond({ id: 'b1', categoria: 'LESION', zona: 'RODILLA', severidad: 'LEVE', restricciones: ['NO_SALTOS'] })],             // rojo (NO_*)

@@ -16,7 +16,7 @@ const socio = (id: string, hace: number, p: Partial<SocioRendimiento> = {}): Soc
 const INSTRUCTOR = { id: 'i1', nombre: 'Marta' };
 const primeraSesionAntigua = new Map([['i1', diasAntes(200)]]); // lleva 200 días, pasa el filtro de "nueva"
 
-test('datosInsuficientes: menos de 5 alumnas atribuidas → sin métricas', () => {
+test('datosInsuficientes: menos de 5 clientes atribuidos → sin métricas', () => {
   const sesiones = [sesion('i1', 10)];
   const asistencias = [
     asistencia('a', sesiones[0].id, 10), asistencia('a', sesiones[0].id, 10),
@@ -29,7 +29,7 @@ test('datosInsuficientes: menos de 5 alumnas atribuidas → sin métricas', () =
   assert.equal(r[0].retencionPct, null);
 });
 
-test('datosInsuficientes: instructora nueva (<60 días en el equipo) aunque tenga alumnas → sin métricas', () => {
+test('datosInsuficientes: instructora nueva (<60 días en el equipo) aunque tenga clientes → sin métricas', () => {
   const sesiones = Array.from({ length: 5 }, (_, i) => sesion('i1', i));
   const asistencias = sesiones.flatMap((se, i) => [
     asistencia(`s${i}`, se.id, i), asistencia(`s${i}`, se.id, i),
@@ -42,7 +42,7 @@ test('datosInsuficientes: instructora nueva (<60 días en el equipo) aunque teng
   assert.equal(r[0].datosInsuficientes, true);
 });
 
-test('retención: alumna atribuida con primera clase hace ≥60 días y asistencia reciente → cuenta como retenida', () => {
+test('retención: cliente atribuido con primera clase hace ≥60 días y asistencia reciente → cuenta como retenida', () => {
   // 5 alumnas atribuidas (2+ asistencias cada una, 100% con i1). 4 de ellas
   // llevan ≥60 días y siguen viniendo (última asistencia hace <30 días); 1
   // lleva <60 días (no cuenta en el denominador).
@@ -93,7 +93,7 @@ test('retención: una prueba puntual con OTRA instructora no adelanta artificial
   assert.equal(s[0].nParaRetencion, 4); // solo las 4 de relleno, 'mixta' queda fuera
 });
 
-test('retención: alumna que no vuelve en 30 días no cuenta como retenida', () => {
+test('retención: cliente que no vuelve en 30 días no cuenta como retenida', () => {
   const sesiones = [sesion('i1', 65), sesion('i1', 61), sesion('i1', 5)];
   const asistencias = [
     // 3 alumnas "ok": primera clase hace 65 días (cumple el mínimo de 60) y
@@ -144,7 +144,7 @@ test('conversión: primera clase con esta instructora y vuelve ≥2 veces en 30 
   assert.equal(r[0].conversionPct, 50); // n1 convertida, n2 no
 });
 
-test('red social: alumna referida por otra alumna de la MISMA instructora cuenta; referida de fuera no', () => {
+test('red social: cliente referido por otro cliente de la MISMA instructora cuenta; referida de fuera no', () => {
   const sesiones = [sesion('i1', 70)];
   const alumnas = Array.from({ length: 5 }, (_, i) => `a${i}`);
   const asistencias = alumnas.flatMap(id => [asistencia(id, sesiones[0].id, 70), asistencia(id, sesiones[0].id, 70)]);

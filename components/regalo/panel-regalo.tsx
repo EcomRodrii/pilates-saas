@@ -185,7 +185,7 @@ export function PanelRegalo() {
           icono={Gift}
           titulo="Aún no se ha vendido ninguna tarjeta regalo"
           descripcion={a.activo
-            ? 'Tus alumnas ya pueden regalarlas desde tu página de reservas. También puedes vender una en el mostrador cuando alguien pague en persona.'
+            ? 'Tus clientes ya pueden regalarlas desde tu página de reservas. También puedes vender una en el mostrador cuando alguien pague en persona.'
             : 'Actívalas para vender saldo en euros que se regala por correo y se gasta en varias veces. Mientras tanto, puedes venderlas en el mostrador.'}
           cta={!a.activo && datos.puedeEditarAjustes
             ? { label: 'Activar tarjetas regalo', onClick: () => abrir({ t: 'ajustes' }), icono: Gift }
@@ -268,7 +268,7 @@ export function PanelRegalo() {
       )}
 
       {hoja?.t === 'gastar' && (
-        <Lateral abierta={abierta} onCerrar={cerrar} titulo="Gastar saldo" sub="Descuenta de la tarjeta lo que la alumna usa hoy.">
+        <Lateral abierta={abierta} onCerrar={cerrar} titulo="Gastar saldo" sub="Descuenta de la tarjeta lo que el cliente usa hoy.">
           <FormGastar key={hoja.clave} t={hoja.tarjeta} onCerrar={cerrar} onHecho={avisar} />
         </Lateral>
       )}
@@ -278,7 +278,7 @@ export function PanelRegalo() {
         </Lateral>
       )}
       {hoja?.t === 'codigo' && (
-        <Lateral abierta={abierta} onCerrar={cerrar} titulo="Cobrar con un código" sub="Escribe el código del correo de la alumna.">
+        <Lateral abierta={abierta} onCerrar={cerrar} titulo="Cobrar con un código" sub="Escribe el código del correo del cliente.">
           <BuscarCodigo key={hoja.clave} onCerrar={cerrar} onElegida={(t) => abrir({ t: 'gastar', tarjeta: t })} />
         </Lateral>
       )}
@@ -476,7 +476,7 @@ function FormAnular({ t, onCerrar, onHecho }: { t: Vista; onCerrar: () => void; 
           <label htmlFor="rg-anular-motivo" className={etiqueta}>Motivo (obligatorio)</label>
           <textarea id="rg-anular-motivo" className={`${campo} h-auto min-h-24 py-2.5 resize-y`} rows={3} maxLength={300} autoFocus
             value={motivo} onChange={e => { setMotivo(e.target.value); setError(null); }}
-            placeholder="Por ejemplo, la alumna pidió el reembolso" />
+            placeholder="Por ejemplo, el cliente pidió el reembolso" />
           <p className="text-[12px] text-muted-foreground mt-1.5">Queda anotado en el historial con tu nombre.</p>
         </div>
         {error && <ErrorLinea id="rg-anular-srv">{error}</ErrorLinea>}
@@ -522,7 +522,7 @@ function BuscarCodigo({ onCerrar, onElegida }: { onCerrar: () => void; onElegida
           <input id="rg-codigo" className={`${campo} font-mono tracking-wider uppercase`} autoFocus autoComplete="off" spellCheck={false} autoCapitalize="characters"
             value={codigo} onChange={e => { setCodigo(e.target.value); setError(null); setHallada(null); }} placeholder="RG-XXXX-XXXX-XXXX-XXXX"
             aria-invalid={!!error || undefined} aria-describedby={error ? 'rg-codigo-e' : undefined} />
-          <p className="text-[12px] text-muted-foreground mt-1.5">Lo tiene la alumna en el correo del regalo. Da igual si escribe guiones o minúsculas.</p>
+          <p className="text-[12px] text-muted-foreground mt-1.5">Lo tiene el cliente en el correo del regalo. Da igual si escribe guiones o minúsculas.</p>
           {error && <ErrorLinea id="rg-codigo-e">{error}</ErrorLinea>}
         </div>
         <Button type="submit" variant="outline" size="lg" className="w-full" disabled={buscando || !codigo.trim()}>

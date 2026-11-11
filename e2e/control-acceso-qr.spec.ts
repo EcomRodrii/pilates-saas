@@ -62,7 +62,7 @@ async function escanear(page: Page) {
 test.describe('Control de acceso con QR en el panel', () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test('🟢 lee el QR contra «todas las de ahora» y enseña alumna, clase y estado', async ({ page }) => {
+  test('🟢 lee el QR contra «todas las de ahora» y enseña cliente, clase y estado', async ({ page }) => {
     const contador = await montarLector(page, { status: 200, body: respuesta({ veredicto: 'PERMITIDO', motivo: 'RESERVA_CONFIRMADA', asistenciaMarcada: true, estadoReserva: 'ASISTIDA' }) });
     await escanear(page);
 
@@ -116,7 +116,7 @@ test.describe('Control de acceso con QR en el panel', () => {
   });
 });
 
-test.describe('Historial de accesos y QR de una alumna en el panel', () => {
+test.describe('Historial de accesos y QR de un cliente en el panel', () => {
   test.describe.configure({ timeout: 120_000 });
 
   test('el historial del día dice quién intentó entrar, qué pasó y quién escaneó, y se refresca tras cada escaneo', async ({ page }) => {

@@ -39,7 +39,7 @@ test('no mide el panel: son URLs con id de socia y personal autenticado', () => 
   }
 });
 
-test('no mide el portal de la alumna ni el kiosko', () => {
+test('no mide el portal del cliente ni el kiosko', () => {
   // Marca blanca del estudio y datos de una socia: ni es tráfico nuestro ni es
   // contenido que se posicione.
   assert.equal(debeMedirse('/portal/estudio-carmen', false), false);

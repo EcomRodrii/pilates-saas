@@ -111,7 +111,7 @@ async function abrirClase(page: Page, o: {
 const filaDe = (page: Page, nombre: string) =>
   page.locator('li[data-reserva-id]', { has: page.getByRole('link', { name: nombre }) });
 
-test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
+test.describe('Calendario · qué se ve de cada cliente (P3.11)', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('apagado es lo de siempre, aunque el estudio tenga algo guardado', async ({ page }) => {
@@ -128,7 +128,7 @@ test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
     await expect(page.getByTestId('tarjeta-clase')).toHaveCount(0);
   });
 
-  test('encendido, cada alumna con lo que eligió la propietaria', async ({ page }) => {
+  test('encendido, cada cliente con lo que eligió la propietaria', async ({ page }) => {
     await abrirClase(page, { encendido: true, tarjeta: TODO });
     const maria = filaDe(page, 'María García Fernández');
     const laura = filaDe(page, 'Laura Martín');
@@ -163,7 +163,7 @@ test.describe('Calendario · qué se ve de cada alumna (P3.11)', () => {
     // Antes de decir «no hay punto», esperar a que la salud HAYA llegado (la barra
     // «Adaptaciones» de la propietaria no depende de la tarjeta): si no, pasaría
     // aunque el ajuste se ignorase.
-    await expect(page.getByText('1 alumna con notas de salud')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('1 cliente con notas de salud')).toBeVisible({ timeout: 30_000 });
     await expect(maria.locator('[data-semaforo]')).toHaveCount(0);
     await expect(maria.locator('[data-pieza="adaptar"]')).toHaveCount(0);
   });

@@ -7,7 +7,7 @@ const conv = (id: string, tipo: string) => ({
   id, tipo, creado_en: '2026-09-01T10:00:00Z', ultimo_mensaje_en: '2026-09-14T10:00:00Z',
 });
 
-test('un hilo instructora–alumna en el que no participo es de solo lectura; el mío y el mostrador, no', () => {
+test('un hilo instructora–cliente en el que no participo es de solo lectura; el mío y el mostrador, no', () => {
   const r = resumirConversaciones(
     [conv('ajeno', 'ALUMNA_INSTRUCTORA'), conv('mio', 'ALUMNA_INSTRUCTORA'), conv('mostrador', 'ALUMNA_MOSTRADOR')],
     [],
@@ -36,7 +36,7 @@ const ultimos: FilaUltimoMensaje[] = [
   { conversacion_id: 'mia', cuerpo: '¿Mañana hay clase?', remitente_auth_user_id: 'socia', creado_en: '2026-09-14T10:00:00Z' },
 ];
 
-test('desde la alumna: sin_leer con su marca, \'-infinity\' incluido; su propio mensaje no enciende nada', () => {
+test('desde el cliente: sin_leer con su marca, \'-infinity\' incluido; su propio mensaje no enciende nada', () => {
   const lecturas: FilaLectura[] = [
     // Hilo con el estudio: la alumna lo leyó DESPUÉS del último mensaje. El
     // mostrador no tiene fila: su marca va en la conversación y aquí no cuenta.

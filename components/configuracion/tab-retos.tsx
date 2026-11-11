@@ -148,7 +148,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
               </Field>
             </div>
             <div>
-              <Field label="Insignia" description="La cara del reto en la app de la alumna.">
+              <Field label="Insignia" description="La cara del reto en la app del cliente.">
                 <SelectorInsignia valor={form.icono} onChange={clave => setForm(f => ({ ...f, icono: clave }))} />
               </Field>
             </div>
@@ -174,7 +174,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
               <Field label="Quién participa"
                 description={modal === 'editar'
                   ? 'No se puede cambiar una vez creado: cambiaría a quién cuenta lo que ya han hecho.'
-                  : 'Con inscripción: solo cuenta a quien se apunta desde la app, y desde que se apunta. Para todo el estudio: cuenta a todas las alumnas desde el inicio, sin botón.'}
+                  : 'Con inscripción: solo cuenta a quien se apunta desde la app, y desde que se apunta. Para todo el estudio: cuenta a todos los clientes desde el inicio, sin botón.'}
               >
                 <select className={inputCls} value={form.alcance} disabled={modal === 'editar'}
                   onChange={e => setForm(f => ({ ...f, alcance: e.target.value === 'ESTUDIO' ? 'ESTUDIO' : 'INSCRIPCION' }))}>
@@ -240,7 +240,7 @@ export function TabRetos({ showToast }: { showToast: MostrarToast }) {
           <DialogHeader>
             <DialogTitle>Eliminar reto</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de las alumnas en él se perderá.</p>
+          <p className="text-[13px] text-muted-foreground">¿Seguro que quieres eliminar este reto? El progreso de los clientes en él se perderá.</p>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setBorrarId(null)} className={btnSecondary}>Cancelar</button>
             <button onClick={confirmarBorrar} className="px-4 py-2 rounded-xl bg-destructive text-white text-[13px] font-semibold hover:bg-red-700">Eliminar</button>

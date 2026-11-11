@@ -5,22 +5,22 @@ import { avisoTrasCancelar } from './aviso-tras-cancelar.ts';
 const CLASE = { hecho: 'Clase cancelada', confirmacion: 'La clase sí está cancelada' };
 
 test('todo bien: en verde, y dice si había a quién avisar', () => {
-  assert.deepEqual(avisoTrasCancelar({ ...CLASE, avisadas: 3, sinAvisar: 0 }), { texto: 'Clase cancelada · alumnas avisadas', error: false });
+  assert.deepEqual(avisoTrasCancelar({ ...CLASE, avisadas: 3, sinAvisar: 0 }), { texto: 'Clase cancelada · clientes avisados', error: false });
   // Antes decía «clientas avisadas» sin nadie apuntada.
-  assert.deepEqual(avisoTrasCancelar({ ...CLASE, avisadas: 0, sinAvisar: 0 }), { texto: 'Clase cancelada · sin alumnas a las que avisar', error: false });
+  assert.deepEqual(avisoTrasCancelar({ ...CLASE, avisadas: 0, sinAvisar: 0 }), { texto: 'Clase cancelada · sin clientes a las que avisar', error: false });
 });
 
-test('una alumna sin avisar vendrá a una clase que no existe: en rojo, lo que hay que hacer primero', () => {
+test('un cliente sin avisar vendrá a una clase que no existe: en rojo, lo que hay que hacer primero', () => {
   const r = avisoTrasCancelar({ ...CLASE, avisadas: 2, sinAvisar: 1 });
   assert.equal(r.error, true);
-  assert.equal(r.texto, 'A 1 alumna no le ha llegado el aviso: escríbele o llámala. La clase sí está cancelada.');
-  assert.match(avisoTrasCancelar({ ...CLASE, avisadas: 0, sinAvisar: 2 }).texto, /^A 2 alumnas no les ha llegado el aviso: escríbeles o llámalas\./);
+  assert.equal(r.texto, 'A 1 cliente no le ha llegado el aviso: escríbele o llámala. La clase sí está cancelada.');
+  assert.match(avisoTrasCancelar({ ...CLASE, avisadas: 0, sinAvisar: 2 }).texto, /^A 2 clientes no les ha llegado el aviso: escríbeles o llámalas\./);
 });
 
 test('una sesión que no volvió al bono: en rojo, el problema antes que la confirmación', () => {
-  const r = avisoTrasCancelar({ ...CLASE, avisadas: 3, sinAvisar: 0, avisoBono: 'No hemos podido devolver la sesión al bono de una alumna. Revísalo a mano.' });
+  const r = avisoTrasCancelar({ ...CLASE, avisadas: 3, sinAvisar: 0, avisoBono: 'No hemos podido devolver la sesión al bono de un cliente. Revísalo a mano.' });
   assert.equal(r.error, true);
-  assert.equal(r.texto, 'No hemos podido devolver la sesión al bono de una alumna. Revísalo a mano. La clase sí está cancelada.');
+  assert.equal(r.texto, 'No hemos podido devolver la sesión al bono de un cliente. Revísalo a mano. La clase sí está cancelada.');
 });
 
 test('sin cancelar sus reservas: en rojo y dice qué hacer', () => {

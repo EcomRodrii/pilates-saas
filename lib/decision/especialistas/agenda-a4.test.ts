@@ -177,7 +177,7 @@ test('sin plan que cubra la clase NO cuenta como compatible (avisarla serÃ­a inÃ
   const c = a4De(s);
   assert.ok(c);
   assert.equal(c.datosUsados.candidatasCompatibles, 0);
-  assert.match(c.motivoMotor, /No encuentro alumnas compatibles/);
+  assert.match(c.motivoMotor, /No encuentro clientes compatibles/);
 });
 
 test('quien ya tiene sitio en esa clase no se cuenta como candidata a llenarla', () => {

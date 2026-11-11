@@ -46,7 +46,7 @@ test('el día se lee de arriba abajo: hora, instructora, ocupación y estado', a
   // Ocupación de la clase de las 14:00: 7 de 10.
   await expect(agenda.getByText('/ 10 plazas')).toBeVisible();
   // Y el resumen ligero de la cabecera cuadra con la suma del día.
-  await expect(agenda.getByText(/4 clases · 25 alumnas · 3 huecos/)).toBeVisible();
+  await expect(agenda.getByText(/4 clases · 25 clientes · 3 huecos/)).toBeVisible();
 });
 
 test('una clase sin instructora se distingue y lleva a buscar sustituta', async ({ page }) => {

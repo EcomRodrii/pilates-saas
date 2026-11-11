@@ -182,7 +182,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
 
     // Muchas: campaña de verdad. Se crea, se busca por id y se encola — el
     // envío corre en servidor y esta pestaña no lo espera (se puede cerrar).
-    const nombreCampana = (asunto.trim() || mensaje.trim().slice(0, 40)) || 'Mensaje a mis alumnas';
+    const nombreCampana = (asunto.trim() || mensaje.trim().slice(0, 40)) || 'Mensaje a mis clientes';
     const res = await addCampana({
       nombre: nombreCampana,
       tipo: canal,
@@ -225,7 +225,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
         </div>
         <p className="font-bold text-foreground">
           {resultado.enCola
-            ? `Saliendo hacia ${resultado.ok} clienta${resultado.ok !== 1 ? 's' : ''}`
+            ? `Saliendo hacia ${resultado.ok} cliente${resultado.ok !== 1 ? 's' : ''}`
             : resultado.ok > 0 ? 'Enviado' : 'No se pudo enviar'}
         </p>
         {resultado.enCola && (
@@ -281,7 +281,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           onChange={e => setModo(e.target.value as ModoDestinatario)}
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
         >
-          <option value="todos">Un grupo de alumnas…</option>
+          <option value="todos">Un grupo de clientes…</option>
           <option value="etapa">Por estado…</option>
           {etiquetasDisponibles.length > 0 && <option value="etiqueta">Por etiqueta…</option>}
           {canal === 'EMAIL' && <option value="persona">Una persona…</option>}
@@ -336,7 +336,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
             onChange={e => setPersonaSel(e.target.value)}
             className="w-full mt-2 border border-border rounded-xl px-3 py-2.5 text-sm text-foreground bg-card outline-none focus:border-brand"
           >
-            <option value="">Elige una alumna</option>
+            <option value="">Elige un cliente</option>
             {socios.map(s => (
               <option key={s.id} value={s.id}>{s.nombre} {s.apellidos}</option>
             ))}
@@ -347,7 +347,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
             ? 'Nadie coincide con este filtro todavía.'
             : esUnaPersona
               ? `Se lo mandas solo a ${destinatarias[0].nombre}.`
-              : `Llega a ${destinatarias.length} clienta${destinatarias.length === 1 ? '' : 's'}${canal === 'WHATSAPP' ? ' con teléfono' : ''} — menos las que no hayan dado su consentimiento de marketing.`}
+              : `Llega a ${destinatarias.length} cliente${destinatarias.length === 1 ? '' : 's'}${canal === 'WHATSAPP' ? ' con teléfono' : ''} — menos las que no hayan dado su consentimiento de marketing.`}
         </p>
       </div>
 
@@ -368,7 +368,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           value={mensaje}
           onChange={e => setMensaje(e.target.value)}
           rows={6}
-          placeholder="Escribe el mensaje que recibirán tus alumnas..."
+          placeholder="Escribe el mensaje que recibirán tus clientes..."
           className="w-full border border-border rounded-xl px-3 py-2.5 text-sm text-foreground outline-none focus:border-brand resize-none"
         />
       </div>
@@ -380,7 +380,7 @@ function Compositor({ socios }: { socios: SocioParaBroadcast[] }) {
           <Info size={12} className="shrink-0 mt-0.5" />
           <span>
             {esUnaPersona
-              ? 'Aviso directo a una alumna, por email.'
+              ? 'Aviso directo a un cliente, por email.'
               : 'Sale como campaña: lleva enlace de baja y no se manda a quien no haya dado su consentimiento.'}
           </span>
         </div>
@@ -492,9 +492,9 @@ export default function Mensajeria() {
   const panelNuevo = usePanelNuevo();
   const QUE_HAY: Record<Tab, { tono: Tono; texto: string }> = {
     notificaciones: { tono: 'azul', texto: 'Reservas, bajas, cobros y lo que necesita tu atención' },
-    comunidad: { tono: 'magenta', texto: 'El tablón de tu estudio, que ven tus alumnas en su app' },
-    conversaciones: { tono: 'indigo', texto: 'Lo que te escriben tus alumnas, una a una' },
-    enviar: { tono: 'verde', texto: 'Un mensaje a una alumna o a un grupo, por email o WhatsApp' },
+    comunidad: { tono: 'magenta', texto: 'El tablón de tu estudio, que ven tus clientes en su app' },
+    conversaciones: { tono: 'indigo', texto: 'Lo que te escriben tus clientes, una a una' },
+    enviar: { tono: 'verde', texto: 'Un mensaje a un cliente o a un grupo, por email o WhatsApp' },
   } as Record<Tab, { tono: Tono; texto: string }>;
 
   return (
@@ -502,7 +502,7 @@ export default function Mensajeria() {
       <Suspense fallback={null}><ConversacionDeLaUrl onPedida={abrirPedida} /></Suspense>
       <PageHeader
         title="Mensajería"
-        description="Notificaciones, comunidad y conversaciones con tus alumnas"
+        description="Notificaciones, comunidad y conversaciones con tus clientes"
         actions={
           <>
           <Link href="/clientas"
@@ -510,7 +510,7 @@ export default function Mensajeria() {
               ? 'zona-tactil inline-flex h-9 items-center gap-2 rounded-full border border-border px-4 text-[13px] font-semibold text-foreground transition-colors hover:bg-muted'
               : 'flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-foreground hover:bg-muted transition-colors'}>
             <Users size={14} />
-            Ver alumnas
+            Ver clientes
           </Link>
           {panelNuevo && escribeAClientas && (
             <BotonVivo label="Enviar un mensaje" Icono={Send} onClick={() => { setTab('enviar'); setBusqueda(''); setPedida(null); }} />

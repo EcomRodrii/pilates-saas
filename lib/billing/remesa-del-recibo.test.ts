@@ -46,7 +46,7 @@ function montar(o: {
 
 const CON_REMESAS = { sepa_acreedor_id: 'ES00ZZZ', sepa_iban: 'ES1200000000000000000000', sepa_titular: 'Estudio' };
 
-test('pudo salir en una remesa: el estudio las hace y la alumna tiene domiciliación', async () => {
+test('pudo salir en una remesa: el estudio las hace y el cliente tiene domiciliación', async () => {
   const m = montar({ recibos: [{ id: 'rec-1', socio_id: 'soc-1' }], mandatos: [{ socio_id: 'soc-1' }] });
   const r = await motivosParaNoSerRemesa(m.admin, 'studio-1', ['rec-1']);
   assert.deepEqual(r, { ok: true, motivoPorRecibo: new Map([['rec-1', null]]) });
@@ -61,7 +61,7 @@ test('el estudio no hace remesas (le falta acreedor, IBAN o titular): ninguno pu
   }
 });
 
-test('cada recibo según su alumna: con mandato pudo ir, sin mandato (o sin alumna) no', async () => {
+test('cada recibo según su cliente: con mandato pudo ir, sin mandato (o sin cliente) no', async () => {
   const m = montar({
     recibos: [{ id: 'rec-1', socio_id: 'soc-1' }, { id: 'rec-2', socio_id: 'soc-2' }, { id: 'rec-3', socio_id: null }],
     mandatos: [{ socio_id: 'soc-1' }],

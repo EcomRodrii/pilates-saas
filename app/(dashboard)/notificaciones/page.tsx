@@ -113,7 +113,7 @@ export default function NotificationCenterPage() {
       ) : (<>
       <input
         type="search" value={buscar} onChange={e => setBuscar(e.target.value)}
-        placeholder="Buscar por destinatario, aviso o error (p. ej. el nombre de una alumna)…"
+        placeholder="Buscar por destinatario, aviso o error (p. ej. el nombre de un cliente)…"
         aria-label="Buscar notificaciones"
         className="mt-3 w-full max-w-md rounded-xl border border-border bg-card px-3 py-2 text-[13px] text-foreground placeholder:text-muted-foreground"
       />

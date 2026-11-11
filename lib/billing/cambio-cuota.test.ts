@@ -57,7 +57,7 @@ test('una cuota gestionada por Stripe no se cambia desde aquí', () => {
   assert.equal(r.ok === false && r.codigo, 'CUOTA_EN_STRIPE');
 });
 
-test('la cuota ha de ser de esta alumna, de este estudio (si no, no existe) y estar ACTIVA', () => {
+test('la cuota ha de ser de este cliente, de este estudio (si no, no existe) y estar ACTIVA', () => {
   const ajena = planificarCambioConDiferencia({ ...base(), cuota: cuota({ socioId: 'soc-OTRA' }) });
   assert.equal(ajena.ok === false && ajena.status, 404);
   const noExiste = planificarCambioConDiferencia({ ...base(), cuota: null });

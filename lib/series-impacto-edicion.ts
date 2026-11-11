@@ -245,13 +245,13 @@ export function lineasDeImpacto(i: ImpactoEdicionSerie): LineaImpacto[] {
     });
     out.push({
       tono: 'dato',
-      texto: `Se avisará a ${plural(i.alumnasAvisadas, 'alumna', 'alumnas')}, una sola vez a cada una aunque cambien varias de sus clases.`,
+      texto: `Se avisará a ${plural(i.alumnasAvisadas, 'cliente', 'clientes')}, una sola vez a cada una aunque cambien varias de sus clases.`,
     });
   }
   if (i.alumnasConPlazaFija > 0) {
     out.push({
       tono: 'dato',
-      texto: `${plural(i.alumnasConPlazaFija, 'alumna tiene', 'alumnas tienen')} clase fija en estas clases${
+      texto: `${plural(i.alumnasConPlazaFija, 'cliente tiene', 'clientes tienen')} clase fija en estas clases${
         i.cambian.hora > 0 || i.cambian.sala > 0 ? ': su plaza se mueve con la serie' : ''}.`,
     });
   }
@@ -278,11 +278,11 @@ export function lineasDeImpacto(i: ImpactoEdicionSerie): LineaImpacto[] {
     out.push({
       tono: 'calma',
       texto: avisa
-        ? 'Ninguna alumna está apuntada a estas clases: no se avisa a nadie.'
-        : 'Este cambio no genera avisos a las alumnas.',
+        ? 'Ningún cliente está apuntada a estas clases: no se avisa a nadie.'
+        : 'Este cambio no genera avisos a los clientes.',
     });
   } else if (!avisa) {
-    out.push({ tono: 'calma', texto: 'Este cambio no genera avisos a las alumnas.' });
+    out.push({ tono: 'calma', texto: 'Este cambio no genera avisos a los clientes.' });
   }
   return out;
 }

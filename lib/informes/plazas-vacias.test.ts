@@ -68,7 +68,7 @@ test('orden: más plazas vacías primero, a igualdad más plantones; como mucho 
   assert.deepEqual(filas.map(f => f.socioId), ['f', 'g', 'e', 'd', 'c']);
 });
 
-test('sin alumna no hay fila', () => {
+test('sin cliente no hay fila', () => {
   assert.deepEqual(plazasQueDejaronVacias([
     r({ socio_id: '' as string, sesion_id: 's1', estado: 'NO_ASISTIO' }),
     { ...noVino('x', 's2'), socio_id: null }, { ...noVino('x', 's3'), socio_id: null }, { ...noVino('x', 's4'), socio_id: null },

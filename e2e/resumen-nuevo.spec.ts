@@ -42,7 +42,7 @@ test('encendido: cifras arriba, accesos rápidos y la agenda en su tarjeta', asy
   await ir(page, 'dashboard');
   const home = page.getByTestId('resumen-nuevo');
   await expect(home).toBeVisible();
-  for (const etiqueta of ['Ocupación hoy', 'Ocupación semana', 'Ingresos del mes', 'Alumnas activas']) {
+  for (const etiqueta of ['Ocupación hoy', 'Ocupación semana', 'Ingresos del mes', 'Clientes activos']) {
     await expect(home.getByText(etiqueta, { exact: true })).toBeVisible();
   }
   // Las gráficas, con su tabla para lectores de pantalla.

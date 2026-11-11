@@ -42,17 +42,17 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   // («en Inicio», «bandeja de Inicio»), que es como se nombra la pantalla del
   // panel: «Inicio» suelto sigue siendo legítimo en la app de la alumna, que
   // conserva ese nombre.
-  { patron: /\b(?:en|En|de|desde|Desde|a) Inicio\b/, ahora: 'la pantalla del panel se llama Resumen (la de la alumna sigue siendo Inicio)' },
+  { patron: /\b(?:en|En|de|desde|Desde|a) Inicio\b/, ahora: 'la pantalla del panel se llama Resumen (la del cliente sigue siendo Inicio)' },
   { patron: /Tentare Core/, ahora: 'la instructora trabaja en la app del estudio' },
   { patron: new RegExp(`Configuración${FLECHA}Suscripción`), ahora: 'Suscripción es su propia entrada del menú, no una pestaña' },
   // Configuración se reorganizó por preguntas el 15-sep: las pestañas de antes
   // («Logros y motivación», «Estudio», «API»…) ya no existen.
   { patron: new RegExp(`Configuración${FLECHA}(?:Recompensas|Niveles|Retos|Logros)\\b`), ahora: 'van dentro de Configuración > Motivación' },
   { patron: /Logros y motivación/, ahora: 'la sección se llama Motivación' },
-  { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Cómo reservan mis alumnas' },
+  { patron: new RegExp(`Configuración${FLECHA}Reservas`), ahora: 'es Configuración > Cómo reservan mis clientes' },
   {
-    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|API|Emails|Descubre y tablón|Campos de alumna|Cuestionario de salud|Copias de seguridad)\\b`),
-    ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad',
+    patron: new RegExp(`Configuración${FLECHA}(?:Estudio|Clases y salas|Citas|API|Emails|Descubre y tablón|Campos de cliente|Cuestionario de salud|Copias de seguridad)\\b`),
+    ahora: 'es una sección de hoy (lib/configuracion/secciones.ts): Mi estudio, Mis clases y citas, Cómo reservan mis clientes, Cobros y facturas, Alta de clientes, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad',
   },
   // 15-sep (PR B): cada ajuste se fue a su sección.
   {
@@ -85,7 +85,7 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
   // y cada cajón se guarda con «Guardar». Stripe se conecta desde su fila.
   {
     patron: /Guardar datos fiscales|Guardar datos SEPA|Guardar política de devoluciones|«Guardar política»|Guardar términos|Conectar con Stripe/,
-    ahora: 'cada fila de Cobros y facturas y de Alta de alumnas se abre y se guarda con «Guardar»; Stripe, con «Conectar» en su fila',
+    ahora: 'cada fila de Cobros y facturas y de Alta de clientes se abre y se guarda con «Guardar»; Stripe, con «Conectar» en su fila',
   },
   // 15-sep (v2): Mi estudio va en filas con su cajón y un «Guardar» en cada una.
   {
@@ -93,18 +93,18 @@ const PROHIBIDOS: { patron: RegExp; ahora: string }[] = [
     ahora: 'Mi estudio en filas: «Nombre y dirección», «Contacto», «Horario» y «Cerrar el centro», cada una con su «Guardar»',
   },
   // Tres textos que mentían sobre lo que HACE el producto, no sobre dónde está.
-  { patron: /Avisar a las alumnas por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Cómo reservan mis alumnas' },
+  { patron: /Avisar a los clientes por email/, ahora: 'el aviso llega por email y en su app, y se cambia en Configuración > Cómo reservan mis clientes' },
   { patron: /lista de espera se activa por tipo de clase/, ahora: 'viene encendida para todo el estudio y cada tipo de clase puede apagarla' },
   { patron: /Devolver la\s+sesión al cancelar tú una clase/, ahora: 'se llama «Devolver la sesión al cancelar una clase entera» y decide también el mínimo de asistentes y el cierre' },
   // 15-sep (PR C): las reglas de reserva ya no se pliegan. Desde v2 son filas con
   // su cajón, y la clase cancelada entera tiene la suya.
   {
     patron: /Opciones avanzadas|Reservas y cancelaciones|bloque\s+«Recuperaciones»|Permitir lista de espera|Cuando algo cambia, Tentare/,
-    ahora: 'Configuración > Cómo reservan mis alumnas, en filas: Reservar, Cancelar y recuperar (con las recuperaciones), Si se cancela una clase entera (con el mínimo), Lista de espera, Asistencia y Si cancela tarde o no viene',
+    ahora: 'Configuración > Cómo reservan mis clientes, en filas: Reservar, Cancelar y recuperar (con las recuperaciones), Si se cancela una clase entera (con el mínimo), Lista de espera, Asistencia y Si cancela tarde o no viene',
   },
   {
     patron: /(?:tarjeta|fila) «Cancelar y\s+recuperar»[^.]{0,80}(?:clase entera|mínimo)|(?:clase entera|mínimo)[^.]{0,120}en «Cancelar y\s+recuperar»/,
-    ahora: 'devolver la sesión al cancelar una clase entera y el mínimo de alumnas están en «Si se cancela una clase entera»',
+    ahora: 'devolver la sesión al cancelar una clase entera y el mínimo de clientes están en «Si se cancela una clase entera»',
   },
 ];
 

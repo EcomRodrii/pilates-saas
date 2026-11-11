@@ -234,7 +234,7 @@ export function reglasDeTarjetaAGuardar(
   // El mismo rango que el CHECK de `studios`: la base lo rechazaría con un error sin explicar.
   if (tarjeta === 'plaza-fija-desde-la-app' && form.plazaFijaAprobacion === 'AUTOMATICA'
     && !(Number.isInteger(form.plazaFijaAutoTopePct) && form.plazaFijaAutoTopePct >= 10 && form.plazaFijaAutoTopePct <= 100)) {
-    return { ok: false, texto: 'El porcentaje de alumnas con clase fija por clase va de 10 a 100.' };
+    return { ok: false, texto: 'El porcentaje de clientes con clase fija por clase va de 10 a 100.' };
   }
   if (tarjeta === 'lista-de-espera') {
     const lista = valoresDeListaEspera(form.listaEspera, guardado);
@@ -388,7 +388,7 @@ export function queCambiaElTipo(tarjeta: TarjetaReglasId, t: TipoConReglas, e: R
     }
     case 'si-se-cancela-una-clase': {
       const m = cifra(heredaOverride(t.minimoAsistentesPorClase, e.minimoAsistentesPorClase));
-      return m > 0 ? `mínimo ${m === 1 ? '1 alumna' : `${m} alumnas`}` : 'sin mínimo';
+      return m > 0 ? `mínimo ${m === 1 ? '1 cliente' : `${m} clientes`}` : 'sin mínimo';
     }
     case 'lista-de-espera': {
       if (!heredaOverride(t.permiteListaEspera, e.permiteListaEspera)) return 'sin lista de espera';
@@ -442,7 +442,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
     case 'si-se-cancela-una-clase': {
       const minimo = cifra(r.minimoAsistentesPorClase);
       if (minimo === 0) return frase('estudio-cancela');
-      return `Si a 2 h del inicio hay menos de ${minimo === 1 ? '1 alumna' : `${minimo} alumnas`}, se cancela sola y ${r.cancelacionClaseDevuelveBono ? 'devuelve' : 'no devuelve'} la sesión.`;
+      return `Si a 2 h del inicio hay menos de ${minimo === 1 ? '1 cliente' : `${minimo} clientes`}, se cancela sola y ${r.cancelacionClaseDevuelveBono ? 'devuelve' : 'no devuelve'} la sesión.`;
     }
     case 'lista-de-espera':
       return frase('plaza-liberada');
@@ -450,7 +450,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       const lista = r.requiereCheckinQr
         ? 'Solo cuenta como asistida quien marques al pasar lista.'
         : 'Toda reserva confirmada cuenta como asistida al terminar la clase.';
-      return r.controlAccesoQr ? lista : `${lista} Tus alumnas no ven su QR de acceso.`;
+      return r.controlAccesoQr ? lista : `${lista} Tus clientes no ven su QR de acceso.`;
     }
     case 'si-cancela-tarde-o-no-viene': {
       const importe = cifra(r.penalizacionImporteEur);
@@ -471,13 +471,13 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
       // LIBERAR o MANTENER_SIN_PENALIZAR (`omitirPorPlazaFijaSinCuota`).
       switch (r.plazaFijaSinCuota) {
         case 'AVISAR_Y_LIBERAR':
-          return `Si una alumna con clase fija se queda sin cuota, le avisamos: si no renueva en ${DIAS_PARA_RENOVAR_PLAZA_FIJA} días, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.`;
+          return `Si un cliente con clase fija se queda sin cuota, le avisamos: si no renueva en ${DIAS_PARA_RENOVAR_PLAZA_FIJA} días, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.`;
         case 'LIBERAR':
-          return 'Si una alumna con clase fija se queda sin cuota, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.';
+          return 'Si un cliente con clase fija se queda sin cuota, se liberan sus clases futuras sin penalización. Su plaza, la serie y las clases pasadas no cambian.';
         case 'MANTENER_SIN_PENALIZAR':
-          return 'Si una alumna con clase fija se queda sin cuota, conserva las clases ya reservadas y no se le cobra si falta.';
+          return 'Si un cliente con clase fija se queda sin cuota, conserva las clases ya reservadas y no se le cobra si falta.';
         case 'MANTENER':
-          return 'Si una alumna con clase fija se queda sin cuota, conserva las clases ya reservadas con tus reglas de siempre.';
+          return 'Si un cliente con clase fija se queda sin cuota, conserva las clases ya reservadas con tus reglas de siempre.';
       }
     case 'plaza-fija-desde-la-app': {
       // Las puertas de `/api/public/plaza-fija`: con el ajuste apagado, 403.
@@ -507,7 +507,7 @@ export function consecuenciaRegla(tarjeta: TarjetaReglasId, r: ReglasReserva): s
 
 /** Lo que se lee arriba del cajón: cuándo se aplica y qué no cambia nunca. */
 export const EXPLICACION_PLAZA_FIJA_SIN_CUOTA =
-  'Cuando la cuota de una alumna con clase fija deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no se pudo cobrar— su clase fija sigue guardada y no se le reservan clases nuevas. Aquí eliges qué pasa con las que ya tenía reservadas. Mientras la renovación solo esté pendiente de cobro, su cuota sigue activa. Las clases que ya pasaron no se tocan nunca.';
+  'Cuando la cuota de un cliente con clase fija deja de estar activa —la cancelas, la pausas, termina tras darse de baja o se cancela porque no se pudo cobrar— su clase fija sigue guardada y no se le reservan clases nuevas. Aquí eliges qué pasa con las que ya tenía reservadas. Mientras la renovación solo esté pendiente de cobro, su cuota sigue activa. Las clases que ya pasaron no se tocan nunca.';
 
 export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaSinCuota; titulo: string; detalle: string }[] = [
   {
@@ -536,7 +536,7 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, tus alumnas pueden hacer suya una clase que se repite desde su app: en la ficha de la clase activan «Clase fija», eligen cuánto tiempo y su plaza queda reservada cada semana. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+  'De serie, tus clientes pueden hacer suya una clase que se repite desde su app: en la ficha de la clase activan «Clase fija», eligen cuánto tiempo y su plaza queda reservada cada semana. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
 
 export const OPCIONES_APROBACION_PLAZA_FIJA: readonly { valor: ReglasReserva['plazaFijaAprobacion']; titulo: string; detalle: string }[] = [
   { valor: 'MANUAL', titulo: 'La apruebo yo', detalle: 'Te llega un aviso y la decides en Resumen. Hasta entonces no cambia nada.' },
@@ -563,7 +563,7 @@ export function confirmarPlazaFijaSinCuota(
   if (ahora !== 'LIBERAR' || antes === 'LIBERAR') return undefined;
   return {
     titulo: '¿Liberar sus clases?',
-    descripcion: 'Desde ahora, cuando una alumna con clase fija se quede sin cuota se cancelarán sus clases futuras, también las de los próximos días, sin penalización. Si ya hay alumnas en ese caso, sus clases se liberan esta noche.',
+    descripcion: 'Desde ahora, cuando un cliente con clase fija se quede sin cuota se cancelarán sus clases futuras, también las de los próximos días, sin penalización. Si ya hay clientes en ese caso, sus clases se liberan esta noche.',
     textoConfirmar: 'Sí, liberarlas',
   };
 }
@@ -583,7 +583,7 @@ export function confirmarAprobacionAutomatica(
   if (ahora.plazaFijaAprobacion !== 'AUTOMATICA' || antes.plazaFijaAprobacion === 'AUTOMATICA') return undefined;
   return {
     titulo: '¿Dar las clases fijas sin que las apruebes?',
-    descripcion: `Una clase fija le reserva su clase cada semana. Desde ahora, cuando una alumna la pida, se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del límite semanal de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que apruebes cada reserva y las alumnas con clase fija de esa clase no pasan del ${ahora.plazaFijaAutoTopePct} % de su aforo. Si algo de eso falla, te llega a Resumen como hasta ahora.${ahora.plazaFijaSolicitarDesdeApp ? '' : ' Ahora mismo no pueden pedirlas desde su app: enciende «Pueden pedir clase fija» para que esto tenga efecto.'}`,
+    descripcion: `Una clase fija le reserva su clase cada semana. Desde ahora, cuando un cliente la pida, se le da al momento si tiene una cuota que incluye la clase, el nivel que pide, no pasa del límite semanal de su cuota, no tiene un pago pendiente que te bloquee reservar, la clase no exige que apruebes cada reserva y los clientes con clase fija de esa clase no pasan del ${ahora.plazaFijaAutoTopePct} % de su aforo. Si algo de eso falla, te llega a Resumen como hasta ahora.${ahora.plazaFijaSolicitarDesdeApp ? '' : ' Ahora mismo no pueden pedirlas desde su app: enciende «Pueden pedir clase fija» para que esto tenga efecto.'}`,
     textoConfirmar: 'Sí, que se den solas',
   };
 }
@@ -605,11 +605,11 @@ export function confirmarPenalizacion(
     const tampoco = e.tiposConCargoPropio > 0 ? ', tampoco en los tipos de clase con su propio cargo' : '';
     return {
       titulo: '¿Quitar el cargo?',
-      descripcion: `Desde ahora, cancelar tarde o no venir no le cuesta nada a tus alumnas${tampoco}.`,
+      descripcion: `Desde ahora, cancelar tarde o no venir no le cuesta nada a tus clientes${tampoco}.`,
       textoConfirmar: 'Sí, quitarlo',
     };
   }
-  const aviso = e.terminosPropios ? ' Con tus términos propios no se cobrará: tus alumnas no han aceptado este cargo.' : '';
+  const aviso = e.terminosPropios ? ' Con tus términos propios no se cobrará: tus clientes no han aceptado este cargo.' : '';
   return {
     titulo: cifra(antes.penalizacionImporteEur) === 0 ? `¿Cobrar ${euros(importe)}?` : '¿Cambiar el cargo?',
     descripcion: `${consecuenciaRegla('si-cancela-tarde-o-no-viene', ahora)} ${cifra(antes.penalizacionImporteEur) !== importe

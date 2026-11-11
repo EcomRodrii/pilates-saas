@@ -23,7 +23,7 @@ test('parseXlsx lee cabecera y filas básicas', async () => {
 test('parseXlsx se salta preámbulo antes de la cabecera, igual que parseCsv', async () => {
   const data = libroDesde({
     Hoja1: [
-      ['Listado de alumnas 2026'],
+      ['Listado de clientes 2026'],
       [],
       ['Nombre', 'Email'],
       ['Ana', 'ana@b.com'],

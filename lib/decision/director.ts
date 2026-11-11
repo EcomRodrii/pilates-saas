@@ -132,7 +132,7 @@ export function construirMientrasDormias(entrada: EntradaMientrasDormias): ItemM
       });
       if (huboReservaPosterior) vueltas++;
     }
-    let texto = `Escribí a ${socioIdsContactados.size} alumnas que llevaban unos días dudando.`;
+    let texto = `Escribí a ${socioIdsContactados.size} clientes que llevaban unos días dudando.`;
     if (vueltas > 0) texto += ` ${vueltas} han vuelto a reservar.`;
     items.push({ icono: '✓', texto, verificadoPor: `automation_logs EJECUTADO email (${emailsEjecutados.length})` });
   }

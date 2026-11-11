@@ -29,7 +29,7 @@ test('una compra del widget se anota como booking_completed, con id por pago (id
   assert.deepEqual(llamadas[0].opciones, { onConflict: 'id', ignoreDuplicates: true });
 });
 
-test('sin sesión del widget (app de la alumna, compras antiguas) no se inventa nada', async () => {
+test('sin sesión del widget (app del cliente, compras antiguas) no se inventa nada', async () => {
   for (const widgetSesion of [null, undefined, '', 'no-es-uuid', `${SESION}x`]) {
     const { admin, llamadas } = falso();
     await registrarCompraEnEmbudo(admin, { studioId: 'st', idPago: 'pi_1', widgetSesion, origen: null });

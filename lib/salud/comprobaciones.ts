@@ -266,7 +266,7 @@ export const DEFINICIONES: Definicion[] = [
     id: 'ledger-no-concilia',
     que: 'Bonos o recuperaciones cuyo saldo ya no coincide con la suma de sus movimientos en el ledger de derechos.',
     impacto:
-      'El saldo de una alumna se movió sin que el ledger lo explique (o el ledger no pudo anotarlo), y a partir de ahí ' +
+      'El saldo de un cliente se movió sin que el ledger lo explique (o el ledger no pudo anotarlo), y a partir de ahí ' +
       '«¿por qué tiene estas sesiones?» ya no tiene respuesta fiable. En esta fase el ledger va en sombra y no cambia ' +
       'ningún saldo: no se pierde ninguna sesión, pero hay que mirar qué camino lo causó (los movimientos sin ' +
       'contexto, `AJUSTE_SIN_CONTEXTO`, lo dicen) antes de que el ledger pase a mandar.',
@@ -282,7 +282,7 @@ export const DEFINICIONES: Definicion[] = [
     id: ID_ASISTENCIAS_SIN_PREMIO,
     que: 'Asistencias de los últimos 30 días que debieron dar créditos por asistir y no los dieron.',
     impacto:
-      'La alumna vino a clase y no suma los créditos que el estudio le prometió (ni nivel, ni logros que dependen de ellos). ' +
+      'El cliente vino a clase y no suma los créditos que el estudio le prometió (ni nivel, ni logros que dependen de ellos). ' +
       'La gamificación es best-effort a propósito: si falla al hacer el check-in, la asistencia queda guardada y el fallo solo ' +
       'consta en el log. Mira en Sentry el error de la gamificación de ese día; esta comprobación no reparte nada por su cuenta.',
     // Una sola ya es aviso y fallo: el premio se concede en la propia petición del check-in, y la vista deja una hora de margen.
@@ -321,7 +321,7 @@ export const DEFINICIONES: Definicion[] = [
     id: ID_DEVOLUCION_POS_SIN_REFLEJAR,
     que: 'Ventas del TPV devueltas por entero cuyo recibo sigue COBRADO.',
     impacto:
-      'El dinero se devolvió en la caja, pero el recibo de la alumna sigue contando como ingreso: las cifras de Cobros y ' +
+      'El dinero se devolvió en la caja, pero el recibo del cliente sigue contando como ingreso: las cifras de Cobros y ' +
       'Finanzas suman un ingreso que ya no existe. El trigger que lo refleja traga sus errores a propósito (no puede tumbar ' +
       'la devolución, que ya salió), así que sin esta comprobación el fallo solo quedaría como un aviso en el log de ' +
       'Postgres. Se arregla mirando el recibo y devolviéndolo desde Cobros.',
@@ -347,7 +347,7 @@ export const DEFINICIONES: Definicion[] = [
     id: ID_DENUNCIAS_ESPERANDO_A_TENTARE,
     que: 'Denuncias de la app que ya le tocan a Tentare (van contra el propio estudio, o el estudio no las revisó en 24 h) y siguen sin decidir.',
     impacto:
-      'Una alumna o una instructora denunció un mensaje o un comentario y nadie lo ha mirado: el contenido sigue a la ' +
+      'Un cliente o una instructora denunció un mensaje o un comentario y nadie lo ha mirado: el contenido sigue a la ' +
       'vista y quien denunció no sabe nada. Apple exige actuar sobre una denuncia en 24 h (guía 1.2); se revisan en ' +
       '/interno/denuncias.',
     umbralAviso: 1,

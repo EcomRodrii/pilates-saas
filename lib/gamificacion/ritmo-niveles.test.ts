@@ -52,7 +52,7 @@ test('no es bajar: renombrar, bajar umbrales, añadir un nivel intermedio o subi
   assert.equal(quienBajaria([300], ANTES, [n('a', 0), n('b', 200), n('x', 250), n('c', 500)]), 0, 'intermedio por encima: sube, no baja');
 });
 
-test('una alumna con 0 ganado no tiene nada concedido: quitar el primer nivel no cuenta', () => {
+test('un cliente con 0 ganado no tiene nada concedido: quitar el primer nivel no cuenta', () => {
   assert.equal(quienBajaria([0, 0], ANTES, [n('b', 200), n('c', 500)]), 0);
   assert.equal(quienBajaria([0, 50], ANTES, [n('b', 200), n('c', 500)]), 1, 'con 50 ganados sí estaba en «a»');
 });

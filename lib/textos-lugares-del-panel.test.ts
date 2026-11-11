@@ -26,13 +26,13 @@ const EXCLUIDOS = ['components/ayuda/articulos', 'components/landing'];
 
 // «Configuración → …» seguido del nombre de una pestaña de antes (15-sep:
 // Configuración se reorganizó por preguntas). Acepta →, > y &gt;.
-const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|API|Emails|Logros y motivación|Descubre y tablón|Campos de alumna|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
+const PESTANAS_DE_ANTES = /Configuración\s*(?:→|>|&gt;|›)\s*(?:Estudio|Clases y salas|Clases|Salas|Citas|API|Emails|Logros y motivación|Descubre y tablón|Campos de cliente|Cuestionario de salud|Copias de seguridad|Perfil|Mi perfil|Cobros e Integraciones)\b/;
 
 const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   { patron: /Configuración → Planes/, ahora: 'Paquetes (/productos)' },
   {
     patron: PESTANAS_DE_ANTES,
-    ahora: 'una sección de hoy: Mi estudio, Mis clases y citas, Cómo reservan mis alumnas, Cobros y facturas, Alta de alumnas, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad (lib/configuracion/secciones.ts)',
+    ahora: 'una sección de hoy: Mi estudio, Mis clases y citas, Cómo reservan mis clientes, Cobros y facturas, Alta de clientes, Cómo me comunico, Mi equipo, Mi app y mi web, Motivación, Integraciones o Datos y seguridad (lib/configuracion/secciones.ts)',
   },
   { patron: /Configuración → Servicios de cita/, ahora: 'Configuración → Mis clases y citas → Servicios de cita' },
   // 15-sep (PR B): cada ajuste se fue a su sección. Mi estudio ya no tiene la
@@ -57,7 +57,7 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   // barra de guardar. «Reservas y cancelaciones» era el nombre de antes.
   {
     patron: /Reservas y cancelaciones|Guardar política de reservas/,
-    ahora: 'Configuración → Cómo reservan mis alumnas, en filas con su cajón (Reservar, Cancelar y recuperar, Si se cancela una clase entera, Lista de espera, Asistencia, Si cancela tarde o no viene), cada una con su «Guardar»',
+    ahora: 'Configuración → Cómo reservan mis clientes, en filas con su cajón (Reservar, Cancelar y recuperar, Si se cancela una clase entera, Lista de espera, Asistencia, Si cancela tarde o no viene), cada una con su «Guardar»',
   },
   // 15-sep (v2): Mi estudio va en filas con su cajón. «Datos y contacto» se
   // partió en «Nombre y dirección» y «Contacto», y el cierre es una fila propia.
@@ -65,7 +65,7 @@ const LUGARES_RETIRADOS: { patron: RegExp; ahora: string }[] = [
   // antes ya no existen: nadie puede mandar a pulsarlos.
   {
     patron: /Guardar datos fiscales|Guardar datos SEPA|Guardar política de devoluciones|Guardar términos|Conectar con Stripe/,
-    ahora: 'filas con su cajón en Cobros y facturas y en Alta de alumnas, cada una con «Guardar»; Stripe se conecta con «Conectar» en su fila',
+    ahora: 'filas con su cajón en Cobros y facturas y en Alta de clientes, cada una con «Guardar»; Stripe se conecta con «Conectar» en su fila',
   },
   {
     patron: /Guardar datos y contacto|Cerrar el centro unos días|Cerrar el centro esos días/,

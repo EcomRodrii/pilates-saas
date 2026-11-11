@@ -39,7 +39,7 @@ export function AdaptacionesClase({ alertas, puedePreparar, preparando, preparac
           className="flex min-w-0 flex-1 items-center gap-1 text-left text-[13px] text-foreground"
         >
           <span className="min-w-0">
-            <b className="font-semibold">Adaptaciones:</b> {alertas.length === 1 ? '1 alumna con notas de salud' : `${alertas.length} alumnas con notas de salud`}
+            <b className="font-semibold">Adaptaciones:</b> {alertas.length === 1 ? '1 cliente con notas de salud' : `${alertas.length} clientes con notas de salud`}
           </span>
           <ChevronRight size={15} className={cn('shrink-0 text-muted-foreground transition-transform', abierta && 'rotate-90')} aria-hidden />
         </button>

@@ -23,7 +23,7 @@ export default function Contenido() {
 
       <AyudaResultado>
         En cuanto lo guardas con «Disponible para vender» encendido (viene así), el plan ya está disponible para
-        asignar a una alumna o para que ella lo compre desde el checkout de tu portal.
+        asignar a un cliente o para que ella lo compre desde el checkout de tu portal.
       </AyudaResultado>
     </>
   );
