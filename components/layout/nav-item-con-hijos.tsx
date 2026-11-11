@@ -121,7 +121,7 @@ export function NavItemConHijos({ href, label, Icon, hijos, collapsed, horizonta
         aria-haspopup="menu"
         title={collapsed ? label : undefined}
         className={cn(
-          'zona-tactil flex w-full items-center rounded-full text-[13px] font-medium transition-all relative',
+          'zona-tactil flex w-full items-center rounded-full text-[13px] font-medium transition-all',
           collapsed ? 'justify-center w-10 h-10 mx-auto tactil:size-11' : 'gap-2.5 px-3 py-2 tactil:min-h-11',
           horizontal && 'shrink-0 whitespace-nowrap w-auto',
           active
