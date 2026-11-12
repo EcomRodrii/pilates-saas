@@ -94,7 +94,7 @@ export async function marcarAsistidasAutomaticamente(): Promise<{ sesiones: numb
 
   let marcadas = 0;
   for (const r of reservas) {
-    const res = await checkinPublico({ studioId: r.studio_id, reservaId: r.id });
+    const res = await checkinPublico({ studioId: r.studio_id, reservaId: r.id, origen: 'SISTEMA' });
     if ('ok' in res) marcadas++;
   }
   return { sesiones: sesiones.length, reservasElegibles: reservas.length, marcadas };
