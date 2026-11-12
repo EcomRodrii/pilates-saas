@@ -126,7 +126,7 @@ export const PRECIOS = {
   titulo: 'Un plan para cada etapa de tu estudio.',
   planes: [
     {
-      nombre: 'Founding Studio', texto: 'Todo lo esencial, gratis hasta 150 alumnas activas.', precio: 'Gratis', periodo: 'hasta 150 alumnas', boton: 'Empezar gratis', destacado: false,
+      nombre: 'Founding Studio', texto: 'Todo lo esencial, gratis hasta 150 alumnas activas.', precio: 'Gratis', periodo: '', boton: 'Empezar gratis', destacado: false,
       lista: ['Calendario de clases y salas', 'Reservas online con lista de espera', 'Cuotas, bonos y clases sueltas', 'Cobros con tarjeta', 'App de tus alumnas con tu marca'],
     },
     {

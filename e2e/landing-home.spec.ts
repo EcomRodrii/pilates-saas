@@ -4,6 +4,17 @@ import { test, expect, type Page } from '@playwright/test';
 // navegación exacta y se comporta como la isla (se encoge al bajar y se alarga al subir), que el menú del móvil funciona, que el <h1>
 // empieza por texto, que las preguntas son las reales (y las del JSON-LD), que las fotos cargan y que el pie solo enlaza lo que existe.
 
+// Sin el popup de «Empezar gratis» por en medio (aparece al bajar por la página y taparía los clics): como en el resto de specs de la web.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('tentare:intro-vista', String(Date.now()));
+    localStorage.setItem('tentare:popup-empezar', JSON.stringify({ vistas: 1, ultimaVista: 1, cerradoEn: null, convertido: true }));
+  });
+});
+
+/** Baja (o sube) `px` con el scroll del navegador: la rueda del ratón no existe en WebKit móvil. */
+const desplazar = (page: Page, px: number) => page.evaluate(y => window.scrollBy(0, y), px);
+
 async function hidratada(page: Page) {
   // El oyente de scroll y el menú los pone React al hidratar: hasta entonces la rueda y el botón no hacen nada.
   await page.waitForFunction(() => Object.keys(document.querySelector('.lf-hamburguesa') ?? {}).some(k => k.startsWith('__react')), null, { timeout: 60_000 });
@@ -49,10 +60,10 @@ test('cabecera: al bajar se encoge a logo + botón y al subir se alarga', async 
   await expect(barra).not.toHaveAttribute('data-compacta', /.*/);
   const ancho = async () => (await barra.boundingBox())!.width;
   const abierta = await ancho();
-  for (let i = 0; i < 6; i++) { await page.mouse.wheel(0, 250); await page.waitForTimeout(120); }
+  for (let i = 0; i < 6; i++) { await desplazar(page, 250); await page.waitForTimeout(120); }
   await expect(barra).toHaveAttribute('data-compacta', '');
   await expect.poll(ancho).toBeLessThan(abierta * 0.6);
-  for (let i = 0; i < 4; i++) { await page.mouse.wheel(0, -250); await page.waitForTimeout(120); }
+  for (let i = 0; i < 4; i++) { await desplazar(page, -250); await page.waitForTimeout(120); }
   await expect(barra).not.toHaveAttribute('data-compacta', /.*/);
   await expect.poll(ancho).toBeGreaterThan(abierta * 0.95);
 });
@@ -68,7 +79,8 @@ test('móvil: el menú abre, se cierra con Esc y las fotos cargan', async ({ pag
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', { name: 'Abrir el menú' })).toHaveAttribute('aria-expanded', 'false');
   // Todas las fotos (hierba, panel, alumnas, cobros, postura, meditación, retrato) salen de public/landing-nueva, con alt y cargadas.
-  await page.evaluate(async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise(r => setTimeout(r, 60)); } });
+  // Las fotos de más abajo son `loading="lazy"`: se piden todas, para no depender de cuánto tarda el recorrido.
+  await page.$$eval('.lf picture img', ims => ims.forEach(i => { (i as HTMLImageElement).loading = 'eager'; }));
   await expect.poll(() => page.$$eval('.lf picture img', ims => ims.filter(i => !i.complete || i.naturalWidth === 0).map(i => i.currentSrc || i.src)), { message: 'fotos que no cargan', timeout: 30_000 }).toEqual([]);
   expect(await page.$$eval('.lf picture img', ims => ims.length)).toBeGreaterThanOrEqual(9);
   expect(await page.$$eval('.lf picture img', ims => ims.filter(i => !i.hasAttribute('alt')).length)).toBe(0);

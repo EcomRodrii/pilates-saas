@@ -416,3 +416,7 @@ a.lf-red:hover { background: rgba(255, 255, 255, .2); }
 .lf-faq-datos dt { color: var(--lf-suave); }
 .lf-faq-datos dd { margin: 0; }
 .lf-faq-datos a { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Founding Studio: los límites del gratis y la frase del fundador, bajo el precio. */
+.lf-plan-limites { margin: -14px 0 18px; font-size: 14px; line-height: 1.45; color: var(--lf-suave); }
+.lf-plan-limites span { display: block; margin-top: 6px; color: var(--lf-tinta); }

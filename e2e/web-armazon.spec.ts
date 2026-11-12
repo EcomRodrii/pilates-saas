@@ -177,7 +177,8 @@ for (const ancho of [360, 375, 768, 1024, 1440]) {
 
 test('todo el texto del pie llega a AA (4,5:1) sobre su fondo', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await abrir(page, '/');
+  // La home nueva lleva su propio pie (con el diseño de Figma): este es el pie de toda la web pública, el de las interiores.
+  await abrir(page, '/glosario');
   const medir = () => page.evaluate(() => {
     const rgb = (c: string) => (c.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
     const lum = ([r, g, b]: number[]) => {
