@@ -2,6 +2,7 @@
 
 import { uscVerificada } from '@/lib/plataformas/usc/proveedor-config';
 import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
+import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -118,33 +119,45 @@ function PedirConexionWellhub() {
  * su estado y lo que hace el estudio con ella. Las tres abren el mismo cajón.
  * La primera lleva el ancla de siempre (`#plataformas-externas`).
  */
-export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
+export function FilasPlataformas({ onAbrir, enlace, solo }: {
+  /** Abre un cajón (el modo antiguo). */
+  onAbrir?: () => void;
+  /** Cada fila es un enlace a la ficha de su plataforma. */
+  enlace?: (p: Plataforma) => string;
+  /** Solo esa plataforma (su ficha). */
+  solo?: Plataforma;
+}) {
   const activas = usePlataformasActivas();
   const { usc } = useEstadoUsc();
   return (
     <>
-      {PLATAFORMAS.map((p, i) => {
+      {PLATAFORMAS.filter(p => !solo || p === solo).map(p => {
         const c = conexionDe(p, usc);
         const resumen = resumenPlataformaVenta({
           activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada,
           ventaCortada: p === USC ? usc?.ventaCortada : null,
         });
+        const id = `plataformas-externas-${p.toLowerCase()}`;
+        const clase = cn(FILA, 'w-full scroll-mt-32 scroll-mb-32 text-left');
+        const contenido = (
+          <>
+            <LogoPlataforma p={p} />
+            <span className="min-w-0 flex-1">
+              <TituloFila titulo={NOMBRE_PLATAFORMA[p]} estado={resumen.estado} />
+              <ValorFila valor={resumen.valor} descripcion="" entero />
+            </span>
+            {!solo && <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
+          </>
+        );
         return (
           <li key={p}>
-            <button
-              id={i === 0 ? 'plataformas-externas' : `plataformas-externas-${p.toLowerCase()}`}
-              type="button"
-              aria-haspopup="dialog"
-              onClick={onAbrir}
-              className={cn(FILA, 'w-full scroll-mt-32 scroll-mb-32 text-left')}
-            >
-              <LogoPlataforma p={p} />
-              <span className="min-w-0 flex-1">
-                <TituloFila titulo={NOMBRE_PLATAFORMA[p]} estado={resumen.estado} />
-                <ValorFila valor={resumen.valor} descripcion="" entero />
-              </span>
-              <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
-            </button>
+            {enlace ? (
+              <Link id={id} href={enlace(p)} className={clase}>{contenido}</Link>
+            ) : onAbrir ? (
+              <button id={id} type="button" aria-haspopup="dialog" onClick={onAbrir} className={clase}>{contenido}</button>
+            ) : (
+              <div id={id} className={clase}>{contenido}</div>
+            )}
           </li>
         );
       })}
@@ -152,7 +165,7 @@ export function FilasPlataformas({ onAbrir }: { onAbrir: () => void }) {
   );
 }
 
-export function DetallePlataformasExternas({ showToast }: { showToast: MostrarToast }) {
+export function DetallePlataformasExternas({ showToast, solo }: { showToast: MostrarToast; solo?: Plataforma }) {
   const { upsertIntegracion } = useStudio();
   const activas = usePlataformasActivas();
   const [guardando, setGuardando] = useState<Plataforma | null>(null);
@@ -177,14 +190,15 @@ export function DetallePlataformasExternas({ showToast }: { showToast: MostrarTo
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Marca las plataformas en las que vendes plazas. Cuando alguien reserve allí, apúntalo en la clase
-        (<span className="font-semibold text-foreground">Añadir → ClassPass</span>, por ejemplo): ocupa su plaza,
+        {solo ? `Actívala si vendes plazas en ${NOMBRE_PLATAFORMA[solo]}.` : 'Marca las plataformas en las que vendes plazas.'}{' '}
+        Cuando alguien reserve allí, apúntalo en la clase
+        (<span className="font-semibold text-foreground">Añadir → {NOMBRE_PLATAFORMA[solo ?? 'CLASSPASS']}</span>): ocupa su plaza,
         no gasta bonos ni pasa por tus cobros, y sale en la lista con la etiqueta de la plataforma.
       </p>
       <ul className="divide-y divide-border rounded-2xl border border-border">
-        {PLATAFORMAS.map(p => {
+        {PLATAFORMAS.filter(p => !solo || p === solo).map(p => {
           const activa = activas.includes(p);
-          const { disponible: conexionDisponible, conectada: porApi } = conexionDe(p, usc);
+          const { conectada: porApi } = conexionDe(p, usc);
           const esperandoUsc = p === USC && !usc && !errorUsc;
           const cortada = p === USC ? usc?.ventaCortada ?? null : null;
           return (
@@ -194,11 +208,6 @@ export function DetallePlataformasExternas({ showToast }: { showToast: MostrarTo
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-foreground">
                   {NOMBRE_PLATAFORMA[p]}
-                  {!conexionDisponible && (
-                    <span className="rounded-full border border-border px-1.5 py-px text-[10px] font-medium text-muted-foreground">
-                      Conexión automática: próximamente
-                    </span>
-                  )}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {!activa ? 'No vendo aquí'
@@ -239,11 +248,6 @@ export function DetallePlataformasExternas({ showToast }: { showToast: MostrarTo
           );
         })}
       </ul>
-      {!usc?.apiDisponible && (
-        <p className="text-xs text-muted-foreground">
-          Cuando llegue la conexión automática, las reservas de cada plataforma entrarán solas en la clase. Hasta entonces, apúntalas tú.
-        </p>
-      )}
     </div>
   );
 }

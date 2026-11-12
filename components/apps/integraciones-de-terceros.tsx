@@ -48,6 +48,10 @@ const TIPO: Partial<Record<PestanaIntegracion, TipoIntegracion>> = {
   'urban-sports-club': 'URBAN_SPORTS_CLUB', wellhub: 'WELLHUB',
 };
 
+const PLATAFORMA_DE = {
+  classpass: 'CLASSPASS', 'urban-sports-club': 'URBAN_SPORTS_CLUB', wellhub: 'WELLHUB',
+} as const;
+
 const QUE_HACE: Record<PestanaIntegracion, string> = {
   stripe: 'Cobra bonos y cuotas con tarjeta en tu propia cuenta de Stripe: el dinero entra directo en ella.',
   datafono: 'Mandas el importe desde la Caja y la venta queda cobrada sola. Hoy, el lector de Stripe; el de tu banco, más adelante.',
@@ -278,8 +282,8 @@ function ContenidoDePropietaria({ pestana, showToast }: { pestana: PestanaIntegr
     case 'wellhub':
       return (
         <>
-          <GrupoFilas titulo="Plataformas que venden tus clases"><FilasPlataformas onAbrir={sinAccion} /></GrupoFilas>
-          <DetallePlataformasExternas showToast={showToast} />
+          <GrupoFilas titulo="Estado"><FilasPlataformas solo={PLATAFORMA_DE[pestana]} /></GrupoFilas>
+          <DetallePlataformasExternas showToast={showToast} solo={PLATAFORMA_DE[pestana]} />
         </>
       );
   }

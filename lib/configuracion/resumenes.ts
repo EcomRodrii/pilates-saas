@@ -1167,7 +1167,7 @@ export function resumenPlataformaVenta(p: {
     : 'Vendo aquí · apunto yo las reservas';
   if (p.activa && p.conectada) return { valor: uso, estado: { tono: 'activo', etiqueta: 'Conectado' } };
   if (p.conexionDisponible) return { valor: uso, estado: { tono: 'neutro', etiqueta: 'Sin conectar' } };
-  return { valor: uso, estado: { tono: 'neutro', etiqueta: 'Próximamente' } };
+  return { valor: uso, estado: { tono: 'neutro', etiqueta: p.activa ? 'Manual' : 'Sin activar' } };
 }
 
 export type GrupoConexion = 'problemas' | 'conectadas' | 'sin-conectar';
