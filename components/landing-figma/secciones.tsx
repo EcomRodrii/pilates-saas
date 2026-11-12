@@ -1,29 +1,17 @@
 import Link from 'next/link';
 import {
-  ArrowUpRight, BadgeCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleDollarSign, Code2, Contact, Layers, Lock,
+  ArrowUpRight, BadgeCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleDollarSign, Code2, Contact, GitFork, Layers, Lock,
   Minus, MousePointerClick, Play, Plus, ShieldCheck, Star, Users,
 } from 'lucide-react';
+import { LogoTentare } from '@/components/marca/logo-tentare';
 import type { LogoCliente } from '@/lib/landing/logos-clientes';
-import { BENEFICIOS, CONFIANZA, CONTACTO, CTA, FAQ, FUNCIONES, HERO, NAV, PIE, PRECIOS } from './contenido';
+import { ALT, BENEFICIOS, CONFIANZA, CONTACTO, CTA, FAQ, FUNCIONES, HERO, PIE, PRECIOS } from './contenido';
+import { Foto } from './foto';
 import { FormularioContacto } from './formulario-contacto';
 
-// La maqueta del diseño de Figma, sección a sección. Texto en ./contenido.ts; las FOTOS entran por CSS
-// (`background-image` sobre un degradado del color de la foto): si el fichero aún no está en public/landing-figma/, se ve el
-// color y no un icono roto. Cada foto tiene su nombre en `FOTOS` de abajo.
-
-// Lo que hay que dejar en public/landing-figma/ (JPG o WebP, 2× del tamaño del diseño).
-export const FOTOS = {
-  hero: 'hero-hierba.jpg',
-  clienteIzq: 'cliente-1.jpg',
-  clienteCentro: 'cliente-2.jpg',
-  clienteDer: 'cliente-3.jpg',
-  pagos: 'pagos-movil.jpg',
-  beneficios: 'beneficios.jpg',
-  cta: 'cta-yoga.jpg',
-  contacto: 'contacto.jpg',
-} as const;
-
-const foto = (f: string) => ({ ['--foto' as string]: `url(/landing-figma/${f})` });
+// La maqueta del diseño de Figma, sección a sección y SIN reinterpretar: misma estructura, mismos saltos de línea, mismos colores
+// (verde del diseño y fondo menta) y misma tipografía. Texto en ./contenido.ts; fotos en ./foto.tsx (las del escritorio del
+// fundador). Las únicas diferencias con el Figma están listadas arriba en ./contenido.ts.
 
 function Etiqueta({ icono, children, oscuro }: { icono: React.ReactNode; children: React.ReactNode; oscuro?: boolean }) {
   return <span className={oscuro ? 'lf-etiqueta lf-etiqueta--oscura' : 'lf-etiqueta'}>{icono}{children}</span>;
@@ -40,42 +28,19 @@ function Boton({ href, children, tipo = 'claro' }: { href: string; children: Rea
   );
 }
 
-function Logo({ claro }: { claro?: boolean }) {
-  // La marca del diseño: un ave y «Tentare.». ⚠️ Es la marca que dibujó quien hizo el diseño, distinta del isotipo que usa
-  // hoy Tentare: hasta decidir cuál va, se pinta con el trazo del diseño (SVG propio, sin imagen).
-  return (
-    <span className={claro ? 'lf-logo lf-logo--claro' : 'lf-logo'}>
-      <svg width="26" height="24" viewBox="0 0 26 24" fill="currentColor" aria-hidden="true">
-        <path d="M1 3c6 .6 10.5 3 13 7.2L25 1.5C21.8 8.8 18.7 12.7 14.5 14.6l2.2 8.1c-2.5-3-4.4-5.2-6.3-7C7 14 3.4 9.6 1 3Zm8.4 11.6L6 22.5c.5-2.9 1.9-5.4 3.4-7.9Z" />
-      </svg>
-      <span>Tentare.</span>
-    </span>
-  );
-}
-
-export function Cabecera() {
-  return (
-    <header className="lf-cabecera">
-      <Link href="/landing-figma" aria-label="Tentare"><Logo /></Link>
-      <nav className="lf-menu" aria-label="Principal">
-        {NAV.enlaces.map((e, i) => (
-          <Link key={e.texto} href={e.href} aria-current={i === 0 ? 'page' : undefined} className={i === 0 ? 'lf-menu-activo' : undefined}>{e.texto}</Link>
-        ))}
-      </nav>
-      <div className="lf-acceso">
-        <Link href={NAV.login.href} className="lf-acceso-login">{NAV.login.texto}</Link>
-        <Link href={NAV.empezar.href} className="lf-acceso-empezar">{NAV.empezar.texto}</Link>
-      </div>
-    </header>
-  );
-}
-
 export function Heroe() {
   return (
-    <section className="lf-heroe" style={foto(FOTOS.hero)} aria-labelledby="lf-h1">
+    <section className="lf-heroe" aria-labelledby="lf-h1">
+      <div className="lf-fondo" aria-hidden="true">
+        {/* Con object-fit: cover sobre un héroe alto, la franja se muestra a unos 3000 px de ancho: se pide la variante grande siempre. */}
+        <Foto nombre="hierba" alt={ALT.hierba} sizes="3000px" prioridad />
+      </div>
       <div className="lf-heroe-texto">
-        <Etiqueta icono={<Layers size={16} strokeWidth={1.6} />} oscuro>{HERO.etiqueta}</Etiqueta>
-        <h1 id="lf-h1">{HERO.titulo}</h1>
+        <Etiqueta icono={<GitFork size={16} strokeWidth={1.6} />} oscuro>{HERO.etiqueta}</Etiqueta>
+        <h1 id="lf-h1">
+          <span className="lf-h1-categoria">{HERO.categoria}</span>{' '}
+          <span className="lf-h1-promesa">{HERO.promesa[0]} <br className="lf-salto" />{HERO.promesa[1]}</span>
+        </h1>
         <p>{HERO.texto}</p>
         <div className="lf-heroe-botones">
           <Boton href={HERO.demo.href}>{HERO.demo.texto}</Boton>
@@ -83,7 +48,9 @@ export function Heroe() {
         </div>
       </div>
       <div className="lf-ordenador" role="img" aria-label={HERO.panel}>
-        <div className="lf-ordenador-pantalla" />
+        <div className="lf-ordenador-pantalla">
+          <Foto nombre="panel" alt="" sizes="(max-width: 1100px) 96vw, 1160px" prioridad />
+        </div>
       </div>
     </section>
   );
@@ -176,11 +143,11 @@ export function Funciones() {
           <h3>{f.clientes.titulo}</h3>
           <p>{f.clientes.texto}</p>
           <Chips lista={f.clientes.chips} />
-          <div className="lf-v-clientes" aria-hidden="true">
-            <div className="lf-cliente lf-cliente--izq" style={foto(FOTOS.clienteIzq)}><span>{f.clientes.lateral}</span></div>
-            <div className="lf-cliente lf-cliente--der" style={foto(FOTOS.clienteDer)}><span>{f.clientes.lateral}</span></div>
-            <div className="lf-cliente lf-cliente--centro" style={foto(FOTOS.clienteCentro)}><span>{f.clientes.central}</span></div>
-            <span className="lf-v-clientes-icono"><Users size={26} strokeWidth={1.8} /></span>
+          <div className="lf-v-clientes">
+            <div className="lf-cliente lf-cliente--izq"><Foto nombre="alumna1" alt={ALT.alumna1} sizes="140px" /><span>{f.clientes.lateral}</span></div>
+            <div className="lf-cliente lf-cliente--der"><Foto nombre="alumna3" alt={ALT.alumna3} sizes="140px" /><span>{f.clientes.lateral}</span></div>
+            <div className="lf-cliente lf-cliente--centro"><Foto nombre="alumna2" alt={ALT.alumna2} sizes="176px" /><span>{f.clientes.central}</span></div>
+            <span className="lf-v-clientes-icono" aria-hidden="true"><Users size={26} strokeWidth={1.8} /></span>
           </div>
         </article>
       </div>
@@ -190,14 +157,14 @@ export function Funciones() {
           <h3>{f.pagos.titulo}</h3>
           <p>{f.pagos.texto}</p>
           <Chips lista={f.pagos.chips} />
-          <div className="lf-v-pagos" aria-hidden="true">
-            <div className="lf-v-pagos-foto" style={foto(FOTOS.pagos)} />
-            <div className="lf-recibido">
-              <span className="lf-recibido-candado"><Lock size={20} strokeWidth={1.8} /></span>
+          <div className="lf-v-pagos">
+            <div className="lf-v-pagos-foto"><Foto nombre="cobros" alt={ALT.cobros} sizes="(max-width: 720px) 80vw, 340px" /></div>
+            <div className="lf-recibido" aria-hidden="true">
+              <span className="lf-recibido-candado"><Lock size={22} strokeWidth={1.8} /></span>
               <span><small>{f.pagos.recibido}</small><b>{f.pagos.importe}</b></span>
               <span className="lf-recibido-ok"><CircleCheck size={24} fill="currentColor" stroke="#fff" /></span>
             </div>
-            <div className="lf-ingresos"><small>{f.pagos.ingresos}</small><b>{f.pagos.total}</b><em>{f.pagos.variacion}</em></div>
+            <div className="lf-ingresos" aria-hidden="true"><small>{f.pagos.ingresos}</small><b>{f.pagos.total}</b><em>{f.pagos.variacion}</em></div>
           </div>
         </article>
 
@@ -231,7 +198,9 @@ export function Funciones() {
 export function Beneficios() {
   return (
     <section className="lf-beneficios" aria-labelledby="lf-beneficios-t">
-      <div className="lf-beneficios-foto" style={foto(FOTOS.beneficios)} role="img" aria-label="Una alumna de pilates en una postura sobre su esterilla" />
+      <div className="lf-beneficios-foto">
+        <Foto nombre="postura" alt={ALT.postura} sizes="(max-width: 1100px) 92vw, 650px" />
+      </div>
       <div className="lf-beneficios-texto">
         <Etiqueta icono={<BadgeCheck size={16} strokeWidth={1.6} />}>{BENEFICIOS.etiqueta}</Etiqueta>
         <h2 id="lf-beneficios-t">{BENEFICIOS.titulo}</h2>
@@ -239,7 +208,7 @@ export function Beneficios() {
         <ul>
           {BENEFICIOS.lista.map(b => (
             <li key={b.titulo}>
-              <span className="lf-check"><CircleCheck size={18} strokeWidth={1.6} /></span>
+              <span className="lf-check" aria-hidden="true"><CircleCheck size={18} strokeWidth={1.6} /></span>
               <div><h3>{b.titulo}</h3>{b.detalle && <p>{b.detalle}</p>}</div>
             </li>
           ))}
@@ -260,7 +229,9 @@ export function LlamadaFinal() {
         <p>{CTA.texto}</p>
         <Boton href={CTA.boton.href}>{CTA.boton.texto}</Boton>
       </div>
-      <div className="lf-cta-foto" style={foto(FOTOS.cta)} role="img" aria-label="Dos alumnas meditando en una sala de yoga con luz natural" />
+      <div className="lf-cta-foto">
+        <Foto nombre="meditacion" alt={ALT.meditacion} sizes="(max-width: 1100px) 92vw, 560px" />
+      </div>
     </section>
   );
 }
@@ -320,7 +291,10 @@ export function Preguntas() {
 
 export function Contacto() {
   return (
-    <section id="contacto" className="lf-contacto" style={foto(FOTOS.contacto)} aria-labelledby="lf-contacto-t">
+    <section id="contacto" className="lf-contacto" aria-labelledby="lf-contacto-t">
+      <div className="lf-fondo" aria-hidden="true">
+        <Foto nombre="retrato" alt={ALT.retrato} sizes="100vw" />
+      </div>
       <div className="lf-contacto-texto">
         <Etiqueta icono={<Contact size={15} strokeWidth={1.6} />} oscuro>{CONTACTO.etiqueta}</Etiqueta>
         <h2 id="lf-contacto-t">{CONTACTO.titulo}</h2>
@@ -345,7 +319,7 @@ export function Pie() {
     <footer className="lf-pie">
       <div className="lf-pie-rejilla">
         <div className="lf-pie-marca">
-          <Logo claro />
+          <Link href="/landing-figma" aria-label="Tentare — inicio"><LogoTentare formato="horizontal" tinta="negativo" alto={30} decorativo /></Link>
           <p className="lf-pie-lema">{PIE.lema}</p>
           <p className="lf-pie-texto">{PIE.texto}</p>
         </div>

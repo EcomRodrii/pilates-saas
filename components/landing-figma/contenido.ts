@@ -18,7 +18,6 @@ export const NAV = {
     { texto: 'Producto', href: '/funcionalidades' },
     { texto: 'Precios', href: '#precios' },
     { texto: 'Soluciones', href: '/soluciones' },
-    { texto: 'Sobre nosotros', href: '/sobre-tentare' },
   ],
   login: { texto: 'Entrar', href: '/login' },
   empezar: { texto: 'Empezar gratis', href: '/crear-estudio' },
@@ -26,7 +25,9 @@ export const NAV = {
 
 export const HERO = {
   etiqueta: 'Gestión de estudios, reinventada',
-  titulo: 'Tu estudio, con el acabado de un producto premium.',
+  // El <h1> ACTUAL de la home (components/web/home/Heroe.tsx): la categoría que se busca, en pequeño, y la promesa del fundador, en grande.
+  categoria: 'Software de gestión para estudios de Pilates y yoga',
+  promesa: ['Tu estudio sigue funcionando', 'aunque sueltes el móvil.'],
   texto: 'Reservas, cuotas, cobros y comunidad en una sola plataforma para estudios de pilates, yoga y bienestar.',
   demo: { texto: 'Pedir una demo', href: '#contacto' },
   como: { texto: 'Ver cómo funciona', href: '#funciones' },
@@ -179,11 +180,23 @@ export const PIE = {
   texto: 'Gestiona tu estudio con claridad, conecta con tus alumnas y haz más sitio para crecer.',
   columnas: [
     { titulo: 'PRODUCTO', enlaces: [{ t: 'Funciones', h: '/funcionalidades' }, { t: 'Precios', h: '/precios' }, { t: 'Soluciones', h: '/soluciones' }, { t: 'Pedir una demo', h: '#contacto' }] },
-    { titulo: 'EMPRESA', enlaces: [{ t: 'Sobre nosotros', h: '/sobre-tentare' }, { t: 'Nuestra historia', h: '/sobre-tentare' }, { t: 'Contacto', h: '#contacto' }, { t: 'Trabaja con nosotros', h: '/sobre-tentare' }] },
+    { titulo: 'EMPRESA', enlaces: [{ t: 'Contacto', h: '#contacto' }, { t: 'Seguridad', h: '/seguridad' }, { t: 'Privacidad', h: '/privacidad' }, { t: 'Cookies', h: '/cookies' }] },
     { titulo: 'RECURSOS', enlaces: [{ t: 'Centro de ayuda', h: '/ayuda' }, { t: 'Preguntas frecuentes', h: '#faq' }, { t: 'Guías', h: '/recursos' }, { t: 'Soporte', h: '/soporte' }] },
   ],
   copyright: '© 2026 Tentare.app',
   legal: [{ t: 'Privacidad', h: '/privacidad' }, { t: 'Términos y condiciones', h: '/terminos' }],
+} as const;
+
+// Textos alternativos de las fotos (las que dejó el fundador en el escritorio; derivadas en public/landing-nueva/).
+export const ALT = {
+  hierba: '',
+  alumna1: 'Una alumna de pilates ante el espejo de un estudio, con su móvil',
+  alumna2: 'Una alumna con su móvil en una sala de entrenamiento',
+  alumna3: 'Una alumna sobre un reformer de pilates, ante el espejo',
+  cobros: 'Una alumna consulta en su móvil el pago de una clase',
+  postura: 'Una alumna en una postura de pilates, con luz cálida de estudio',
+  meditacion: 'Dos alumnas meditando sobre sus esterillas, con luz cálida de estudio',
+  retrato: 'Una alumna con auriculares, con los ojos cerrados y luz natural',
 } as const;
 
 export const AVISO = 'Maqueta · textos del diseño, sin publicar';
