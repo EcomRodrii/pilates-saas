@@ -14,7 +14,7 @@ integración, un estudio solo recibe check-ins sueltos que valida a mano en su p
 | Clase de Wellhub de cada tipo de clase y gym, con el gym en que se publicó | `plataforma_clases` |
 | Slot de Wellhub de cada sesión | `plataforma_eventos` (+ `contenedor_externo_id` = su clase) |
 | Check-ins pendientes de validar | `plataforma_checkins` (el Wellhub ID solo mientras está pendiente) |
-| Publicar el horario y la ocupación | `lib/plataformas/wellhub/horario*.ts`, cron `app/api/cron/wellhub-horario` (SIN programar) |
+| Publicar el horario y la ocupación | `lib/plataformas/wellhub/horario*.ts`, cron `app/api/cron/wellhub-horario` (programado el 12-nov-2026, cada 15 min) |
 | Reservas, cancelaciones y check-ins entrantes | `POST /api/plataformas/wellhub/webhook` |
 | Validar al pasar lista (panel y app de la instructora) | `validarAsistenciaWellhub`, `POST /api/plataformas/wellhub/validar` |
 
@@ -90,8 +90,7 @@ secreto actual y el anterior, para rotarlo.
    eventos, con nuestro secreto y `additional_data: false`). En esta fase, a mano con su equipo (su Integration Setup
    API no tiene sandbox documentado).
 4. **Vincular un estudio de pruebas** desde /interno (gym + producto) y cederle plazas a Wellhub en un tipo de clase.
-5. **Programar el cron** (migración pg_cron como la de usc-horario, `*/15 * * * *`, `/api/cron/wellhub-horario`). No
-   antes: cada tic sin credenciales es una invocación de Vercel tirada.
+5. ~~Programar el cron~~ **Hecho el 12-nov-2026** (migración `20261112102724`, `*/15 * * * *`).
 6. **Probar en su sandbox el ciclo entero** con sus simuladores (`/helper/v1/gyms/:gym/simulate/bookings`, `…/cancel`,
    `…/simulate/checkins`): publicar, reservar, rechazar por lleno, cancelar, cancelar tarde, check-in con y sin
    reserva, pasar lista. Los previews no se construyen: se prueba contra producción con el estudio de pruebas.
