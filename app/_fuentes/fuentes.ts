@@ -319,6 +319,29 @@ const Figtree_Ext = localFont({
   variable: '--font-figtree-ext',
 });
 
+// La web pública nueva (nov-2026, el diseño de Figma): titulares y cuerpo en Inter Tight.
+const Inter_Tight = localFont({
+  src: [
+    { path: './intertight/intertight-latin.woff2', weight: '400' },
+    { path: './intertight/intertight-latin.woff2', weight: '500' },
+    { path: './intertight/intertight-latin.woff2', weight: '600' },
+  ],
+  adjustFontFallback: false,
+  preload: false,
+  variable: '--font-intertight-latin',
+});
+const Inter_Tight_Ext = localFont({
+  src: [
+    { path: './intertight/intertight-latin-ext.woff2', weight: '400' },
+    { path: './intertight/intertight-latin-ext.woff2', weight: '500' },
+    { path: './intertight/intertight-latin-ext.woff2', weight: '600' },
+  ],
+  declarations: [{ prop: 'unicode-range', value: 'U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF' }],
+  adjustFontFallback: false,
+  preload: false,
+  variable: '--font-intertight-ext',
+});
+
 // Las clases que declaran `--font-<x>-latin` y `--font-<x>-ext` en el <html>.
 // Las variables públicas (`--font-jakarta`, `--font-ui`…) las compone
 // fuentes.css a partir de estas.
@@ -343,4 +366,6 @@ export const variablesDeFuente = [
   Libre_Caslon_Text_Ext.variable,
   Figtree.variable,
   Figtree_Ext.variable,
+  Inter_Tight.variable,
+  Inter_Tight_Ext.variable,
 ].join(' ');

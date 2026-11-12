@@ -179,7 +179,7 @@ test('⚠️ paridad: de cada familia, los ficheros, pesos, estilos y rangos son
   }
 });
 
-test('las reservas ajustadas en métrica son, carácter a carácter, las de la app salvo el prefijo (sin Plex Mono ni Sacramento)', () => {
+test('las reservas ajustadas en métrica son, carácter a carácter, las de la app salvo el prefijo (sin Plex Mono, Sacramento ni Inter Tight)', () => {
   const lineasApp = fuentesCss.split('\n').filter(l => l.startsWith('@font-face'));
   const lineasHoja = hoja.split('\n').filter(l => l.startsWith('@font-face') && !l.includes('src: url('));
   assert.equal(lineasHoja.length, 8);
@@ -190,7 +190,8 @@ test('las reservas ajustadas en métrica son, carácter a carácter, las de la a
   for (const l of sinPrefijo) assert.ok(lineasApp.includes(l), l);
   assert.deepEqual(
     lineasApp.filter(l => !sinPrefijo.includes(l)).map(l => familiasDe(l)[0]).sort(),
-    ['IBM Plex Mono Fallback', 'Sacramento Fallback'],
+    // Inter Tight es de la web pública de Tentare (nov-2026): el widget que se incrusta en la web del estudio no la lleva.
+    ['IBM Plex Mono Fallback', 'Inter Tight Fallback', 'Sacramento Fallback'],
   );
 });
 

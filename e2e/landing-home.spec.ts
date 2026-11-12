@@ -27,7 +27,7 @@ for (const [nombre, ancho, alto] of [['móvil', 390, 844], ['tableta', 820, 1180
     const r = await page.goto('/', { waitUntil: 'load' });
     expect(r?.status()).toBe(200);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Tu estudio sigue funcionando aunque sueltes el móvil.');
-    for (const sel of ['.lf-heroe', '#funciones', '.lf-beneficios', '.lf-cta', '#precio', '#faq', '#contacto', '.lf-pie']) {
+    for (const sel of ['.lf-heroe', '#funciones', '.lf-beneficios', '.lf-cta', '#precio', '#faq', '#contacto', 'footer.w-pie']) {
       await expect(page.locator(sel).first(), sel).toBeAttached();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), 'se sale de lado').toBeLessThanOrEqual(0);
@@ -114,9 +114,9 @@ test('las preguntas son las reales: las del JSON-LD, enteras y con su respuesta 
 
 test('el pie solo enlaza lo que existe: Instagram y LinkedIn (ni Facebook ni X) y los enlaces reales de la web', async ({ page }) => {
   await page.goto('/', { waitUntil: 'load' });
-  const pie = page.locator('.lf-pie');
-  await expect(pie.getByRole('link', { name: 'Tentare en LinkedIn' })).toHaveAttribute('href', /linkedin\.com\/company\/tentare/);
-  await expect(pie.getByRole('link', { name: 'Tentare en Instagram' })).toHaveAttribute('href', /instagram\.com\/tentareapp/);
+  const pie = page.locator('footer.w-pie');
+  await expect(pie.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute('href', /linkedin\.com\/company\/tentare/);
+  await expect(pie.getByRole('link', { name: 'Instagram' })).toHaveAttribute('href', /instagram\.com\/tentareapp/);
   const externos = await pie.locator('a[href^="http"]').evaluateAll(as => as.map(a => (a as HTMLAnchorElement).hostname));
   for (const h of externos) expect(h).not.toMatch(/facebook|twitter|x\.com/);
   await expect(pie.locator('[role="navigation"][aria-label="Mapa del sitio"]')).toHaveCount(1);

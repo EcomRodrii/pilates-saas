@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { LEGAL } from '@/lib/legal-info';
-import { PIE_PUBLICO } from '@/lib/seo/navegacion-publica';
+import { PIE_PUBLICO, PIE_RESUMIDO } from '@/lib/seo/navegacion-publica';
 import { WHATSAPP_SOPORTE } from '@/components/landing/enlaces';
 import './tokens.css';
 import './armazon.css';
@@ -58,6 +58,14 @@ function IconoLinkedIn({ size = 18 }: { size?: number }) {
 
 export function PieWeb() {
   const enlaceWa = enlaceWhatsApp(WHATSAPP_SOPORTE, 'Hola, tengo una duda sobre Tentare:') ?? `https://wa.me/${WHATSAPP_SOPORTE.replace(/\D/g, '')}`;
+  // Las etiquetas salen del mapa completo (una sola fuente); en «Alternativas» solo el nombre del programa.
+  const etiqueta = new Map(PIE_PUBLICO.flatMap((c) => c.enlaces.map((e) => [e.href, e.label] as const)));
+  const nombre = (href: string, titulo: string) => {
+    const l = etiqueta.get(href) ?? href;
+    return titulo === 'Alternativas' ? l.replace(/^Alternativa a /, '') : l;
+  };
+  const legal = PIE_PUBLICO.find((c) => c.titulo === 'Legal')?.enlaces ?? [];
+  const mapa = PIE_PUBLICO.filter((c) => c.titulo !== 'Legal');
 
   return (
     <footer className="w-pie">
@@ -65,12 +73,16 @@ export function PieWeb() {
         <div className="w-pie-rejilla" role="navigation" aria-label="Mapa del sitio">
           <div className="w-pie-marca">
             <Link href="/" aria-label="Tentare — inicio">
-              <LogoTentare formato="horizontal" tinta="negativo" alto={26} decorativo />
+              <LogoTentare formato="horizontal" tinta="negativo" alto={28} decorativo />
             </Link>
             <p className="w-pie-lema">
               Software para estudios de Pilates y yoga. Reservas, app con tu marca, bonos y cobros, con precio
               público y sin permanencia.
             </p>
+            <ul className="w-pie-contacto">
+              <li><a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></li>
+              <li><a href={enlaceWa} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
+            </ul>
             <div className="w-pie-redes">
               {REDES_TENTARE.map(({ href, label, Icono }) => (
                 <a key={href} href={href} target="_blank" rel="noopener noreferrer" aria-label={label}>
@@ -79,27 +91,43 @@ export function PieWeb() {
               ))}
             </div>
           </div>
-          {PIE_PUBLICO.map((col) => (
+          {PIE_RESUMIDO.map((col) => (
             <div key={col.titulo} className="w-pie-col">
               <p className="w-pie-titulo">{col.titulo}</p>
               <ul>
-                {col.enlaces.map((e) => (
-                  <li key={e.href}><Link href={e.href}>{e.label}</Link></li>
+                {col.hrefs.map((href) => (
+                  <li key={href}><Link href={href}>{nombre(href, col.titulo)}</Link></li>
                 ))}
-                {col.titulo === 'Empresa' && (
-                  <>
-                    <li><a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></li>
-                    <li><a href={enlaceWa} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
-                  </>
-                )}
               </ul>
             </div>
           ))}
         </div>
+
+        {/* El mapa completo, plegado: sigue en el HTML (cada página enlaza todo lo de siempre) pero no alarga el pie. */}
+        <details className="w-pie-mapa">
+          <summary>Ver todo el mapa del sitio</summary>
+          <div className="w-pie-mapa-rejilla">
+            {mapa.map((col) => (
+              <div key={col.titulo} className="w-pie-col">
+                <p className="w-pie-titulo">{col.titulo}</p>
+                <ul>
+                  {col.enlaces.map((e) => (
+                    <li key={e.href}><Link href={e.href}>{e.label}</Link></li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </details>
+
         <div className="w-pie-base">
           <p>© 2026 {LEGAL.marca} · Software de gestión para estudios de Pilates y yoga · Hecho en España</p>
           <div className="w-pie-base-der">
-            <p>Diseñado con el RGPD en mente · Tus datos son tuyos</p>
+            <p className="w-pie-legal">
+              {legal.map((l, i) => (
+                <span key={l.href}>{i > 0 && ' · '}<Link href={l.href}>{l.label}</Link></span>
+              ))}
+            </p>
             <a href="https://sellwithboost.com" target="_blank" rel="noopener noreferrer" className="w-pie-sello">
               {/* eslint-disable-next-line @next/next/no-img-element -- insignia externa, no un recurso propio */}
               <img src="https://sellwithboost.com/badge/listing-dark.svg" alt="Listed on Sell With boost" width={110} height={40} loading="lazy" decoding="async" />

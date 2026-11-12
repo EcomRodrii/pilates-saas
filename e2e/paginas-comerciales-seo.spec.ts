@@ -72,8 +72,8 @@ test('la calculadora de plazas vacías responde a los números', async ({ page }
 
 test('la home enlaza cada comparativa y la página de cambiar de software, desde su pie', async ({ request }) => {
   const html = await (await request.get('/', { timeout: 120_000 })).text();
-  // Home nueva (nov-2026): ya no hay «etapas»; las comparativas cuelgan del mapa del sitio del pie (components/home-nueva/secciones.tsx).
-  const pie = html.slice(html.indexOf('class="lf-pie"'));
+  // Home nueva (nov-2026): ya no hay «etapas»; las comparativas cuelgan del mapa del sitio del pie (components/web/PieWeb.tsx).
+  const pie = html.slice(html.indexOf('class="w-pie"'));
   expect(pie.length, 'no se encontró el pie de la home').toBeGreaterThan(500);
   for (const slug of ['bsport', 'eversports', 'mindbody', 'timp', 'momence', 'lorari']) {
     expect(pie, slug).toContain(`href="/comparativa/tentare-vs-${slug}"`);

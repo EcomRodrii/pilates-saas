@@ -40,7 +40,7 @@
    debajo. Arriba no lleva margen (se juntaría con el del contenedor y dejaría
    ver el fondo del <body>): el `top` del sticky ya la baja 14 px. */
 .v5-nav[data-contexto="interior"] { margin-bottom: 28px; }
-.v5-nav[data-compacta] { box-shadow: 0 10px 30px rgba(34, 38, 31, .16), inset 0 1px 0 rgba(255, 255, 255, .8); }
+.v5-nav[data-compacta] { box-shadow: 0 10px 30px rgba(11, 26, 18, .16), inset 0 1px 0 rgba(255, 255, 255, .8); }
 
 .v5-nav-logo { display: flex; align-items: center; min-height: 44px; flex-shrink: 0; margin-right: 4px; border-radius: var(--w-r-pildora); }
 
@@ -61,7 +61,7 @@
   font: inherit; font-size: var(--w-fs-pequeno); font-weight: var(--w-peso-enfasis); color: var(--w-texto);
   transition: background-color var(--motion-fast) var(--motion-ease); }
 .v5-nav-links > a:hover, .w-isla-boton:hover, .v5-nav-entrar:hover,
-.w-isla-boton[aria-expanded="true"] { background: rgba(34, 38, 31, .07); }
+.w-isla-boton[aria-expanded="true"] { background: rgba(11, 26, 18, .07); }
 .w-isla-boton svg { color: var(--w-texto-3); transition: transform var(--motion-fast) var(--motion-ease); }
 .w-isla-boton[aria-expanded="true"] svg { transform: rotate(180deg); }
 .v5-nav-cta { display: inline-flex; align-items: center; min-height: 44px; flex-shrink: 0; padding: 0 20px;
@@ -105,7 +105,7 @@
 .w-isla-area ul, .w-isla-tarjetas { list-style: none; margin: 0; padding: 0; }
 .w-isla-area a { display: flex; align-items: center; min-height: 36px; padding: 6px 8px; border-radius: 10px;
   font-size: var(--w-fs-pequeno); font-weight: 500; line-height: 1.3; color: var(--w-texto); }
-.w-isla-area a:hover, .w-isla-tarjeta:hover { background: rgba(34, 38, 31, .06); }
+.w-isla-area a:hover, .w-isla-tarjeta:hover { background: rgba(11, 26, 18, .06); }
 .w-isla-tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px; }
 .w-isla-tarjeta { display: flex; flex-direction: column; gap: 3px; height: 100%; padding: 12px 14px; border-radius: var(--w-r-control); }
 .w-isla-tarjeta-nombre { font-size: var(--w-fs-pequeno); font-weight: var(--w-peso-enfasis); color: var(--w-texto); }
@@ -123,7 +123,7 @@
 .v5-menu-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: clamp(16px, 4vh, 40px); }
 .v5-menu-etiqueta { font-size: var(--w-fs-mini); font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche-3); }
 .v5-menu-cerrar { width: 44px; height: 44px; border-radius: var(--w-r-pildora); border: 1px solid var(--w-linea-noche);
-  background: rgba(246, 244, 239, .06); color: var(--w-sobre-noche); font-size: 16px; cursor: pointer; }
+  background: rgba(249, 253, 252, .06); color: var(--w-sobre-noche); font-size: 16px; cursor: pointer; }
 .v5-menu-links { display: flex; flex-direction: column; }
 .v5-menu-links > a, .v5-menu-seccion { display: flex; align-items: center; justify-content: space-between; width: 100%;
   min-height: 56px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--w-linea-noche); background: none; cursor: pointer;
@@ -145,7 +145,7 @@
 .v5-menu-entrar, .v5-menu-cta { display: flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 16px;
   border-radius: var(--w-r-pildora); font-size: 16px; }
 .v5-menu-entrar { font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche);
-  background: rgba(246, 244, 239, .07); border: 1px solid var(--w-linea-noche); }
+  background: rgba(249, 253, 252, .07); border: 1px solid var(--w-linea-noche); }
 /* Sobre Ink, el botón va en Sand con texto en Olive (7,0:1): en Olive sobre Ink no se distinguía del fondo. */
 .v5-menu-cta { font-weight: 700; color: var(--w-olive); background: var(--w-sand); }
 @media (prefers-reduced-motion: reduce) { .v5-menu-seccion svg { transition: none; } }
@@ -157,21 +157,37 @@
 .w-pie { position: relative; z-index: 61; padding: clamp(56px, 7vw, 88px) var(--w-margen) 28px;
   background: var(--w-noche); color: var(--w-sobre-noche-2); font-family: var(--w-fuente); }
 .w-pie-in { max-width: var(--w-ancho); margin: 0 auto; }
-.w-pie-rejilla { display: grid; grid-template-columns: minmax(230px, 1.35fr) repeat(5, minmax(0, 1fr)); gap: 36px 28px;
-  padding-bottom: clamp(36px, 4vw, 52px); border-bottom: 1px solid var(--w-linea-noche); }
-.w-pie-marca { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+/* La marca a la izquierda y cinco columnas cortas (hasta seis enlaces) separadas por un filo, como en el diseño. */
+.w-pie-rejilla { display: grid; grid-template-columns: minmax(240px, 1.5fr) repeat(5, minmax(0, 1fr)); gap: 0;
+  padding-bottom: 0; border-bottom: 1px solid var(--w-linea-noche); }
+.w-pie-marca { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; padding: 0 32px 40px 0; }
 .w-pie-marca > a { display: inline-flex; border-radius: 6px; }
 .w-pie-lema { margin: 0; max-width: 34ch; font-size: var(--w-fs-pequeno); line-height: 1.6; color: var(--w-sobre-noche-2); }
+.w-pie-contacto { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.w-pie-contacto a { display: inline-flex; align-items: center; min-height: 32px; font-size: var(--w-fs-pequeno); color: var(--w-sobre-noche); }
+.w-pie-contacto a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .w-pie-redes { display: flex; align-items: center; gap: 6px; margin-left: -10px; }
 .w-pie-redes a { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px;
   border-radius: var(--w-r-pildora); color: var(--w-sobre-noche-2); transition: color .2s, background-color .2s; }
-.w-pie-redes a:hover { color: var(--w-sobre-noche); background: rgba(246, 244, 239, .08); }
-.w-pie-titulo { margin: 0 0 12px; font-size: var(--w-fs-mini); font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche); }
+.w-pie-redes a:hover { color: var(--w-sobre-noche); background: rgba(249, 253, 252, .08); }
+.w-pie-col { padding: 0 24px 40px; border-left: 1px solid var(--w-linea-noche); }
+.w-pie-titulo { margin: 0 0 14px; font-size: var(--w-fs-mini); font-weight: var(--w-peso-enfasis); letter-spacing: .06em; text-transform: uppercase; color: var(--w-sobre-noche); }
 .w-pie-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.w-pie-col a { display: inline-flex; align-items: center; min-height: 32px; font-size: var(--w-fs-pequeno); line-height: 1.35;
+.w-pie-col a { display: inline-flex; align-items: center; min-height: 34px; font-size: var(--w-fs-pequeno); line-height: 1.35;
   color: var(--w-sobre-noche-2); }
 .w-pie-col a:hover, .w-pie-base a:hover { color: var(--w-sobre-noche); text-decoration: underline; text-underline-offset: 3px; }
 .w-pie a:focus-visible { outline: 2px solid var(--w-sand); outline-offset: 2px; }
+/* El mapa completo, plegado: no alarga el pie, y cada página sigue enlazando todo. */
+.w-pie-mapa { border-bottom: 1px solid var(--w-linea-noche); }
+.w-pie-mapa > summary { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 4px; cursor: pointer; list-style: none;
+  font-size: var(--w-fs-pequeno); font-weight: var(--w-peso-enfasis); color: var(--w-sobre-noche-2); }
+.w-pie-mapa > summary::-webkit-details-marker { display: none; }
+.w-pie-mapa > summary::after { content: ''; width: 8px; height: 8px; margin-left: 2px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .25s; }
+.w-pie-mapa[open] > summary::after { transform: rotate(-135deg); }
+.w-pie-mapa > summary:hover { color: var(--w-sobre-noche); }
+.w-pie-mapa-rejilla { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 0; padding: 12px 0 36px; }
+.w-pie-mapa-rejilla .w-pie-col { padding-bottom: 8px; }
+.w-pie-legal a { color: inherit; }
 .w-pie-base { display: flex; justify-content: space-between; align-items: center; gap: 12px 24px; flex-wrap: wrap;
   padding-top: 22px; font-size: var(--w-fs-mini); line-height: 1.5; color: var(--w-sobre-noche-3); }
 .w-pie-base p { margin: 0; }
@@ -181,9 +197,20 @@
 .w-pie-sello img { display: block; height: 32px; width: auto; }
 @media (max-width: 1279px) {
   .w-pie-rejilla { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .w-pie-marca { grid-column: 1 / -1; }
+  .w-pie-marca { grid-column: 1 / -1; padding-right: 0; }
+  .w-pie-col { border-top: 1px solid var(--w-linea-noche); padding-top: 24px; }
+  .w-pie-col:nth-child(2) { border-left: 0; padding-left: 0; }
+  .w-pie-mapa-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 639px) {
-  .w-pie-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; }
-  .w-pie-col a { min-height: 36px; }
+  .w-pie-rejilla { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .w-pie-col { padding-inline: 16px; }
+  .w-pie-col:nth-child(2n) { border-left: 0; padding-left: 0; }
+  .w-pie-col a { min-height: 38px; }
+  .w-pie-mapa-rejilla { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ── La web pública sin la serif cursiva de acento ──────────────────────────────────────────────────────────────────────
+   «Founding Studio» y la frase del fundador (`.nombre-plan-founding`, app/globals.css) van en Cormorant cursiva dentro del producto. En
+   las páginas con la isla (la web pública) se pintan con la letra del diseño nuevo: Inter Tight, recta. */
+:root:has(.v5-nav) .nombre-plan-founding { font-family: var(--w-fuente); font-style: normal; font-weight: var(--w-peso-enfasis); font-size: 1em; line-height: inherit; letter-spacing: inherit; }

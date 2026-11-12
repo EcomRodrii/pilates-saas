@@ -12,7 +12,7 @@
   --lf-linea: #e3ebe7;
   --lf-curva: cubic-bezier(.2, .7, 0, 1);
   --lf-suave: cubic-bezier(.22, 1, .36, 1);
-  font-family: var(--lf-fuente), 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-family: var(--font-inter-tight), 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: var(--lf-tinta);
   background: var(--lf-fondo);
   -webkit-font-smoothing: antialiased;
@@ -40,7 +40,7 @@
 .lf-cabecera-barra[data-compacta] .lf-marca { margin-right: 12px; }
 @media (prefers-reduced-motion: reduce) { .lf-col, .lf-cabecera-barra[data-compacta] .lf-col, .lf-cabecera-barra .lf-marca { transition: none; } }
 .lf-marca { display: inline-flex; align-items: center; border-radius: 10px; }
-.lf-marca svg, .lf-pie-marca svg { height: 28px; width: auto; }
+.lf-marca svg { height: 28px; width: auto; }
 .lf-hamburguesa { display: none; }
 .lf-panel-movil { display: none; }
 .lf-menu { display: flex; align-items: center; gap: 2px; padding-right: 10px; }
@@ -274,24 +274,7 @@
 .lf-form-nota { font-size: 14px; color: rgba(255, 255, 255, .85); }
 
 /* ── Pie ── */
-.lf-pie { background: var(--lf-verde-hondo); color: #fff; }
-.lf-pie-rejilla { display: grid; grid-template-columns: 1.3fr repeat(4, 1fr); border-bottom: 1px solid rgba(255, 255, 255, .12); }
-.lf-pie-marca { padding: 48px 60px 56px; }
-.lf-pie-lema { margin-top: 64px; max-width: 10em; text-wrap: balance; font-size: clamp(2rem, 1.2rem + 2vw, 3rem); line-height: 1.2; letter-spacing: -.012em; }
-.lf-pie-texto { margin-top: 24px; max-width: 24em; font-size: 16px; line-height: 1.5; color: rgba(255, 255, 255, .72); }
-.lf-pie-col { padding: 48px 32px 56px; border-left: 1px solid rgba(255, 255, 255, .12); }
-.lf-pie-titulo { margin: 0; font-size: 17px; font-weight: 500; letter-spacing: .02em; }
-.lf-pie-col ul { display: grid; gap: 14px; margin-top: 28px; }
-.lf-pie-col a { font-size: 15px; color: rgba(255, 255, 255, .78); transition: color .2s; }
-.lf-pie-col a:hover { color: #fff; }
-.lf-pie-base { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 24px; padding: 32px 60px; font-size: 16px; color: rgba(255, 255, 255, .72); }
-.lf-pie-base > a, .lf-pie-legal { justify-self: center; }
-.lf-redes { display: flex; gap: 8px; justify-self: end; }
-.lf-red { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, .1); color: #fff; transition: background-color .2s; }
-.lf-red--sin { opacity: .55; }
-a.lf-red:hover { background: rgba(255, 255, 255, .2); }
 
-.lf-aviso { padding: 10px 16px; text-align: center; background: #06150d; color: rgba(255, 255, 255, .7); font-size: 12.5px; }
 
 /* ── Tableta ── */
 @media (max-width: 1100px) {
@@ -316,11 +299,6 @@ a.lf-red:hover { background: rgba(255, 255, 255, .2); }
   .lf-faq-boton { margin-top: 24px; }
   .lf-contacto { grid-template-columns: minmax(0, 1fr); gap: 48px; padding-inline: 24px; }
   .lf-contacto-texto { min-height: 0; }
-  .lf-pie-rejilla { grid-template-columns: 1fr 1fr; }
-  .lf-pie-marca { grid-column: 1 / -1; padding-inline: 24px; }
-  .lf-pie-col { padding-inline: 24px; border-top: 1px solid rgba(255, 255, 255, .12); }
-  .lf-pie-base { grid-template-columns: 1fr; justify-items: start; padding-inline: 24px; }
-  .lf-pie-base > a, .lf-pie-legal, .lf-redes { justify-self: start; }
 }
 @media (max-width: 720px) {
   .lf-cabecera-barra { top: 16px; height: 58px; padding: 0 6px 0 16px; }
@@ -350,8 +328,6 @@ a.lf-red:hover { background: rgba(255, 255, 255, .2); }
   .lf-cta { margin-inline: 8px; border-radius: 32px; }
   .lf-form-fila { grid-template-columns: minmax(0, 1fr); }
   .lf-faq-lista summary { font-size: 20px; padding-block: 24px; }
-  .lf-pie-rejilla { grid-template-columns: minmax(0, 1fr); }
-  .lf-pie-lema { margin-top: 40px; }
 }
 
 /* Movimiento: lo mínimo del diseño (la marquesina y los botones); quieto con «reducir movimiento». */
@@ -395,8 +371,7 @@ a.lf-red:hover { background: rgba(255, 255, 255, .2); }
   .lf-cliente { transition: transform .7s var(--lf-suave); }
   .lf-v-clientes:hover .lf-cliente--izq { transform: translateX(-8px) rotate(-8deg); }
   .lf-v-clientes:hover .lf-cliente--der { transform: translateX(8px) rotate(8deg); }
-  .lf-menu a, .lf-acceso-login, .lf-pie-col a, .lf-red { transition: color .25s ease, background-color .3s ease, transform .4s var(--lf-suave); }
-  .lf-red:hover { transform: translateY(-2px); }
+  .lf-menu a, .lf-acceso-login { transition: color .25s ease, background-color .3s ease, transform .4s var(--lf-suave); }
 
   /* Preguntas: abrir y cerrar con altura animada (Chromium/Safari recientes; el resto, de golpe). */
   .lf-faq-lista details { interpolate-size: allow-keywords; }
