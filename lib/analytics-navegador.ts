@@ -24,7 +24,8 @@ export const EVENTOS_NAVEGADOR = {
   // ── Alta del estudio (/crear-estudio; /login la recupera) ─────────────────
   // `version`: el alta nueva ('v2'/'v2_prueba', app/crear-estudio/alta-nueva.tsx);
   // sin ella, la de siempre. La misma marca que `altas_estudio.version`.
-  alta_estudio_iniciada: ['desde', 'version'],
+  // `origen_ia`: el asistente de IA que trajo la visita (lib/landing/origen-ia.ts), si lo hubo.
+  alta_estudio_iniciada: ['desde', 'version', 'origen_ia'],
   alta_estudio_paso: ['paso'],
   alta_estudio_con_sesion: [],
   alta_estudio_continuar: ['paso', 'valido'],
@@ -46,6 +47,8 @@ export const EVENTOS_NAVEGADOR = {
   demo_evaluada: ['respuesta', 'utilidad'],
   demo_ir_al_alta: [],
   landing_video_reproducido: [],
+  // Una visita que llega desde ChatGPT, Perplexity, Gemini, Claude o Copilot (lib/landing/origen-ia.ts): una vez por pestaña, solo el motor.
+  visita_desde_ia: ['motor'],
   herramienta_usada: ['herramienta'],
   recurso_descarga_pedida: ['recurso', 'novedades'],
 

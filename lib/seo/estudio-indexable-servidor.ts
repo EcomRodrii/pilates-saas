@@ -18,16 +18,18 @@ const desdeActividad = () => new Date(Date.now() - DIAS_ACTIVIDAD_INDEXABLE * 86
  * Clases futuras y reservas recientes de UN estudio, contadas en la base de
  * datos (`head: true`): nunca se traen filas. `null` si alguna lectura falla.
  */
-async function contarActividad(admin: SupabaseClient, studioId: string): Promise<{ clases: number; reservas: number } | null> {
-  const [clases, reservas] = await Promise.all([
+async function contarActividad(admin: SupabaseClient, studioId: string): Promise<{ clases: number; reservas: number; socias: number } | null> {
+  const [clases, reservas, socias] = await Promise.all([
     admin.from('sesiones').select('id', { count: 'exact', head: true })
       .eq('studio_id', studioId).gt('inicio', new Date().toISOString())
       .or('cancelada.is.null,cancelada.eq.false'),
     admin.from('reservas').select('id', { count: 'exact', head: true })
       .eq('studio_id', studioId).gte('creado_en', desdeActividad()),
+    admin.from('socios').select('id', { count: 'exact', head: true })
+      .eq('studio_id', studioId).is('borrado_en', null),
   ]);
-  if (clases.error || reservas.error) return null;
-  return { clases: clases.count ?? 0, reservas: reservas.count ?? 0 };
+  if (clases.error || reservas.error || socias.error) return null;
+  return { clases: clases.count ?? 0, reservas: reservas.count ?? 0, socias: socias.count ?? 0 };
 }
 
 /** Para una sola página. Cacheada por petición: la comparten metadata y layout. */
@@ -52,6 +54,7 @@ export const estudioIndexable = cache(async (studioId: string): Promise<boolean>
       estadoSuscripcion: (estudio.data.subscription_status as string | null) ?? null,
       clasesFuturas: actividad.clases,
       reservasRecientes: actividad.reservas,
+      sociasActivas: actividad.socias,
     });
   } catch {
     return false;
@@ -84,11 +87,16 @@ export async function slugsEstudiosIndexables(admin: SupabaseClient): Promise<st
     estadoSuscripcion: (e.subscription_status as string | null) ?? null,
     clasesFuturas: Number.POSITIVE_INFINITY,
     reservasRecientes: Number.POSITIVE_INFINITY,
+    sociasActivas: Number.POSITIVE_INFINITY,
   }));
   const slugs = await Promise.all(candidatos.map(async (e) => {
     const actividad = await contarActividad(admin, e.id as string);
     if (!actividad) return null;
-    return actividad.clases > 0 && actividad.reservas > 0 ? (e.slug as string) : null;
+    const indexable = paginaEstudioIndexable({
+      oculta: false, suspendido: false, esDemo: false, estadoSuscripcion: 'active',
+      clasesFuturas: actividad.clases, reservasRecientes: actividad.reservas, sociasActivas: actividad.socias,
+    });
+    return indexable ? (e.slug as string) : null;
   }));
   return slugs.filter((s): s is string => s !== null);
 }
