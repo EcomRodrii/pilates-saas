@@ -368,6 +368,10 @@ export function Pie() {
             <p className="lf-pie-titulo">{c.titulo.toUpperCase()}</p>
             <ul>
               {c.enlaces.filter(e => !quitar.has(e.href)).map(e => <li key={e.href}><Link href={e.href}>{e.label}</Link></li>)}
+              {/* La home enlaza CADA comparativa (e2e/paginas-comerciales-seo): el pie común no trae la de Lorari. */}
+              {c.titulo === 'Recursos' && !c.enlaces.some(e => e.href === '/comparativa/tentare-vs-lorari') && (
+                <li><Link href="/comparativa/tentare-vs-lorari">Alternativa a Lorari</Link></li>
+              )}
               {c.titulo === 'Empresa' && (
                 <>
                   <li><a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></li>
