@@ -1,7 +1,9 @@
 // Una foto de las que dejó el fundador en el escritorio, ya derivadas (AVIF + WebP, dos tamaños) en public/landing-nueva/.
 // Con `ancho`/`alto` la caja reserva su sitio antes de que llegue el fichero (sin saltos de maquetación).
 const FOTOS = {
-  hierba: { anchos: [1280, 1672, 2400], ancho: 1672, alto: 941 },
+  // `movil`: recorte vertical (600×941 del centro del original) para pantallas de hasta 600 px. Con `object-fit: cover` en
+  // un héroe alto, el móvil solo enseña ~485 px de ancho del original: pedirle la de 2400 (ampliada, 389 KB) era 10× lo necesario.
+  hierba: { anchos: [1280, 1672, 2400], ancho: 1672, alto: 941, movil: { archivo: 'hierba-movil', anchos: [400, 600] } },
   alumna1: { archivo: 'alumna-1', anchos: [480, 800], ancho: 1170, alto: 1749 },
   alumna2: { archivo: 'alumna-2', anchos: [480, 800], ancho: 1170, alto: 1619 },
   alumna3: { archivo: 'alumna-3', anchos: [480, 761], ancho: 761, alto: 1280 },
@@ -14,13 +16,19 @@ const FOTOS = {
 
 export type NombreFoto = keyof typeof FOTOS;
 
+const MAX_ANCHO_MOVIL = 600;
+
 export function Foto({ nombre, alt, sizes, prioridad, className }: { nombre: NombreFoto; alt: string; sizes: string; prioridad?: boolean; className?: string }) {
   const f = FOTOS[nombre];
+  const movil = 'movil' in f ? f.movil : null;
+  const srcsetMovil = (ext: 'avif' | 'webp') => movil?.anchos.map(w => `/landing-nueva/${movil.archivo}-${w}.${ext} ${w}w`).join(', ');
   const base = 'archivo' in f ? f.archivo : nombre;
   const srcset = (ext: 'avif' | 'webp') => f.anchos.map(w => `/landing-nueva/${base}-${w}.${ext} ${w}w`).join(', ');
   const mayor = f.anchos[f.anchos.length - 1];
   return (
     <picture>
+      {movil && <source media={`(max-width: ${MAX_ANCHO_MOVIL}px)`} type="image/avif" srcSet={srcsetMovil('avif')} sizes="100vw" />}
+      {movil && <source media={`(max-width: ${MAX_ANCHO_MOVIL}px)`} type="image/webp" srcSet={srcsetMovil('webp')} sizes="100vw" />}
       <source type="image/avif" srcSet={srcset('avif')} sizes={sizes} />
       <source type="image/webp" srcSet={srcset('webp')} sizes={sizes} />
       <img

@@ -96,6 +96,17 @@ test('el héroe: la foto de fondo carga la primera, con prioridad, y «Pedir una
   expect(['/demo', '#contacto']).toContain(await demo.getAttribute('href'));
 });
 
+// El LCP de la home en móvil era la foto de 389 KB (ampliada a 2400 px) y salía a 11 s en laboratorio (4G lenta, CPU ×4): un móvil con
+// `object-fit: cover` solo enseña ~485 px de ancho del original. Ahora ≤ 600 px pide el recorte vertical de 40 KB.
+test('el héroe pide la foto que le toca: en móvil el recorte vertical, en escritorio la grande', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/', { waitUntil: 'load' });
+  const fondo = page.locator('.lf-heroe .lf-fondo img');
+  await expect.poll(() => fondo.evaluate((i: HTMLImageElement) => i.currentSrc), { message: 'foto del héroe en móvil' }).toMatch(/hierba-movil-(400|600)\.(avif|webp)/);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => fondo.evaluate((i: HTMLImageElement) => i.currentSrc), { message: 'foto del héroe en escritorio' }).toMatch(/hierba-2400\.(avif|webp)/);
+});
+
 test('las preguntas son las reales: las del JSON-LD, enteras y con su respuesta en el HTML', async ({ page }) => {
   const html = await (await page.request.get('/')).text();
   const jsons = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
