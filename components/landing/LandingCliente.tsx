@@ -29,9 +29,12 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
 // en el JavaScript de la página salvo las pestañas (su estado).
 interface Props {
   children?: ReactNode;
+  /** La home nueva (nov-2026) trae su propia cabecera y su propio pie dentro de `children`: aquí no se pintan la isla ni el pie de la web
+   *  pública. Lo demás (redirección de quien ya tiene sesión, salto al #ancla, banda, medición, popup, WhatsApp, datos estructurados) sigue. */
+  conArmazonPropio?: boolean;
 }
 
-export function LandingCliente({ children }: Props = {}) {
+export function LandingCliente({ children, conArmazonPropio = false }: Props = {}) {
   // Los usuarios AUTENTICADOS que aterrizan en "/" (logo, marcador, tras
   // cerrar sesión y volver) van a su home real; los anónimos ven la landing.
   const router = useRouter();
@@ -88,11 +91,11 @@ export function LandingCliente({ children }: Props = {}) {
       <div style={{ position: 'relative' }}>
         {/* Una línea con la oferta, en el flujo y sin popup (fundador, 9-oct). */}
         <BandaPrueba />
-        <IslaWeb enHome />
+        {!conArmazonPropio && <IslaWeb enHome />}
         {children}
       </div>
       {/* El pie de toda la web pública (fase 2.1). La banda final es la de la home (CierreHome, en `children`). */}
-      <PieWeb />
+      {!conArmazonPropio && <PieWeb />}
       <WhatsAppFab />
       {/* Se pinta solo si toca: sus reglas de frecuencia deciden dentro
           (lib/landing/popup-frecuencia.ts), no aquí. */}

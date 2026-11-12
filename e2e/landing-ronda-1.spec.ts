@@ -88,16 +88,12 @@ async function abrirLanding(page: Page, ancho: number) {
 // El bento salió con la home v2 (20-oct-2026): los enlaces del producto a sus funciones
 // los fija ahora landing-ronda-3.spec.ts, sobre las pestañas.
 
-test('un solo verbo para empezar: héroe, banda final y planes dicen «Empezar gratis»; la isla (ronda 2) también', async ({ page }) => {
+test('un solo verbo para empezar: la cabecera y el plan gratuito dicen «Empezar gratis»', async ({ page }) => {
   await abrirLanding(page, 1440);
-  await expect(page.locator('.v5-hero-cta')).toHaveText('Empezar gratis');
-  // Home nueva (fase 2.2): la banda final es CierreHome y los planes, PrecioHome.
-  await expect(page.locator('.wh-cierre-boton')).toHaveText('Empezar gratis');
-  await expect(page.locator('.wh-plan-cta').first()).toHaveText('Empezar gratis');
-  // La isla (ronda 2, con autorización expresa del fundador para tocar la cabecera) dice lo mismo: «Probar Tentare»
-  // arrastraba el aire de la prueba de 7 días, que ya no existe.
-  await expect(page.locator('.v5-nav-cta')).toHaveText('Empezar gratis');
-  await expect(page.locator('.v5-menu-cta')).toHaveCount(0); // el menú móvil solo existe abierto
+  // Home nueva (nov-2026): la cabecera lleva el botón principal y el plan Founding Studio, el de empezar gratis. («Pedir una demo» abre la
+  // demo personalizada y la llamada final dice «Empezar hoy»: son otros botones, no el verbo para empezar.)
+  await expect(page.locator('.lf-cabecera-barra .lf-acceso-empezar')).toHaveText('Empezar gratis');
+  await expect(page.locator('.lf-plan-boton').first()).toContainText('Empezar gratis');
 });
 
 for (const path of ['/funcionalidades/plazas-fijas', '/funcionalidades']) {

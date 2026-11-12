@@ -94,11 +94,10 @@ for (const b of BLOQUES_CON_BOTON) {
   });
 }
 
-test('el orden de la home v2: logos dentro del héroe, el beneficio, el producto por áreas, el día, las etapas, el precio, las preguntas y el cierre', () => {
+test('el orden de la home nueva: héroe, logos, funciones, ventajas, llamada, planes, preguntas y contacto', () => {
   const l = leer('app/page.tsx');
   const pos = (x: string) => l.indexOf(x);
-  const orden = ['<Heroe logos={<FranjaLogos', '<SeOcupaDelResto />', '<PestanasProducto />', '<Momentos />',
-    '<Etapas />', '<PrecioHome />', '<PreguntasHome />', '<CierreHome />'];
+  const orden = ['<Heroe demoHref', '<Confianza logos', '<Funciones />', '<Beneficios />', '<LlamadaFinal />', '<Precios />', '<Preguntas />', '<Contacto />'];
   for (const x of orden) assert.ok(pos(x) > 0, `falta ${x}`);
   for (let i = 1; i < orden.length; i++) assert.ok(pos(orden[i - 1]) < pos(orden[i]), `${orden[i - 1]} debe ir antes que ${orden[i]}`);
   // Lo que salió no vuelve de rebote.

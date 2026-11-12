@@ -132,19 +132,11 @@ const SPECS_WEBKIT = [
   // dominio y comprueba el código sola con la sexta cifra, que es justo lo que
   // un teclado de iPhone hace distinto. Coste: sumar por test en `timings-*` (PR).
   '**/alta-nueva-registro.spec.ts',
-  // La isla de la landing (la barra flotante que se encoge al bajar y se
-  // alarga al subir): pública, y quien llega desde Google la mira casi siempre
-  // en un iPhone. Lo que cambia de un motor a otro es justo lo que prueba —el
-  // `backdrop-filter`, la rejilla que se pliega (1fr → 0fr), el scroll táctil y
-  // el rebote de iOS—. Siete tests de unos segundos, todo local.
-  '**/landing-isla.spec.ts',
-  // «Cambiarme a Tentare» y el héroe a 375 px (ronda 2 de la landing, 19-oct-2026):
-  // la puerta de quien ya paga otro programa. Misma pantalla y mismo criterio que la
-  // isla (pública, la sufre quien llega de Google desde el iPhone); lo que prueba en
-  // WebKit es la parte móvil —menú, botones del héroe sobre el pliegue, isla
-  // encogida sin recortes—. Los cuatro de escritorio se saltan solos en este
-  // proyecto. Coste: sumar por test en `timings-*` (ver el PR).
-  '**/landing-cambiarme.spec.ts',
+  // La home nueva (nov-2026): la cabecera de cristal que se encoge al bajar y se alarga al subir, el menú móvil y el héroe a 375 px. Pública,
+  // y quien llega desde Google la mira casi siempre en un iPhone; lo que cambia de un motor a otro es justo lo que prueba —el
+  // `backdrop-filter`, la rejilla que se pliega (1fr → 0fr), el scroll táctil y el rebote de iOS—. Todo local; el recorrido de enlaces
+  // internos se salta solo en este proyecto. Coste: sumar por test en `timings-*` (ver el PR).
+  '**/landing-home.spec.ts',
 
   // ── MEDICIÓN, NO PROPUESTA CERRADA ──────────────────────────────────────
   // Ocho specs de la app de la alumna, añadidos para que CI diga cuánto

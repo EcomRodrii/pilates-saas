@@ -5,32 +5,28 @@ import { join } from 'node:path';
 
 // Dónde va la franja de logos de clientes en la home, y que su cableado no se pierda.
 //
-// Home nueva (fase 2.2, 19-oct-2026): la composición vive en app/page.tsx y la
-// franja va DENTRO de la banda oscura del héroe, al pie, como en bsport (antes iba
-// tras «¿Te suena?»: el vídeo montaba sobre el bloque de debajo del héroe y ya no
-// está ahí, pasó a la sección de producto).
+// Home nueva (nov-2026, el diseño de Figma): la composición vive en app/page.tsx y la franja («Estudios que ya trabajan con Tentare») va
+// justo debajo del héroe y antes de las funciones, como en el diseño. Antes iba dentro de la banda oscura del héroe.
 const pagina = readFileSync(join(process.cwd(), 'app/page.tsx'), 'utf8');
-const heroe = readFileSync(join(process.cwd(), 'components/web/home/Heroe.tsx'), 'utf8');
+const secciones = readFileSync(join(process.cwd(), 'components/home-nueva/secciones.tsx'), 'utf8');
 
-test('la franja va dentro del héroe, al pie de la banda, y tras el héroe viene «Lo que antes te llevaba la tarde»', () => {
-  const llamada = '<Heroe logos={<FranjaLogos logos={logos} />} />';
-  const pos = pagina.indexOf(llamada);
-  const verbos = pagina.indexOf('<SeOcupaDelResto />');
-  assert.ok(pos > 0 && verbos > pos, 'orden inesperado');
+test('la franja va justo tras el héroe y antes de las funciones', () => {
+  const heroe = pagina.indexOf('<Heroe demoHref={demoHref} />');
+  const franja = pagina.indexOf('<Confianza logos={logos} />');
+  const funciones = pagina.indexOf('<Funciones />');
+  assert.ok(heroe > 0 && franja > heroe && funciones > franja, 'orden inesperado');
   const sinComentarios = (t: string) => t.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trim();
-  assert.equal(sinComentarios(pagina.slice(pos + llamada.length, verbos)), '');
-  // Dentro del héroe: después del contenido y antes de cerrar la banda.
-  assert.ok(heroe.indexOf('{logos &&') > heroe.indexOf('</Escena>') && heroe.indexOf('{logos &&') < heroe.indexOf('</header>'));
+  assert.equal(sinComentarios(pagina.slice(heroe + '<Heroe demoHref={demoHref} />'.length, franja)), '');
 });
 
 test('la home lee los logos en servidor, se regenera cada hora y pinta la franja', () => {
   assert.match(pagina, /export const revalidate = 3600;/);
   assert.match(pagina, /await logosClientesLanding\(\)/);
-  assert.match(pagina, /<FranjaLogos logos=\{logos\} \/>/);
-  assert.match(heroe, /\.wh-heroe-logos|wh-heroe-logos/);
+  assert.match(pagina, /<Confianza logos=\{logos\} \/>/);
 });
 
-test('la franja no pinta nada con cero logos', () => {
+test('la franja no pinta nada con cero logos (ni título ni hueco)', () => {
+  assert.match(secciones, /if \(logos\.length === 0\) return null;/);
   const franja = readFileSync(join(process.cwd(), 'components/landing/FranjaLogos.tsx'), 'utf8');
   assert.match(franja, /if \(logos\.length === 0\) return null;/);
 });

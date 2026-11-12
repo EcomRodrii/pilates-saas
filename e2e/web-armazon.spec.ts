@@ -16,7 +16,6 @@ import { test, expect, type Page } from '@playwright/test';
 test.setTimeout(240_000);
 
 const PAGINAS = [
-  { nombre: 'home', path: '/' },
   { nombre: 'interior', path: '/funcionalidades/reservas-online' },
   { nombre: 'legal', path: '/privacidad' },
   { nombre: 'artículo', path: '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates' },

@@ -17,8 +17,6 @@
  * también `/portal-preview`, y `/reservar` cubre `/reservar/<slug>`.
  */
 export const PREFIJOS_NO_INDEXABLES = [
-  // Maqueta del diseño de Figma (app/landing-figma): interna, sin publicar.
-  '/landing-figma',
   // Infraestructura y autenticación
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno', '/verificar-acceso',
   // Aterrizaje para el enlace de la bio de TikTok (app/empieza): repite las

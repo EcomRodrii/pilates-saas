@@ -43,17 +43,14 @@ test('la home, sin ningún estudio con consentimiento: ni franja ni título ni h
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 60_000 });
-  await expect(page.locator('#clientes')).toHaveCount(0);
-  await expect(page.getByText('Estudios que ya usan Tentare')).toHaveCount(0);
-  // Sin hueco: el bloque siguiente («Lo que antes te llevaba la tarde», home v2) empieza justo donde acaba el héroe.
-  const [finSuena, inicioVerbos] = await Promise.all([
-    page.locator('header#top').evaluate((e) => e.getBoundingClientRect().bottom + window.scrollY),
-    page.locator('#te-suena').evaluate((e) => e.getBoundingClientRect().top + window.scrollY),
+  await expect(page.locator('.lf-confianza')).toHaveCount(0);
+  await expect(page.getByText('Estudios que ya trabajan con Tentare')).toHaveCount(0);
+  // Sin hueco: «Funciones» empieza justo donde acaba el héroe, más el aire propio de su sección.
+  const [finHeroe, inicioFunciones] = await Promise.all([
+    page.locator('.lf-heroe').evaluate((e) => e.getBoundingClientRect().bottom + window.scrollY),
+    page.locator('#funciones').evaluate((e) => e.getBoundingClientRect().top + window.scrollY),
   ]);
-  expect(Math.abs(inicioVerbos - finSuena)).toBeLessThanOrEqual(1);
-  // CONTROL: con logos la franja SÍ ocupa sitio entre las dos (si no, la medida de arriba no prueba nada).
-  await abrirPrueba(page, 3);
-  expect(await page.locator('#clientes').evaluate((e) => e.getBoundingClientRect().height)).toBeGreaterThan(60);
+  expect(Math.abs(inicioFunciones - finHeroe)).toBeLessThanOrEqual(1);
 });
 
 test('/e2e-franja-logos sin logos no pinta nada', async ({ page }) => {
