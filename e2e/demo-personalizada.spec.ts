@@ -134,15 +134,17 @@ test.describe('pantalla de la demo', () => {
   // la del servidor que arranca. Con el interruptor encendido al compilar, el botón
   // abre la demo; apagado (como el build de CI, cuyo `env` vive en un workflow), la
   // home no cambia ni un píxel. Las dos cosas son lo que hay que garantizar.
-  test('el botón de la home abre la experiencia (si el build lo trae) y, si no, la home no cambia', async ({ page }) => {
+  test('«Pedir una demo» de la home abre la experiencia (si el build la trae) y, si no, baja al contacto', async ({ page }) => {
     await page.goto('/');
-    const titular = page.getByRole('heading', { name: '¿Quieres ver Tentare por dentro?' });
-    if (await titular.count() === 0) {
-      await expect(page.getByRole('link', { name: 'DEMO PERSONALIZADA' })).toHaveCount(0);
+    const demo = page.locator('.lf-heroe').getByRole('link', { name: 'Pedir una demo' });
+    await expect(demo).toBeVisible();
+    // Con el interruptor encendido al compilar, el botón abre la demo; apagado (como el build de CI, cuyo `env` vive en un workflow), baja
+    // al formulario de contacto de la propia página. Las dos cosas son lo que hay que garantizar.
+    if ((await demo.getAttribute('href')) !== '/demo') {
+      await expect(demo).toHaveAttribute('href', '#contacto');
       return;
     }
-    await expect(titular).toBeVisible();
-    await page.getByRole('link', { name: 'DEMO PERSONALIZADA' }).click();
+    await demo.click();
     await expect(page).toHaveURL(/\/demo$/);
     await expect(page.getByRole('heading', { name: '¿Qué tipo de centro tienes?' })).toBeVisible();
   });

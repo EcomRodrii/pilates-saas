@@ -33,7 +33,7 @@ for (const ruta of ['/', '/recursos']) {
       if (r.request().resourceType() === 'script' && r.ok()) scripts.push(await r.text().catch(() => ''));
     });
     await page.goto(ruta, { waitUntil: 'networkidle' });
-    await expect(page.getByRole('link', { name: /abrir un estudio de pilates/i }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: /abrir un estudio/i }).first()).toBeVisible();
     expect(scripts.length).toBeGreaterThan(0);
     for (const frase of FRASES_DEL_CUERPO) {
       expect(scripts.some((s) => s.includes(frase)), `«${frase}» está en el JS de ${ruta}`).toBe(false);

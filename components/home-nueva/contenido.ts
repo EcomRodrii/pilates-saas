@@ -14,9 +14,9 @@
 
 export const NAV = {
   enlaces: [
-    { texto: 'Inicio', href: '/landing-figma' },
+    { texto: 'Inicio', href: '/' },
     { texto: 'Producto', href: '/funcionalidades' },
-    { texto: 'Precios', href: '#precios' },
+    { texto: 'Precios', href: '#precio' },
     { texto: 'Soluciones', href: '/soluciones' },
   ],
   login: { texto: 'Entrar', href: '/login' },
@@ -126,7 +126,7 @@ export const PRECIOS = {
   titulo: 'Un plan para cada etapa de tu estudio.',
   planes: [
     {
-      nombre: 'Founding Studio', texto: 'Todo lo esencial, gratis hasta 150 alumnas activas.', precio: 'Gratis', periodo: 'hasta 150 alumnas', boton: 'Empezar gratis', destacado: false,
+      nombre: 'Founding Studio', texto: 'Todo lo esencial, gratis hasta 150 alumnas activas.', precio: 'Gratis', periodo: '', boton: 'Empezar gratis', destacado: false,
       lista: ['Calendario de clases y salas', 'Reservas online con lista de espera', 'Cuotas, bonos y clases sueltas', 'Cobros con tarjeta', 'App de tus alumnas con tu marca'],
     },
     {
@@ -145,7 +145,7 @@ export const FAQ = {
   etiqueta: 'Preguntas frecuentes',
   titulo: '¿Tienes dudas? Tenemos respuestas.',
   texto: '¿Quieres saber más sobre Tentare? Aquí tienes algunas respuestas para empezar.',
-  boton: { texto: 'Ver planes', href: '#precios' },
+  boton: { texto: 'Ver planes', href: '#precio' },
   preguntas: [
     { q: '¿Pueden mis alumnas reservar clases online?', a: 'Sí. Reservan desde la página de tu estudio o desde su propia app, a cualquier hora del día.' },
     { q: '¿Cómo se gestionan los pagos?', a: 'Puedes consultar el estado de los pagos y de las cuotas desde tu panel. Las opciones de pago disponibles dependen de cómo tengas configurado tu estudio.' },
@@ -171,7 +171,7 @@ export const CONTACTO = {
     mensaje: { etiqueta: 'Mensaje', marcador: 'Cuéntanos sobre tu estudio y lo que necesitas…' },
     enviar: 'Pedir una demo',
     nota: 'Tus datos solo se usarán para responder a tu consulta.',
-    aviso: 'Maqueta: el formulario aún no envía nada.',
+    aviso: 'Se abre tu correo con el mensaje listo para enviar.',
   },
 } as const;
 
@@ -183,7 +183,7 @@ export const PIE = {
     { titulo: 'EMPRESA', enlaces: [{ t: 'Contacto', h: '#contacto' }, { t: 'Seguridad', h: '/seguridad' }, { t: 'Privacidad', h: '/privacidad' }, { t: 'Cookies', h: '/cookies' }] },
     { titulo: 'RECURSOS', enlaces: [{ t: 'Centro de ayuda', h: '/ayuda' }, { t: 'Preguntas frecuentes', h: '#faq' }, { t: 'Guías', h: '/recursos' }, { t: 'Soporte', h: '/soporte' }] },
   ],
-  copyright: '© 2026 Tentare.app',
+  copyright: '© 2026 Tentare',
   legal: [{ t: 'Privacidad', h: '/privacidad' }, { t: 'Términos y condiciones', h: '/terminos' }],
 } as const;
 
@@ -199,4 +199,3 @@ export const ALT = {
   retrato: 'Una alumna con auriculares, con los ojos cerrados y luz natural',
 } as const;
 
-export const AVISO = 'Maqueta · textos del diseño, sin publicar';

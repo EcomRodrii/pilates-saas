@@ -21,7 +21,7 @@ export function Cabecera() {
   useIslaCompacta(barra);
 
   useEffect(() => {
-    const precios = document.getElementById('precios');
+    const precios = document.getElementById('precio');
     if (!precios || !('IntersectionObserver' in window)) return;
     const io = new IntersectionObserver(([e]) => setActivo(e.isIntersecting ? 'precios' : 'inicio'), { rootMargin: '-35% 0px -45% 0px' });
     io.observe(precios);
@@ -40,13 +40,13 @@ export function Cabecera() {
     return () => { document.removeEventListener('keydown', esc); document.removeEventListener('pointerdown', fuera); };
   }, [abierto]);
 
-  const esActivo = (href: string) => (href === '#precios' ? activo === 'precios' : href === '/landing-figma' ? activo === 'inicio' : false);
+  const esActivo = (href: string) => (href === '#precio' ? activo === 'precios' : href === '/' ? activo === 'inicio' : false);
 
   return (
     <header className="lf-cabecera">
       {/* Con el menú del móvil abierto la píldora no se encoge (el panel colgaría de unos botones que ya no se ven). */}
       <div ref={barra} className="lf-cabecera-barra" data-menu-abierto={abierto || undefined}>
-        <Link href="/landing-figma" className="lf-marca" aria-label="Tentare — inicio">
+        <Link href="/" className="lf-marca" aria-label="Tentare — inicio">
           <LogoTentare formato="horizontal" tinta="color" alto={28} decorativo />
         </Link>
 

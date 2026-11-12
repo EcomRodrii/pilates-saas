@@ -1,19 +1,11 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
-import { Heroe } from '@/components/web/home/Heroe';
-import { SeOcupaDelResto } from '@/components/web/home/SeOcupaDelResto';
-import { PestanasProducto } from '@/components/web/home/PestanasProducto';
-import { Momentos } from '@/components/web/home/Momentos';
-import { AntesDespues } from '@/components/web/home/AntesDespues';
-import { CAPTURAS_APP } from '@/components/web/home/piezas';
-import { Etapas } from '@/components/web/home/Etapas';
-import { PrecioHome } from '@/components/web/home/PrecioHome';
-import { PreguntasHome } from '@/components/web/home/PreguntasHome';
-import { CierreHome } from '@/components/web/home/CierreHome';
-import { DemoCta } from '@/components/web/home/DemoCta';
+import { Inter_Tight } from 'next/font/google';
+import { Cabecera } from '@/components/home-nueva/cabecera';
+import { Revelar } from '@/components/home-nueva/revelar';
+import { Beneficios, Confianza, Contacto, Funciones, Heroe, LlamadaFinal, Pie, Preguntas, Precios } from '@/components/home-nueva/secciones';
 import { estadoDemo } from '@/lib/demo/interruptor';
-import '@/components/web/home/home.css';
-import { FranjaLogos } from '@/components/landing/FranjaLogos';
+import '@/components/home-nueva/figma.css';
 import { logosClientesLanding } from '@/lib/landing/logos-clientes-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
@@ -73,28 +65,37 @@ export const metadata: Metadata = {
   },
 };
 
-// La composición de la home (v2, 20-oct-2026: el fundador la vio «horrible»: larga,
-// repetida, todo crema y tarjetas). De 12 secciones a 8, una idea por bloque y
-// alternando bandas oscuras y claras:
-//   héroe a sangre y luminoso (solo el móvil) con los logos → «Lo que antes te llevaba
-//   la tarde» → el producto por áreas + vídeo → «Un día cualquiera» (personas a sangre)
-//   → etapas → precio → preguntas → cierre.
-// Fuera: los seis verbos, el bento, las filas y la banda «hoy / con Tentare» (decían
-// lo mismo que las pestañas) y las guías (el blog está en el menú).
+// La home nueva (nov-2026): el diseño de Figma de la diseñadora, en español, con la identidad y los datos reales de Tentare (planes y
+// precios de `PLAN_INFO`, preguntas de `FAQ_ITEMS`, logos de estudios con consentimiento, el panel real en el héroe, el pie de la web
+// pública). Sustituye a la home anterior (héroe + «Lo que antes te llevaba la tarde» + producto por áreas + momentos + etapas…).
+//
+// ⚠️ El <h1> empieza por TEXTO (e2e/landing-h1-texto.spec.ts): la categoría que se busca («Software de gestión para estudios de Pilates
+// y yoga») va primero y en pequeño; la promesa del fundador va dentro, en grande. Los datos estructurados (JSON-LD) y la medición siguen
+// en LandingCliente; aquí solo cambia lo que se ve.
+//
+// «Pedir una demo» abre la demo personalizada (/demo) cuando está abierta a todos (lib/demo/interruptor.ts); si no, baja al contacto.
+const fuente = Inter_Tight({ subsets: ['latin'], weight: ['300', '400', '500', '600'], variable: '--lf-fuente', display: 'swap' });
+
 export default async function HomePage() {
   const logos = await logosClientesLanding();
+  const demoHref = estadoDemo(process.env.DEMO_PERSONALIZADA).boton ? '/demo' : '#contacto';
   return (
-    <LandingCliente>
-      <Heroe logos={<FranjaLogos logos={logos} />} />
-      <SeOcupaDelResto />
-      <PestanasProducto />
-      {estadoDemo(process.env.DEMO_PERSONALIZADA).boton && <DemoCta />}
-      <Momentos />
-      <AntesDespues captura={CAPTURAS_APP.reservar.n} />
-      <Etapas />
-      <PrecioHome />
-      <PreguntasHome />
-      <CierreHome />
+    <LandingCliente conArmazonPropio>
+      <div className={`${fuente.variable} lf`}>
+        <Revelar />
+        <Cabecera />
+        <main>
+          <Heroe demoHref={demoHref} />
+          <Confianza logos={logos} />
+          <Funciones />
+          <Beneficios />
+          <LlamadaFinal />
+          <Precios />
+          <Preguntas />
+          <Contacto />
+        </main>
+        <Pie />
+      </div>
     </LandingCliente>
   );
 }

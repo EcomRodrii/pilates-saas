@@ -2,17 +2,26 @@
 
 import { useState } from 'react';
 import { ArrowUpRight, ChevronDown } from 'lucide-react';
+import { LEGAL } from '@/lib/legal-info';
 import { CONTACTO } from './contenido';
 
-// El formulario del diseño. ⚠️ En la maqueta NO envía nada: enseña cómo queda y avisa. Conectarlo (a /api/public/… o al
-// correo del equipo) es un paso aparte cuando se apruebe, con su captcha y su trampa de bots como el resto de formularios.
+// El formulario del diseño. No hay servidor detrás: al enviarlo se abre el correo de quien lo rellena con el mensaje ya escrito, dirigido
+// al equipo (`mailto:`), y no se guarda nada en ningún sitio. Conectarlo a un endpoint propio (con su captcha y su trampa de bots, como el
+// resto de formularios) es un paso aparte.
 export function FormularioContacto() {
   const f = CONTACTO.formulario;
   const [enviado, setEnviado] = useState(false);
   return (
     <form
       className="lf-form"
-      onSubmit={e => { e.preventDefault(); setEnviado(true); }}
+      onSubmit={e => {
+        e.preventDefault();
+        const d = new FormData(e.currentTarget);
+        const v = (k: string) => String(d.get(k) ?? '').trim();
+        const cuerpo = [`Nombre: ${v('nombre')}`, `Estudio: ${v('estudio')}`, `Correo: ${v('email')}`, `Tamaño del estudio: ${v('tamano')}`, '', v('mensaje')].join('\n');
+        window.location.href = `mailto:${LEGAL.email}?subject=${encodeURIComponent('Quiero una demo de Tentare')}&body=${encodeURIComponent(cuerpo)}`;
+        setEnviado(true);
+      }}
       aria-labelledby="lf-form-t"
     >
       <h3 id="lf-form-t">{f.titulo}</h3>

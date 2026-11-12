@@ -70,12 +70,13 @@ test('la calculadora de plazas vacías responde a los números', async ({ page }
   }).toPass({ timeout: 20_000 });
 });
 
-test('la home enlaza cada comparativa desde la etapa «Ya tengo estudio y quiero cambiar»', async ({ request }) => {
+test('la home enlaza cada comparativa y la página de cambiar de software, desde su pie', async ({ request }) => {
   const html = await (await request.get('/', { timeout: 120_000 })).text();
-  // Home nueva (fase 2.2): las comparativas cuelgan de la etapa del cambio (components/web/home/Etapas.tsx).
-  const seccion = html.slice(html.indexOf('id="etapas"'), html.indexOf('id="precio"'));
+  // Home nueva (nov-2026): ya no hay «etapas»; las comparativas cuelgan del mapa del sitio del pie (components/home-nueva/secciones.tsx).
+  const pie = html.slice(html.indexOf('class="lf-pie"'));
+  expect(pie.length, 'no se encontró el pie de la home').toBeGreaterThan(500);
   for (const slug of ['bsport', 'eversports', 'mindbody', 'timp', 'momence', 'lorari']) {
-    expect(seccion, slug).toContain(`href="/comparativa/tentare-vs-${slug}"`);
+    expect(pie, slug).toContain(`href="/comparativa/tentare-vs-${slug}"`);
   }
-  expect(seccion).toContain('href="/soluciones/cambiar-de-software"');
+  expect(pie).toContain('href="/soluciones/cambiar-de-software"');
 });

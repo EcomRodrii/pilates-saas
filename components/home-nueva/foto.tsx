@@ -1,7 +1,7 @@
 // Una foto de las que dejó el fundador en el escritorio, ya derivadas (AVIF + WebP, dos tamaños) en public/landing-nueva/.
 // Con `ancho`/`alto` la caja reserva su sitio antes de que llegue el fichero (sin saltos de maquetación).
 const FOTOS = {
-  hierba: { anchos: [1280, 2056, 3000], ancho: 2056, alto: 765 },
+  hierba: { anchos: [1280, 1672, 2400], ancho: 1672, alto: 941 },
   alumna1: { archivo: 'alumna-1', anchos: [480, 800], ancho: 1170, alto: 1749 },
   alumna2: { archivo: 'alumna-2', anchos: [480, 800], ancho: 1170, alto: 1619 },
   alumna3: { archivo: 'alumna-3', anchos: [480, 761], ancho: 761, alto: 1280 },
