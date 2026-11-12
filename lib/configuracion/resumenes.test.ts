@@ -931,11 +931,11 @@ test('sin facturas desde Tentare, un NIF que falta no sale en rojo ni como aviso
   assert.deepEqual(resumenDatosFiscales({ nif: '', modoFacturacion: 'facturas' }).estado, { tono: 'problema', etiqueta: 'Falta el NIF' });
 });
 
-test('plataformas que venden: «Próximamente» mientras no haya conexión automática, y el valor dice si se apunta a mano', () => {
+test('plataformas que venden: «Sin activar» o «Manual» mientras no haya conexión automática, y el valor dice si se apunta a mano', () => {
   assert.deepEqual(resumenPlataformaVenta({ activa: false, conexionDisponible: false, conectada: false }),
-    { valor: 'No vendo aquí', estado: { tono: 'neutro', etiqueta: 'Próximamente' } });
+    { valor: 'No vendo aquí', estado: { tono: 'neutro', etiqueta: 'Sin activar' } });
   assert.deepEqual(resumenPlataformaVenta({ activa: true, conexionDisponible: false, conectada: false }),
-    { valor: 'Vendo aquí · apunto yo las reservas', estado: { tono: 'neutro', etiqueta: 'Próximamente' } });
+    { valor: 'Vendo aquí · apunto yo las reservas', estado: { tono: 'neutro', etiqueta: 'Manual' } });
   // USC con las credenciales de Tentare: se puede conectar, y conectada va sola.
   assert.deepEqual(resumenPlataformaVenta({ activa: true, conexionDisponible: true, conectada: false }).estado,
     { tono: 'neutro', etiqueta: 'Sin conectar' });

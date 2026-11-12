@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Code2, KeyRound, Mail } from 'lucide-react';
 import { useRol, puedeGestionarAppsOAuth, puedeGestionarClavesApi } from '@/lib/permisos';
 import { resumenAppsConAcceso } from '@/lib/configuracion/resumenes';
@@ -23,7 +24,7 @@ import { useDatafono } from '@/components/pos/use-datafono';
 import {
   DetalleGmail, DetalleWhatsapp, FilaGmail, FilaWhatsapp, useGmail, useWhatsapp,
 } from '@/components/configuracion/canales-comunicacion';
-import { DetallePlataformasExternas, FilasPlataformas } from '@/components/configuracion/plataformas-externas';
+import { FilasPlataformas } from '@/components/configuracion/plataformas-externas';
 
 // Integraciones: todo lo que Tentare conecta con otras herramientas, en un solo
 // sitio (16-oct-2026, petición del fundador).
@@ -36,6 +37,8 @@ import { DetallePlataformasExternas, FilasPlataformas } from '@/components/confi
 // aquí. Gmail (retirado el 1-oct) solo sale a quien lo tiene conectado, para
 // desconectarlo. Las anclas de siempre (`#integracion-zoom`, `#integracion-stripe`,
 // la vuelta de cada conexión) llevan a su fila; si está conectada, abren su cajón.
+
+const PESTANA_PLATAFORMA = { CLASSPASS: 'classpass', URBAN_SPORTS_CLUB: 'urban-sports-club', WELLHUB: 'wellhub' } as const;
 
 const CAJONES = [
   'integracion-stripe', 'datafono', 'integracion-whatsapp', 'integracion-gmail',
@@ -92,6 +95,11 @@ export function useConexiones(showToast: (m: string) => void) {
 export function SeccionConexiones({ showToast }: { showToast: (m: string) => void }) {
   const rol = useRol();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  const router = useRouter();
+  // Las anclas de siempre (el buscador, la guía, los enlaces) a «plataformas-externas» llevan a su ficha.
+  useEffect(() => {
+    if (cajon === 'plataformas-externas') router.replace('/apps/integraciones?pestana=classpass');
+  }, [cajon, router]);
   const {
     stripe, datafono, datafonoConectado, conectandoDatafono, setConectandoDatafono, whatsapp, gmail,
     google, zoom, klaviyo, kisi, mailchimp, apps, zapier, api,
@@ -135,9 +143,12 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
       </GrupoFilas>
 
       {/* Una fila por plataforma, con su logo, como el resto de conexiones. */}
-      <GrupoFilas titulo="Plataformas que venden tus clases">
-        <FilasPlataformas onAbrir={() => abrir('plataformas-externas')} />
-      </GrupoFilas>
+      <div id="plataformas-externas" className="scroll-mt-32">
+        <GrupoFilas titulo="Plataformas que venden tus clases">
+          {/* Cada una abre su ficha en «Apps e integraciones»: una sola puerta, no dos. */}
+          <FilasPlataformas enlace={p => `/apps/integraciones?pestana=${PESTANA_PLATAFORMA[p]}`} />
+        </GrupoFilas>
+      </div>
 
       <GrupoFilas titulo="Automatizar y dar acceso a tus datos">
         <FilaZapier z={zapier} logo={<ZapierIcon size={36} />} onAbrir={() => abrir('integracion-zapier')} />
@@ -198,9 +209,6 @@ export function SeccionConexiones({ showToast }: { showToast: (m: string) => voi
       </CajonAjuste>
       <CajonAjuste id="integracion-zapier" abierto={cajon === 'integracion-zapier' && !!zapier.acceso} onCerrar={cerrar}>
         <DetalleZapier z={zapier} a={apps} onGuardado={guardado} />
-      </CajonAjuste>
-      <CajonAjuste id="plataformas-externas" abierto={cajon === 'plataformas-externas'} onCerrar={cerrar}>
-        <DetallePlataformasExternas showToast={showToast} />
       </CajonAjuste>
       <CajonAjuste id="aplicaciones-con-acceso" abierto={cajon === 'aplicaciones-con-acceso'} onCerrar={cerrar}>
         <DetalleAppsConAcceso a={apps} showToast={showToast} />

@@ -23,7 +23,7 @@ function json(route: Route, body: unknown, status = 200) {
   return route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
 }
 
-async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?: string; verificada?: boolean; rechazo?: { status: number; error: string } }) {
+async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?: string; verificada?: boolean; rechazo?: { status: number; error: string }; pestana?: string; ruta?: string }) {
   await page.addInitScript(([key, uid]) => {
     localStorage.setItem(key, JSON.stringify({
       access_token: 'e2e-fake-token', refresh_token: 'e2e-fake-refresh',
@@ -68,21 +68,19 @@ async function montar(page: Page, opts: { apiDisponible: boolean; ventaCortada?:
     });
   });
 
-  await page.goto('/configuracion?tab=conexiones');
-  await page.locator('#plataformas-externas').click({ timeout: 30_000 });
+  // Cada plataforma tiene su ficha en «Apps e integraciones» (antes, un cajón común en Configuración).
+  await page.goto(opts.ruta ?? `/apps/integraciones?pestana=${opts.pestana ?? 'urban-sports-club'}`);
+  if (!opts.ruta) await expect(page.getByTestId('integraciones-de-terceros')).toBeVisible({ timeout: 30_000 });
   return guardados;
 }
 
 const interruptorUsc = (page: Page) => page.getByRole('switch', { name: 'Vendo en Urban Sports Club' });
-const proximamente = (page: Page) => page.getByText('Conexión automática: próximamente');
 
 test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => {
   test('apagar «Vendo aquí» conserva el proveedor y la ubicación', async ({ page }) => {
     const guardados = await montar(page, { apiDisponible: true });
     await expect(page.getByTestId('conexion-usc')).toBeVisible();
-    // USC ya se puede conectar: «próximamente» solo en ClassPass y Wellhub.
-    await expect(proximamente(page)).toHaveCount(2);
-    // Y en Conexiones, su fila (con su logo, como el resto) dice que está conectada.
+    // En su ficha, su fila (con su logo, como el resto) dice que está conectada.
     await expect(page.locator('#plataformas-externas-urban_sports_club')).toContainText('Conectado');
     await expect(interruptorUsc(page)).toBeEnabled();
     await interruptorUsc(page).click();
@@ -122,19 +120,21 @@ test.describe('Urban Sports Club: los IDs de la conexión no se pierden', () => 
     await montar(page, { apiDisponible: false });
     await expect(interruptorUsc(page)).toBeEnabled();
     await expect(page.getByTestId('conexion-usc')).toHaveCount(0);
-    // Las tres dicen que la conexión automática llega más adelante, y el modo
-    // manual sigue a mano.
-    await expect(proximamente(page)).toHaveCount(3);
-    await expect(page.getByText(/Hasta entonces, apúntalas tú/)).toBeVisible();
-    // En Conexiones, una fila por plataforma, cada una con su «Próximamente».
-    for (const id of ['#plataformas-externas', '#plataformas-externas-urban_sports_club', '#plataformas-externas-wellhub']) {
-      await expect(page.locator(id)).toContainText('Próximamente');
+    // Sin conexión automática no hay etiqueta de «próximamente»: la fila dice cómo está, y el modo manual sigue a mano.
+    await expect(page.getByText(/rximamente/)).toHaveCount(0);
+    await expect(page.locator('#plataformas-externas-urban_sports_club')).toContainText('Manual');
+  });
+
+  test('en Configuración, cada plataforma es un enlace a su ficha', async ({ page }) => {
+    await montar(page, { apiDisponible: false, ruta: '/configuracion?tab=conexiones' });
+    for (const [id, pestana] of [['#plataformas-externas-classpass', 'classpass'], ['#plataformas-externas-urban_sports_club', 'urban-sports-club'], ['#plataformas-externas-wellhub', 'wellhub']] as const) {
+      await expect(page.locator(id)).toHaveAttribute('href', `/apps/integraciones?pestana=${pestana}`);
     }
-    await expect(page.locator('#plataformas-externas')).toContainText('ClassPass');
+    await expect(page.locator('#plataformas-externas-classpass')).toContainText('ClassPass');
   });
 
   test('Wellhub enseña cómo pedirle la conexión, y solo Wellhub', async ({ page }) => {
-    await montar(page, { apiDisponible: false });
+    await montar(page, { apiDisponible: false, pestana: 'wellhub' });
     const pasos = page.getByText('Cómo pedir la conexión automática a Wellhub');
     await expect(pasos).toHaveCount(1);
     await pasos.click();
