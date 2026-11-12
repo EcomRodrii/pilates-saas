@@ -12,9 +12,10 @@ export const maxDuration = 60;
 // reservas, aplicar cancelaciones, validar check-ins) y después publica las
 // clases de las próximas dos semanas (lib/plataformas/wellhub/horario-servidor.ts).
 // Pensado para pg_cron + pg_net cada 15 min, mismo patrón que usc-horario.
-// ⚠️ El cron NO está programado: sin WELLHUB_API_TOKEN/WELLHUB_WEBHOOK_SECRET
-// esto no hace nada, y cada tic gasta una invocación de Vercel. Se programa el
-// día que Wellhub dé las credenciales (docs/integraciones/wellhub.md).
+// Programado el 12-nov-2026 (migr 20261112102724). Sin WELLHUB_API_TOKEN y
+// WELLHUB_WEBHOOK_SECRET no hace nada; en ese caso la respuesta dice cuáles
+// faltan (solo los NOMBRES, nunca los valores) para no tener que adivinarlo
+// (docs/integraciones/wellhub.md).
 export async function POST(req: NextRequest) {
   const secret = process.env.SUPABASE_CRON_SECRET;
   if (!secret) {
@@ -27,7 +28,10 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Service role no configurada' }, { status: 503 });
   try {
     const resumen = await sincronizarWellhub(admin);
-    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen });
+    const faltan = resumen.sinCredenciales
+      ? ['WELLHUB_API_TOKEN', 'WELLHUB_WEBHOOK_SECRET'].filter(v => !process.env[v]?.trim())
+      : undefined;
+    return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, ...(faltan && { faltan }) });
   } catch (err) {
     Sentry.captureException(err, { tags: { cron: 'wellhub-horario' } });
     return errorInterno('cron/wellhub-horario:POST', err, 'Error sincronizando Wellhub.');
