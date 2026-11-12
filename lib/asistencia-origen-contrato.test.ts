@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 // no dice nada y la BD lo anota como PERSONA.
 const admin = readFileSync('lib/db/supabase-data-admin.ts', 'utf8');
 const auto = readFileSync('lib/checkin/marcar-asistidas-automatico.ts', 'utf8');
-const migracion = readFileSync('supabase/migrations/20261113100000_metricas_higiene_datos.sql', 'utf8');
+const migracion = readFileSync('supabase/migrations/20261112233833_metricas_higiene_datos.sql', 'utf8');
 
 test('el barrido de no-shows marca su origen como SISTEMA', () => {
   assert.match(admin, /estado: 'NO_ASISTIO', asistencia_origen: 'SISTEMA'/);
