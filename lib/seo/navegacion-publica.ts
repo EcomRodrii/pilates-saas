@@ -181,6 +181,7 @@ export const PIE_PUBLICO: GrupoMenu[] = [
       { href: '/comparativa/tentare-vs-momence', label: 'Alternativa a Momence' },
       { href: '/comparativa/tentare-vs-mindbody', label: 'Alternativa a Mindbody' },
       { href: '/comparativa/tentare-vs-timp', label: 'Alternativa a TIMP' },
+      { href: '/comparativa/tentare-vs-lorari', label: 'Alternativa a Lorari' },
       { href: '/glosario', label: 'Glosario' },
       { href: '/ayuda', label: 'Centro de Ayuda' },
     ],
@@ -205,4 +206,18 @@ export const PIE_PUBLICO: GrupoMenu[] = [
       { href: '/cookies', label: 'Cookies' },
     ],
   },
+];
+
+
+/**
+ * El pie VISIBLE de toda la web pública (nov-2026): cinco columnas cortas y ordenadas, en vez de la lista entera. Cada href tiene que
+ * existir en `PIE_PUBLICO` (de ahí salen las etiquetas y el test de enlaces vivos); el mapa completo sigue en el HTML, plegado en «Ver
+ * todo el mapa del sitio», así que ninguna página pierde enlaces internos. «Alternativas» enseña solo el nombre de cada programa.
+ */
+export const PIE_RESUMIDO: { titulo: string; hrefs: string[] }[] = [
+  { titulo: 'Producto', hrefs: ['/funcionalidades/reservas-online', '/funcionalidades/bonos-y-membresias', '/funcionalidades/cobros-recurrentes', '/funcionalidades/app-para-alumnas', '/funcionalidades', '/precios'] },
+  { titulo: 'Soluciones', hrefs: ['/soluciones/programa-de-gestion-para-estudio-de-pilates', '/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/soluciones/abrir-un-estudio', '/soluciones/cambiar-de-software', '/soluciones'] },
+  { titulo: 'Alternativas', hrefs: ['/comparativa/tentare-vs-bsport', '/comparativa/tentare-vs-eversports', '/comparativa/tentare-vs-momence', '/comparativa/tentare-vs-mindbody', '/comparativa/tentare-vs-timp', '/comparativa/tentare-vs-lorari'] },
+  { titulo: 'Recursos', hrefs: ['/recursos', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/recursos/rentabilidad-estudio-de-pilates', '/recursos/checklist-elegir-software-estudio', '/glosario', '/ayuda'] },
+  { titulo: 'Empresa', hrefs: ['/blog', '/seguridad', '/soporte'] },
 ];

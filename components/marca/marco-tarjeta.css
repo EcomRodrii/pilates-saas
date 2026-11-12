@@ -4,15 +4,15 @@
  * (components/demo/demo.css); van aquí con sus colores escritos porque el alta no carga los tokens
  * de la web (--w-*) y los de la tarjeta de aquí (--t-*) cambian en oscuro.
  */
-.mt-raiz { position: relative; min-height: 100dvh; display: grid; place-items: center; padding: clamp(0px, 3vw, 32px); background: #F6F4EF; }
+.mt-raiz { position: relative; min-height: 100dvh; display: grid; place-items: center; padding: clamp(0px, 3vw, 32px); background: #F9FDFC; }
 .mt-fondo { position: fixed; inset: 0; overflow: hidden; pointer-events: none; }
 .mt-fondo::before, .mt-fondo::after { content: ''; position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
-.mt-fondo::before { width: 46vmax; height: 46vmax; left: -12vmax; top: -14vmax; background: #D9C29E; }
+.mt-fondo::before { width: 46vmax; height: 46vmax; left: -12vmax; top: -14vmax; background: #BFDCCB; }
 .mt-fondo::after { width: 40vmax; height: 40vmax; right: -12vmax; bottom: -14vmax; background: #B9C09A; }
 .mt-tarjeta {
   position: relative; width: 100%; max-width: 760px; min-height: min(640px, 100dvh);
   display: flex; flex-direction: column; background: #FFFFFF; border-radius: 24px;
-  border: 1px solid rgba(34, 38, 31, .12); box-shadow: 0 24px 48px -22px rgba(34, 38, 31, .42), 0 2px 6px rgba(34, 38, 31, .06);
+  border: 1px solid rgba(11, 26, 18, .12); box-shadow: 0 24px 48px -22px rgba(11, 26, 18, .42), 0 2px 6px rgba(11, 26, 18, .06);
 }
 .mt-tarjeta[data-ancho='estrecho'] { max-width: 520px; }
 .mt-tarjeta[data-ancho='amplio'] { max-width: 1120px; }

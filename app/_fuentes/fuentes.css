@@ -30,6 +30,7 @@
   --font-manuscrita: var(--font-manuscrita-latin), var(--font-manuscrita-ext), 'Sacramento Fallback';
   --font-libre-caslon: var(--font-libre-caslon-latin), var(--font-libre-caslon-ext), 'Libre Caslon Text Fallback';
   --font-figtree: var(--font-figtree-latin), var(--font-figtree-ext), 'Figtree Fallback';
+  --font-inter-tight: var(--font-intertight-latin), var(--font-intertight-ext), 'Inter Tight Fallback';
 }
 
 /*
@@ -54,3 +55,4 @@
 @font-face { font-family: "Sacramento Fallback"; src: local("Arial"); ascent-override: 126.38%; descent-override: 71.91%; line-gap-override: 0%; size-adjust: 73.6%; }
 @font-face { font-family: "Libre Caslon Text Fallback"; src: local("Times New Roman"); ascent-override: 82.44%; descent-override: 22.1%; line-gap-override: 0%; size-adjust: 117.66%; }
 @font-face { font-family: "Figtree Fallback"; src: local("Arial"); ascent-override: 94.32%; descent-override: 24.82%; line-gap-override: 0%; size-adjust: 100.72%; }
+@font-face { font-family: "Inter Tight Fallback"; src: local("Arial"); ascent-override: 96.88%; descent-override: 24.15%; line-gap-override: 0%; size-adjust: 100%; }

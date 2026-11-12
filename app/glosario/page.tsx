@@ -396,7 +396,7 @@ export default function GlosarioPage() {
         .glo-miga a { color: rgba(255,255,255,.72); }
         .glo-miga a:hover { color: #fff; }
         .glo-miga-aqui { color: #fff; }
-        .glo-eyebrow { margin: 0 0 16px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #D9C29E; }
+        .glo-eyebrow { margin: 0 0 16px; font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: #BFDCCB; }
         .glo-titular { font-weight: 800; font-size: clamp(32px,5vw,54px); line-height: 1.03; letter-spacing: -.035em;
           margin: 0 0 18px; text-wrap: balance; }
         .glo-entrada { font-size: clamp(15.5px,1.4vw,17.5px); line-height: 1.6; color: rgba(255,255,255,.82); max-width: 640px; margin: 0; }
@@ -404,7 +404,7 @@ export default function GlosarioPage() {
         .glo-indice { position: relative; z-index: 3; display: flex; flex-wrap: wrap; gap: 10px;
           max-width: 900px; margin: clamp(-30px,-3vw,-22px) auto 0; padding: 0 clamp(20px,4vw,44px) clamp(28px,3vw,36px); }
         .glo-indice-chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 600;
-          color: #22251A; background: #fff; border: 1px solid #E7E7E0; border-radius: 999px; padding: 9px 16px 9px 14px;
+          color: #0A2014; background: #fff; border: 1px solid #E7E7E0; border-radius: 999px; padding: 9px 16px 9px 14px;
           box-shadow: 0 14px 30px -18px rgba(20,21,15,.35); transition: transform .18s, box-shadow .18s; }
         .glo-indice-chip:hover { transform: translateY(-2px); box-shadow: 0 18px 34px -16px rgba(20,21,15,.42); }
         .glo-indice-n { font-size: 11.5px; font-weight: 700; color: ${MUTED}; background: #F1F2EA; border-radius: 999px; padding: 1px 7px; }

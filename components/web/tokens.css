@@ -8,35 +8,39 @@
  * web. Con un prefijo que nadie más usa no cambia nada allí. Nada de selectores
  * de elemento en este fichero.
  *
- * ⚠️ No es `brand/tokens.css` (el del panel, con la oliva retirada). La web va
- * con la paleta del fundador: Olive, Sand, Cream, Ink (fase 1, 19-oct-2026).
+ * ⚠️ No es `brand/tokens.css` (el del panel, con la oliva retirada).
+ *
+ * Nov-2026: la web pública adopta el diseño de Figma de la home nueva. Los NOMBRES de los tokens no cambian (`--w-olive`,
+ * `--w-sand`, `--w-cream`, `--w-ink`…) para que ninguna página ni test tenga que tocarse; cambian sus VALORES: «olive» es ahora el verde
+ * del diseño (#214E36), «sand» su verde menta claro (el acento sobre verde oscuro), «cream» el fondo menta casi blanco y «ink» el
+ * verde casi negro. Tipografía: Inter Tight. Contrastes medidos (WCAG) sobre Cream/Piedra/Papel en los comentarios de cada token.
  */
 :root {
   /* ── Color: los cuatro de marca ───────────────────────────────────────── */
-  --w-olive: #343825;
-  --w-olive-hondo: #22251A;            /* hover de lo que va en oliva */
-  --w-sand: #D9C29E;
-  --w-cream: #F6F4EF;
-  --w-ink: #22261F;
+  --w-olive: #214E36;                  /* el verde del diseño; 9,3:1 sobre Cream */
+  --w-olive-hondo: #0A2014;            /* hover de lo que va en verde; la banda oscura */
+  --w-sand: #BFDCCB;                   /* verde menta: el acento sobre verde (6,5:1 sobre Olive, 11,6:1 sobre Hondo) */
+  --w-cream: #F9FDFC;                  /* el fondo de la web */
+  --w-ink: #0B1A12;
 
   /* ── Superficies claras ── */
   --w-papel: #FFFFFF;
-  --w-piedra: #EEEEE8;                 /* fondo de página de hoy: se retira al migrar cada sección */
-  --w-sand-claro: #EFE6D6;
+  --w-piedra: #EDF3F0;                 /* el fondo de las tarjetas del diseño */
+  --w-sand-claro: #DCE8E1;             /* las píldoras del diseño */
 
   /* ── Texto sobre claro (contraste medido sobre Cream; ver README) ── */
   --w-texto: var(--w-ink);             /* 14,0:1 */
-  --w-texto-2: #4A4E3F;                /* 7,8:1  */
-  --w-texto-3: #5C604F;                /* 5,9:1 (5,6 sobre Piedra): el mínimo para texto pequeño */
-  --w-linea: rgba(34, 38, 31, .12);
-  --w-linea-fuerte: rgba(34, 38, 31, .2);
+  --w-texto-2: #3A4A41;                /* 9,2:1  */
+  --w-texto-3: #586860;                /* 5,8:1 (5,2 sobre Piedra): el mínimo para texto pequeño */
+  --w-linea: rgba(11, 26, 18, .12);
+  --w-linea-fuerte: rgba(11, 26, 18, .2);
 
   /* ── Banda oscura (pie, cierre) ── */
   --w-noche: var(--w-ink);
   --w-sobre-noche: var(--w-cream);     /* 14,0:1 */
-  --w-sobre-noche-2: #C9C6B8;          /* 9,0:1  */
-  --w-sobre-noche-3: #A9A797;          /* 6,4:1: el mínimo para texto pequeño sobre Ink */
-  --w-linea-noche: rgba(246, 244, 239, .12);
+  --w-sobre-noche-2: #C3D3C9;          /* 10,9:1 sobre Hondo, 6,1:1 sobre Olive */
+  --w-sobre-noche-3: #A9BDB0;          /* 8,0:1 sobre Hondo, 4,8:1 sobre Olive: el mínimo para texto pequeño */
+  --w-linea-noche: rgba(249, 253, 252, .12);
 
   /* ── Estados (AA sobre Cream y sobre blanco) ── */
   --w-exito: #2F6B4F;                  /* 5,7:1 */
@@ -51,7 +55,7 @@
   --w-vidrio-solido: #F7F6F1;          /* sin backdrop-filter */
 
   /* ── Tipografía (la sans ya cargada: Plus Jakarta Sans) ── */
-  --w-fuente: var(--font-jakarta), system-ui, sans-serif;
+  --w-fuente: var(--font-inter-tight), var(--font-jakarta), system-ui, sans-serif;
   --w-fuente-mono: var(--font-plex-mono), ui-monospace, monospace;
   --w-fs-display: clamp(2.5rem, 1.6rem + 3.6vw, 4.5rem);   /* 40 → 72 */
   --w-fs-h1: clamp(2.125rem, 1.6rem + 2.2vw, 3.5rem);      /* 34 → 56 */
@@ -60,13 +64,13 @@
   --w-fs-cuerpo: clamp(1rem, .95rem + .25vw, 1.125rem);    /* 16 → 18 */
   --w-fs-pequeno: .875rem;                                  /* 14 */
   --w-fs-mini: .8125rem;                                    /* 13: nada más pequeño en la web */
-  --w-peso-titular: 600;
-  --w-peso-enfasis: 600;
+  --w-peso-titular: 500;
+  --w-peso-enfasis: 500;
   --w-peso-cuerpo: 400;
-  --w-track-display: -.04em;
-  --w-track-h1: -.035em;
-  --w-track-h2: -.03em;
-  --w-track-h3: -.015em;
+  --w-track-display: -.025em;
+  --w-track-h1: -.022em;
+  --w-track-h2: -.018em;
+  --w-track-h3: -.012em;
   --w-alto-display: 1.02;
   --w-alto-titular: 1.1;
   --w-alto-cuerpo: 1.6;
@@ -80,8 +84,8 @@
   --w-r-pildora: 999px;
   --w-r-tarjeta: 24px;
   --w-r-control: 14px;
-  --w-sombra-flotante: 0 24px 48px -22px rgba(34, 38, 31, .42), 0 2px 6px rgba(34, 38, 31, .06);
-  --w-sombra-suave: 0 14px 44px rgba(34, 38, 31, .14);
+  --w-sombra-flotante: 0 24px 48px -22px rgba(10, 32, 20, .42), 0 2px 6px rgba(10, 32, 20, .06);
+  --w-sombra-suave: 0 14px 44px rgba(10, 32, 20, .14);
 
   /* ── Contenedores ── */
   --w-ancho: 1200px;

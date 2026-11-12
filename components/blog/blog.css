@@ -112,7 +112,7 @@
 .bl-cuerpo strong { font-weight: 600; }
 .bl-cuerpo a { color: var(--w-olive); text-decoration: underline; text-underline-offset: 3px; }
 .bl-cuerpo blockquote { margin: 1.6em 0; padding: 2px 0 2px 22px; border-left: 3px solid var(--w-olive); font-size: clamp(1.25rem, 1.1rem + .6vw, 1.5rem); line-height: 1.4; letter-spacing: -.01em; font-weight: 500; }
-.bl-cuerpo aside.bl-nota { margin: 1.6em 0; padding: 18px 22px; border-radius: var(--w-r-control, 14px); background: var(--w-sand-claro, #EFE6D6); }
+.bl-cuerpo aside.bl-nota { margin: 1.6em 0; padding: 18px 22px; border-radius: var(--w-r-control, 14px); background: var(--w-sand-claro, #DCE8E1); }
 .bl-cuerpo aside.bl-nota p { margin: 0; font-size: 1rem; line-height: 1.6; }
 .bl-cuerpo aside.bl-nota strong { display: block; margin-bottom: 4px; }
 

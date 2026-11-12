@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { LandingCliente } from '@/components/landing/LandingCliente';
-import { Inter_Tight } from 'next/font/google';
 import { Cabecera } from '@/components/home-nueva/cabecera';
 import { Revelar } from '@/components/home-nueva/revelar';
-import { Beneficios, Confianza, Contacto, Funciones, Heroe, LlamadaFinal, Pie, Preguntas, Precios } from '@/components/home-nueva/secciones';
+import { Beneficios, Confianza, Contacto, Funciones, Heroe, LlamadaFinal, Preguntas, Precios } from '@/components/home-nueva/secciones';
+import { PieWeb } from '@/components/web/PieWeb';
 import { estadoDemo } from '@/lib/demo/interruptor';
 import '@/components/home-nueva/figma.css';
 import { logosClientesLanding } from '@/lib/landing/logos-clientes-servidor';
@@ -74,14 +74,13 @@ export const metadata: Metadata = {
 // en LandingCliente; aquí solo cambia lo que se ve.
 //
 // «Pedir una demo» abre la demo personalizada (/demo) cuando está abierta a todos (lib/demo/interruptor.ts); si no, baja al contacto.
-const fuente = Inter_Tight({ subsets: ['latin'], weight: ['300', '400', '500', '600'], variable: '--lf-fuente', display: 'swap' });
 
 export default async function HomePage() {
   const logos = await logosClientesLanding();
   const demoHref = estadoDemo(process.env.DEMO_PERSONALIZADA).boton ? '/demo' : '#contacto';
   return (
     <LandingCliente conArmazonPropio>
-      <div className={`${fuente.variable} lf`}>
+      <div className="lf">
         <Revelar />
         <Cabecera />
         <main>
@@ -94,7 +93,7 @@ export default async function HomePage() {
           <Preguntas />
           <Contacto />
         </main>
-        <Pie />
+        <PieWeb />
       </div>
     </LandingCliente>
   );

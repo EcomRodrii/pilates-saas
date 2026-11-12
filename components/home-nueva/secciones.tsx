@@ -3,16 +3,11 @@ import {
   ArrowUpRight, BadgeCheck, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, CircleCheck, CircleDollarSign, Code2, Contact, GitFork, Layers, Lock,
   Minus, MousePointerClick, Play, Plus, ShieldCheck, Star, Users,
 } from 'lucide-react';
-import { LogoTentare } from '@/components/marca/logo-tentare';
 import { FAQ_ITEMS } from '@/components/landing/data';
-import { WHATSAPP_SOPORTE } from '@/components/landing/enlaces';
-import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { FRASE_FOUNDING, LIMITES_GRATIS, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
-import { LEGAL } from '@/lib/legal-info';
-import { PIE_PUBLICO } from '@/lib/seo/navegacion-publica';
 import type { LogoCliente } from '@/lib/landing/logos-clientes';
-import { ALT, BENEFICIOS, CONFIANZA, CONTACTO, CTA, FAQ, FUNCIONES, HERO, PIE, PRECIOS } from './contenido';
+import { ALT, BENEFICIOS, CONFIANZA, CONTACTO, CTA, FAQ, FUNCIONES, HERO, PRECIOS } from './contenido';
 import { Foto } from './foto';
 import { FormularioContacto } from './formulario-contacto';
 
@@ -340,56 +335,5 @@ export function Contacto() {
       </div>
       <FormularioContacto />
     </section>
-  );
-}
-
-function Linkedin() { return (<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4.98 3.5A2.5 2.5 0 1 1 5 8.5a2.5 2.5 0 0 1-.02-5ZM3 9.75h4V21H3V9.75Zm6.5 0h3.8v1.6h.1c.5-1 1.8-2 3.7-2 4 0 4.7 2.6 4.7 6V21h-4v-5c0-1.2 0-2.7-1.7-2.7s-1.9 1.3-1.9 2.6V21h-4V9.75Z" /></svg>); }
-function Instagram() { return (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg>); }
-
-// El pie: el diseño de Figma (marca + lema a la izquierda, columnas a la derecha), con los enlaces REALES de la web pública
-// (lib/seo/navegacion-publica.ts: la misma fuente que el pie del resto de páginas, con su test de enlaces vivos). Los títulos de columna
-// son párrafos y el mapa es `role="navigation"`, no un <nav>: la medición de la home toma el primer <nav> al subir desde el enlace y el
-// clic se contaría como «nav» y no como «pie» (mismo motivo que PieWeb). Solo se enlazan las redes que existen: Instagram y LinkedIn.
-export function Pie() {
-  const enlaceWa = enlaceWhatsApp(WHATSAPP_SOPORTE, 'Hola, tengo una duda sobre Tentare:') ?? `https://wa.me/${WHATSAPP_SOPORTE.replace(/\D/g, '')}`;
-  const quitar = new Set(['/sobre-tentare']);
-  const columnas = PIE_PUBLICO.filter(c => c.titulo !== 'Legal');
-  const legal = PIE_PUBLICO.find(c => c.titulo === 'Legal')?.enlaces ?? [];
-  return (
-    <footer className="lf-pie">
-      <div className="lf-pie-rejilla" role="navigation" aria-label="Mapa del sitio">
-        <div className="lf-pie-marca">
-          <Link href="/" aria-label="Tentare — inicio"><LogoTentare formato="horizontal" tinta="negativo" alto={30} decorativo /></Link>
-          <p className="lf-pie-lema">{PIE.lema}</p>
-          <p className="lf-pie-texto">{PIE.texto}</p>
-        </div>
-        {columnas.map(c => (
-          <div key={c.titulo} className="lf-pie-col">
-            <p className="lf-pie-titulo">{c.titulo.toUpperCase()}</p>
-            <ul>
-              {c.enlaces.filter(e => !quitar.has(e.href)).map(e => <li key={e.href}><Link href={e.href}>{e.label}</Link></li>)}
-              {/* La home enlaza CADA comparativa (e2e/paginas-comerciales-seo): el pie común no trae la de Lorari. */}
-              {c.titulo === 'Recursos' && !c.enlaces.some(e => e.href === '/comparativa/tentare-vs-lorari') && (
-                <li><Link href="/comparativa/tentare-vs-lorari">Alternativa a Lorari</Link></li>
-              )}
-              {c.titulo === 'Empresa' && (
-                <>
-                  <li><a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></li>
-                  <li><a href={enlaceWa} target="_blank" rel="noopener noreferrer">WhatsApp</a></li>
-                </>
-              )}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div className="lf-pie-base">
-        <p>{PIE.copyright} · Software de gestión para estudios de Pilates y yoga · Hecho en España</p>
-        <p className="lf-pie-legal">{legal.map((l, i) => <span key={l.href}>{i > 0 && ' · '}<Link href={l.href}>{l.label}</Link></span>)}</p>
-        <ul className="lf-redes">
-          <li><a className="lf-red" href="https://www.linkedin.com/company/tentare/" target="_blank" rel="noopener noreferrer" aria-label="Tentare en LinkedIn"><Linkedin /></a></li>
-          <li><a className="lf-red" href="https://www.instagram.com/tentareapp/" target="_blank" rel="noopener noreferrer" aria-label="Tentare en Instagram"><Instagram /></a></li>
-        </ul>
-      </div>
-    </footer>
   );
 }

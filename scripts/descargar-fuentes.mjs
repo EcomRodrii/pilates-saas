@@ -41,6 +41,8 @@ const FAMILIAS = [
   // Las dos del Brand System (brand/brand-os.md §6): solo los pesos aprobados.
   { familia: 'Schibsted Grotesk', dir: 'schibstedgrotesk', pesos: [400, 500, 600] },
   { familia: 'DM Mono', dir: 'dmmono', pesos: [400, 500] },
+  // La web pública nueva (nov-2026, el diseño de Figma): titulares y cuerpo.
+  { familia: 'Inter Tight', dir: 'intertight', pesos: [400, 500, 600] },
 ];
 
 // `node scripts/descargar-fuentes.mjs schibstedgrotesk dmmono` baja solo esas
