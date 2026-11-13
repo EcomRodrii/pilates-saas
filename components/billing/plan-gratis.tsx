@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { AVISO_PCT, FRASE_PLAN_GRATIS, textoLimite, textoLimites, type EstadoGratisApi } from '@/lib/billing/plan-gratis';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
-import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
 import { Baldosa } from '@/components/dashboard/vivo';
 
 const fechaLarga = (ymd: string) =>
