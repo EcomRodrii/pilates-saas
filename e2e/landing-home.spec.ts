@@ -109,12 +109,12 @@ test('el héroe pide la foto que le toca: en móvil el recorte vertical, en escr
 
 // La home anterior decía «sin tarjeta, sin permanencia» bajo los botones y la nueva lo perdió (auditoría de visibilidad, 13-nov-2026):
 // quien duda de si «Pedir una demo» le compromete a algo tiene que leer, ahí mismo, lo que cuesta empezar. Sale de las constantes del plan gratis.
-test('el héroe y la llamada final dicen lo que cuesta empezar: gratis hasta el tope, sin tarjeta, sin permanencia', async ({ page }) => {
+test('el héroe y la llamada final dicen lo que cuesta empezar: gratis hasta el tope de reservas, sin tarjeta, sin permanencia', async ({ page }) => {
   await page.goto('/', { waitUntil: 'load' });
   const lineas = page.locator('.lf-garantia');
   await expect(lineas).toHaveCount(2);
   for (const l of await lineas.all()) {
-    await expect(l).toContainText('Gratis hasta 150 alumnas activas');
+    await expect(l).toContainText('Gratis hasta 150 reservas al mes');
     await expect(l).toContainText('Sin tarjeta');
     await expect(l).toContainText('Sin permanencia');
   }

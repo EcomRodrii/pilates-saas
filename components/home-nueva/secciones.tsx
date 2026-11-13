@@ -4,7 +4,7 @@ import {
   Minus, MousePointerClick, Play, Plus, ShieldCheck, Star, Users,
 } from 'lucide-react';
 import { FAQ_ITEMS } from '@/components/landing/data';
-import { FRASE_FOUNDING, GRATIS_ALUMNAS, LIMITES_GRATIS, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { FRASE_FOUNDING, GRATIS_CON_LIMITES, LIMITES_GRATIS, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
 import type { LogoCliente } from '@/lib/landing/logos-clientes';
 import { ALT, BENEFICIOS, CONFIANZA, CONTACTO, CTA, FAQ, FUNCIONES, HERO, PRECIOS } from './contenido';
@@ -31,7 +31,7 @@ function Boton({ href, children, tipo = 'claro' }: { href: string; children: Rea
 }
 
 /** La tranquilidad de entrada, bajo los botones (la home anterior la llevaba y la nueva la perdió). Sale de las constantes del plan gratis: si el tope cambia, cambia aquí. */
-const GARANTIA = [`Gratis hasta ${GRATIS_ALUMNAS} alumnas activas`, 'Sin tarjeta', 'Sin permanencia'] as const;
+const GARANTIA = [GRATIS_CON_LIMITES, 'Sin tarjeta', 'Sin permanencia'] as const;
 
 function Garantia() {
   return <p className="lf-garantia">{GARANTIA.map(t => <span key={t}>{t}</span>)}</p>;
