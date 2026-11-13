@@ -98,7 +98,7 @@ test('plan gratis en seco: el registro del día en pantalla, con los estudios po
   const gratis = (s: string) => ({ estado: 'GRATIS' as const, motivo: null, esDemo: s === 'demo' });
   const informe = informeGratis({
     studioId: 'b', estadoSuscripcion: 'gratis', hoy, medidoEn: `${hoy}T10:00:00Z`, grupoDeHoy: ['b', 'demo'],
-    usos: new Map([['b', { alumnasActivas: 100, reservas30Dias: 10 }], ['demo', { alumnasActivas: 60, reservas30Dias: 0 }]]),
+    usos: new Map([['b', { alumnasActivas: 100, reservas30Dias: 100 }], ['demo', { alumnasActivas: 60, reservas30Dias: 60 }]]),
     guardado: [], miembros: new Map([['b', gratis('b')], ['demo', gratis('demo')]]),
   });
   const nombres = new Map([['b', 'Estudio B'], ['demo', 'Estudio demo']]);

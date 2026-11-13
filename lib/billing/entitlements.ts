@@ -204,8 +204,8 @@ export function addonsDe(studio: EstudioConPlan): Addon[] {
 /**
  * Founding Studio GRATIS (decisión del fundador, 15-oct-2026; reglas en
  * plan-gratis.ts): un estudio con `subscription_status = 'gratis'` usa TODO
- * Tentare salvo varias sedes y la app propia, hasta 150 alumnas activas y 250
- * reservas al mes.
+ * Tentare salvo varias sedes y la app propia, hasta 150 reservas al mes
+ * (sin tope de alumnas, decisión del fundador del 13-nov-2026).
  * Lo que cuesta dinero por uso va con tope: el asistente, 50 consultas al mes
  * (el `plan` de la fila es 'BASE', así que `ia_cuota_mensual()` en SQL da el
  * mismo 50), y la IA de notas, campañas y fichas, TOPE_IA_GRATIS_DIA al día
@@ -213,7 +213,7 @@ export function addonsDe(studio: EstudioConPlan): Addon[] {
  * features dan igual, porque `suscripcionActiva` dice que no.
  */
 export const ENTITLEMENTS_GRATIS: Entitlements = {
-  maxSocios: 150,
+  maxSocios: Infinity,
   features: { gamificacion: true, marketing: true, ia: true, multiCentro: false, decisiones: true, marca: true, sustitucionesAutonomas: true, asistente: true, appPropia: false },
   consultasAsistenteMes: 50,
 };

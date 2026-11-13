@@ -149,15 +149,15 @@ test('las cifras dicen el cambio frente al periodo anterior y su fuente', () => 
 
 test('el plan gratis se mide por dueña, como el gate', () => {
   const estados = estadosGratisPorEstudio([
-    { studioId: 'a1', ownerId: 'o1', alumnasActivas: 70, reservas30Dias: 130, excedidoDesde: null, medidoEn: hace(1) },
-    { studioId: 'a2', ownerId: 'o1', alumnasActivas: 60, reservas30Dias: 120, excedidoDesde: '2026-10-10', medidoEn: hace(1) },
+    { studioId: 'a1', ownerId: 'o1', alumnasActivas: 70, reservas30Dias: 70, excedidoDesde: null, medidoEn: hace(1) },
+    { studioId: 'a2', ownerId: 'o1', alumnasActivas: 60, reservas30Dias: 60, excedidoDesde: '2026-10-10', medidoEn: hace(1) },
     { studioId: 'b1', ownerId: 'o2', alumnasActivas: 10, reservas30Dias: 20, excedidoDesde: null, medidoEn: hace(1) },
     { studioId: 'c1', ownerId: 'o3', alumnasActivas: null, reservas30Dias: null, excedidoDesde: null, medidoEn: null },
   ], '2026-10-16');
-  // 250 reservas entre los dos: no pasa (el límite es «más de 250»), pero sí está cerca.
+  // 130 reservas entre los dos: no pasa (el límite es «más de 150»), pero sí está cerca.
   assert.equal(estados.get('a1')!.fase, 'CERCA');
   assert.equal(estados.get('a1')!.estudiosDelGrupo, 2);
-  assert.equal(estados.get('a1')!.uso!.reservas30Dias, 250);
+  assert.equal(estados.get('a1')!.uso!.reservas30Dias, 130);
   assert.equal(estados.get('b1')!.fase, 'DENTRO');
   // Sin medir no se dice nada del uso (nunca un 0 inventado).
   assert.equal(estados.get('c1')!.fase, 'SIN_MEDIR');
@@ -165,7 +165,7 @@ test('el plan gratis se mide por dueña, como el gate', () => {
 
 test('estudios que miraría: los peores primero, y los gratis solo si se acercan al límite', () => {
   const gratis = estadosGratisPorEstudio([
-    { studioId: 'g1', ownerId: 'o1', alumnasActivas: 30, reservas30Dias: 231, excedidoDesde: null, medidoEn: hace(1) },
+    { studioId: 'g1', ownerId: 'o1', alumnasActivas: 30, reservas30Dias: 139, excedidoDesde: null, medidoEn: hace(1) },
     { studioId: 'g2', ownerId: 'o2', alumnasActivas: 5, reservas30Dias: 12, excedidoDesde: null, medidoEn: hace(1) },
   ], '2026-10-16');
   const filas = estudiosAMirar(
@@ -179,7 +179,7 @@ test('estudios que miraría: los peores primero, y los gratis solo si se acercan
   assert.deepEqual(filas.map(f => f.nombre), ['Impago', 'Sin reservas', 'Gratis cerca', 'Bien']);
   assert.equal(filas[0].plan, 'Estudio');
   assert.equal(filas[1].uso, '0 reservas en 7 días (antes 41)');
-  assert.equal(filas[2].uso, '231 de 250 reservas · 30 de 150 alumnas');
+  assert.equal(filas[2].uso, '139 de 150 reservas · 30 alumnas');
   assert.equal(filas[2].estado, 'Cerca del límite');
   assert.equal(filas[3].tono, 'verde');
 });

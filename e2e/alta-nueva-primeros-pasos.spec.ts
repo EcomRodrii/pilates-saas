@@ -24,7 +24,7 @@ const RECIEN = {
 };
 const GRATIS = {
   fase: 'DENTRO', uso: { alumnasActivas: 2, reservas30Dias: 3 }, motivos: [], diasRestantes: 0, cierraEl: null,
-  limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30,
+  limites: { reservasMes: 150 }, margenDias: 30,
 };
 
 interface Red {
@@ -257,8 +257,8 @@ test.describe('«Tu plan, sin sorpresas», una vez tras la primera reserva', () 
     const plan = page.getByTestId('tu-plan');
     await expect(plan.getByRole('heading', { name: 'Tu plan, sin sorpresas' })).toBeVisible({ timeout: 60_000 });
     await expect(plan).toContainText('Founding Studio · gratis');
-    await expect(plan.getByRole('meter', { name: 'Clientes activos' })).toHaveAttribute('aria-valuenow', '2');
-    await expect(plan.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '250');
+    await expect(plan.getByRole('meter', { name: 'Clientes activos' })).toHaveCount(0);
+    await expect(plan.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '150');
     await expect(plan).toContainText('Centro de Control, sustituciones automáticas y redacción con IA aparte');
     await expect(plan.getByRole('link', { name: 'Ver los planes' })).toHaveAttribute('href', '/suscripcion');
     await expect.poll(() => pasos(red, 'plan_ensenado').length).toBe(1);

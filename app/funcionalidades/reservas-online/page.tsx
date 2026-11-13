@@ -23,7 +23,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un software de reservas y pagos para un estudio de Pilates?',
-    a: 'Tentare es gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
+    a: 'Tentare es gratis hasta 150 reservas al mes, y sin permanencia. Las reservas y los cobros están en los tres planes, y Tentare no añade comisión sobre lo que cobras: solo pagas la de Stripe por procesar cada pago con tarjeta. Los planes y límites exactos están en la página de precios.',
   },
   {
     q: '¿Mis alumnas tienen que instalarse una app?',
@@ -118,7 +118,7 @@ export default function ReservasPage() {
           En Tentare la reserva comprueba el aforo y las reglas de la clase en la misma operación. El cobro con tarjeta
           va a través de tu cuenta de Stripe, de modo que el dinero va de tu alumna a tu cuenta y Tentare no añade
           comisión; lo único aparte es la de Stripe. Si cobras por domiciliación, Tentare te prepara la remesa SEPA para tu
-          banco. Las facturas se emiten automáticamente, con numeración legal. Gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia: los{' '}
+          banco. Las facturas se emiten automáticamente, con numeración legal. Gratis hasta 150 reservas al mes, y sin permanencia: los{' '}
           <Link href="/precios">planes y límites</Link> están en la página de precios.
         </p>
         <p>

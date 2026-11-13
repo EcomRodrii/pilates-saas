@@ -4,7 +4,7 @@ import { useEffect, useId } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { CATEGORIAS, FILA_TOPE_ALUMNAS, type FilaPlan, type ValorPlan } from '@/lib/billing/catalogo-planes';
-import { ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, SI_PASAS } from '@/lib/landing/founding-gratis';
+import { ENTITLEMENTS_FOUNDING_GRATIS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, SI_PASAS } from '@/lib/landing/founding-gratis';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Comparativa completa por categorías. La usan /precios (pública), la hoja
@@ -54,7 +54,7 @@ export function ComparativaPlanes({
   const valorDe = (fila: FilaPlan, p: Plan): ValorPlan => {
     if (!foundingGratis || p !== 'BASE') return fila.valor(p);
     // El tope de alumnas es solo de lo gratis: pasado, Founding Studio sigue sin tope.
-    if (fila.id === FILA_TOPE_ALUMNAS) return { tipo: 'texto', texto: `Gratis hasta ${GRATIS_ALUMNAS}` };
+    if (fila.id === FILA_TOPE_ALUMNAS) return { tipo: 'texto', texto: 'Sin límite' };
     return fila.valor(p, ENTITLEMENTS_FOUNDING_GRATIS);
   };
   // Una fila más, justo debajo de la de alumnas: el límite de lo gratis. Pasado,

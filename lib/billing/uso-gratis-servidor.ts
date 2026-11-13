@@ -41,7 +41,7 @@ import { detectarVinculosGratis, estudiosVinculadosGratis } from './vinculos-gra
 export const HORAS_VIGENCIA = 12;
 const MINUTOS_ENTRE_INTENTOS = 15;
 const HORAS_SIN_MEDIR_AVISO = 24;
-/** Ventana de las reservas: «250 reservas al mes» son 250 en las clases de los últimos 30 días. */
+/** Ventana de las reservas: «150 reservas al mes» son 150 en las clases de los últimos 30 días. */
 export const DIAS_VENTANA_RESERVAS = 30;
 /** Las que no son uso: no ocupan plaza. */
 const RESERVAS_QUE_NO_CUENTAN = '(CANCELADA,LISTA_ESPERA,PENDIENTE_APROBACION)';

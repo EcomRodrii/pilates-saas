@@ -360,7 +360,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/precios',
     titulo: 'Precios del software para estudios de Pilates y yoga | Tentare',
     descripcion:
-      'Sin permanencia: Founding Studio gratis hasta 150 alumnas activas y 250 reservas al mes (si pasas, 29 €/mes), Estudio 59 € y Cadena 149 €. Empieza gratis.',
+      'Sin permanencia: Founding Studio gratis hasta 150 reservas al mes (si pasas, 29 €/mes), Estudio 59 € y Cadena 149 €. Empieza gratis.',
     grupo: 'software',
     etiqueta: 'Precios',
     resumen: 'Tres planes, precio público, sin permanencia y Founding Studio gratis.',
@@ -490,19 +490,19 @@ export const PAGINAS: PaginaSeo[] = [
   // competidor concreto — ver docs/SEO-AI-MASTERPLAN.md §28.
   ...([
     ['tentare-vs-mindbody', 'Mindbody', ['/funcionalidades/cobros-recurrentes', '/seguridad'],
-      'Mindbody publica desde 99 € al mes por ubicación; el resto de planes, a consultar. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
+      'Mindbody publica desde 99 € al mes por ubicación; el resto de planes, a consultar. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-bsport', 'bsport', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia) en sustituciones y funciones.'],
+      'bsport no publica precios: hay que pedir presupuesto. Compáralo con Tentare (gratis hasta 150 reservas al mes, sin permanencia) en sustituciones y funciones.'],
     ['tentare-vs-momence', 'Momence', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): cobros y funciones, punto por punto.'],
+      'Momence no publica precios: pide hablar con ellos. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia): cobros y funciones, punto por punto.'],
     ['tentare-vs-timp', 'TIMP', ['/funcionalidades/sustituciones', '/funcionalidades/cobros-recurrentes'],
-      'TIMP publica desde 50 €/mes para un profesional (no consta si incluye IVA). Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
+      'TIMP publica desde 50 €/mes para un profesional (no consta si incluye IVA). Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-eversports', 'Eversports', ['/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
-      'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes), punto por punto.'],
+      'Eversports publica desde 33 €/mes (anual) o 41 €/mes (mensual), sin IVA y según reservas. Frente a Tentare (gratis hasta 150 reservas al mes), punto por punto.'],
     ['tentare-vs-lorari', 'Lorari', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'Lorari: 16 €/mes + IVA mes a mes, o 12 € pagando el año (hasta 50 alumnos). Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia).'],
+      'Lorari: 16 €/mes + IVA mes a mes, o 12 € pagando el año (hasta 50 alumnos). Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia).'],
     ['tentare-vs-bonsai', 'Bonsai', ['/funcionalidades/facturacion', '/funcionalidades/sustituciones'],
-      'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
+      'Bonsai: plan gratis (con un 3 % extra por cobro) o desde 29 €/mes + IVA con pago anual. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia), punto por punto.'],
     // Estos 5 no salieron de una lista genérica de "competidores conocidos"
     // como los 8 de arriba — son los que de verdad aparecen en el SERP español
     // para "gestión pilates"/"gestión centros de pilates", las 2 únicas
@@ -511,15 +511,15 @@ export const PAGINAS: PaginaSeo[] = [
     // en su web pública — donde no se encontró un dato, la fila dice
     // "no encontrada"/"no especifica", nunca se asumió.
     ['tentare-vs-viday', 'ViDay', ['/funcionalidades/sustituciones', '/precios'],
-      'ViDay publica desde 39 €/mes (plan Individual), IVA no incluido. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
+      'ViDay publica desde 39 €/mes (plan Individual), IVA no incluido. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-gesyoga', 'GesYoga', ['/funcionalidades/sustituciones', '/precios'],
-      'GesYoga publica desde 12 €/mes (plan Personal), IVA no incluido. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): funciones y límites.'],
+      'GesYoga publica desde 12 €/mes (plan Personal), IVA no incluido. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia): funciones y límites.'],
     ['tentare-vs-bookyway', 'BookyWay', ['/funcionalidades/sustituciones', '/funcionalidades/facturacion'],
-      'BookyWay no tiene suscripción: 1,50 € por usuario adicional tras 30 días. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
+      'BookyWay no tiene suscripción: 1,50 € por usuario adicional tras 30 días. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia), punto por punto.'],
     ['tentare-vs-deporweb', 'DeporWeb', ['/funcionalidades/sustituciones', '/precios'],
-      'DeporWeb no publica precios. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia): reservas por reformer, sustituciones y facturación.'],
+      'DeporWeb no publica precios. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia): reservas por reformer, sustituciones y facturación.'],
     ['tentare-vs-flowstark', 'Flowstark', ['/funcionalidades/sustituciones', '/precios'],
-      'Flowstark es gratis hasta 50 clientes o 19 €/mes + impuestos. Frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia), punto por punto.'],
+      'Flowstark es gratis hasta 50 clientes o 19 €/mes + impuestos. Frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia), punto por punto.'],
   ] as const).map(([slug, nombre, relacionadasFuncionalidad, descripcion]): PaginaSeo => ({
     path: `/comparativa/${slug}`,
     // Lo que se busca de un competidor es su precio y su alternativa («bsport
@@ -560,7 +560,7 @@ export const PAGINAS: PaginaSeo[] = [
     path: '/comparativa/tentare-vs-glofox',
     titulo: '¿Glofox merece la pena? Precios y alternativa para Pilates',
     descripcion:
-      'Glofox: precio publicado (en dólares), permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (gratis hasta 150 alumnas activas y 250 reservas al mes, sin permanencia).',
+      'Glofox: precio publicado (en dólares), permanencia, plaza por reformer y sustitución de instructoras, frente a Tentare (gratis hasta 150 reservas al mes, sin permanencia).',
     grupo: 'software',
     etiqueta: 'Tentare vs Glofox',
     prioridad: 0.7,

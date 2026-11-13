@@ -1,4 +1,4 @@
-// El momento en que un estudio gratis pasa de 150 alumnas activas o de 250 reservas al mes: no es un cobro, es una
+// El momento en que un estudio gratis pasa de 150 reservas al mes: no es un cobro, es una
 // buena noticia, y se le dice así (decisión del fundador, 4-nov-2026) con una frase bonita y, justo debajo, el plan
 // de pago listo para contratar en un clic.
 //

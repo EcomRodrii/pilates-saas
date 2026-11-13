@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { correoCuentaActiva, correoEmpuje, correoPrimeraClase, correoRecibirReservas, PRIMEROS_PASOS_ALTA, textoPlanAlta } from './alta.ts';
 import { TAREAS_ALTA_NUEVA } from '../../guia/primeros-pasos.ts';
-import { GRATIS_ALUMNAS, GRATIS_RESERVAS_MES } from '../../landing/founding-gratis.ts';
+import { GRATIS_RESERVAS_MES } from '../../landing/founding-gratis.ts';
 import { TRIAL_DIAS } from '../../billing/trial.ts';
 
 // «Tu cuenta está activa» (correo 2 del alta nueva): lo que se compromete aquí es
@@ -41,8 +41,8 @@ test('el cuerpo: la APP de sus clientes (no la página de reservas), un solo bot
 
 test('el plan sale de las constantes que aplica el producto, y solo dice «gratis» si lo es', () => {
   assert.equal(textoPlanAlta(true),
-    `Founding Studio: gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes. Sin tarjeta y sin permanencia.`);
-  assert.match(correoCuentaActiva(BASE).html, /gratis hasta 150 alumnas activas y 250 reservas al mes/);
+    `Founding Studio: gratis hasta ${GRATIS_RESERVAS_MES} reservas al mes. Sin tarjeta y sin permanencia.`);
+  assert.match(correoCuentaActiva(BASE).html, /gratis hasta 150 reservas al mes/);
   const prueba = textoPlanAlta(false);
   assert.doesNotMatch(prueba, /gratis hasta/);
   assert.match(prueba, new RegExp(`${TRIAL_DIAS} días de prueba`));

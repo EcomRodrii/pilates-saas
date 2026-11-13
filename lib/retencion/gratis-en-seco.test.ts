@@ -112,16 +112,16 @@ test('lo medido coincide con lo guardado: misma fase y misma fecha', () => {
   assert.equal(i.coincide, true);
   assert.deepEqual(avisosDeGratis(i), []);
   // El gate tiene cifras y dice otra fase: se apunta como diferencia (no como «sin medir»).
-  const otra = informeGratis(entrada({ usos: new Map([['b', uso(130)]]), guardado: [medido('b', 10, 0)] }));
+  const otra = informeGratis(entrada({ usos: new Map([['b', uso(0, 130)]]), guardado: [medido('b', 10, 0)] }));
   assert.deepEqual([otra.actual?.fase, otra.guardado?.fase, otra.coincide], ['CERCA', 'DENTRO', false]);
   assert.deepEqual(avisosDeGratis(otra), ['gratis_difiere_del_gate']);
 });
 
 test('en margen y cerrado: desde cuándo según la regla de hoy, y si el barrido lo cerraría', () => {
-  const margen = informeGratis(entrada({ usos: new Map([['b', uso(160)]]), guardado: [medido('b', 160, 0, '2026-10-10')] }));
+  const margen = informeGratis(entrada({ usos: new Map([['b', uso(0, 160)]]), guardado: [medido('b', 0, 160, '2026-10-10')] }));
   assert.deepEqual([margen.actual?.fase, margen.actual?.excedido_desde, margen.actual?.cierra_el], ['MARGEN', '2026-10-10', '2026-11-09']);
   assert.equal(margen.coincide, true);
-  const cierra = informeGratis(entrada({ usos: new Map([['b', uso(160)]]), guardado: [medido('b', 160, 0, '2026-09-01')] }));
+  const cierra = informeGratis(entrada({ usos: new Map([['b', uso(0, 160)]]), guardado: [medido('b', 0, 160, '2026-09-01')] }));
   assert.equal(cierra.actual?.fase, 'CERRADO');
   assert.ok(avisosDeGratis(cierra).includes('gratis_se_cerraria'));
   // Ya cerrado en la base: cerrado (como en el gate), y no hay nada más que cerrar.
@@ -161,8 +161,8 @@ test('nace cerrado (hoy) frente a arranca limpio (propuesta): la hermana abandon
 test('trocear con la hermana en margen: hereda su fecha con las dos reglas, y el grupo no cambia', () => {
   const i = informeGratis(entrada({
     grupoDeHoy: ['b', 'a'],
-    usos: new Map([['a', uso(140)], ['b', uso(20)]]),
-    guardado: [medido('a', 140, 0, '2026-10-10'), medido('b', 20, 0, '2026-10-10')],
+    usos: new Map([['a', uso(0, 140)], ['b', uso(0, 20)]]),
+    guardado: [medido('a', 0, 140, '2026-10-10'), medido('b', 0, 20, '2026-10-10')],
     miembros: new Map([['a', gratis('GRATIS_EN_MARGEN')], ['b', gratis('GRATIS_EN_MARGEN')]]),
   }));
   assert.deepEqual([i.actual?.fase, i.actual?.excedido_desde], ['MARGEN', '2026-10-10']);
@@ -174,11 +174,11 @@ test('trocear con la hermana en margen: hereda su fecha con las dos reglas, y el
 test('la demo de la dueña cuenta hoy y no en la propuesta', () => {
   const i = informeGratis(entrada({
     grupoDeHoy: ['b', 'demo'],
-    usos: new Map([['b', uso(100)], ['demo', uso(60)]]),
+    usos: new Map([['b', uso(0, 100)], ['demo', uso(0, 60)]]),
     miembros: new Map([['b', gratis()], ['demo', gratis('GRATIS', null, true)]]),
   }));
-  assert.deepEqual([i.actual?.alumnas, i.actual?.fase], [160, 'MARGEN']);
-  assert.deepEqual([i.propuesta?.alumnas, i.propuesta?.fase], [100, 'DENTRO']);
+  assert.deepEqual([i.actual?.reservas, i.actual?.fase], [160, 'MARGEN']);
+  assert.deepEqual([i.propuesta?.reservas, i.propuesta?.fase], [100, 'DENTRO']);
   assert.ok(avisosDeGratis(i).includes('grupo_dueña_difiere'));
 });
 

@@ -49,7 +49,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta un programa de gestión para un estudio de Pilates en España?',
-    a: 'En Tentare, Founding Studio es gratis hasta 150 alumnas activas y 250 reservas al mes, con todas las funcionalidades menos varias sedes, también la app con tu marca; si pasas de ahí, 29 €/mes, y con ese plan el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Estudio, 59 €/mes con IVA, los incluye, y Cadena, 149 €/mes, es para varias sedes. Sin permanencia y sin tarjeta para empezar.',
+    a: 'En Tentare, Founding Studio es gratis hasta 150 reservas al mes, con todas las funcionalidades menos varias sedes, también la app con tu marca; si pasas de ahí, 29 €/mes, y con ese plan el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Estudio, 59 €/mes con IVA, los incluye, y Cadena, 149 €/mes, es para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
   {
     q: '¿Sirve para cobrar y facturar en España?',
@@ -94,7 +94,7 @@ export default function ProgramaDeGestionPage() {
       <ResumenSolucion
         pregunta="¿Qué debe hacer un programa de gestión para un estudio de Pilates en España?"
         datos={[
-          { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 alumnas activas y 250 reservas al mes' },
+          { cifra: 'Gratis', texto: 'Tentare Founding Studio, hasta 150 reservas al mes' },
           { cifra: 'UE', texto: 'Base de datos en la Unión Europea, con soporte en español' },
         ]}
       >
@@ -102,7 +102,7 @@ export default function ProgramaDeGestionPage() {
         espera y bonos, los cobros con tarjeta o por remesa SEPA con facturas de numeración legal, y el equipo de
         instructoras con sus sustituciones. Un programa que solo reserva te deja el resto en hojas de cálculo; uno que
         sirve para cualquier negocio de citas no entiende un bono de sesiones ni un reformer. Tentare está hecho para
-        estudios de Pilates y yoga en España, gratis hasta 150 alumnas activas y 250 reservas al mes, y sin permanencia.
+        estudios de Pilates y yoga en España, gratis hasta 150 reservas al mes, y sin permanencia.
       </ResumenSolucion>
 
       <Situaciones
@@ -167,7 +167,7 @@ export default function ProgramaDeGestionPage() {
           ['Cobro con tarjeta y SEPA', 'La mayoría de cuotas se cobran así en España', 'Tarjeta con Stripe y remesa SEPA para tu banco, sin comisión de Tentare'],
           ['Facturas con numeración legal', 'Se exige a quien emite facturas', 'Numeración legal correlativa; Veri*Factu, todavía no activo'],
           ['Sustitución de instructoras', 'Una baja no debería cancelar la clase', 'Propone candidatas, contacta y avisa'],
-          ['Precio público y permanencia', 'Para comparar sin pedir demo', 'Gratis hasta 150 alumnas activas y 250 reservas al mes; si pasas de ahí, 29 €/mes con IVA. Sin permanencia'],
+          ['Precio público y permanencia', 'Para comparar sin pedir demo', 'Gratis hasta 150 reservas al mes; si pasas de ahí, 29 €/mes con IVA. Sin permanencia'],
           ['Importar tus datos', 'Cambiar de programa no debe costar el histórico', 'Importador con acta y botón de deshacer'],
         ]}
       />

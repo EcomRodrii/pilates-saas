@@ -106,7 +106,7 @@ export const CATEGORIAS: CategoriaPlan[] = [
       {
         id: FILA_TOPE_ALUMNAS,
         nombre: 'Alumnas activas',
-        detalle: 'El tope se aplica sobre las activas; nadie se borra al llegar al límite.',
+        detalle: 'Sin tope en ningún plan: lo gratis se mide por reservas, no por alumnas.',
         valor: (p, e = PLAN_ENTITLEMENTS[p]) => {
           const max = e.maxSocios;
           return txt(max === Infinity ? 'Sin límite' : `Hasta ${max}`);

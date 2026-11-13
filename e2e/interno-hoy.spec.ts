@@ -34,7 +34,7 @@ function hoyLleno(): Hoy {
     sinReservas: [{ id: 'est-norte', nombre: 'Pilates Norte', semanaAnterior: 41 }],
   }, AHORA);
   const gratis = estadosGratisPorEstudio([
-    { studioId: 'est-core', ownerId: 'o1', alumnasActivas: 98, reservas30Dias: 231, excedidoDesde: null, medidoEn: hace(2) },
+    { studioId: 'est-core', ownerId: 'o1', alumnasActivas: 98, reservas30Dias: 139, excedidoDesde: null, medidoEn: hace(2) },
   ], '2026-10-16');
   return {
     tareas,
@@ -137,7 +137,7 @@ test.describe('/interno → Hoy', () => {
       expect.stringContaining('Core & Barre'),
       expect.stringContaining('Flow Barcelona'),
     ]);
-    await expect(lista.nth(2)).toContainText('231 de 250 reservas');
+    await expect(lista.nth(2)).toContainText('139 de 150 reservas');
     await expect(lista.nth(2)).toContainText('Cerca del límite');
     await expect(lista.first().getByRole('link')).toHaveAttribute('href', '/interno/estudios/est-aurora');
   });

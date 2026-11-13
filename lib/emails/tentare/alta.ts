@@ -42,8 +42,7 @@ export const PRIMEROS_PASOS_ALTA = [
 ] as const;
 
 /**
- * La línea del plan. Con Founding Studio gratis, sus dos límites juntos (con 150
- * alumnas lo normal es pasar de 250 reservas: uno solo engaña). Sin él, el alta
+ * La línea del plan. Con Founding Studio gratis, su límite (150 reservas al mes). Sin él, el alta
  * empieza con la prueba de siempre, y eso es lo que se dice.
  */
 export function textoPlanAlta(foundingGratis: boolean): string {

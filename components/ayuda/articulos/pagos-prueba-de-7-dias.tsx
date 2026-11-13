@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AyudaResultado } from '@/components/ayuda/AyudaPasos';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
-import { COMPLEMENTOS_DE_PAGO, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_DE_PAGO, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO } from '@/lib/landing/founding-gratis';
 
 // Desde el 15-oct-2026 no hay prueba de 7 días: Founding Studio es gratis
 // (decisión del fundador; reglas en lib/billing/plan-gratis.ts). El artículo
@@ -14,7 +14,7 @@ export default function Contenido() {
       <p>
         Al crear tu estudio empiezas en {PLAN_INFO.BASE.nombre}, gratis y con todas las funcionalidades de Tentare
         menos varias sedes y la app propia en la App Store, sin pedirte tarjeta en ningún momento. Es gratis mientras tu estudio no pase de{' '}
-        {GRATIS_ALUMNAS} clientes activos ni de {GRATIS_RESERVAS_MES} reservas al mes.
+        {GRATIS_RESERVAS_MES} reservas al mes.
       </p>
 
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '24px 0 12px' }}>Qué pasa si te pasas</h2>

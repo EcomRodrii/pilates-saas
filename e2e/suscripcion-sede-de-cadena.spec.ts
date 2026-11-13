@@ -108,7 +108,7 @@ test('estudio en el plan gratis: el aviso sale solo al elegir Cadena, y con su p
     enPrueba: false, pruebaTermina: null, periodoTermina: null, trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
     gratis: {
       fase: 'DENTRO', uso: { alumnasActivas: 42, reservas30Dias: 96 }, motivos: [], diasRestantes: 0, cierraEl: null,
-      limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30,
+      limites: { reservasMes: 150 }, margenDias: 30,
     },
     opcionesDePlan: { soloCadena: false, sueltosQueCancelaCadena: [{ plan: 'BASE', otraSede: false, nombreSede: null, pagadoHasta: null, pagoEnCurso: true }] },
   });
@@ -137,7 +137,7 @@ test('estudio en el plan gratis sin planes sueltos vivos: elegir Cadena no avisa
     enPrueba: false, pruebaTermina: null, periodoTermina: null, trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
     gratis: {
       fase: 'DENTRO', uso: { alumnasActivas: 42, reservas30Dias: 96 }, motivos: [], diasRestantes: 0, cierraEl: null,
-      limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30,
+      limites: { reservasMes: 150 }, margenDias: 30,
     },
     opcionesDePlan: { soloCadena: false, sueltosQueCancelaCadena: [] },
   });

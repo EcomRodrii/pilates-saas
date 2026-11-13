@@ -362,7 +362,7 @@ export const ARTICULOS: ArticuloAyuda[] = [
   {
     slug: 'prueba-de-7-dias', categoria: 'pagos', tipo: 'guia',
     titulo: 'Founding Studio gratis: cómo funciona',
-    descripcion: 'Gratis hasta 150 clientes activos y 250 reservas al mes, sin tarjeta. Qué pasa si te pasas y cómo se cuenta.',
+    descripcion: 'Gratis hasta 150 reservas al mes, sin tarjeta. Qué pasa si te pasas y cómo se cuenta.',
     terminos: ['prueba de 7 días', 'prueba gratis', 'trial', 'gratis', 'límite', 'reservas al mes', 'clientes activos', '29 €'],
     actualizado: '2026-10-15',
     relacionados: ['empezar/crear-tu-cuenta'],

@@ -23,7 +23,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precios-reformer-mat",
       "/precios"
     ],
-    "palabras": 2845,
+    "palabras": 2837,
     "actualizado": "2026-10-16"
   },
   {
@@ -42,7 +42,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/rentabilidad-estudio-de-pilates",
       "/recursos/politica-de-cancelacion-de-clases"
     ],
-    "palabras": 2498,
+    "palabras": 2490,
     "actualizado": "2026-10-16"
   },
   {
@@ -60,7 +60,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/politica-de-cancelacion-de-clases",
       "/funcionalidades"
     ],
-    "palabras": 2141,
+    "palabras": 2133,
     "actualizado": "2026-10-16"
   },
   {
@@ -79,7 +79,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/soluciones/cambiar-de-software",
       "/precios"
     ],
-    "palabras": 2993,
+    "palabras": 2957,
     "actualizado": "2026-10-15"
   },
   {
@@ -98,7 +98,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/soluciones/cambiar-de-software"
     ],
-    "palabras": 1980,
+    "palabras": 1968,
     "actualizado": "2026-10-07"
   },
   {
@@ -118,7 +118,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/app-para-alumnas"
     ],
-    "palabras": 2579,
+    "palabras": 2543,
     "actualizado": "2026-10-15"
   },
   {
@@ -138,7 +138,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/mejor-software-para-estudios-de-pilates",
       "/funcionalidades/sustituciones"
     ],
-    "palabras": 2513,
+    "palabras": 2481,
     "actualizado": "2026-10-15"
   },
   {
@@ -157,7 +157,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/informes-y-rentabilidad",
       "/precios"
     ],
-    "palabras": 2349,
+    "palabras": 2329,
     "actualizado": "2026-10-16"
   },
   {
@@ -211,7 +211,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/bonos-de-pilates",
       "/soluciones/estudio-de-pilates-reformer"
     ],
-    "palabras": 1721,
+    "palabras": 1713,
     "actualizado": "2026-10-07"
   },
   {
@@ -322,7 +322,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/cubrir-baja-instructora",
       "/recursos/iva-clases-de-pilates"
     ],
-    "palabras": 2175,
+    "palabras": 2171,
     "actualizado": "2026-10-15"
   },
   {
@@ -376,7 +376,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/precio-clase-de-pilates",
       "/recursos/cuanto-cobra-una-instructora-de-pilates"
     ],
-    "palabras": 1894,
+    "palabras": 1890,
     "actualizado": "2026-10-16"
   },
   {
@@ -394,7 +394,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/checklist-elegir-software-estudio",
       "/precios"
     ],
-    "palabras": 1995,
+    "palabras": 1971,
     "actualizado": "2026-10-16"
   },
   {
@@ -412,7 +412,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/bonos-de-pilates",
       "/recursos/reducir-cancelaciones-ultima-hora"
     ],
-    "palabras": 1692,
+    "palabras": 1688,
     "actualizado": "2026-10-16"
   },
   {
@@ -431,7 +431,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/recursos/nombres-para-estudio-de-pilates",
       "/precios"
     ],
-    "palabras": 1988,
+    "palabras": 1980,
     "actualizado": "2026-10-15"
   },
   {
@@ -450,7 +450,7 @@ export const ARTICULOS_META: ArticuloMeta[] = [
       "/funcionalidades/app-para-alumnas",
       "/recursos/reservas-en-tu-web"
     ],
-    "palabras": 1769,
+    "palabras": 1765,
     "actualizado": "2026-10-16"
   }
 ];

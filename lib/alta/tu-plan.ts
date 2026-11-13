@@ -38,7 +38,7 @@ export interface CifraDelPlan {
 export interface TarjetaDelPlan {
   /** «Founding Studio · gratis» (con «· 1 sede» si dijo varias). */
   subtitulo: string;
-  cifras: [CifraDelPlan, CifraDelPlan];
+  cifras: [CifraDelPlan];
   texto: string;
 }
 
@@ -54,7 +54,6 @@ export function tarjetaDelPlan(p: { gratis: EstadoGratisApi | null | undefined; 
   return {
     subtitulo: varias ? `${founding} · gratis · 1 sede` : `${founding} · gratis`,
     cifras: [
-      { etiqueta: 'Clientes activos', valor: g.uso.alumnasActivas, limite: g.limites.alumnas },
       { etiqueta: 'Reservas en los últimos 30 días', valor: g.uso.reservas30Dias, limite: g.limites.reservasMes },
     ],
     texto,

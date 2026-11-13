@@ -4,8 +4,8 @@ import { usoDelTope } from './uso-tope.ts';
 import { entitlementsDe } from './entitlements.ts';
 
 test('cuántas de las que permite su plan, contra el tope de ese plan', () => {
-  // El único plan con tope de alumnas es Founding Studio gratis (Founding de pago no tiene, 15-oct-2026).
-  assert.deepEqual(usoDelTope(128, entitlementsDe({ plan: 'BASE', subscriptionStatus: 'gratis' }).maxSocios), { texto: '128 de 150 clientes activos', excedido: false });
+    // Sin tope de alumnas en ningún plan desde el 13-nov-2026 (el gratis mide reservas).
+  assert.equal(usoDelTope(128, entitlementsDe({ plan: 'BASE', subscriptionStatus: 'gratis' }).maxSocios), null);
   assert.equal(usoDelTope(400, entitlementsDe({ plan: 'BASE', subscriptionStatus: 'active' }).maxSocios), null);
   assert.deepEqual(usoDelTope(150, 150), { texto: '150 de 150 clientes activos', excedido: false });
 });
