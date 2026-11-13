@@ -15,6 +15,10 @@
 // Sin imports con alias `@/` ni extensiones implícitas: `npm test` corre con
 // `node --test --experimental-strip-types`, que no resuelve ninguna de las dos
 // cosas. Mismo criterio que lib/nav-config.ts.
+//
+// Los títulos de las páginas de primer nivel (precios, funcionalidades, soluciones, guías, comparativa, glosario) empiezan por su NOMBRE
+// corto y la descripción va después de los dos puntos. Google saca los sitelinks de la marca del título de cada página, y «Precios del
+// software para estudios de Pilates y yoga» sale cortado y poco claro frente a «Precios». No se hace en las de detalle.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { LEGAL } from '../legal-info.ts';
@@ -358,7 +362,7 @@ export const PAGINAS: PaginaSeo[] = [
   },
   {
     path: '/precios',
-    titulo: 'Precios del software para estudios de Pilates y yoga | Tentare',
+    titulo: 'Precios: software para estudios de Pilates y yoga | Tentare',
     descripcion:
       'Sin permanencia: Founding Studio gratis hasta 150 reservas al mes (si pasas, 29 €/mes), Estudio 59 € y Cadena 149 €. Empieza gratis.',
     grupo: 'software',
@@ -371,7 +375,7 @@ export const PAGINAS: PaginaSeo[] = [
   },
   {
     path: '/funcionalidades',
-    titulo: 'Funcionalidades del software para Pilates y yoga | Tentare',
+    titulo: 'Funcionalidades: software para Pilates y yoga | Tentare',
     descripcion:
       'Todo lo que hace Tentare, área por área: reservas, lista de espera, salas, instructoras, sustituciones, bonos, cobros, facturación, fichas e informes.',
     grupo: 'funcionalidades',
@@ -468,7 +472,7 @@ export const PAGINAS: PaginaSeo[] = [
     // tabla de precios de los 14. La lista editorial («el mejor software…») es de
     // /recursos/mejor-software-para-estudios-de-pilates; antes los dos títulos
     // decían «13 comparados» y competían por la misma búsqueda.
-    titulo: 'Comparativa de software para Pilates: 13 programas',
+    titulo: 'Comparativa: 13 programas de software para Pilates | Tentare',
     descripcion:
       'bsport, Eversports, Mindbody, TIMP, Lorari, Bonsai y 7 más frente a Tentare: precio publicado, permanencia, sustituciones y Veri*Factu, con fuente y fecha.',
     grupo: 'software',
@@ -660,7 +664,7 @@ export const PAGINAS: PaginaSeo[] = [
   // tres páginas.
   {
     path: '/soluciones',
-    titulo: 'Tentare por tipo de estudio: Pilates, reformer y yoga',
+    titulo: 'Soluciones: Pilates, reformer y yoga | Tentare',
     descripcion:
       'Tentare para cada tipo de estudio: Pilates, Pilates reformer, yoga, varias sedes o quien viene de otro programa. Reservas, bonos y cobros con precio público.',
     grupo: 'soluciones',
@@ -673,7 +677,7 @@ export const PAGINAS: PaginaSeo[] = [
   },
   {
     path: '/recursos',
-    titulo: 'Guías para gestionar tu estudio de Pilates y yoga | Tentare',
+    titulo: 'Guías: gestionar un estudio de Pilates y yoga | Tentare',
     descripcion:
       'Guías prácticas para propietarias de estudios de Pilates y yoga: ocupación, precios, sustituciones, retención y la parte administrativa que nadie te contó.',
     grupo: 'recursos',
@@ -752,7 +756,7 @@ export const PAGINAS: PaginaSeo[] = [
   })),
   {
     path: '/glosario',
-    titulo: 'Glosario de software para Pilates y yoga | Tentare',
+    titulo: 'Glosario: software para Pilates y yoga | Tentare',
     descripcion:
       'Definiciones claras y neutrales de los términos del sector: software de gestión, pilates reformer, Veri*factu, lista de espera automática, CRM de estudio y más.',
     grupo: 'recursos',

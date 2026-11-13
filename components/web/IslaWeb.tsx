@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { MedicionPaginasPublicas } from '@/components/seo/MedicionPaginasPublicas';
+import { RevelarWeb } from './revelar-web';
 import { useIslaCompacta } from '@/components/landing/use-isla-compacta';
 import { ALTA, NAV_CAMBIARSE } from '@/components/landing/enlaces';
 import { CTA_ALTA } from '@/lib/landing/founding-gratis';
@@ -183,6 +184,7 @@ export function IslaWeb({ enHome = false }: { enHome?: boolean }) {
   return (
     <>
       {!enHome && <MedicionPaginasPublicas />}
+      {!enHome && <RevelarWeb />}
       <nav
         ref={isla}
         className="v5-nav"

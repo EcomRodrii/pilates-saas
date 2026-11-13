@@ -214,3 +214,24 @@
    «Founding Studio» y la frase del fundador (`.nombre-plan-founding`, app/globals.css) van en Cormorant cursiva dentro del producto. En
    las páginas con la isla (la web pública) se pintan con la letra del diseño nuevo: Inter Tight, recta. */
 :root:has(.v5-nav) .nombre-plan-founding { font-family: var(--w-fuente); font-style: normal; font-weight: var(--w-peso-enfasis); font-size: 1em; line-height: inherit; letter-spacing: inherit; }
+
+/* ── ANIMACIONES DE LAS PÁGINAS INTERIORES ───────────────────────────────────
+   La misma idea que la home (components/home-nueva/figma.css): un solo resorte, y solo opacity y transform (nada que recalcule el
+   layout ni mueva el LCP). Van detrás de `:has(.v5-nav)` para no filtrarse a otras pantallas cuando este CSS ya está cargado.
+   Sin «reducir movimiento» no se anima nada; con él, la página es exactamente la de antes. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes w-sube { from { opacity: .001; transform: translate3d(0, 18px, 0); } to { opacity: 1; transform: none; } }
+
+  /* Entrada de la cabecera de cada página (título y lo que cuelga de él), escalonada. */
+  body:has(.v5-nav) header h1 { animation: w-sube .85s var(--motion-ease) both; }
+  body:has(.v5-nav) header h1 ~ p, body:has(.v5-nav) header h1 ~ div, body:has(.v5-nav) header h1 ~ nav { animation: w-sube .85s var(--motion-ease) .12s both; }
+  body:has(.v5-nav) header h1 ~ p ~ p, body:has(.v5-nav) header h1 ~ p ~ div { animation-delay: .22s; }
+
+  /* Entrada al scroll (components/web/revelar-web.tsx). */
+  body:has(.v5-nav) .w-rv-pre { opacity: 0; transform: translate3d(0, 24px, 0); }
+  body:has(.v5-nav) .w-rv-pre.w-rv-ok {
+    opacity: 1; transform: none;
+    transition: opacity .8s var(--motion-ease) calc(var(--w-i, 0) * 80ms), transform .9s var(--motion-ease) calc(var(--w-i, 0) * 80ms);
+  }
+}
+@media print { .w-rv-pre { opacity: 1 !important; transform: none !important; } }

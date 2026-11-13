@@ -218,6 +218,6 @@ export const PIE_RESUMIDO: { titulo: string; hrefs: string[] }[] = [
   { titulo: 'Producto', hrefs: ['/funcionalidades/reservas-online', '/funcionalidades/bonos-y-membresias', '/funcionalidades/cobros-recurrentes', '/funcionalidades/app-para-alumnas', '/funcionalidades', '/precios'] },
   { titulo: 'Soluciones', hrefs: ['/soluciones/programa-de-gestion-para-estudio-de-pilates', '/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/soluciones/abrir-un-estudio', '/soluciones/cambiar-de-software', '/soluciones'] },
   { titulo: 'Alternativas', hrefs: ['/comparativa/tentare-vs-bsport', '/comparativa/tentare-vs-eversports', '/comparativa/tentare-vs-momence', '/comparativa/tentare-vs-mindbody', '/comparativa/tentare-vs-timp', '/comparativa/tentare-vs-lorari'] },
-  { titulo: 'Recursos', hrefs: ['/recursos', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/recursos/rentabilidad-estudio-de-pilates', '/recursos/checklist-elegir-software-estudio', '/glosario', '/ayuda'] },
-  { titulo: 'Empresa', hrefs: ['/blog', '/seguridad', '/soporte'] },
+  { titulo: 'Recursos', hrefs: ['/recursos', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/recursos/rentabilidad-estudio-de-pilates', '/recursos/checklist-elegir-software-estudio', '/recursos/mejor-software-para-estudios-de-pilates', '/glosario', '/ayuda'] },
+  { titulo: 'Empresa', hrefs: ['/sobre-tentare', '/blog', '/seguridad', '/soporte'] },
 ];
