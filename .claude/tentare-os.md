@@ -333,6 +333,12 @@ así que todo lo que se versiona lo lee cualquiera:
     esas acciones de mostrador y nunca en el autoservicio de la alumna. Antes, revisión de
     `tentare-stripe`.
   - `lib/tope-plan-no-bloquea.test.ts` falla si vuelve una puerta suelta.
+- **13-nov-2026, el fundador cambia el límite de lo gratis: SIN tope de alumnas y 150 reservas al mes** (antes 150
+  alumnas «Activa» y 250 reservas). Sin comisión sobre los cobros (se valoró un 1,5 % y se descartó por ahora: solo
+  aplica a pagos por Stripe Connect, que hoy usan 2 estudios, y «sin comisiones» es una ventaja frente a Bonsai). Mandan
+  `LIMITE_RESERVAS_MES` (`plan-gratis.ts`) y su espejo SQL `fase_plan_gratis` (migr `20261113120000`); lo que sigue dicho
+  abajo sobre «150 alumnas y 250 reservas» es la historia. ⚠️ Las páginas comerciales con la cifra escrita a mano
+  (comparativas, soluciones, funcionalidades, recursos, home) las decide el fundador: no se reescriben solas.
 - **Founding Studio GRATIS (decisión del fundador, 15-oct-2026), tras el interruptor `FOUNDING_GRATIS`.**
   Un estudio que no paga tiene TODO (menos varias sedes) hasta 150 alumnas «Activa» y 250 reservas
   al mes (las de las clases de los últimos 30 días; no cobros: se esquivan cobrando fuera); al

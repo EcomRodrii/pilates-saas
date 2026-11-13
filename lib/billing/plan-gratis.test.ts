@@ -3,44 +3,43 @@ import assert from 'node:assert/strict';
 import {
   cadenaSinPlan, empiezaDeCeroAlConvertir, estadoDeLoGuardado, estadoGratis, excedidoMasAntiguo, finDelMargen, limitesCerca, limitesPasados,
   medicionDelGrupo, pagaPlan, pasaAGratis, sedeAdmiteGratis, siguienteExcedidoDesde, sumarUsos,
-  FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, type UsoGratis,
+  FRASE_PLAN_GRATIS, LIMITE_RESERVAS_MES, MARGEN_DIAS, type UsoGratis,
 } from './plan-gratis.ts';
 
 const uso = (o: Partial<UsoGratis> = {}): UsoGratis => ({ alumnasActivas: 0, reservas30Dias: 0, ...o });
 
-test('los límites del fundador: 150 clientes y 250 reservas al mes, 30 días de margen', () => {
-  assert.equal(LIMITE_ALUMNAS, 150);
-  assert.equal(LIMITE_RESERVAS_MES, 250);
+test('el límite del fundador (13-nov-2026): 150 reservas al mes y ningún tope de alumnas, 30 días de margen', () => {
+  assert.equal(LIMITE_RESERVAS_MES, 150);
   assert.equal(MARGEN_DIAS, 30);
   assert.equal(FRASE_PLAN_GRATIS, 'Tú eres la prioridad. Si tu estudio crece, crecemos contigo.');
 });
 
 test('justo en el límite no se ha pasado; uno más, sí', () => {
-  assert.deepEqual(limitesPasados(uso({ alumnasActivas: 150, reservas30Dias: 250 })), []);
-  assert.deepEqual(limitesPasados(uso({ alumnasActivas: 151 })), ['alumnas']);
-  assert.deepEqual(limitesPasados(uso({ reservas30Dias: 251 })), ['reservas']);
+  assert.deepEqual(limitesPasados(uso({ reservas30Dias: 150 })), []);
+  assert.deepEqual(limitesPasados(uso({ reservas30Dias: 151 })), ['reservas']);
+  // Las alumnas ya no limitan, sean las que sean.
+  assert.deepEqual(limitesPasados(uso({ alumnasActivas: 5000, reservas30Dias: 10 })), []);
 });
 
-test('se avisa desde el 80 %: 120 clientes o 200 reservas', () => {
-  assert.deepEqual(limitesCerca(uso({ alumnasActivas: 119, reservas30Dias: 199 })), []);
-  assert.deepEqual(limitesCerca(uso({ alumnasActivas: 120 })), ['alumnas']);
-  assert.deepEqual(limitesCerca(uso({ reservas30Dias: 200 })), ['reservas']);
+test('se avisa desde el 80 %: 120 reservas', () => {
+  assert.deepEqual(limitesCerca(uso({ alumnasActivas: 900, reservas30Dias: 119 })), []);
+  assert.deepEqual(limitesCerca(uso({ reservas30Dias: 120 })), ['reservas']);
 });
 
 test('el margen empieza el día que se pasa, no se reinicia y se borra al volver a estar dentro', () => {
-  assert.equal(siguienteExcedidoDesde(null, uso({ alumnasActivas: 151 }), '2026-10-15'), '2026-10-15');
-  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ alumnasActivas: 160 }), '2026-10-15'), '2026-10-01');
-  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ alumnasActivas: 140 }), '2026-10-15'), null);
+  assert.equal(siguienteExcedidoDesde(null, uso({ reservas30Dias: 151 }), '2026-10-15'), '2026-10-15');
+  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ reservas30Dias: 160 }), '2026-10-15'), '2026-10-01');
+  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ reservas30Dias: 140 }), '2026-10-15'), null);
 });
 
 test('las fases: dentro, cerca, margen con su cuenta atrás y cerrado', () => {
-  assert.equal(estadoGratis({ uso: uso({ alumnasActivas: 50 }), excedidoDesde: null, hoy: '2026-10-15' }).fase, 'DENTRO');
-  assert.equal(estadoGratis({ uso: uso({ alumnasActivas: 130 }), excedidoDesde: null, hoy: '2026-10-15' }).fase, 'CERCA');
-  const margen = estadoGratis({ uso: uso({ alumnasActivas: 151 }), excedidoDesde: '2026-10-01', hoy: '2026-10-15' });
+  assert.equal(estadoGratis({ uso: uso({ reservas30Dias: 50 }), excedidoDesde: null, hoy: '2026-10-15' }).fase, 'DENTRO');
+  assert.equal(estadoGratis({ uso: uso({ reservas30Dias: 130 }), excedidoDesde: null, hoy: '2026-10-15' }).fase, 'CERCA');
+  const margen = estadoGratis({ uso: uso({ reservas30Dias: 151 }), excedidoDesde: '2026-10-01', hoy: '2026-10-15' });
   assert.equal(margen.fase, 'MARGEN');
   assert.equal(margen.diasRestantes, 16);
   assert.equal(margen.cierraEl, '2026-10-31');
-  const cerrado = estadoGratis({ uso: uso({ alumnasActivas: 151 }), excedidoDesde: '2026-10-01', hoy: '2026-10-31' });
+  const cerrado = estadoGratis({ uso: uso({ reservas30Dias: 151 }), excedidoDesde: '2026-10-01', hoy: '2026-10-31' });
   assert.equal(cerrado.fase, 'CERRADO');
   assert.equal(cerrado.diasRestantes, 0);
 });
@@ -155,7 +154,7 @@ test('gratis da acceso y todo menos varias sedes, como Founding Studio de pago',
     assert.equal(tieneFeature(gratis, f), true, f);
   }
   assert.equal(tieneFeature(gratis, 'multiCentro'), false);
-  assert.equal(entitlementsDe(gratis).maxSocios, 150);
+  assert.equal(entitlementsDe(gratis).maxSocios, Infinity);
   assert.equal(entitlementsDe(gratis).consultasAsistenteMes, 50);
   // Founding Studio de pago (29 €) incluye lo mismo (decisión del 15-oct ~01:30).
   assert.equal(tieneFeature({ plan: 'BASE', subscriptionStatus: 'active' }, 'decisiones'), true);
@@ -170,8 +169,8 @@ test('gratis no es una prueba ni una prueba agotada', async () => {
 });
 
 test('si vuelve a bajar dentro del margen, se borra; acabado el margen, el cierre se queda aunque baje', () => {
-  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ alumnasActivas: 100 }), '2026-10-20'), null);
-  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ alumnasActivas: 100 }), '2026-10-31'), '2026-10-01');
+  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ reservas30Dias: 100 }), '2026-10-20'), null);
+  assert.equal(siguienteExcedidoDesde('2026-10-01', uso({ reservas30Dias: 100 }), '2026-10-31'), '2026-10-01');
   const e = estadoGratis({ uso: uso({ alumnasActivas: 90, reservas30Dias: 50 }), excedidoDesde: '2026-09-01', hoy: '2026-11-15' });
   assert.equal(e.fase, 'CERRADO');
   assert.deepEqual(e.motivos, []);
@@ -188,7 +187,7 @@ test('al pasarse de cualquiera de los dos límites, Founding Studio de pago: el 
   // Ya no existe una regla que elija Estudio por tener más alumnas (fundador, 15-oct-2026, 08:30).
   assert.equal('planQueToca' in mod, false);
   assert.equal('puedeContratarFounding' in mod, false);
-  for (const u of [uso({ alumnasActivas: 151 }), uso({ reservas30Dias: 251 }), uso({ alumnasActivas: 400, reservas30Dias: 900 })]) {
+  for (const u of [uso({ reservas30Dias: 151 }), uso({ reservas30Dias: 251 }), uso({ alumnasActivas: 400, reservas30Dias: 900 })]) {
     const e = estadoGratis({ uso: u, excedidoDesde: '2026-10-10', hoy: '2026-10-15' });
     assert.equal(e.fase, 'MARGEN');
     assert.equal('planQueToca' in e, false);
@@ -213,13 +212,13 @@ test('el grupo: se suma lo de cada estudio y manda la fecha de exceso más antig
 
 test('una medición nueva del grupo deja el uso sumado y el margen al día (lo que guarda quien mide)', () => {
   // Trocear no lo hace gratis: 100 + 60 pasa de 150 y el margen empieza hoy.
-  assert.deepEqual(medicionDelGrupo([uso({ alumnasActivas: 100 }), uso({ alumnasActivas: 60 })], [null, null], '2026-10-16'),
-    { uso: uso({ alumnasActivas: 160 }), excedidoDesde: '2026-10-16' });
+  assert.deepEqual(medicionDelGrupo([uso({ reservas30Dias: 100 }), uso({ reservas30Dias: 60 })], [null, null], '2026-10-16'),
+    { uso: uso({ reservas30Dias: 160 }), excedidoDesde: '2026-10-16' });
   // La fecha de una hermana se hereda mientras siga pasado; vuelto a estar dentro antes del fin del margen, se borra.
-  assert.equal(medicionDelGrupo([uso({ alumnasActivas: 160 })], ['2026-10-10', null], '2026-10-16').excedidoDesde, '2026-10-10');
-  assert.equal(medicionDelGrupo([uso({ alumnasActivas: 10 })], ['2026-10-10'], '2026-10-16').excedidoDesde, null);
+  assert.equal(medicionDelGrupo([uso({ reservas30Dias: 160 })], ['2026-10-10', null], '2026-10-16').excedidoDesde, '2026-10-10');
+  assert.equal(medicionDelGrupo([uso({ reservas30Dias: 10 })], ['2026-10-10'], '2026-10-16').excedidoDesde, null);
   // Acabado el margen se queda, aunque baje.
-  assert.equal(medicionDelGrupo([uso({ alumnasActivas: 10 })], ['2026-09-01'], '2026-10-16').excedidoDesde, '2026-09-01');
+  assert.equal(medicionDelGrupo([uso({ reservas30Dias: 10 })], ['2026-09-01'], '2026-10-16').excedidoDesde, '2026-09-01');
 });
 
 test('lo guardado de un grupo: sin cifras de todos no hay uso, pero un margen acabado sigue cerrado', () => {

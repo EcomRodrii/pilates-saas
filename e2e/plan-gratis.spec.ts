@@ -19,10 +19,10 @@ type Fase = 'DENTRO' | 'CERCA' | 'MARGEN' | 'CERRADO';
 type FaseMock = Fase | 'MARGEN_RESERVAS';
 const GRATIS: Record<FaseMock, Record<string, unknown>> = {
   DENTRO: { fase: 'DENTRO', uso: { alumnasActivas: 42, reservas30Dias: 96 }, motivos: [], diasRestantes: 0, cierraEl: null },
-  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, reservas30Dias: 96 }, motivos: ['alumnas'], diasRestantes: 0, cierraEl: null },
-  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 251 }, motivos: ['alumnas', 'reservas'], diasRestantes: 12, cierraEl: '2026-11-20' },
+  CERCA: { fase: 'CERCA', uso: { alumnasActivas: 128, reservas30Dias: 128 }, motivos: ['reservas'], diasRestantes: 0, cierraEl: null },
+  MARGEN: { fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 151 }, motivos: ['reservas'], diasRestantes: 12, cierraEl: '2026-11-20' },
   MARGEN_RESERVAS: { fase: 'MARGEN', uso: { alumnasActivas: 90, reservas30Dias: 310 }, motivos: ['reservas'], diasRestantes: 20, cierraEl: '2026-11-28' },
-  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, reservas30Dias: 120 }, motivos: ['alumnas'], diasRestantes: 0, cierraEl: '2026-10-10' },
+  CERRADO: { fase: 'CERRADO', uso: { alumnasActivas: 160, reservas30Dias: 160 }, motivos: ['reservas'], diasRestantes: 0, cierraEl: '2026-10-10' },
 };
 
 async function montar(page: Page, fase: FaseMock, ruta: string) {
@@ -38,7 +38,7 @@ async function montar(page: Page, fase: FaseMock, ruta: string) {
     plan: 'BASE', subscriptionStatus: 'gratis', activo: fase !== 'CERRADO', configurado: true, esPropietaria: true,
     bloqueado: fase === 'CERRADO', enPrueba: false, pruebaTermina: null, periodoTermina: null,
     trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
-    gratis: { ...GRATIS[fase], limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30 },
+    gratis: { ...GRATIS[fase], limites: { reservasMes: 150 }, margenDias: 30 },
   }));
   await page.route('**/rest/v1/**', route => json(route, []));
   await page.route('**/rest/v1/studios**', route =>
@@ -56,10 +56,10 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   await expect(plan).toContainText('Tú eres la prioridad. Si tu estudio crece, crecemos contigo.');
 
   const uso = page.getByRole('region', { name: 'Lo que usas' });
-  await expect(uso.getByRole('meter', { name: 'Clientes activos' })).toHaveAttribute('aria-valuenow', '42');
-  await expect(uso.getByRole('meter', { name: 'Clientes activos' })).toHaveAttribute('aria-valuemax', '150');
+  // Sin tope de alumnas (13-nov-2026): solo se mide el de reservas.
+  await expect(uso.getByRole('meter', { name: 'Clientes activos' })).toHaveCount(0);
   await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuenow', '96');
-  await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '250');
+  await expect(uso.getByRole('meter', { name: 'Reservas en los últimos 30 días' })).toHaveAttribute('aria-valuemax', '150');
   await expect(uso).toContainText('Te corresponde Founding Studio: gratis');
 
   // Crecer es Founding Studio de pago a 29 €/mes (fundador, 15-oct-2026), también dentro del límite:
@@ -74,7 +74,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await montar(page, 'MARGEN', '/suscripcion');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Te quedan 12 días en Founding Studio', { timeout: 30_000 });
-  await expect(aviso).toContainText('150 clientes activos y 250 reservas al mes');
+  await expect(aviso).toContainText('150 reservas al mes');
   await expect(aviso).toContainText('hasta el 20 de noviembre');
   await expect(aviso).toContainText('Si antes vuelves a estar por debajo, no tienes que hacer nada');
   // Pase el límite que pase, lo que toca es Founding Studio de pago (fundador, 15-oct-2026):
@@ -111,7 +111,7 @@ test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no
   await page.route('**/api/billing/status**', route => json(route, {
     plan: 'BASE', subscriptionStatus: 'gratis', activo: true, configurado: true, esPropietaria: true, bloqueado: false,
     trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
-    gratis: { ...GRATIS[fase], limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30 },
+    gratis: { ...GRATIS[fase], limites: { reservasMes: 150 }, margenDias: 30 },
   }));
   await ir(page, 'dashboard');
   await expect(page.getByRole('link', { name: /plan gratis/ })).toHaveCount(0);
@@ -130,7 +130,7 @@ test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un 
   await page.route('**/api/billing/status**', route => json(route, {
     plan: 'BASE', subscriptionStatus: 'gratis', activo: true, configurado: true, esPropietaria: true, bloqueado: false,
     trial: { fase: 'SIN_PRUEBA', diasRestantes: 0, finaliza: null },
-    gratis: { ...GRATIS.MARGEN, limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30 },
+    gratis: { ...GRATIS.MARGEN, limites: { reservasMes: 150 }, margenDias: 30 },
   }));
   await page.route('**/api/billing/checkout**', route => { contrataciones += 1; return json(route, { error: 'sin Stripe en el e2e' }, 500); });
   await ir(page, 'dashboard');
@@ -138,7 +138,7 @@ test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un 
   const felicidades = page.getByTestId('felicidades-crecimiento');
   await expect(felicidades).toBeVisible({ timeout: 30_000 });
   await expect(felicidades).toContainText('¡Felicidades!');
-  await expect(felicidades).toContainText('150 clientes activos y 250 reservas al mes');
+  await expect(felicidades).toContainText('150 reservas al mes');
   await expect(felicidades).toContainText('29 €');
   await expect(felicidades).toContainText('hasta el 20 de noviembre');
 

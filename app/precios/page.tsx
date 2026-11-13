@@ -10,7 +10,7 @@ import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { PLANS } from '@/components/landing/data';
-import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_ALUMNAS, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, SI_PASAS_CON_COMPLEMENTOS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, SI_PASAS_CON_COMPLEMENTOS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
 import { softwareApplicationLd } from '@/lib/seo/software-application';
 import { NombrePlan } from '@/components/planes/nombre-plan';
@@ -61,7 +61,7 @@ const FAQ = [
     a: 'No. Tentare no añade ninguna comisión sobre tus cobros ni tiene un marketplace donde competir por tus clientas. Lo que sí pagas es la comisión de Stripe por procesar cada pago, que es de Stripe y la ves en su propio panel.',
   },
   {
-    q: `¿Qué pasa si supero las ${GRATIS_ALUMNAS} alumnas activas o las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
+    q: `¿Qué pasa si supero las ${GRATIS_RESERVAS_MES} reservas al mes del plan Founding Studio?`,
     a: `Sigues en ${PLAN_INFO.BASE.nombre} por ${PRECIO_FOUNDING_PAGO} € al mes, con IVA incluido y sin tope de alumnas ni de reservas; con ese plan, ${COMPLEMENTOS_DE_PAGO} van aparte, como complementos. Tienes ${GRATIS_MARGEN_DIAS} días para pasarte; si no, se cierra el panel y la app de tus alumnas sigue funcionando. Las reservas se cuentan sobre los últimos 30 días, y si tienes varios estudios en el plan gratis, se suman. En el plan gratis, la redacción con IA tiene además un tope de 40 usos al día.`,
   },
   {

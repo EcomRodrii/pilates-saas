@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Lo que la web comercial dice del plan Founding Studio desde que es GRATIS
 // (decisión del fundador, 15-oct-2026): todo Tentare menos varias sedes,
-// mientras el estudio no pase de GRATIS_ALUMNAS alumnas activas ni de
-// GRATIS_RESERVAS_MES reservas en un mes. Al pasarse tiene GRATIS_MARGEN_DIAS días
+// mientras el estudio no pase de GRATIS_RESERVAS_MES reservas en un mes
+// (sin tope de alumnas desde el 13-nov-2026). Al pasarse tiene GRATIS_MARGEN_DIAS días
 // para pasarse a Founding Studio de pago (PRECIO_FOUNDING_PAGO), sin tope y, desde
 // el 19/20-oct-2026, con el Centro de Control, las sustituciones automáticas y la
 // redacción con IA como complementos aparte (COMPLEMENTOS_DE_PAGO); si no, se
 // cierra el panel y la app de sus alumnas sigue funcionando.
-// Pasar de CUALQUIERA de los dos límites lleva ahí: nadie va obligado a Estudio
+// Pasar del límite lleva ahí: nadie va obligado a Estudio
 // (corrección del fundador, 15-oct por la mañana). Lo que distingue a Estudio es
 // la app propia del estudio, que todavía no existe: la web no la vende hasta que
 // exista. Ya no hay prueba de 7 días: se empieza gratis, con todo.
@@ -21,16 +21,12 @@
 // (#2707, #2712), que es quien las aplica de verdad: la web no puede prometer un
 // límite distinto del que mide el servidor.
 //
-// ⚠️ Siempre los DOS límites juntos: con 150 alumnas lo normal es pasar de 250
-// reservas al mes, así que «gratis hasta 150 alumnas» a secas engaña.
-//
 // Puro y sin `@/`: lo importan /precios, la home, `lib/seo/paginas.ts` y su test.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ADDONS, ENTITLEMENTS_GRATIS, PLAN_INFO, type Entitlements, type Plan } from '../billing/entitlements.ts';
-import { FRASE_PLAN_GRATIS, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS } from '../billing/plan-gratis.ts';
+import { FRASE_PLAN_GRATIS, LIMITE_RESERVAS_MES, MARGEN_DIAS } from '../billing/plan-gratis.ts';
 
-export const GRATIS_ALUMNAS = LIMITE_ALUMNAS;
 export const GRATIS_RESERVAS_MES = LIMITE_RESERVAS_MES;
 /** Días para pasarse a Founding Studio de pago desde que se supera un límite. */
 export const GRATIS_MARGEN_DIAS = MARGEN_DIAS;
@@ -38,13 +34,13 @@ export const GRATIS_MARGEN_DIAS = MARGEN_DIAS;
 /** La frase del fundador, literal (con la tilde de «Tú»). */
 export const FRASE_FOUNDING = FRASE_PLAN_GRATIS;
 
-/** «hasta 150 alumnas activas y 250 reservas al mes» */
-export const LIMITES_GRATIS = `hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes`;
+/** «hasta 150 reservas al mes» */
+export const LIMITES_GRATIS = `hasta ${GRATIS_RESERVAS_MES} reservas al mes`;
 
-/** «Hasta 150 alumnas activas y 250 reservas al mes», para empezar frase. */
-export const TOPE_GRATIS = `Hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes`;
+/** «Hasta 150 reservas al mes», para empezar frase. */
+export const TOPE_GRATIS = `Hasta ${GRATIS_RESERVAS_MES} reservas al mes`;
 
-/** «Gratis hasta 150 alumnas activas y 250 reservas al mes»: el precio de entrada, dicho entero. */
+/** «Gratis hasta 150 reservas al mes»: el precio de entrada, dicho entero. */
 export const GRATIS_CON_LIMITES = `Gratis ${LIMITES_GRATIS}`;
 
 /**

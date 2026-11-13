@@ -8,7 +8,6 @@ import {
   SI_PASAS,
   ENTITLEMENTS_FOUNDING_GRATIS,
   FRASE_FOUNDING,
-  GRATIS_ALUMNAS,
   GRATIS_RESERVAS_MES,
   GRATIS_CON_LIMITES,
   GRATIS_MARGEN_DIAS,
@@ -21,12 +20,11 @@ import {
 // Founding Studio gratis en la web comercial (decisión del fundador, 15-oct-2026).
 
 test('las cifras son las de la decisión', () => {
-  assert.equal(GRATIS_ALUMNAS, 150);
-  assert.equal(GRATIS_RESERVAS_MES, 250);
+  assert.equal(GRATIS_RESERVAS_MES, 150);
   assert.equal(GRATIS_MARGEN_DIAS, 30);
-  assert.equal(LIMITES_GRATIS, 'hasta 150 alumnas activas y 250 reservas al mes');
-  assert.equal(TOPE_GRATIS, 'Hasta 150 alumnas activas y 250 reservas al mes');
-  assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 alumnas activas y 250 reservas al mes');
+  assert.equal(LIMITES_GRATIS, 'hasta 150 reservas al mes');
+  assert.equal(TOPE_GRATIS, 'Hasta 150 reservas al mes');
+  assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 reservas al mes');
 });
 
 test('si pasa de cualquiera de los dos límites, Founding Studio de pago a su precio de siempre (29 €)', () => {
@@ -38,7 +36,7 @@ test('la frase del fundador va literal, con la tilde de «Tú»', () => {
   assert.equal(FRASE_FOUNDING, 'Tú eres la prioridad. Si tu estudio crece, crecemos contigo.');
 });
 
-test('Founding Studio gratis incluye todo menos varias sedes, con su tope de alumnas', () => {
+test('Founding Studio gratis incluye todo menos varias sedes, sin tope de alumnas', () => {
   // `appPropia` (#2716) es la app del estudio en la App Store: solo Estudio y
   // Cadena, y todavía no existe, así que la web no la vende y «todo menos varias
   // sedes» sigue siendo verdad. El día que se venda, este test falla a propósito:
@@ -48,7 +46,7 @@ test('Founding Studio gratis incluye todo menos varias sedes, con su tope de alu
   for (const [nombre, tiene] of Object.entries(features)) {
     assert.equal(tiene, !NO_INCLUYE.includes(nombre), `${nombre} debería ser ${!NO_INCLUYE.includes(nombre)}`);
   }
-  assert.equal(maxSocios, GRATIS_ALUMNAS);
+  assert.equal(maxSocios, Infinity);
   // Lo único que Estudio tiene de más es la app propia; el resto, los límites.
   assert.deepEqual({ ...features, appPropia: true }, PLAN_ENTITLEMENTS.ESTUDIO.features);
 });
@@ -89,7 +87,7 @@ const PROHIBIDO: [RegExp, string][] = [
   [/\b(7|siete)\s+días\s+(gratis|de prueba|sin tarjeta)/i, 'ya no hay prueba de 7 días'],
   [/prueba\s+(gratuita\s+)?de\s+(7|siete)\s+días/i, 'ya no hay prueba de 7 días'],
   [/con el plan que elijas|del plan que elijas/, 'ya no se elige plan para probar: se empieza en Founding Studio gratis'],
-  // Founding Studio cuesta 29 € SOLO con más de 250 reservas: el precio va siempre
+  // Founding Studio cuesta 29 € SOLO con más de 150 reservas: el precio va siempre
   // atado a lo gratis («Founding Studio gratis (…; si pasas de ahí, 29 €/mes)»).
   [/Founding Studio(?:(?!reservas|pasas)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «si pasas de ahí»'],
   // Pasar de CUALQUIERA de los dos límites lleva a Founding Studio de pago, sin
@@ -114,15 +112,9 @@ test('la web no promete la prueba de 7 días ni Founding Studio a 29 €', () =>
   assert.deepEqual(fallos, []);
 });
 
-test('en la web, «150 alumnas» de Tentare va siempre con «250 reservas al mes»', () => {
-  // Con 150 alumnas lo normal es pasar de 250 reservas: un límite sin el otro engaña.
-  const fallos: string[] = [];
-  for (const f of WEB.flatMap(ficheros)) {
-    if (!/\.(tsx?|txt)$/.test(f) || f.endsWith('.test.ts')) continue;
-    readFileSync(join(RAIZ, f), 'utf8').split('\n').forEach((linea, i) => {
-      const l = linea.replace(/ | /g, ' ');
-      if (/150 alumnas/.test(l) && !/250 reservas|GRATIS_RESERVAS_MES|LIMITES_GRATIS|TOPE_GRATIS/.test(l)) fallos.push(`${f}:${i + 1}`);
-    });
-  }
-  assert.deepEqual(fallos, []);
+test('el texto central de la web ya no habla de alumnas como límite', () => {
+  // 13-nov-2026: el plan gratis mide solo reservas. Las páginas comerciales con la cifra
+  // escrita a mano (comparativas, soluciones, funcionalidades, recursos, home) las decide
+  // el fundador: se listan en el PR, no se reescriben solas.
+  for (const t of [LIMITES_GRATIS, TOPE_GRATIS, GRATIS_CON_LIMITES]) assert.doesNotMatch(t, /alumnas|clientes|clientas/);
 });

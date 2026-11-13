@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// «¡Felicidades!» cuando un estudio gratis pasa de 150 alumnas activas o de 250
+// «¡Felicidades!» cuando un estudio gratis pasa de 150
 // reservas al mes (reglas en lib/billing/plan-gratis.ts y felicidades.ts).
 //
 // Pasarse del plan gratis es una buena noticia, no una multa: sale con confeti y
@@ -54,8 +54,8 @@ export function FelicidadesCrecimiento() {
         setEstado({
           ...e,
           gratis: {
-            fase: 'MARGEN', uso: { alumnasActivas: 152, reservas30Dias: 251 }, motivos: ['alumnas', 'reservas'],
-            diasRestantes: 20, cierraEl: cierra, limites: { alumnas: 150, reservasMes: 250 }, margenDias: 30,
+            fase: 'MARGEN', uso: { alumnasActivas: 80, reservas30Dias: 151 }, motivos: ['reservas'],
+            diasRestantes: 20, cierraEl: cierra, limites: { reservasMes: 150 }, margenDias: 30,
           },
         });
         setVistaPrevia(true);

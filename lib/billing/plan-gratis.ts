@@ -10,8 +10,8 @@
 // distingue es la app propia del estudio (`appPropia`, entitlements.ts).
 //
 // Un estudio que no paga usa Tentare ENTERO (todo salvo varias sedes) mientras
-// no pase de LIMITE_ALUMNAS alumnas «Activa» ni de LIMITE_RESERVAS_MES reservas en un
-// mes. Al pasarse tiene MARGEN_DIAS para elegir plan de pago; pasado el
+// no pase de LIMITE_RESERVAS_MES reservas en un mes (13-nov-2026: sin tope de
+// alumnas y 150 reservas; antes 150 alumnas «Activa» y 250 reservas). Al pasarse tiene MARGEN_DIAS para elegir plan de pago; pasado el
 // margen, el panel se cierra hasta que lo elija. La app de sus alumnas no se toca nunca.
 //
 // Los «truquitos», todos aquí y con su test:
@@ -39,11 +39,10 @@
 
 import { masDias } from '../utils.ts';
 
-export const LIMITE_ALUMNAS = 150;
-export const LIMITE_RESERVAS_MES = 250;
+export const LIMITE_RESERVAS_MES = 150;
 /** Días para elegir un plan de pago desde que se pasa. */
 export const MARGEN_DIAS = 30;
-/** Desde qué parte del límite se avisa (120 alumnas, 200 reservas). */
+/** Desde qué parte del límite se avisa (120 reservas). */
 export const AVISO_PCT = 0.8;
 
 /** La frase del fundador, literal (con la tilde de «Tú»). */
@@ -70,12 +69,11 @@ export interface UsoGratis {
   reservas30Dias: number;
 }
 
-export type MotivoLimite = 'alumnas' | 'reservas';
+export type MotivoLimite = 'reservas';
 
 /** Lo que se ha pasado del límite (vacío si nada). */
 export function limitesPasados(u: UsoGratis): MotivoLimite[] {
   const m: MotivoLimite[] = [];
-  if (u.alumnasActivas > LIMITE_ALUMNAS) m.push('alumnas');
   if (u.reservas30Dias > LIMITE_RESERVAS_MES) m.push('reservas');
   return m;
 }
@@ -83,7 +81,6 @@ export function limitesPasados(u: UsoGratis): MotivoLimite[] {
 /** Lo que está ya cerca del límite (desde el AVISO_PCT), pasado o no. */
 export function limitesCerca(u: UsoGratis): MotivoLimite[] {
   const m: MotivoLimite[] = [];
-  if (u.alumnasActivas >= Math.ceil(LIMITE_ALUMNAS * AVISO_PCT)) m.push('alumnas');
   if (u.reservas30Dias >= Math.ceil(LIMITE_RESERVAS_MES * AVISO_PCT)) m.push('reservas');
   return m;
 }
@@ -210,7 +207,7 @@ export function estadoDeLoGuardado(
 
 /** Lo que contesta /api/billing/status de un estudio gratis (ya derivado). */
 export interface EstadoGratisApi extends EstadoGratis {
-  limites: { alumnas: number; reservasMes: number };
+  limites: { reservasMes: number };
   margenDias: number;
 }
 
@@ -306,12 +303,12 @@ export function empiezaDeCeroAlConvertir(estadoPrevio: string | null | undefined
   return estadoPrevio === 'canceled';
 }
 
-/** La frase de lo que se ha pasado, para los avisos: «150 alumnas activas», «250 reservas al mes». */
-export function textoLimite(m: MotivoLimite): string {
-  return m === 'alumnas' ? `${LIMITE_ALUMNAS} clientes activos` : `${LIMITE_RESERVAS_MES} reservas al mes`;
+/** La frase de lo que se ha pasado, para los avisos: «150 reservas al mes». */
+export function textoLimite(_m: MotivoLimite): string {
+  return `${LIMITE_RESERVAS_MES} reservas al mes`;
 }
 
-/** «150 alumnas activas y 250 reservas al mes»; sin motivos (cerrado y ya por debajo), «un límite del plan gratis». */
+/** «150 reservas al mes»; sin motivos (cerrado y ya por debajo), «un límite del plan gratis». */
 export function textoLimites(m: readonly MotivoLimite[]): string {
   return m.length === 0 ? 'un límite del plan gratis' : m.map(textoLimite).join(' y ');
 }

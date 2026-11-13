@@ -7,7 +7,7 @@ import { accesoProducto, addonsDe, LISTA_ADDONS, pagaAddonsAparte, planDeFila, P
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
-  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, pagaPlan, sedeAdmiteGratis, type EstadoGratisApi,
+  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, pagaPlan, sedeAdmiteGratis, type EstadoGratisApi,
 } from '@/lib/billing/plan-gratis';
 import { decidirPlanSuelto, type OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import { sueltosQueCancelaCadena, type SedeConPlan } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -152,7 +152,7 @@ export async function GET(req: NextRequest) {
     if (estado.fase === 'CERRADO' && subscriptionStatus === ESTADO_GRATIS && (await cerrarPlanGratis(admin, sesion.studioId))) {
       subscriptionStatus = ESTADO_GRATIS_CERRADO;
     }
-    gratis = { ...estado, limites: { alumnas: LIMITE_ALUMNAS, reservasMes: LIMITE_RESERVAS_MES }, margenDias: MARGEN_DIAS };
+    gratis = { ...estado, limites: { reservasMes: LIMITE_RESERVAS_MES }, margenDias: MARGEN_DIAS };
     activo = estado.fase !== 'CERRADO';
     bloqueado = enforcement && configurado && !activo;
   }

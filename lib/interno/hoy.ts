@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type Stripe from 'stripe';
 import { eurosAlMes } from './facturacion-real.ts';
-import { estadoGratis, LIMITE_ALUMNAS, LIMITE_RESERVAS_MES, type EstadoGratis, type UsoGratis } from '../billing/plan-gratis.ts';
+import { estadoGratis, LIMITE_RESERVAS_MES, type EstadoGratis, type UsoGratis } from '../billing/plan-gratis.ts';
 import { PLAN_INFO, type Plan } from '../billing/entitlements.ts';
 import type { EstadoApp } from '../app-nativa/pedir-app.ts';
 
@@ -393,7 +393,7 @@ export function estudiosAMirar(pago: readonly EntradaEstudioDePago[], gratis: re
     if (e.fase !== 'CERCA' && e.fase !== 'MARGEN' && e.fase !== 'CERRADO') continue;
     const grupo = e.estudiosDelGrupo > 1 ? ` · sumando sus ${e.estudiosDelGrupo} estudios` : '';
     const uso = e.uso
-      ? `${e.uso.reservas30Dias} de ${LIMITE_RESERVAS_MES} reservas · ${e.uso.alumnasActivas} de ${LIMITE_ALUMNAS} alumnas${grupo}`
+      ? `${e.uso.reservas30Dias} de ${LIMITE_RESERVAS_MES} reservas · ${e.uso.alumnasActivas} alumnas${grupo}`
       : 'Sin medir todavía';
     filas.push({
       id: g.id, nombre: g.nombre, plan: 'Founding Studio gratis', uso,

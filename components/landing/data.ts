@@ -1,4 +1,4 @@
-import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_ALUMNAS, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS_CON_COMPLEMENTOS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_CORTO, COMPLEMENTOS_DE_PAGO, CTA_ALTA, GRATIS_RESERVAS_MES, PRECIO_FOUNDING_PAGO, SI_PASAS_CON_COMPLEMENTOS, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { PLAN_ENTITLEMENTS } from '@/lib/billing/entitlements';
 import { MENU_PUBLICO } from '@/lib/seo/navegacion-publica';
 
@@ -96,7 +96,7 @@ export const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: '¿Cuánto cuesta Tentare?',
-    a: `Founding Studio es gratis hasta ${GRATIS_ALUMNAS} alumnas activas y ${GRATIS_RESERVAS_MES} reservas al mes, con todas las funcionalidades menos varias sedes; si pasas de ahí, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA, sin tope, y con ese plan ${COMPLEMENTOS_DE_PAGO} se contratan aparte. El plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
+    a: `Founding Studio es gratis hasta ${GRATIS_RESERVAS_MES} reservas al mes, con todas las funcionalidades menos varias sedes; si pasas de ahí, cuesta ${PRECIO_FOUNDING_PAGO} € al mes con IVA, sin tope, y con ese plan ${COMPLEMENTOS_DE_PAGO} se contratan aparte. El plan ${PLANS[1].name} cuesta ${PLANS[1].price.replace('€', ' €')}, y ${PLANS[2].name}, para varias sedes, ${PLANS[2].price.replace('€', ' €')}. Pagas mes a mes y Tentare no se queda comisión de lo que cobras a tus alumnas.`,
   },
   {
     q: '¿Hay permanencia?',
