@@ -49,6 +49,8 @@ export interface RowReservas {
   estado_externo: string | null;
   // migr 20261001132641.
   estado_externo_en: string | null;
+  // migr 20261112233833.
+  asistencia_origen: string | null;
 }
 
 export interface RowAchievementDefinitions {
@@ -1162,6 +1164,8 @@ export interface RowStudios {
   congelacion_permitida: boolean | null;
   // migr 20261110121938.
   congelacion_max_dias: number | null;
+  // migr 20261112233833.
+  excluir_de_metricas: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -4481,6 +4485,7 @@ export type ReservasInsert = {
   id_cliente_externo?: string | null | null;
   estado_externo?: string | null | null;
   estado_externo_en?: string | null | null;
+  asistencia_origen?: string | null | null;
 }
 
 export type ReservasUpdate = {
@@ -4511,6 +4516,7 @@ export type ReservasUpdate = {
   id_cliente_externo?: string | null | null;
   estado_externo?: string | null | null;
   estado_externo_en?: string | null | null;
+  asistencia_origen?: string | null | null;
 }
 
 export type AchievementDefinitionsInsert = {
@@ -5971,6 +5977,7 @@ export type StudiosInsert = {
   penalizacion_umbral_ventana_dias?: number | null | null;
   congelacion_permitida?: boolean | null | null;
   congelacion_max_dias?: number | null | null;
+  excluir_de_metricas?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6143,6 +6150,7 @@ export type StudiosUpdate = {
   penalizacion_umbral_ventana_dias?: number | null | null;
   congelacion_permitida?: boolean | null | null;
   congelacion_max_dias?: number | null | null;
+  excluir_de_metricas?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

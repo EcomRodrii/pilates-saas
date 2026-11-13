@@ -2329,7 +2329,7 @@ export async function barrerNoShows(nowISO: string) {
 
   let asistidasDeRescate = 0;
   for (const r of paraAsistir) {
-    const res = await checkinPublico({ studioId: r.studio_id, reservaId: r.id });
+    const res = await checkinPublico({ studioId: r.studio_id, reservaId: r.id, origen: 'SISTEMA' });
     if ('ok' in res) asistidasDeRescate++;
   }
 
@@ -2339,7 +2339,7 @@ export async function barrerNoShows(nowISO: string) {
     const lote = ids.slice(i, i + 200);
     const { data: upd, error: updErr } = await admin
       .from('reservas')
-      .update({ estado: 'NO_ASISTIO' })
+      .update({ estado: 'NO_ASISTIO', asistencia_origen: 'SISTEMA' })
       .in('id', lote)
       // Se mantiene el filtro por estado aunque ya se filtró al leer: entre la
       // lectura y este UPDATE alguien puede haber cancelado o marcado asistencia
@@ -7983,7 +7983,7 @@ export async function validarKioskToken(studioId: string, token: string | null):
 // si es la primera clase de una socia referida, premia a quien la invitó (con
 // tope mensual). La reserva debe pertenecer al estudio.
 
-export async function checkinPublico(params: { studioId: string; reservaId: string }) {
+export async function checkinPublico(params: { studioId: string; reservaId: string; origen?: 'PERSONA' | 'SISTEMA' }) {
   const admin = getSupabaseAdmin();
   if (!admin) throw new Error('Service role no configurada');
 
@@ -8007,7 +8007,7 @@ export async function checkinPublico(params: { studioId: string; reservaId: stri
   // arriba y este UPDATE, no se resucita una reserva cuya plaza ya puede ser de
   // la siguiente de la lista de espera.
   const { data: marcadas, error: eCheckin } = await admin.from('reservas')
-    .update({ estado: 'ASISTIDA', check_in_en: new Date().toISOString() })
+    .update({ estado: 'ASISTIDA', check_in_en: new Date().toISOString(), asistencia_origen: params.origen ?? 'PERSONA' })
     .eq('id', params.reservaId).eq('estado', 'CONFIRMADA')
     .select('id');
   if (eCheckin) {
