@@ -308,7 +308,7 @@ const articulo: Articulo = {
   cta: {
     titulo: 'Facturas con el IVA bien puesto, sin hacerlas a mano',
     texto:
-      'Tentare emite cada factura con numeración legal correlativa; Veri*Factu (huella y envío a la AEAT) todavía no está activo. Gratis hasta 150 alumnas activas y 250 reservas al mes, sin tarjeta y sin permanencia.',
+      'Tentare emite cada factura con numeración legal correlativa; Veri*Factu (huella y envío a la AEAT) todavía no está activo. Gratis hasta 150 reservas al mes, sin tarjeta y sin permanencia.',
   },
   revision: [
     'Confirmar que no se ha publicado en el BOE ninguna rebaja del IVA de los servicios deportivos posterior a la última modificación del texto consolidado consultado (28-feb-2026).',

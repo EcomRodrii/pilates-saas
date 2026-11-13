@@ -4,7 +4,7 @@ import { test, expect, type Page } from '@playwright/test';
 // Founding Studio GRATIS en la web (decisión del fundador, 15-oct-2026).
 //
 // /precios y la sección de precio de la home dicen lo mismo: Founding Studio
-// «Gratis» con sus dos límites (150 alumnas activas y 250 reservas al mes), con
+// «Gratis» con su límite (150 reservas al mes), con
 // más reservas 29 €/mes, la frase del fundador al lado, el botón «Empezar gratis»
 // y ni rastro de la prueba de 7 días. El schema.org de las dos páginas (la misma entidad, el mismo `@id`)
 // da precio 0 a Founding Studio. Con PRECIOS_CAPTURAS=<carpeta> guarda capturas

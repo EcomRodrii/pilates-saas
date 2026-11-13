@@ -120,13 +120,13 @@ export const CTA = {
 } as const;
 
 // Los planes REALES (lib/billing/entitlements.ts → PLAN_INFO: Founding Studio 29 €, Estudio 59 €, Cadena 149 €). Founding Studio
-// es gratis hasta 150 alumnas activas y 250 reservas al mes. Las filas, solo lo que el producto cumple hoy.
+// es gratis hasta 150 reservas al mes. Las filas, solo lo que el producto cumple hoy.
 export const PRECIOS = {
   etiqueta: 'Planes y precios',
   titulo: 'Un plan para cada etapa de tu estudio.',
   planes: [
     {
-      nombre: 'Founding Studio', texto: 'Todo lo esencial, gratis hasta 150 alumnas activas.', precio: 'Gratis', periodo: '', boton: 'Empezar gratis', destacado: false,
+      nombre: 'Founding Studio', texto: 'Todo lo esencial, gratis hasta 150 reservas al mes.', precio: 'Gratis', periodo: '', boton: 'Empezar gratis', destacado: false,
       lista: ['Calendario de clases y salas', 'Reservas online con lista de espera', 'Cuotas, bonos y clases sueltas', 'Cobros con tarjeta', 'App de tus alumnas con tu marca'],
     },
     {
