@@ -81,6 +81,11 @@
 .lf-h1-categoria { color: rgba(255, 255, 255, .88); }
 .lf-h1-promesa { font-size: clamp(2.4rem, 1.2rem + 3.9vw, 4rem); line-height: 1.06; letter-spacing: -.012em; font-weight: 500; text-wrap: balance; }
 .lf-heroe-texto > p { max-width: 36em; font-size: clamp(1.05rem, 1rem + .3vw, 1.25rem); line-height: 1.45; color: rgba(255, 255, 255, .88); text-wrap: balance; }
+.lf-garantia { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 18px; font-size: 14px; line-height: 1.4; color: rgba(255, 255, 255, .88); }
+.lf-garantia span { white-space: nowrap; }
+.lf-garantia span::before { content: '✓'; margin-right: .45em; font-weight: 600; opacity: .9; }
+.lf-cta-texto > .lf-garantia { justify-content: flex-start; }
+.lf-heroe-texto > .lf-garantia { margin-top: -4px; font-size: 14px; line-height: 1.4; color: rgba(255, 255, 255, .88); animation-delay: .55s; }
 .lf-heroe-botones { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
 .lf-ordenador { position: relative; width: min(1200px, 100%); margin: 56px auto 0; padding: 20px 20px 0; border: 2px solid rgba(255, 255, 255, .4); border-bottom: 0; border-radius: 40px 40px 0 0; background: rgba(120, 160, 100, .22); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .lf-ordenador-pantalla { width: 100%; overflow: hidden; border-radius: 28px 28px 0 0; background: #f4f6f4; box-shadow: 0 -10px 50px -20px rgba(0, 0, 0, .5); }

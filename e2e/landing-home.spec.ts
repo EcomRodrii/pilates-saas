@@ -107,6 +107,20 @@ test('el héroe pide la foto que le toca: en móvil el recorte vertical, en escr
   await expect.poll(() => fondo.evaluate((i: HTMLImageElement) => i.currentSrc), { message: 'foto del héroe en escritorio' }).toMatch(/hierba-2400\.(avif|webp)/);
 });
 
+// La home anterior decía «sin tarjeta, sin permanencia» bajo los botones y la nueva lo perdió (auditoría de visibilidad, 13-nov-2026):
+// quien duda de si «Pedir una demo» le compromete a algo tiene que leer, ahí mismo, lo que cuesta empezar. Sale de las constantes del plan gratis.
+test('el héroe y la llamada final dicen lo que cuesta empezar: gratis hasta el tope de reservas, sin tarjeta, sin permanencia', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'load' });
+  const lineas = page.locator('.lf-garantia');
+  await expect(lineas).toHaveCount(2);
+  for (const l of await lineas.all()) {
+    await expect(l).toContainText('Gratis hasta 150 reservas al mes');
+    await expect(l).toContainText('Sin tarjeta');
+    await expect(l).toContainText('Sin permanencia');
+  }
+  await expect(page.locator('.lf-heroe .lf-garantia')).toBeVisible();
+});
+
 test('las preguntas son las reales: las del JSON-LD, enteras y con su respuesta en el HTML', async ({ page }) => {
   const html = await (await page.request.get('/')).text();
   const jsons = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
