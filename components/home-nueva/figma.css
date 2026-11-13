@@ -272,6 +272,7 @@
 .lf-select > svg { position: absolute; right: 12px; bottom: 16px; pointer-events: none; }
 .lf-form .lf-boton { align-self: flex-start; }
 .lf-form-nota { font-size: 14px; color: rgba(255, 255, 255, .85); }
+.lf-form-error { color: #fff; font-weight: 600; }
 
 /* ── Pie ── */
 

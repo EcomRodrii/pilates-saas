@@ -9,6 +9,7 @@ import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
 import { asociarEstudio, capturarEvento, identificar, vincularEstudio } from '@/lib/posthog-cliente';
 import { registrarAltaCompletada } from '@/lib/meta-pixel-cliente';
 import { CLAVE_ORIGEN_ALTA } from '@/lib/landing/medicion';
+import { CLAVE_ORIGEN_IA } from '@/lib/landing/origen-ia';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
@@ -167,7 +168,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
   useEffect(() => {
     if (iniciada.current) return;
     iniciada.current = true;
-    capturarEvento('alta_estudio_iniciada', { desde: leerLlegada() ?? 'directo', version });
+    capturarEvento('alta_estudio_iniciada', { desde: leerLlegada() ?? 'directo', version, origen_ia: leerOrigenIA() ?? 'ninguno' });
   }, [version]);
 
   // ¿Llega con la sesión abierta? Con estudio, a su panel; sin él, solo falta el
@@ -641,6 +642,11 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
 }
 
 // ── Lo que no es estado ─────────────────────────────────────────────────────
+
+/** El asistente de IA que trajo la visita (`CLAVE_ORIGEN_IA`), si lo hubo. */
+function leerOrigenIA(): string | null {
+  try { return window.sessionStorage.getItem(CLAVE_ORIGEN_IA); } catch { return null; }
+}
 
 /** La etiqueta del botón de la web que la trajo (`CLAVE_ORIGEN_ALTA`). La normaliza `metadataDelAlta`. */
 function leerLlegada(): string | null {

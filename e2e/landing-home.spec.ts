@@ -96,6 +96,17 @@ test('el héroe: la foto de fondo carga la primera, con prioridad, y «Pedir una
   expect(['/demo', '#contacto']).toContain(await demo.getAttribute('href'));
 });
 
+// El LCP de la home en móvil era la foto de 389 KB (ampliada a 2400 px) y salía a 11 s en laboratorio (4G lenta, CPU ×4): un móvil con
+// `object-fit: cover` solo enseña ~485 px de ancho del original. Ahora ≤ 600 px pide el recorte vertical de 40 KB.
+test('el héroe pide la foto que le toca: en móvil el recorte vertical, en escritorio la grande', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/', { waitUntil: 'load' });
+  const fondo = page.locator('.lf-heroe .lf-fondo img');
+  await expect.poll(() => fondo.evaluate((i: HTMLImageElement) => i.currentSrc), { message: 'foto del héroe en móvil' }).toMatch(/hierba-movil-(400|600)\.(avif|webp)/);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(() => fondo.evaluate((i: HTMLImageElement) => i.currentSrc), { message: 'foto del héroe en escritorio' }).toMatch(/hierba-2400\.(avif|webp)/);
+});
+
 test('las preguntas son las reales: las del JSON-LD, enteras y con su respuesta en el HTML', async ({ page }) => {
   const html = await (await page.request.get('/')).text();
   const jsons = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
@@ -123,17 +134,55 @@ test('el pie solo enlaza lo que existe: Instagram y LinkedIn (ni Facebook ni X) 
   expect((await pie.innerText()).toLowerCase()).not.toContain('sobre nosotros');
 });
 
-test('el formulario de contacto abre el correo con el mensaje (no hay servidor detrás) y avisa', async ({ page }) => {
+// El servidor dice si puede enviar (`GET /api/public/solicitar-demo`): sin clave de captcha o de correo en ese entorno, el formulario
+// cae al `mailto:` de siempre en vez de pintar uno que nunca envía.
+const listoParaRellenar = async (page: Page, disponible: boolean) => {
+  await page.route('**/api/public/solicitar-demo', r => (r.request().method() === 'GET' ? r.fulfill({ json: { disponible } }) : r.fallback()));
   // Sin movimiento: el desplazamiento suave y la entrada al scroll mantienen el botón «no estable» y Playwright no lo pulsa.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/', { waitUntil: 'load' });
   await page.waitForFunction(() => Object.keys(document.querySelector('form.lf-form') ?? {}).some(k => k.startsWith('__react')), null, { timeout: 60_000 });
+  await page.getByLabel('Correo electrónico').fill('prueba@example.com');
+};
+
+test('el formulario de contacto, sin servidor que envíe, abre el correo con el mensaje y avisa', async ({ page }) => {
+  await listoParaRellenar(page, false);
   await page.getByLabel('Nombre', { exact: true }).fill('Prueba');
   // `mailto:` no navega: se intercepta para no abrir ningún cliente de correo.
-  await page.evaluate(() => { (window as unknown as { __destino?: string }).__destino = ''; });
   await page.route(/^mailto:/, r => r.abort());
   await page.getByRole('button', { name: 'Pedir una demo' }).last().click();
   await expect(page.getByText('Se abre tu correo con el mensaje listo para enviar.')).toBeVisible();
+});
+
+test('el formulario de contacto envía al servidor y solo dice «recibido» cuando el servidor lo confirma', async ({ page }) => {
+  await listoParaRellenar(page, true);
+  const envios: Record<string, unknown>[] = [];
+  await page.route('**/api/public/solicitar-demo', r => {
+    if (r.request().method() !== 'POST') return r.fallback();
+    envios.push(r.request().postDataJSON());
+    return r.fulfill({ json: { ok: true } });
+  });
+  await page.getByLabel('Nombre', { exact: true }).fill('Prueba');
+  await page.getByRole('button', { name: 'Pedir una demo' }).last().click();
+  await expect(page.getByText('Recibido. Te escribimos pronto.')).toBeVisible();
+  expect(envios).toHaveLength(1);
+  expect(envios[0]).toMatchObject({ email: 'prueba@example.com', nombre: 'Prueba', web: '' });
+});
+
+test('el formulario de contacto, si el servidor dice que no, no anuncia éxito y deja reintentar', async ({ page }) => {
+  await listoParaRellenar(page, true);
+  let intentos = 0;
+  await page.route('**/api/public/solicitar-demo', r => {
+    if (r.request().method() !== 'POST') return r.fallback();
+    intentos++;
+    return r.fulfill({ status: 503, json: { error: 'No hemos podido enviar tu mensaje ahora mismo.' } });
+  });
+  await page.getByRole('button', { name: 'Pedir una demo' }).last().click();
+  await expect(page.locator('form.lf-form [role="alert"]')).toContainText('No hemos podido enviar tu mensaje');
+  // Sin el contador, «no mintió» podría ser verdad por no haber intentado nada.
+  expect(intentos).toBeGreaterThan(0);
+  await expect(page.getByText('Recibido. Te escribimos pronto.')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Pedir una demo' }).last()).toBeEnabled();
 });
 
 test('todos los enlaces internos de la home responden 200', async ({ page, request, browserName }) => {

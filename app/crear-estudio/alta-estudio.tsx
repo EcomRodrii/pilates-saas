@@ -9,6 +9,7 @@ import { dbCreateStudio, setCurrentStudioId } from '@/lib/supabase-data';
 import { asociarEstudio, capturarEvento, identificar, vincularEstudio } from '@/lib/posthog-cliente';
 import { registrarAltaCompletada } from '@/lib/meta-pixel-cliente';
 import { CLAVE_ORIGEN_ALTA, nombrePasoAlta } from '@/lib/landing/medicion';
+import { CLAVE_ORIGEN_IA } from '@/lib/landing/origen-ia';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
@@ -172,8 +173,9 @@ export function AltaEstudio({ foundingGratis }: { foundingGratis: boolean }) {
     if (embudo.current.iniciada) return;
     embudo.current.iniciada = true;
     let desde: string | null = null;
-    try { desde = window.sessionStorage.getItem(CLAVE_ORIGEN_ALTA); } catch { /* sin sessionStorage */ }
-    capturarEvento('alta_estudio_iniciada', { desde: desde ?? 'directo' });
+    let origenIa: string | null = null;
+    try { desde = window.sessionStorage.getItem(CLAVE_ORIGEN_ALTA); origenIa = window.sessionStorage.getItem(CLAVE_ORIGEN_IA); } catch { /* sin sessionStorage */ }
+    capturarEvento('alta_estudio_iniciada', { desde: desde ?? 'directo', origen_ia: origenIa ?? 'ninguno' });
   }, []);
   useEffect(() => {
     if (fase !== 'formulario' || paso === 1 || embudo.current.pasos.has(paso)) return;

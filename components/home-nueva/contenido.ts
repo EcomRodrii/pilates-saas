@@ -172,6 +172,11 @@ export const CONTACTO = {
     enviar: 'Pedir una demo',
     nota: 'Tus datos solo se usarán para responder a tu consulta.',
     aviso: 'Se abre tu correo con el mensaje listo para enviar.',
+    enviando: 'Enviando…',
+    enviadoTitulo: 'Recibido. Te escribimos pronto.',
+    enviadoTexto: 'Hemos recibido tu mensaje. Te responderemos al correo que nos has dado, normalmente en un día laborable.',
+    errorEnvio: 'No hemos podido enviar tu mensaje. Escríbenos a hola@tentare.app.',
+    errorRed: 'No hemos podido enviarlo. Revisa tu conexión y vuelve a intentarlo.',
   },
 } as const;
 

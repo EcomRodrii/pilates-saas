@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { paginaEstudioIndexable, type SenalesEstudio } from './estudio-indexable.ts';
+import { paginaEstudioIndexable, MIN_SOCIAS_INDEXABLE, type SenalesEstudio } from './estudio-indexable.ts';
 
 const REAL: SenalesEstudio = {
-  oculta: false, suspendido: false, esDemo: false, estadoSuscripcion: 'trialing', clasesFuturas: 40, reservasRecientes: 12,
+  oculta: false, suspendido: false, esDemo: false, estadoSuscripcion: 'trialing', clasesFuturas: 40, reservasRecientes: 12, sociasActivas: 30,
 };
 
 test('un estudio real, en prueba o pagando, con horario y reservas: indexable', () => {
@@ -34,4 +34,10 @@ test('sin clases futuras no hay nada que enseñar', () => {
 test('oculta o suspendida: nunca', () => {
   assert.equal(paginaEstudioIndexable({ ...REAL, oculta: true }), false);
   assert.equal(paginaEstudioIndexable({ ...REAL, suspendido: true }), false);
+});
+
+test('una prueba del equipo con una reserva suelta y casi ninguna alumna no se indexa', () => {
+  assert.equal(paginaEstudioIndexable({ ...REAL, sociasActivas: 0 }), false);
+  assert.equal(paginaEstudioIndexable({ ...REAL, sociasActivas: MIN_SOCIAS_INDEXABLE - 1 }), false);
+  assert.equal(paginaEstudioIndexable({ ...REAL, sociasActivas: MIN_SOCIAS_INDEXABLE }), true);
 });

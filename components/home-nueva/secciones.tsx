@@ -35,7 +35,8 @@ export function Heroe({ demoHref }: { demoHref: string }) {
   return (
     <section className="lf-heroe" aria-labelledby="lf-h1">
       <div className="lf-fondo" aria-hidden="true">
-        {/* Con object-fit: cover sobre un héroe alto, la foto se muestra a unos 2100 px de ancho: se pide la variante grande siempre. */}
+        {/* Escritorio: con object-fit: cover sobre un héroe alto la foto se muestra a ~2100 px de ancho, así que va la grande.
+            Móvil (≤ 600 px): recorte vertical de 40 KB en vez de la de 389 KB (lo decide <Foto>, `movil`). */}
         <Foto nombre="hierba" alt={ALT.hierba} sizes="2400px" prioridad />
       </div>
       <div className="lf-heroe-texto">
@@ -74,7 +75,7 @@ export function Confianza({ logos }: { logos: readonly LogoCliente[] }) {
               {logos.map(l => (
                 <li key={l.logoUrl}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- logos de Supabase Storage de forma libre */}
-                  <img src={l.logoUrl} alt={g === 0 ? l.nombre : ''} width={170} height={70} loading="eager" decoding="async" />
+                  <img src={l.logoUrl} alt={g === 0 ? l.nombre : ''} width={170} height={70} loading="lazy" fetchPriority="low" decoding="async" />
                 </li>
               ))}
             </ul>

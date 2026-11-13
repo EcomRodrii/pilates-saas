@@ -41,6 +41,7 @@
 import { crearCola, type Destino } from '@/lib/sentry-cola';
 import { debeCargarseAnalitica, esVistaIncrustada, sanearEventoPosthog } from '@/lib/posthog-privacidad';
 import { aparcarEvento, recogerEventos } from '@/lib/posthog-diferidos';
+import { CLAVE_ORIGEN_IA, motorDeIA } from '@/lib/landing/origen-ia';
 import { filtrarEventoNavegador, type NombreEventoNavegador, type PropsEventoNavegador } from '@/lib/analytics-navegador';
 
 type PostHogSDK = typeof import('posthog-js').default;
@@ -121,9 +122,24 @@ function forzarCarga(): Promise<PostHogSDK | null> {
   return cargando;
 }
 
+/**
+ * Si la visita llega desde un asistente de IA: un evento (una vez por pestaña) y la etiqueta en `sessionStorage` para que el alta la
+ * lleve (`CLAVE_ORIGEN_IA`). Solo el motor: ni la URL de la conversación ni nada de la persona.
+ */
+function registrarVisitaDesdeIA(): void {
+  try {
+    if (window.sessionStorage.getItem(CLAVE_ORIGEN_IA)) return;
+    const motor = motorDeIA(document.referrer, new URLSearchParams(window.location.search).get('utm_source'));
+    if (!motor) return;
+    window.sessionStorage.setItem(CLAVE_ORIGEN_IA, motor);
+    capturarEvento('visita_desde_ia', { motor });
+  } catch { /* sin sessionStorage: sin medida, y nada se rompe */ }
+}
+
 /** Carga en cuanto el navegador no tenga nada mejor que hacer. */
 export function cargarCuandoOcioso(): void {
   if (!analiticaPermitidaAqui()) return;
+  registrarVisitaDesdeIA();
   const w = window as typeof window & {
     requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
   };
