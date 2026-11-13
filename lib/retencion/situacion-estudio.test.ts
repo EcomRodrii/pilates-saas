@@ -17,7 +17,7 @@ import { AVISO_PCT, LIMITE_RESERVAS_MES, MARGEN_DIAS, type FaseGratis } from '..
 
 const SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261016123000_situacion_estudio_solo_lectura.sql'), 'utf8');
 
-const FASE_GRATIS_SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261113120000_plan_gratis_solo_reservas.sql'), 'utf8');
+const FASE_GRATIS_SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261113115203_plan_gratis_solo_reservas.sql'), 'utf8');
 
 function constanteSql(nombre: string, fuente: string = SQL): number {
   const m = fuente.match(new RegExp(`${nombre} constant (?:integer|numeric) := ([\\d.]+);`));
