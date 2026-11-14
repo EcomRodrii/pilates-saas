@@ -5,13 +5,20 @@ import { exigirPermiso } from '@/lib/interno/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { ARTICULOS, urlArticulo } from '@/lib/ayuda/registro';
 import { validarVideo } from '@/lib/ayuda/videos';
+import { CAPITULOS } from '@/lib/guia/curriculo';
 
 export const runtime = 'nodejs';
 
 // Los vídeos de las guías (`ayuda_videos`), gestionados desde /interno/ayuda por quien tiene `content.write` (el mismo permiso que el
 // changelog y la lectura de feedback). El texto de las guías NO se edita aquí: sigue en código, con sus pruebas.
 const GUIAS = new Map(ARTICULOS.filter(a => a.estado === 'publicado').map(a => [`${a.categoria}/${a.slug}`, a]));
-const CLAVES = new Set(GUIAS.keys());
+// Y las lecciones del curso dentro del panel (`/primeros-pasos/<capítulo>` y «Cambiar a Tentare»): su vídeo vive en la misma tabla, con la
+// clave `primeros-pasos/<id>` (components/ayuda/use-videos-academy.ts), y se carga desde /api/ayuda/videos, no al servir la página.
+const LECCIONES = new Map<string, string>([
+  ...CAPITULOS.map(c => [`primeros-pasos/${c.id}`, c.titulo] as [string, string]),
+  ['primeros-pasos/cambiar-de-software', 'Cambiar a Tentare'],
+]);
+const CLAVES = new Set([...GUIAS.keys(), ...LECCIONES.keys()]);
 
 const COLUMNAS = 'articulo, video_id, hash_privado, titulo, duracion_seg, nivel, resultado, destacado, publicado, actualizado_en';
 
@@ -34,7 +41,10 @@ export async function GET(req: NextRequest) {
 
   const videos = new Map((data ?? []).map(v => [v.articulo as string, v]));
   // Todas las guías, con o sin vídeo: es la lista de trabajo de quien graba («esta guía aún no tiene»).
-  const guias = [...GUIAS.entries()].map(([clave, a]) => ({ articulo: clave, titulo: a.titulo, categoria: a.categoria, video: videos.get(clave) ?? null }));
+  const guias = [
+    ...[...LECCIONES.entries()].map(([clave, titulo]) => ({ articulo: clave, titulo, categoria: 'academy-curso', video: videos.get(clave) ?? null })),
+    ...[...GUIAS.entries()].map(([clave, a]) => ({ articulo: clave, titulo: a.titulo, categoria: a.categoria, video: videos.get(clave) ?? null })),
+  ];
   return NextResponse.json({ guias, sinTabla });
 }
 

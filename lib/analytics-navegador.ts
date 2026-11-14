@@ -98,7 +98,6 @@ export const EVENTOS_NAVEGADOR = {
   // `articulo` es «categoria/slug» del registro (lib/ayuda/registro.ts): qué guía, nunca quién la lee ni qué buscó.
   ayuda_articulo_visto: ['articulo'],
   ayuda_video_reproducido: ['articulo'],
-  ayuda_guia_hecha: ['articulo', 'hecha'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type NombreEventoNavegador = keyof typeof EVENTOS_NAVEGADOR;

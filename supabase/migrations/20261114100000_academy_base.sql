@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- Tentare Academy (base): vídeos de las guías, búsquedas sin resultado y «desactualizada».
+-- Tentare Academy (base): vídeos, búsquedas sin resultado, «desactualizada» y el recorrido de migración.
 -- ═══════════════════════════════════════════════════════════════════════════
 --
 -- Decisiones del fundador (14-nov-2026): el texto de las guías sigue en código (con sus tests: que un
@@ -86,6 +86,29 @@ alter table public.ayuda_feedback drop constraint if exists ayuda_feedback_valor
 alter table public.ayuda_feedback add constraint ayuda_feedback_valoracion_check
   check (valoracion in ('MALO', 'REGULAR', 'BUENO', 'DESACTUALIZADA'));
 
+-- ── 4. El recorrido «Cambiar a Tentare» (lib/migracion/recorrido.ts) ─────────
+-- Los pasos que NO se pueden saber de los datos (exportar del programa anterior, la prueba, activar): los marca la propietaria.
+-- Por estudio, solo servidor (la escribe `PUT /api/migracion/recorrido` con la sesión y el rol), como `migracion_batches`: RLS activa
+-- sin políticas y la política restrictiva de doble factor que exige este repo. El navegador no la toca directamente.
+create table if not exists public.migracion_checklist (
+  studio_id text not null references public.studios(id) on delete cascade,
+  paso text not null check (paso ~ '^[a-z0-9-]{3,40}$'),
+  estado text not null check (estado in ('PENDIENTE', 'EN_PROGRESO', 'COMPLETADO', 'REQUIERE_REVISION', 'BLOQUEADO')),
+  -- Solo el paso «diagnostico» lo lleva: de qué software viene.
+  origen text check (origen is null or origen in ('timp', 'bsport', 'eversports', 'mindbody', 'momence', 'otro')),
+  nota text check (nota is null or char_length(nota) <= 300),
+  actualizado_en timestamptz not null default now(),
+  actualizado_por uuid,
+  primary key (studio_id, paso)
+);
+alter table public.migracion_checklist enable row level security;
+create policy exige_doble_factor on public.migracion_checklist as restrictive for all to authenticated
+  using ((select public.nivel_acceso_suficiente())) with check ((select public.nivel_acceso_suficiente()));
+revoke all on public.migracion_checklist from anon, authenticated;
+grant all on public.migracion_checklist to service_role;
+comment on table public.migracion_checklist is
+  'Estado de los pasos manuales del recorrido «Cambiar a Tentare» (Academy). Por estudio, solo servidor. Los pasos de datos (importar alumnas, bonos, horario) NO se guardan aquí: se calculan de los datos reales del estudio.';
+
 -- ── Comprobaciones: que nada quede abierto al cliente ───────────────────────
 do $$
 begin
@@ -94,6 +117,9 @@ begin
   end if;
   if has_table_privilege('anon', 'public.ayuda_busquedas', 'SELECT') or has_table_privilege('authenticated', 'public.ayuda_busquedas', 'SELECT') then
     raise exception 'ayuda_busquedas: el cliente no debe poder leerla (solo servidor)';
+  end if;
+  if has_table_privilege('anon', 'public.migracion_checklist', 'SELECT') or has_table_privilege('authenticated', 'public.migracion_checklist', 'SELECT') then
+    raise exception 'migracion_checklist: el cliente no debe poder leerla (solo servidor)';
   end if;
   if has_function_privilege('anon', 'public.registrar_busqueda_sin_resultado(text)', 'EXECUTE')
      or has_function_privilege('authenticated', 'public.registrar_busqueda_sin_resultado(text)', 'EXECUTE') then

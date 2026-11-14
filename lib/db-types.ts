@@ -4477,6 +4477,16 @@ export interface RowAyudaBusquedas {
   veces: number;
 }
 
+export interface RowMigracionChecklist {
+  studio_id: string;
+  paso: string;
+  estado: string;
+  origen: string | null;
+  nota: string | null;
+  actualizado_en: string;
+  actualizado_por: string | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12376,6 +12386,26 @@ export type AyudaBusquedasUpdate = {
   veces?: number | null;
 }
 
+export type MigracionChecklistInsert = {
+  studio_id?: string | null;
+  paso?: string | null;
+  estado?: string | null;
+  origen?: string | null | null;
+  nota?: string | null | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+}
+
+export type MigracionChecklistUpdate = {
+  studio_id?: string | null;
+  paso?: string | null;
+  estado?: string | null;
+  origen?: string | null | null;
+  nota?: string | null | null;
+  actualizado_en?: string | null;
+  actualizado_por?: string | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13768,6 +13798,11 @@ export type Database = {
         Row: RowAyudaBusquedas;
         Insert: AyudaBusquedasInsert;
         Update: AyudaBusquedasUpdate;
+      };
+      migracion_checklist: {
+        Row: RowMigracionChecklist;
+        Insert: MigracionChecklistInsert;
+        Update: MigracionChecklistUpdate;
       };
     };
   };

@@ -3,11 +3,11 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { PortadaAcademy } from '@/components/academy/PortadaAcademy';
+import { EscaparateAcademy } from '@/components/academy/EscaparateAcademy';
 import { videosPublicados } from '@/lib/ayuda/videos-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
-// Tentare Academy: la portada de aprendizaje sobre las guías del Centro de ayuda (lib/ayuda/academy.ts). Los vídeos se publican desde
+// Tentare Academy, el ESCAPARATE público (components/academy/EscaparateAcademy.tsx): la formación de verdad vive dentro del panel. Los vídeos se publican desde
 // /interno/ayuda sin desplegar: la página se regenera cada pocos minutos y, al guardar un vídeo, al momento.
 export const revalidate = 300;
 
@@ -25,7 +25,7 @@ export default async function AcademyPage() {
     <PageShell>
       <OrganizationStructuredData />
       <IslaWeb />
-      <PortadaAcademy videos={videos} />
+      <EscaparateAcademy videos={videos} />
       <PieWeb />
     </PageShell>
   );

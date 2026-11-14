@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, LifeBuoy, Search, Sparkles } from 'lucide-react';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -11,6 +11,7 @@ import { ACC, MUTED } from '@/components/landing/theme';
 import { AyudaIcono } from '@/components/ayuda/iconos';
 import { CATEGORIAS, articulosPublicadosDe } from '@/lib/ayuda/registro';
 import { buscarArticulos, categoriasSugeridas } from '@/lib/ayuda/busqueda';
+import { crearRegistroDeBusquedas } from '@/lib/ayuda/registrar-busqueda';
 
 export default function AyudaHomePage() {
   const [query, setQuery] = useState(() => (typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('q') ?? ''));
@@ -18,6 +19,14 @@ export default function AyudaHomePage() {
 
   const resultados = useMemo(() => (q ? buscarArticulos(q) : []), [q]);
   const sugeridas = useMemo(() => (q && resultados.length === 0 ? categoriasSugeridas(q) : []), [q, resultados.length]);
+
+  // Lo que se busca y no está, anonimizado y contado 90 días (app/api/ayuda/busqueda): la lista de guías que faltan.
+  const registro = useRef<ReturnType<typeof crearRegistroDeBusquedas> | null>(null);
+  useEffect(() => {
+    registro.current ??= crearRegistroDeBusquedas();
+    registro.current.cambio(q, resultados.length);
+    return () => registro.current?.cancelar();
+  }, [q, resultados.length]);
 
   return (
     <PageShell>

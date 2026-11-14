@@ -1851,20 +1851,26 @@ Puertas en `lib/asistente-context.tsx`. Lo que no se reabre:
 
 ## Tentare Academy y Centro de ayuda (14-nov-2026, decisiones del fundador)
 
-**Academy ENSEÑA, el Centro de ayuda RESUELVE, y son el mismo registro** (`lib/ayuda/registro.ts`): una guía se escribe una vez. Academy
-(`/academy`, `lib/ayuda/academy.ts`) son RUTAS (listas ordenadas de guías que ya existen) y vídeos; no hay contenido ni páginas vacías aparte.
-- **El texto de las guías vive en código**, con sus pruebas (que un botón citado exista, que nada congelado se enseñe). Sin CMS: un CMS de
-  texto deja publicar guías que mienten. **Solo los vídeos y sus metadatos viven en Supabase** (`ayuda_videos`, global, solo servidor),
-  gestionados desde `/interno/ayuda` (permiso `content.write`) para publicarlos sin desplegar. Un vídeo sin `publicado` no se ve en ninguna parte.
+**Academy ENSEÑA, dentro del panel, con tus datos; el Centro de ayuda RESUELVE.** Academy es un CURSO para quien ya está dentro: `/primeros-pasos`
+(el curso «Conoce Tentare», `lib/guia/curriculo.ts`, progreso calculado de datos reales con `lib/guia/progreso.ts`) y el curso **«Cambiar a
+Tentare»** (`/primeros-pasos/cambiar-de-software`, `lib/migracion/recorrido.ts`: 11 pasos y 5 estados). La `/academy` pública es solo un
+escaparate (`components/academy/EscaparateAcademy.tsx`): no tiene contenido propio. Las guías siguen siendo un solo registro (`lib/ayuda/registro.ts`).
+- **No hay «leído» ni «hecha en el navegador»**: el progreso es lo que existe en el estudio (salas, clases, alumnas…), nunca un check de lectura.
+  En «Cambiar a Tentare» los pasos de DATOS (alumnas, bonos, horario) se marcan solos con los datos del estudio; el resto lo marca la propietaria
+  (`migracion_checklist`, solo servidor, con `puedeGestionarClientas`). «Completado» a mano nunca lo escribe el servidor por su cuenta.
+- **Lo que no se puede traer se dice** (`LIMITES_DE_LA_MIGRACION`): las tarjetas guardadas no se mueven entre plataformas, y no se promete migración
+  asistida (el concierge se retiró el 21-oct-2026).
+- **Guías de exportación por software de origen**: solo con pasos si constan en su ayuda pública, con enlace y fecha (`FECHA_COMPROBACION`). Hoy
+  TIMP y Eversports; bsport, Mindbody y Momence dicen «no consta» y mandan a su soporte. Nunca de memoria; revisar la fecha al tocarlo.
+- **El texto vive en código**, con sus pruebas. Sin CMS: un CMS de texto deja publicar guías que mienten. **Solo los vídeos y sus metadatos viven en
+  Supabase** (`ayuda_videos`, global, solo servidor; clave `categoria/slug` o `primeros-pasos/<capítulo>`), gestionados desde `/interno/ayuda`
+  (permiso `content.write`). Un vídeo sin `publicado` no se ve en ninguna parte.
 - **Vídeo en Vimeo, con fachada** (`components/ayuda/VideoFachada.tsx`): hasta pulsar reproducir no se pide nada a Vimeo, y el reproductor
-  lleva `dnt=1`. Es lo que sostiene la política de cookies (la analítica no guarda nada en el dispositivo). Nunca un `<iframe>` a pelo.
+  lleva `dnt=1`. Es lo que sostiene la política de cookies. Nunca un `<iframe>` a pelo.
 - **Búsquedas sin resultado: anonimizadas, 90 días, con su frecuencia** (`ayuda_busquedas`; `lib/ayuda/busquedas-sin-resultado.ts`). Lo que
   parece un dato personal (correo, enlace, cinco o más cifras, frase larga) se DESCARTA, no se «limpia». Sin usuario, estudio ni IP. La purga es
-  `pg_cron` en SQL directo (`purgar-ayuda-busquedas`).
-- **«Hecha» es lo leído, en el navegador** (localStorage, como el «visto» de los tutoriales del panel): NO es el progreso del negocio, que se calcula
-  de datos reales (`lib/guia/progreso.ts`). La duración de una guía solo la pone un vídeo real: nunca se inventa.
-- Guías de migración por software de origen (TIMP, bsport, Eversports, Mindbody, Momence): solo con los pasos de exportación **verificados en su
-  documentación pública, con fecha**. Nunca de memoria.
+  `pg_cron` en SQL directo (`purgar-ayuda-busquedas`). Se apuntan desde `/ayuda` y la ayuda del panel.
+- La duración de un vídeo solo la pone un vídeo real: nunca se inventa.
 
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
