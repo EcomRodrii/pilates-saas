@@ -31,3 +31,19 @@ test('categoriasSugeridas nunca sugiere para una query vacía', () => {
 test('categoriasSugeridas devuelve como mucho `max` categorías', () => {
   assert.ok(categoriasSugeridas('reservas', 2).length <= 2);
 });
+
+test('buscarArticulos: las palabras pueden ir en cualquier orden y no hace falta que vayan seguidas', () => {
+  const r = buscarArticulos('bono caducidad');
+  assert.ok(r.some((x) => x.articulo.slug === 'caducidad-de-un-bono'), 'debería encontrar «Caducidad y pausa de un bono»');
+  assert.deepEqual(buscarArticulos('caducidad bono').map((x) => x.href), r.map((x) => x.href));
+});
+
+test('buscarArticulos: todas las palabras tienen que estar; una que no existe lo vacía', () => {
+  assert.ok(buscarArticulos('bono xyzxyz').length === 0);
+});
+
+test('buscarArticulos: lo que coincide en el título va antes que lo que coincide solo en la descripción', () => {
+  const r = buscarArticulos('stripe');
+  assert.ok(r.length > 1);
+  assert.match(r[0].articulo.titulo.toLowerCase(), /stripe/);
+});

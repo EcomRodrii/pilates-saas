@@ -7,8 +7,12 @@ import { AyudaArticleStructuredData, AyudaBreadcrumbStructuredData } from './Ayu
 import { AyudaRelacionados } from './AyudaRelacionados';
 import { AyudaFeedback } from './AyudaFeedback';
 import { AyudaCTASoporte } from './AyudaCTASoporte';
+import { FichaGuia } from './FichaGuia';
+import { NavegacionRuta } from './NavegacionRuta';
 import { MUTED } from '@/components/landing/theme';
-import { categoriaDe, relacionadosDe, urlArticulo, type ArticuloAyuda } from '@/lib/ayuda/registro';
+import { articuloDe, categoriaDe, relacionadosDe, urlArticulo, type ArticuloAyuda } from '@/lib/ayuda/registro';
+import { fichaDe, rutaDeGuia } from '@/lib/ayuda/academy';
+import type { VideoAyuda } from '@/lib/ayuda/videos';
 
 const fecha = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -17,7 +21,17 @@ const fecha = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('
 // con <AyudaPaso>/<AyudaCaptura>/etc.), relacionados y feedback. Un artículo de
 // tipo "problema" no cambia este chrome — cambia la ESTRUCTURA interna de su
 // contenido, que sigue components/ayuda/TroubleshootShell.tsx.
-export function ArticuloShell({ articulo, children }: { articulo: ArticuloAyuda; children: React.ReactNode }) {
+// La guía anterior o siguiente de su ruta, resuelta con título y enlace (o null).
+function enlaceDeRuta(clave: string | null) {
+  if (!clave) return null;
+  const [c, s] = clave.split('/');
+  const a = articuloDe(c, s);
+  return a && a.estado === 'publicado' ? { href: urlArticulo(a), titulo: a.titulo } : null;
+}
+
+export function ArticuloShell({ articulo, video = null, children }: { articulo: ArticuloAyuda; video?: VideoAyuda | null; children: React.ReactNode }) {
+  const clave = `${articulo.categoria}/${articulo.slug}`;
+  const enRuta = rutaDeGuia(clave);
   const migas: Miga[] = [
     { label: 'Inicio', href: '/ayuda' },
     // El TÍTULO de la categoría, no su slug: la miga decía «instructores» donde
@@ -45,7 +59,16 @@ export function ArticuloShell({ articulo, children }: { articulo: ArticuloAyuda;
           <span>Actualizado el {fecha(articulo.actualizado)}</span>
         </div>
 
+        <FichaGuia
+          clave={clave}
+          ficha={fichaDe(clave)}
+          video={video}
+          ruta={enRuta ? { titulo: enRuta.ruta.titulo, posicion: enRuta.indice + 1, total: enRuta.ruta.guias.length } : null}
+        />
+
         <div style={{ fontSize: 15.5, lineHeight: 1.7, color: '#1A1A1A' }}>{children}</div>
+
+        {enRuta && <NavegacionRuta rutaTitulo={enRuta.ruta.titulo} anterior={enlaceDeRuta(enRuta.anterior)} siguiente={enlaceDeRuta(enRuta.siguiente)} />}
 
         <AyudaCTASoporte />
         <AyudaRelacionados articulos={relacionadosDe(articulo)} />

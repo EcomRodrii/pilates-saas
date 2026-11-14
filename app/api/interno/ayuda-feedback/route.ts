@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   const filas = data ?? [];
 
-  const porArticulo = new Map<string, { articulo: string; categoria: string; titulo: string; malo: number; regular: number; bueno: number }>();
+  const porArticulo = new Map<string, { articulo: string; categoria: string; titulo: string; malo: number; regular: number; bueno: number; desactualizada: number }>();
   for (const f of filas) {
     const clave = `${f.categoria_slug}/${f.articulo_slug}`;
     if (!porArticulo.has(clave)) {
@@ -35,21 +35,24 @@ export async function GET(req: NextRequest) {
       porArticulo.set(clave, {
         articulo: f.articulo_slug, categoria: f.categoria_slug,
         titulo: ficha?.titulo ?? `${categoriaDe(f.categoria_slug)?.titulo ?? f.categoria_slug} / ${f.articulo_slug}`,
-        malo: 0, regular: 0, bueno: 0,
+        malo: 0, regular: 0, bueno: 0, desactualizada: 0,
       });
     }
     const fila = porArticulo.get(clave)!;
     if (f.valoracion === 'MALO') fila.malo++;
     else if (f.valoracion === 'REGULAR') fila.regular++;
+    else if (f.valoracion === 'DESACTUALIZADA') fila.desactualizada++;
     else fila.bueno++;
   }
 
+  // `total` son las valoraciones de calidad (😞😐😃); «desactualizada» es un aviso aparte y no entra en los porcentajes.
   const articulos = [...porArticulo.values()].map((a) => ({ ...a, total: a.malo + a.regular + a.bueno }));
 
-  const total = filas.length;
-  const malo = filas.filter((f) => f.valoracion === 'MALO').length;
-  const regular = filas.filter((f) => f.valoracion === 'REGULAR').length;
-  const bueno = filas.filter((f) => f.valoracion === 'BUENO').length;
+  const valoraciones = filas.filter((f) => f.valoracion !== 'DESACTUALIZADA');
+  const total = valoraciones.length;
+  const malo = valoraciones.filter((f) => f.valoracion === 'MALO').length;
+  const regular = valoraciones.filter((f) => f.valoracion === 'REGULAR').length;
+  const bueno = valoraciones.filter((f) => f.valoracion === 'BUENO').length;
 
   return NextResponse.json({
     resumen: {
@@ -57,6 +60,7 @@ export async function GET(req: NextRequest) {
       pctMalo: total > 0 ? Math.round((malo / total) * 1000) / 10 : 0,
       pctRegular: total > 0 ? Math.round((regular / total) * 1000) / 10 : 0,
       pctBueno: total > 0 ? Math.round((bueno / total) * 1000) / 10 : 0,
+      desactualizadas: filas.length - total,
     },
     articulos: articulos.sort((a, b) => b.total - a.total),
     recientes: filas.slice(0, 200),

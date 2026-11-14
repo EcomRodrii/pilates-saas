@@ -1849,6 +1849,23 @@ Puertas en `lib/asistente-context.tsx`. Lo que no se reabre:
   con momentos que traduce `lib/tenti/asistente.ts`; nunca en una tarjeta. Sin sonido
   (6-oct-2026: Tenti no suena en ningún sitio).
 
+## Tentare Academy y Centro de ayuda (14-nov-2026, decisiones del fundador)
+
+**Academy ENSEÑA, el Centro de ayuda RESUELVE, y son el mismo registro** (`lib/ayuda/registro.ts`): una guía se escribe una vez. Academy
+(`/academy`, `lib/ayuda/academy.ts`) son RUTAS (listas ordenadas de guías que ya existen) y vídeos; no hay contenido ni páginas vacías aparte.
+- **El texto de las guías vive en código**, con sus pruebas (que un botón citado exista, que nada congelado se enseñe). Sin CMS: un CMS de
+  texto deja publicar guías que mienten. **Solo los vídeos y sus metadatos viven en Supabase** (`ayuda_videos`, global, solo servidor),
+  gestionados desde `/interno/ayuda` (permiso `content.write`) para publicarlos sin desplegar. Un vídeo sin `publicado` no se ve en ninguna parte.
+- **Vídeo en Vimeo, con fachada** (`components/ayuda/VideoFachada.tsx`): hasta pulsar reproducir no se pide nada a Vimeo, y el reproductor
+  lleva `dnt=1`. Es lo que sostiene la política de cookies (la analítica no guarda nada en el dispositivo). Nunca un `<iframe>` a pelo.
+- **Búsquedas sin resultado: anonimizadas, 90 días, con su frecuencia** (`ayuda_busquedas`; `lib/ayuda/busquedas-sin-resultado.ts`). Lo que
+  parece un dato personal (correo, enlace, cinco o más cifras, frase larga) se DESCARTA, no se «limpia». Sin usuario, estudio ni IP. La purga es
+  `pg_cron` en SQL directo (`purgar-ayuda-busquedas`).
+- **«Hecha» es lo leído, en el navegador** (localStorage, como el «visto» de los tutoriales del panel): NO es el progreso del negocio, que se calcula
+  de datos reales (`lib/guia/progreso.ts`). La duración de una guía solo la pone un vídeo real: nunca se inventa.
+- Guías de migración por software de origen (TIMP, bsport, Eversports, Mindbody, Momence): solo con los pasos de exportación **verificados en su
+  documentación pública, con fecha**. Nunca de memoria.
+
 ## Loop de calidad — conecta con las skills que ya existen, no las reinventes
 
 Para trabajo no trivial (nueva funcionalidad, cambio de esquema, refactor con impacto),

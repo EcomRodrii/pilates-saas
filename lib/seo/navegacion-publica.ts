@@ -127,6 +127,7 @@ export const MENU_RECURSOS: EnlaceConResumen[] = [
   { href: '/recursos', label: 'Blog', resumen: 'Guías prácticas de gestión, sin humo.' },
   { href: '/comparativa', label: 'Comparativas', resumen: 'Tentare frente a las trece plataformas con las que más se compara.' },
   { href: '/glosario', label: 'Glosario', resumen: 'Qué significa cada término del sector, sin marketing.' },
+  { href: '/academy', label: 'Academy', resumen: 'Rutas, guías y vídeos para aprender Tentare paso a paso.' },
   { href: '/ayuda', label: 'Centro de Ayuda', resumen: 'Documentación oficial de Tentare, paso a paso.' },
 ];
 
@@ -183,6 +184,7 @@ export const PIE_PUBLICO: GrupoMenu[] = [
       { href: '/comparativa/tentare-vs-timp', label: 'Alternativa a TIMP' },
       { href: '/comparativa/tentare-vs-lorari', label: 'Alternativa a Lorari' },
       { href: '/glosario', label: 'Glosario' },
+      { href: '/academy', label: 'Academy' },
       { href: '/ayuda', label: 'Centro de Ayuda' },
     ],
   },
@@ -218,6 +220,6 @@ export const PIE_RESUMIDO: { titulo: string; hrefs: string[] }[] = [
   { titulo: 'Producto', hrefs: ['/funcionalidades/reservas-online', '/funcionalidades/bonos-y-membresias', '/funcionalidades/cobros-recurrentes', '/funcionalidades/app-para-alumnas', '/funcionalidades', '/precios'] },
   { titulo: 'Soluciones', hrefs: ['/soluciones/programa-de-gestion-para-estudio-de-pilates', '/soluciones/estudio-de-pilates-reformer', '/soluciones/estudio-de-yoga', '/soluciones/abrir-un-estudio', '/soluciones/cambiar-de-software', '/soluciones'] },
   { titulo: 'Alternativas', hrefs: ['/comparativa/tentare-vs-bsport', '/comparativa/tentare-vs-eversports', '/comparativa/tentare-vs-momence', '/comparativa/tentare-vs-mindbody', '/comparativa/tentare-vs-timp', '/comparativa/tentare-vs-lorari'] },
-  { titulo: 'Recursos', hrefs: ['/recursos', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/recursos/rentabilidad-estudio-de-pilates', '/recursos/checklist-elegir-software-estudio', '/recursos/mejor-software-para-estudios-de-pilates', '/glosario', '/ayuda'] },
+  { titulo: 'Recursos', hrefs: ['/recursos', '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates', '/recursos/rentabilidad-estudio-de-pilates', '/recursos/checklist-elegir-software-estudio', '/recursos/mejor-software-para-estudios-de-pilates', '/glosario', '/academy', '/ayuda'] },
   { titulo: 'Empresa', hrefs: ['/sobre-tentare', '/blog', '/seguridad', '/soporte'] },
 ];
