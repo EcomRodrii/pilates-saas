@@ -4,7 +4,7 @@
 // (`accionesDeRecibo`), con las apagadas y su motivo en vez de esconderlas.
 
 import {
-  Banknote, CheckCircle2, CreditCard, FileText, Landmark, RefreshCw, RotateCcw, Trash2, Undo2, UserRound, XCircle, type LucideIcon,
+  Banknote, CheckCircle2, CreditCard, FileText, Landmark, Pencil, RefreshCw, RotateCcw, Trash2, Undo2, UserRound, XCircle, type LucideIcon,
 } from 'lucide-react';
 import type { Recibo } from '@/lib/types';
 import type { IdAccionRecibo } from '@/lib/cobros/acciones-de-recibo';
@@ -25,6 +25,7 @@ const ICONO: Record<IdAccionRecibo, LucideIcon> = {
   LE_HE_DEVUELTO_EL_DINERO: RotateCcw,
   DEVOLVER_DESDE_SU_FICHA: UserRound,
   ELIMINAR: Trash2,
+  CAMBIAR_IMPORTE: Pencil,
 };
 
 export function MenuRecibo({ recibo, datos, acciones, quitar = [], titulo }: {

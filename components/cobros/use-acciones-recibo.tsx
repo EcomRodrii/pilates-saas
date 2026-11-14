@@ -24,6 +24,7 @@ import type { MetodoCobro, Recibo } from '@/lib/types';
 import type { IdAccionRecibo } from '@/lib/cobros/acciones-de-recibo';
 import { MENSAJE_YA_ESTABA } from '@/lib/cobros/marcar-cobrado';
 import { MOTIVOS_ELIMINAR_RECIBO } from '@/lib/recibos-eliminar';
+import { validarNuevoImporte } from '@/lib/cobros/cambiar-importe-reglas';
 import { cobrarOnlineDirecto, crearEnlaceTarjeta, enviarEmailRecibo, CODIGO_RESPUESTA_PERDIDA } from '@/lib/api-client';
 import { copiarAlPortapapeles, formatEuro, hoyEnEstudio } from '@/lib/utils';
 import { fechaCorta } from '@/lib/clientas/textos';
@@ -60,7 +61,7 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
   const router = useRouter();
   const {
     studio, recibos, socios, facturas,
-    marcarCobrado, marcarCobradoPorElBanco, marcarDevuelto, reembolsarAMano, reintentar,
+    marcarCobrado, marcarCobradoPorElBanco, marcarDevuelto, reembolsarAMano, cambiarImporteRecibo, reintentar,
     reintentarSelladoFactura, devolverRecibosAPendientesTrasRemesa, deleteRecibo, resetDatosPilates,
   } = useStudio();
 
@@ -87,6 +88,7 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
   const [cobrando, setCobrando] = useState<string | null>(null);
   const [reembolsando, setReembolsando] = useState<string | null>(null);
   const [eliminar, setEliminar] = useState<{ id: string; motivo: string | null; error: string | null; enCurso: boolean } | null>(null);
+  const [cambiarImporte, setCambiarImporte] = useState<{ id: string; valor: string; error: string | null; enCurso: boolean } | null>(null);
   const [pedirTarjetaA, setPedirTarjetaA] = useState<{ socioId: string; nombre: string } | null>(null);
   const [enlaceTarjeta, setEnlaceTarjeta] = useState<{ url: string; copiado: boolean } | null>(null);
   const [generandoEnlace, setGenerandoEnlace] = useState(false);
@@ -256,9 +258,22 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
       case 'ELIMINAR':
         setEliminar({ id: r.id, motivo: null, error: null, enCurso: false });
         return;
+      case 'CAMBIAR_IMPORTE':
+        setCambiarImporte({ id: r.id, valor: String(r.importe).replace('.', ','), error: null, enCurso: false });
+        return;
       case 'LO_CIERRA_STRIPE':
         return;
     }
+  }
+
+  async function confirmarCambiarImporte() {
+    if (!cambiarImporte || cambiarImporte.enCurso) return;
+    const nuevo = validarNuevoImporte(cambiarImporte.valor);
+    if (!nuevo.ok) { setCambiarImporte({ ...cambiarImporte, error: nuevo.error }); return; }
+    setCambiarImporte({ ...cambiarImporte, enCurso: true, error: null });
+    const res = await cambiarImporteRecibo(cambiarImporte.id, nuevo.importe);
+    if (res.ok) { setCambiarImporte(null); avisos.ok(`Importe cambiado a ${formatEuro(nuevo.importe)}. Ya puedes cobrarlo.`); return; }
+    setCambiarImporte(c => (c ? { ...c, enCurso: false, error: res.error } : c));
   }
 
   async function confirmarEliminar() {
@@ -325,6 +340,49 @@ export function useAccionesRecibo(avisos: AvisosCobros): AccionesRecibo {
           });
         }}
       />
+
+      <Dialog open={!!cambiarImporte} onOpenChange={open => { if (!open && !cambiarImporte?.enCurso) setCambiarImporte(null); }}>
+        <DialogContent className="max-w-sm" data-testid="dialogo-cambiar-importe">
+          <form
+            className="flex flex-col gap-4 py-2"
+            onSubmit={e => { e.preventDefault(); void confirmarCambiarImporte(); }}
+          >
+            <div>
+              <h3 className="text-base font-semibold text-foreground">Cambiar el importe</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {reciboDe(cambiarImporte?.id ?? null)
+                  ? <>{nombre(reciboDe(cambiarImporte?.id ?? null)!.socioId)} · {reciboDe(cambiarImporte?.id ?? null)!.concepto}. </>
+                  : null}
+                Cámbialo antes de cobrar si has cobrado otra cantidad que la de la tarifa. Queda anotado quién lo cambió y de cuánto a cuánto.
+              </p>
+            </div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              Importe (€)
+              <input
+                data-testid="importe-nuevo" type="text" inputMode="decimal" autoFocus autoComplete="off"
+                value={cambiarImporte?.valor ?? ''} disabled={cambiarImporte?.enCurso}
+                onChange={e => setCambiarImporte(c => (c ? { ...c, valor: e.target.value, error: null } : c))}
+                className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-base font-semibold normal-case tracking-normal text-foreground"
+              />
+            </label>
+            {cambiarImporte?.error && <p role="alert" data-testid="error-cambiar-importe" className="text-[13px] text-destructive">{cambiarImporte.error}</p>}
+            <div className="flex w-full gap-3">
+              <button
+                type="button" onClick={() => setCambiarImporte(null)} disabled={cambiarImporte?.enCurso}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-bold text-muted-foreground transition-colors hover:bg-background disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit" data-testid="confirmar-cambiar-importe" disabled={cambiarImporte?.enCurso}
+                className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-bold text-brand-foreground transition-colors hover:brightness-95 disabled:opacity-50"
+              >
+                {cambiarImporte?.enCurso ? 'Guardando…' : 'Guardar importe'}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!eliminar} onOpenChange={open => { if (!open && !eliminar?.enCurso) setEliminar(null); }}>
         <DialogContent className="max-w-sm" data-testid="dialogo-eliminar-recibo">

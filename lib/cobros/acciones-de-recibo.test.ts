@@ -17,7 +17,7 @@ test('lo que no se pudo cobrar: cobrar a mano, con su tarjeta, «el banco lo dev
 });
 
 test('«Cobrar con su tarjeta»: solo si se puede cobrar sin ella, y apagado (con el motivo) si ya se cobra solo o la cuota está congelada', () => {
-  assert.deepEqual(ids(accionesDeRecibo(r(), { ...CTX, cobroSinElla: null })), ['COBRAR', 'EL_BANCO_LO_DEVOLVIO', 'ELIMINAR']);
+  assert.deepEqual(ids(accionesDeRecibo(r(), { ...CTX, cobroSinElla: null })), ['COBRAR', 'CAMBIAR_IMPORTE', 'EL_BANCO_LO_DEVOLVIO', 'ELIMINAR']);
   const solo = accionesDeRecibo(r(), { ...CTX, seCobraSoloEl: 'el martes 6 oct' }).find(a => a.id === 'COBRAR_SIN_ELLA');
   assert.deepEqual(solo, { id: 'COBRAR_SIN_ELLA', texto: 'Cobrar con su tarjeta ··0077', nota: 'Ya se cobra solo el martes 6 oct.', desactivada: true });
   const congelada = accionesDeRecibo(r(), { ...CTX, cuota: { estado: 'PAUSADA' } }).find(a => a.id === 'COBRAR_SIN_ELLA');
@@ -80,4 +80,18 @@ test('reembolsado: solo su factura, si la tiene; con factura no se elimina nada'
 
 test('anulado: solo eliminarlo', () => {
   assert.deepEqual(ids(accionesDeRecibo(r({ estado: 'ANULADO' }), CTX)), ['ELIMINAR']);
+});
+
+test('«Cambiar el importe»: solo en un recibo PENDIENTE sin pago abierto ni intentos, y nunca en una penalización, la caja o una clase suelta', () => {
+  assert.ok(ids(accionesDeRecibo(r(), CTX)).includes('CAMBIAR_IMPORTE'));
+  // Un FALLIDO ya se intentó cobrar; un pendiente con un cargo, una remesa o un intento tampoco.
+  assert.ok(!ids(accionesDeRecibo(r({ estado: 'FALLIDO' }), CTX)).includes('CAMBIAR_IMPORTE'));
+  assert.ok(!ids(accionesDeRecibo(r({ stripePaymentIntentId: 'pi_1' }), CTX)).includes('CAMBIAR_IMPORTE'));
+  assert.ok(!ids(accionesDeRecibo(r({ sepaEstado: 'processing' }), CTX)).includes('CAMBIAR_IMPORTE'));
+  assert.ok(!ids(accionesDeRecibo(r({ intentosReintento: 2 }), CTX)).includes('CAMBIAR_IMPORTE'));
+  for (const id of ['rec-penaliz-1', 'rec-pos-1', 'rec-suelta-1']) {
+    assert.ok(!ids(accionesDeRecibo(r({ id }), CTX)).includes('CAMBIAR_IMPORTE'), id);
+  }
+  // Lo cobrado no se edita: se devuelve y se vuelve a cobrar.
+  assert.ok(!ids(accionesDeRecibo(r({ estado: 'COBRADO', metodoCobro: 'EFECTIVO', fechaCobro: '2026-11-13' }), CTX)).includes('CAMBIAR_IMPORTE'));
 });

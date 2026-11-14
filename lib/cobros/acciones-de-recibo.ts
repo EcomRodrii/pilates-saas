@@ -23,11 +23,12 @@
 import { accionesDeDevolucion, cobroEntroPorStripe, type ReciboParaDevolver } from '../billing/devolucion-reglas.ts';
 import { situacionRecibo } from '../billing/situacion-recibo.ts';
 import { puedeEliminarRecibo } from '../recibos-eliminar.ts';
+import { puedeCambiarImporte } from './cambiar-importe-reglas.ts';
 
 export type IdAccionRecibo =
   | 'COBRAR' | 'COBRAR_SIN_ELLA' | 'EL_BANCO_LO_DEVOLVIO' | 'REINTENTAR_POR_EL_BANCO'
   | 'EL_BANCO_LO_HA_COBRADO' | 'NO_LLEGO_AL_BANCO' | 'LO_CIERRA_STRIPE'
-  | 'VER_FACTURA' | 'HACERLE_FACTURA' | 'LE_HE_DEVUELTO_EL_DINERO' | 'DEVOLVER_DESDE_SU_FICHA' | 'ELIMINAR';
+  | 'VER_FACTURA' | 'HACERLE_FACTURA' | 'LE_HE_DEVUELTO_EL_DINERO' | 'DEVOLVER_DESDE_SU_FICHA' | 'ELIMINAR' | 'CAMBIAR_IMPORTE';
 
 export interface AccionDeRecibo {
   id: IdAccionRecibo;
@@ -45,6 +46,8 @@ export interface ReciboParaAcciones extends ReciboParaDevolver {
   fechaDevolucion?: string | null;
   /** Cuándo se preparó en un fichero de remesa (migr `recibos_marcas_de_tiempo`). */
   enviadoAlBancoEn?: string | null;
+  /** Intentos de cobro ya hechos: con alguno, el importe ya no se cambia (`puedeCambiarImporte`). */
+  intentosReintento?: number | null;
 }
 
 export interface ContextoDeAcciones {
@@ -81,6 +84,14 @@ export function accionesDeRecibo(r: ReciboParaAcciones, ctx: ContextoDeAcciones)
 
   if (s === 'POR_COBRAR' || s === 'IMPAGADO') {
     acciones.push({ id: 'COBRAR', texto: 'Cobrar solo este recibo', nota: 'Eliges cómo te ha pagado' });
+    // Si cobraste otra cantidad que la de la tarifa, se corrige ANTES de cobrar. La pantalla solo mira lo que sabe (estado, pagos del
+    // propio recibo); el servidor comprueba el resto (sesiones de pago, datáfono) y dice por qué no, si no se puede.
+    if (r.estado === 'PENDIENTE' && puedeCambiarImporte({
+      id: r.id, estado: r.estado, importe: null, intentos_reintento: r.intentosReintento ?? 0,
+      stripe_payment_intent_id: r.stripePaymentIntentId, sepa_estado: r.sepaEstado, enviado_al_banco_en: r.enviadoAlBancoEn,
+    }).ok) {
+      acciones.push({ id: 'CAMBIAR_IMPORTE', texto: 'Cambiar el importe', nota: 'Si has cobrado otra cantidad que la de la tarifa: corrígela antes de cobrar' });
+    }
     if ((r.estado === 'PENDIENTE' || r.estado === 'FALLIDO') && r.socioId && ctx.cobroSinElla) {
       const motivo = ctx.cuota?.estado === 'PAUSADA' ? 'Su cuota está congelada: no se le cobra.'
         : ctx.seCobraSoloEl ? `Ya se cobra solo ${ctx.seCobraSoloEl}.` : null;
