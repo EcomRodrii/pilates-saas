@@ -232,7 +232,7 @@ import {
 import { decidirReciboPrevioDeCita, type ReciboPrevioDeCita } from '@/lib/cobros/recibo-de-cita';
 import type { DatosReciboNuevo } from '@/lib/cobros/recibo-escritura-navegador';
 import type { TipoRebote } from '@/lib/emails/rebotes';
-import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, reintentarPorElBancoApi, enviarEmailRecibo, cambiarCuotaConDiferencia } from '@/lib/api-client';
+import { encolarEnvioCampana, enviarEmailCancelacionClase, enviarEmailBienvenida, avisarClaseCancelada, authHeader, portalAuthHeader, cargarDatosPublicos, cargarAforoPublico, leerSociaLocal, sellarFactura, fetchEmailsRebotados, marcarReciboDevueltoApi, marcarCobradoEnServidor, reembolsarAManoApi, cambiarImporteReciboApi, reintentarPorElBancoApi, enviarEmailRecibo, cambiarCuotaConDiferencia } from '@/lib/api-client';
 import { fusionarAforo } from '@/lib/portal-aforo';
 import { aplicarApartadas } from '@/lib/student/aforo-fresco';
 import { resolverDestinatariasCampana as resolverDestinatariasCampanaCompartido, segmentoNecesitaEstado } from '@/lib/marketing/segmentos';
@@ -268,6 +268,7 @@ import {
 } from '@/lib/booking-logic';
 import { calcularReactivacion, avisaBonoAgotado } from '@/lib/bono-logic';
 import { cicloYCobroDeAlta, conceptoAltaProrrateada, periodoDeCuotaAnterior } from '@/lib/billing/prorrateo';
+import { puedeCambiarFechaRenovacion, validarFechaRenovacion } from '@/lib/cobros/fecha-renovacion-reglas';
 
 /** Cambio de cuota a una más cara cobrando la diferencia proporcional (la confirma el servidor). */
 export interface OpcionesAsignarPlan {
@@ -496,6 +497,8 @@ interface StudioContextValue {
   cancelarSuscripcion: (susId: string) => Promise<ResultadoEscritura>;
   /** Baja a fin de periodo (true) o quitarla (false). Ver migr 20260913215533. */
   programarBajaSuscripcion: (susId: string, programar: boolean) => Promise<ResultadoEscritura>;
+  /** Mueve la fecha en que se renueva una cuota mensual (el último día cubierto; renueva al día siguiente). */
+  cambiarFechaRenovacion: (susId: string, fechaISO: string) => Promise<ResultadoEscritura>;
 
   // Notas internas
   addNota: (socioId: string, texto: string, opciones?: { visibilidad?: NotaInterna['visibilidad']; fijada?: boolean }) => Promise<ResultadoEscritura>;
@@ -618,6 +621,8 @@ interface StudioContextValue {
   marcarDevuelto: (reciboId: string, desde?: EstadoRecibo) => Promise<ResultadoEscritura>;
   /** «Le he devuelto el dinero»: reembolso a mano de un cobro hecho a mano. Ya no debe nada. */
   reembolsarAMano: (reciboId: string, metodo: MetodoCobro) => Promise<ResultadoEscritura & { caja?: string }>;
+  /** «Cambiar el importe» de un recibo pendiente: lo decide el servidor y el recibo cambia con su respuesta. */
+  cambiarImporteRecibo: (reciboId: string, importe: number) => Promise<ResultadoEscritura>;
   /** «Reintentar por el banco»: un recibo que devolvió el banco vuelve a la próxima remesa. */
   reintentar: (reciboId: string) => Promise<ResultadoEscritura>;
   reintentarSelladoFactura: (reciboId: string) => Promise<ResultadoEscritura>;
@@ -3508,6 +3513,34 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true };
   }
 
+  /**
+   * Cambiar la fecha de renovación de una cuota mensual (lib/cobros/fecha-renovacion-reglas.ts). Escribe primero y solo entonces
+   * pinta. La base de datos deja la entrada en el libro de auditoría (cambio de `fecha_fin` de la cuota, con quién y cuándo).
+   */
+  async function cambiarFechaRenovacion(susId: string, fechaISO: string): Promise<ResultadoEscritura> {
+    const sus = suscripciones.find(s => s.id === susId);
+    if (!sus) return { ok: false, error: 'No se encuentra esta suscripción.' };
+    const plan = planesTarifa.find(p => p.id === sus.planId);
+    const puede = puedeCambiarFechaRenovacion({ estado: sus.estado, fechaFin: sus.fechaFin ?? null, stripeSubscriptionId: sus.stripeSubscriptionId ?? null }, plan?.tipo);
+    if (!puede.ok) return { ok: false, error: puede.motivo };
+    const valida = validarFechaRenovacion(fechaISO, hoyEnEstudio());
+    if (!valida.ok) return { ok: false, error: valida.error };
+    if (valida.fecha === sus.fechaFin?.slice(0, 10)) return { ok: true };
+
+    const res = await dbUpdateSuscripcion(susId, { fechaFin: valida.fecha });
+    if (!res.ok) return res;
+    setSuscripciones(prev => prev.map(s => s.id === susId ? { ...s, fechaFin: valida.fecha } : s));
+
+    const socio = socios.find(s => s.id === sus.socioId);
+    addActividadReciente(
+      'PLAN_ASIGNADO',
+      `${actorNombre ?? 'Alguien'} movió al ${valida.fecha.split('-').reverse().join('/')} la renovación de${plan ? ` "${plan.nombre}"` : ' la cuota'} de ${socio?.nombre ?? 'una socia'}`,
+      sus.socioId,
+      `/socios/${sus.socioId}`,
+    );
+    return { ok: true };
+  }
+
   // ── Sesiones ─────────────────────────────────────────────────────────────────
 
   // Escribe PRIMERO y solo entonces la pinta. Antes era al revés: la clase
@@ -4934,6 +4967,15 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     return { ok: true, caja: res.caja };
   }
 
+  // «Cambiar el importe» de un recibo pendiente: por el servidor (lib/cobros/cambiar-importe-reglas.ts). El recibo cambia aquí
+  // con lo que CONTESTA, no antes: si dice que no (ya se cobró, hay un pago abierto), el importe de la pantalla no se mueve.
+  async function cambiarImporteRecibo(reciboId: string, importe: number): Promise<ResultadoEscritura> {
+    const res = await cambiarImporteReciboApi(reciboId, importe);
+    if (!res.ok) return res;
+    setRecibos(prev => prev.map(r => (r.id === reciboId ? { ...r, importe: res.importe } : r)));
+    return { ok: true };
+  }
+
   // «Reintentar por el banco»: por el servidor (lib/billing/marcar-devuelto.ts).
   // Antes lo escribía el navegador como EN_CURSO («Enviado al banco») sin que
   // nada fuera a ningún banco; ahora vuelve a PENDIENTE y lo recoge la próxima
@@ -6149,6 +6191,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     reactivarSuscripcion,
     cancelarSuscripcion,
     programarBajaSuscripcion,
+    cambiarFechaRenovacion,
     addNota,
     updateNota,
     deleteNota,
@@ -6194,6 +6237,7 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     cobrarRecibosDeUnaClienta,
     marcarDevuelto,
     reembolsarAMano,
+    cambiarImporteRecibo,
     marcarCobradoPorElBanco,
     reintentar,
     reintentarSelladoFactura,

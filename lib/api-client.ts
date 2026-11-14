@@ -997,6 +997,26 @@ export async function reembolsarAManoApi(reciboId: string, metodo: string): Prom
   }
 }
 
+/**
+ * «Cambiar el importe» de un recibo pendiente (`POST /api/cobros/cambiar-importe`): lo hace el servidor con sus reglas
+ * (lib/cobros/cambiar-importe-reglas.ts) y la pantalla cambia con su respuesta, nunca antes.
+ */
+export async function cambiarImporteReciboApi(reciboId: string, importe: number): Promise<{ ok: true; importe: number } | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/cobros/cambiar-importe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ reciboId, importe }),
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: unknown; error?: unknown; importe?: unknown };
+    if (!res.ok) return { ok: false, error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    if (data.ok !== true || typeof data.importe !== 'number') return { ok: false, error: 'No hemos podido confirmar el cambio. Recarga para ver cómo ha quedado el recibo.' };
+    return { ok: true, importe: data.importe };
+  } catch {
+    return { ok: false, error: 'No hemos podido confirmar el cambio. Recarga para ver cómo ha quedado el recibo.' };
+  }
+}
+
 /** «Reintentar por el banco» (`POST /api/cobros/reintentar-banco`): vuelve a la próxima remesa. */
 export async function reintentarPorElBancoApi(reciboId: string): Promise<{ ok: true; intentosReintento: number } | { ok: false; error: string }> {
   try {

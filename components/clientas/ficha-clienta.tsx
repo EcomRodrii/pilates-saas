@@ -18,6 +18,7 @@ import { diferenciaCambioPlan, prorrateoDeAlta, type DiferenciaCambioPlan } from
 import { ETIQUETA_GENERO, GENEROS, etiquetaFija, generoDe, mayuscula, trato, type Genero } from '@/lib/genero';
 import { textoRetiro } from '@/lib/socios/consentimiento-retirado';
 import { anularClaseSueltaPorCuota, borrarContacto, consultarRetiroMarketing, enviarEmailBienvenida, enviarEmailCampana, obtenerComunicacionesSocio, obtenerPagosHistoricosSocio, reactivarBuzonRoto, type ComunicacionFicha } from '@/lib/api-client';
+import { atajosDeRenovacion, puedeCambiarFechaRenovacion } from '@/lib/cobros/fecha-renovacion-reglas';
 import { useRol, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, puedeMoverDinero, puedeVerFinanzas, puedeGestionarClientas, puedeVerDatosPrivadosSocia, puedeVerAuditoriaFinanciera, puedeGestionarCalendario, puedeBorrarDatosClienta, puedeVerNotasInternas } from '@/lib/permisos';
 import { DialogoBorrarDatos, DialogoDarDeBaja } from '@/components/socios/dar-de-baja';
 import { AccesosDeLaClienta } from '@/components/acceso/accesos-de-la-clienta';
@@ -61,7 +62,7 @@ import {
   CircleDollarSign, CalendarCheck, CalendarPlus, HeartPulse, Gift, Smartphone, Image as ImageIcon,
   MessageCircle, ChevronRight, UserRound, Users, Sparkles, Coins, ListChecks, MessagesSquare, Check, Pin, Bell, type LucideIcon,
 } from 'lucide-react';
-import { cn, fechaCortaEstudio, formatEuro, horaEstudio, hoyEnEstudio } from '@/lib/utils';
+import { cn, fechaCortaEstudio, formatEuro, horaEstudio, hoyEnEstudio, masDias } from '@/lib/utils';
 import { clasesSueltasQueCubreSuCuota, type SueltaQueCubreLaCuota } from '@/lib/reservas/clase-suelta';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { cumpleMesDia } from '@/lib/socios/datos-privados';
@@ -239,6 +240,7 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     updateSocio, deleteSocio, volverADarDeAlta, assignPlan, marcarCobrado, cobrarTodosPendientes,
     addTagSocio, removeTagSocio, etiquetas, crearEtiqueta, pausarSuscripcion, reanudarSuscripcion, reactivarSuscripcion, cancelarSuscripcion,
     programarBajaSuscripcion,
+    cambiarFechaRenovacion,
     notasProgreso, addNotaProgreso,
     condicionesSalud, camposPersonalizados,
     facturas,
@@ -325,6 +327,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
   const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // «Cambiar la fecha de renovación» de la cuota: la fecha escrita y lo que contestó el servidor.
+  const [fechaRenovacion, setFechaRenovacion] = useState<{ valor: string; error: string | null; enCurso: boolean } | null>(null);
   // Cerrojo síncrono: dos clics en el mismo tick pasan el `useState` (se lee antes de repintar).
   const cambiandoPlanRef = useRef(false);
   // Cambio a una cuota más cara a mitad de ciclo: la confirmación con la diferencia
@@ -867,6 +871,15 @@ export function FichaClienta({ id, modo = 'pagina' }: {
     } finally {
       setCambiandoPlan(false);
     }
+  }
+
+  async function handleCambiarFechaRenovacion() {
+    if (!suscripcion || !fechaRenovacion || fechaRenovacion.enCurso) return;
+    setFechaRenovacion({ ...fechaRenovacion, enCurso: true, error: null });
+    const res = await cambiarFechaRenovacion(suscripcion.id, fechaRenovacion.valor);
+    if (!res.ok) { setFechaRenovacion(f => (f ? { ...f, enCurso: false, error: res.error } : f)); return; }
+    setFechaRenovacion(null);
+    setToast(`La cuota se renueva el ${fecha(masDias(fechaRenovacion.valor, 1))}.`);
   }
 
   // Baja a fin de periodo (evaluación del 13-sep): sigue activa hasta la fecha
@@ -1552,6 +1565,22 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                             <p className="mt-1 inline-flex items-center gap-1 text-[12.5px] font-semibold" style={{ color: colorCaducidadSus }}>
                               {estadoSus.kind === 'recurrente' ? <RefreshCw size={12} aria-hidden /> : <Calendar size={12} aria-hidden />}
                               {textoCaducidadSus}
+                            </p>
+                          )}
+                          {/* La fecha en que se renueva SIEMPRE se ve (antes solo salía cuando faltaba poco) y quien cobra puede moverla:
+                              un estudio que cobra a mano y quiere todas el día 1 no tenía dónde corregirla. */}
+                          {suscripcion.estado === 'ACTIVA' && !suscripcion.bajaAlVencer && plan.tipo === 'MENSUAL' && suscripcion.fechaFin && (
+                            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[12.5px] text-muted-foreground">
+                              <span className="inline-flex items-center gap-1"><RefreshCw size={12} aria-hidden /> Cubierta hasta el {fecha(suscripcion.fechaFin)}</span>
+                              {puedeCobrar && puedeCambiarFechaRenovacion({ estado: suscripcion.estado, fechaFin: suscripcion.fechaFin, stripeSubscriptionId: suscripcion.stripeSubscriptionId ?? null }, plan.tipo).ok && (
+                                <button
+                                  type="button" data-testid="cambiar-fecha-renovacion"
+                                  onClick={() => setFechaRenovacion({ valor: suscripcion.fechaFin!.slice(0, 10), error: null, enCurso: false })}
+                                  className="font-semibold text-foreground underline underline-offset-2"
+                                >
+                                  Cambiar fecha
+                                </button>
+                              )}
                             </p>
                           )}
                         </div>
@@ -2822,6 +2851,53 @@ export function FichaClienta({ id, modo = 'pagina' }: {
               </button>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cambiar la fecha de renovación de la cuota (lib/cobros/fecha-renovacion-reglas.ts). `fecha_fin` es el último día cubierto: la
+          renovación es el día siguiente, y eso se dice con las dos fechas a la vista para que nadie se equivoque de un día. */}
+      <Dialog open={fechaRenovacion !== null && verFinanzas} onOpenChange={open => { if (!open && !fechaRenovacion?.enCurso) setFechaRenovacion(null); }}>
+        <DialogContent className="max-w-sm" data-testid="dialogo-fecha-renovacion">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-foreground">Cambiar la fecha de renovación</DialogTitle>
+          </DialogHeader>
+          {fechaRenovacion && suscripcion && (
+            <form className="mt-2 space-y-3" noValidate onSubmit={e => { e.preventDefault(); void handleCambiarFechaRenovacion(); }}>
+              <p className="text-sm text-muted-foreground">
+                Hoy su cuota está cubierta hasta el {suscripcion.fechaFin ? fecha(suscripcion.fechaFin) : '—'} y se renueva al día siguiente.
+                Elige el <strong className="font-semibold text-foreground">último día cubierto</strong>: para que se renueve el día 1, elige el último día del mes anterior.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {atajosDeRenovacion(hoyEnEstudio()).map(a => (
+                  <button
+                    key={a.fecha} type="button" disabled={fechaRenovacion.enCurso}
+                    onClick={() => setFechaRenovacion(f => (f ? { ...f, valor: a.fecha, error: null } : f))}
+                    className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50"
+                  >
+                    {a.etiqueta} · {fecha(a.fecha)}
+                  </button>
+                ))}
+              </div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Último día cubierto
+                <input
+                  type="date" data-testid="fecha-renovacion-nueva" min={hoyEnEstudio()} value={fechaRenovacion.valor} disabled={fechaRenovacion.enCurso}
+                  onChange={e => setFechaRenovacion(f => (f ? { ...f, valor: e.target.value, error: null } : f))}
+                  className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-base font-semibold normal-case tracking-normal text-foreground"
+                />
+              </label>
+              {fechaRenovacion.valor && (
+                <p className="text-sm text-foreground">Se le generará el cobro el <strong className="font-semibold">{fecha(masDias(fechaRenovacion.valor, 1))}</strong>.</p>
+              )}
+              {fechaRenovacion.error && <p role="alert" data-testid="error-fecha-renovacion" className="text-[13px] text-destructive">{fechaRenovacion.error}</p>}
+              <div className="flex gap-3">
+                <button type="button" onClick={() => setFechaRenovacion(null)} disabled={fechaRenovacion.enCurso} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-bold text-muted-foreground hover:bg-background disabled:opacity-50">Cancelar</button>
+                <button type="submit" data-testid="guardar-fecha-renovacion" disabled={fechaRenovacion.enCurso || !fechaRenovacion.valor} className="flex-1 rounded-xl bg-brand py-2.5 text-sm font-bold text-brand-foreground hover:brightness-95 disabled:opacity-50">
+                  {fechaRenovacion.enCurso ? 'Guardando…' : 'Guardar fecha'}
+                </button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
