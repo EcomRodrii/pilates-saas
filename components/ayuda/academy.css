@@ -1,0 +1,75 @@
+/* Tentare Academy — estilos de lo nuevo (vídeo, ficha de guía, portada). Con los tokens de la web pública (components/web/tokens.css),
+   que llegan con la isla (IslaWeb) a toda página que la monta. Prefijo `ac-` para no pisar nada. */
+
+/* ── Fachada del vídeo ───────────────────────────────────────────────────── */
+.ac-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--w-r-tarjeta, 24px); overflow: hidden; background: var(--w-olive-hondo, #0A2014); color: var(--w-sobre-noche, #F9FDFC); box-shadow: 0 24px 48px -32px rgba(11, 26, 18, .5); }
+.ac-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ac-video-boton { position: absolute; inset: 0; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: clamp(16px, 3vw, 28px); text-align: left; cursor: pointer; border: 0; font: inherit; color: inherit; background: linear-gradient(160deg, var(--w-olive, #214E36) 0%, var(--w-olive-hondo, #0A2014) 100%); }
+.ac-video-boton:focus-visible { outline: 3px solid var(--w-sand, #BFDCCB); outline-offset: -6px; }
+.ac-video-play { position: absolute; top: 40%; left: 50%; width: clamp(46px, 7vw, 72px); height: clamp(46px, 7vw, 72px); margin: calc(clamp(46px, 7vw, 72px) / -2) 0 0 calc(clamp(46px, 7vw, 72px) / -2); display: grid; place-items: center; border-radius: 50%; background: var(--w-sand, #BFDCCB); color: var(--w-olive-hondo, #0A2014); }
+.ac-video-titulo { font-size: clamp(.9375rem, .9rem + .4vw, 1.25rem); font-weight: 500; letter-spacing: -.01em; line-height: 1.25; max-width: 28em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-video-meta { font-size: var(--w-fs-mini, .8125rem); color: var(--w-sobre-noche-2, #C3D3C9); }
+.ac-video-duracion { position: absolute; top: 14px; right: 14px; padding: 4px 10px; border-radius: 999px; background: rgba(10, 32, 20, .6); font-size: var(--w-fs-mini, .8125rem); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: no-preference) {
+  .ac-video-play { transition: transform .35s var(--motion-ease, cubic-bezier(.16, 1, .3, 1)); }
+  .ac-video-boton:hover .ac-video-play { transform: scale(1.08); }
+}
+
+/* ── Ficha de una guía ───────────────────────────────────────────────────── */
+.ac-ficha { display: flex; flex-direction: column; gap: 18px; margin: 0 0 32px; }
+.ac-ficha-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: var(--w-fs-pequeno, .875rem); color: var(--w-texto-2, #3A4A41); }
+.ac-pildora { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: var(--w-sand-claro, #DCE8E1); color: var(--w-ink, #0B1A12); font-size: var(--w-fs-mini, .8125rem); font-weight: 500; }
+.ac-resultado { margin: 0; padding: 14px 18px; border-radius: 16px; background: var(--w-piedra, #EDF3F0); color: var(--w-texto, #0B1A12); font-size: var(--w-fs-pequeno, .875rem); line-height: 1.5; }
+.ac-resultado strong { font-weight: 600; }
+.ac-hecha { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--w-linea-fuerte, rgba(11, 26, 18, .2)); background: var(--w-papel, #fff); color: var(--w-texto, #0B1A12); font: inherit; font-size: var(--w-fs-pequeno, .875rem); font-weight: 500; cursor: pointer; }
+.ac-hecha[aria-pressed='true'] { background: var(--w-olive, #214E36); border-color: var(--w-olive, #214E36); color: var(--w-sobre-noche, #F9FDFC); }
+.ac-hecha:focus-visible, .ac-enlace:focus-visible { outline: 3px solid var(--w-olive, #214E36); outline-offset: 2px; }
+.ac-ruta-nav { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; margin: 36px 0 0; }
+.ac-enlace { display: inline-flex; flex-direction: column; gap: 2px; max-width: 48%; padding: 12px 16px; border-radius: 16px; border: 1px solid var(--w-linea, rgba(11, 26, 18, .12)); background: var(--w-papel, #fff); color: inherit; text-decoration: none; font-size: var(--w-fs-pequeno, .875rem); font-weight: 500; line-height: 1.3; }
+.ac-enlace small { color: var(--w-texto-3, #586860); font-size: var(--w-fs-mini, .8125rem); font-weight: 400; }
+.ac-enlace--sig { margin-left: auto; text-align: right; }
+@media (max-width: 560px) { .ac-enlace { max-width: 100%; flex: 1 1 100%; } .ac-enlace--sig { margin-left: 0; } }
+@media (prefers-reduced-motion: no-preference) { .ac-enlace { transition: border-color .2s, transform .35s var(--motion-ease, cubic-bezier(.16, 1, .3, 1)); } .ac-enlace:hover { border-color: var(--w-olive, #214E36); transform: translateY(-2px); } }
+
+/* ── Portada de Academy ──────────────────────────────────────────────────── */
+.ac-portada { background: var(--w-cream, #F9FDFC); color: var(--w-texto, #0B1A12); font-family: var(--w-fuente, system-ui, sans-serif); }
+.ac-hero { max-width: 880px; margin: 0 auto; padding: clamp(40px, 7vw, 88px) var(--w-margen, 24px) clamp(28px, 4vw, 44px); text-align: center; }
+.ac-kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; padding: 7px 14px; border-radius: 999px; background: var(--w-sand-claro, #DCE8E1); font-size: var(--w-fs-mini, .8125rem); font-weight: 500; letter-spacing: .02em; }
+.ac-hero h1 { margin: 0 0 16px; font-size: var(--w-fs-h1, 3rem); font-weight: var(--w-peso-titular, 500); line-height: var(--w-alto-titular, 1.1); letter-spacing: var(--w-track-h1, -.022em); text-wrap: balance; }
+.ac-hero p { margin: 0 auto 28px; max-width: 34em; font-size: var(--w-fs-cuerpo, 1.0625rem); line-height: var(--w-alto-cuerpo, 1.6); color: var(--w-texto-2, #3A4A41); text-wrap: pretty; }
+.ac-buscar { position: relative; max-width: 560px; margin: 0 auto; }
+.ac-buscar svg { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--w-texto-3, #586860); pointer-events: none; }
+.ac-buscar input { width: 100%; padding: 17px 18px 17px 50px; border-radius: 999px; border: 1px solid var(--w-linea-fuerte, rgba(11, 26, 18, .2)); background: var(--w-papel, #fff); color: inherit; font: inherit; font-size: 1rem; box-shadow: 0 24px 48px -32px rgba(11, 26, 18, .3); }
+.ac-buscar input:focus-visible { outline: 3px solid var(--w-olive, #214E36); outline-offset: 2px; }
+.ac-cuerpo { max-width: 1120px; margin: 0 auto; padding: 0 var(--w-margen, 24px) var(--w-seccion, 5rem); }
+.ac-seccion { margin: clamp(32px, 5vw, 56px) 0 0; }
+.ac-seccion > h2 { margin: 0 0 6px; font-size: var(--w-fs-h3, 1.5rem); font-weight: var(--w-peso-titular, 500); letter-spacing: var(--w-track-h3, -.012em); }
+.ac-seccion > p { margin: 0 0 20px; color: var(--w-texto-2, #3A4A41); font-size: var(--w-fs-pequeno, .875rem); }
+.ac-rutas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.ac-ruta { display: flex; flex-direction: column; gap: 14px; padding: clamp(20px, 3vw, 28px); border-radius: var(--w-r-tarjeta, 24px); background: var(--w-piedra, #EDF3F0); }
+.ac-ruta h3 { margin: 0; font-size: 1.25rem; font-weight: 500; letter-spacing: -.012em; }
+.ac-ruta > p { margin: 0; color: var(--w-texto-2, #3A4A41); font-size: var(--w-fs-pequeno, .875rem); line-height: 1.5; }
+.ac-ruta ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ac-ruta li a { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin: 0 -10px; border-radius: 12px; color: inherit; text-decoration: none; font-size: var(--w-fs-pequeno, .875rem); line-height: 1.3; }
+.ac-ruta li a:hover { background: rgba(255, 255, 255, .7); }
+.ac-ruta li a:focus-visible { outline: 3px solid var(--w-olive, #214E36); outline-offset: 0; }
+.ac-paso { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--w-linea-fuerte, rgba(11, 26, 18, .2)); font-size: .75rem; font-variant-numeric: tabular-nums; color: var(--w-texto-2, #3A4A41); }
+.ac-paso[data-hecha='true'] { background: var(--w-olive, #214E36); border-color: var(--w-olive, #214E36); color: var(--w-sobre-noche, #F9FDFC); }
+.ac-con-video { margin-left: auto; flex: none; color: var(--w-olive, #214E36); }
+.ac-progreso { margin-top: auto; font-size: var(--w-fs-mini, .8125rem); color: var(--w-texto-3, #586860); }
+.ac-progreso a { color: var(--w-olive, #214E36); font-weight: 600; }
+.ac-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.ac-categorias { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.ac-categorias a { display: block; padding: 14px 16px; border-radius: 16px; border: 1px solid var(--w-linea, rgba(11, 26, 18, .12)); background: var(--w-papel, #fff); color: inherit; text-decoration: none; font-size: var(--w-fs-pequeno, .875rem); font-weight: 500; }
+.ac-categorias a:hover { border-color: var(--w-olive, #214E36); }
+.ac-resultados { display: flex; flex-direction: column; gap: 10px; max-width: 720px; margin: 0 auto; }
+.ac-resultados a { display: block; padding: 16px 18px; border-radius: 16px; border: 1px solid var(--w-linea, rgba(11, 26, 18, .12)); background: var(--w-papel, #fff); color: inherit; text-decoration: none; }
+.ac-resultados a:hover { border-color: var(--w-olive, #214E36); }
+.ac-resultados small { display: block; margin-bottom: 4px; color: var(--w-texto-3, #586860); font-size: var(--w-fs-mini, .8125rem); }
+.ac-resultados strong { display: block; font-size: 1rem; font-weight: 600; }
+.ac-resultados span { display: block; margin-top: 4px; color: var(--w-texto-2, #3A4A41); font-size: var(--w-fs-pequeno, .875rem); }
+.ac-ayuda { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: clamp(40px, 6vw, 72px); padding: clamp(22px, 4vw, 36px); border-radius: var(--w-r-tarjeta, 24px); background: var(--w-olive-hondo, #0A2014); color: var(--w-sobre-noche, #F9FDFC); }
+.ac-ayuda strong { display: block; font-size: 1.125rem; font-weight: 500; }
+.ac-ayuda p { margin: 4px 0 0; color: var(--w-sobre-noche-2, #C3D3C9); font-size: var(--w-fs-pequeno, .875rem); }
+.ac-boton { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 999px; background: var(--w-sand, #BFDCCB); color: var(--w-olive-hondo, #0A2014); text-decoration: none; font-size: var(--w-fs-pequeno, .875rem); font-weight: 600; }
+.ac-boton:focus-visible { outline: 3px solid var(--w-sobre-noche, #F9FDFC); outline-offset: 3px; }

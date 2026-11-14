@@ -4456,6 +4456,27 @@ export interface RowEtiquetas {
   creada_en: string;
 }
 
+export interface RowAyudaVideos {
+  articulo: string;
+  proveedor: string;
+  video_id: string;
+  hash_privado: string | null;
+  titulo: string;
+  duracion_seg: number;
+  nivel: string;
+  resultado: string | null;
+  destacado: boolean;
+  publicado: boolean;
+  creado_en: string;
+  actualizado_en: string;
+}
+
+export interface RowAyudaBusquedas {
+  dia: string;
+  termino: string;
+  veces: number;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12313,6 +12334,48 @@ export type EtiquetasUpdate = {
   creada_en?: string | null;
 }
 
+export type AyudaVideosInsert = {
+  articulo?: string | null;
+  proveedor?: string | null;
+  video_id?: string | null;
+  hash_privado?: string | null | null;
+  titulo?: string | null;
+  duracion_seg?: number | null;
+  nivel?: string | null;
+  resultado?: string | null | null;
+  destacado?: boolean | null;
+  publicado?: boolean | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type AyudaVideosUpdate = {
+  articulo?: string | null;
+  proveedor?: string | null;
+  video_id?: string | null;
+  hash_privado?: string | null | null;
+  titulo?: string | null;
+  duracion_seg?: number | null;
+  nivel?: string | null;
+  resultado?: string | null | null;
+  destacado?: boolean | null;
+  publicado?: boolean | null;
+  creado_en?: string | null;
+  actualizado_en?: string | null;
+}
+
+export type AyudaBusquedasInsert = {
+  dia?: string | null;
+  termino?: string | null;
+  veces?: number | null;
+}
+
+export type AyudaBusquedasUpdate = {
+  dia?: string | null;
+  termino?: string | null;
+  veces?: number | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13695,6 +13758,16 @@ export type Database = {
         Row: RowEtiquetas;
         Insert: EtiquetasInsert;
         Update: EtiquetasUpdate;
+      };
+      ayuda_videos: {
+        Row: RowAyudaVideos;
+        Insert: AyudaVideosInsert;
+        Update: AyudaVideosUpdate;
+      };
+      ayuda_busquedas: {
+        Row: RowAyudaBusquedas;
+        Insert: AyudaBusquedasInsert;
+        Update: AyudaBusquedasUpdate;
       };
     };
   };
