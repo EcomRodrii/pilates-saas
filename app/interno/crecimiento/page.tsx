@@ -24,6 +24,7 @@ import {
 import type { ResumenReviewBoost } from '@/lib/interno/review-boost';
 import { Prospeccion } from './prospeccion';
 import { AltasSinTerminarSeccion } from './altas-sin-terminar';
+import { EstudiosAtascadosSeccion } from './estudios-atascados';
 import { ActivacionYAltas } from './activacion';
 
 const fecha = (iso: string | null) =>
@@ -274,6 +275,8 @@ export default function CrecimientoInterno() {
           </div>
         </section>
       )}
+
+      <EstudiosAtascadosSeccion />
 
       <AltasSinTerminarSeccion />
 
