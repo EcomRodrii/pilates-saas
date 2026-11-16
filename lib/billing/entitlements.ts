@@ -97,6 +97,16 @@ export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resume
 export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
 
 /**
+ * Pago anual (16-nov-2026, decisión del fundador): el año por adelantado a 10
+ * mensualidades, es decir, dos meses gratis. Los precios reales viven en Stripe
+ * (un Price anual por plan y complemento, creados a 10 × el mensual); esto solo
+ * sirve para ENSEÑAR el importe y el ahorro, y un test cruza que coinciden.
+ */
+export const MESES_PAGADOS_AL_ANO = 10;
+export const precioAnual = (precioMes: number) => precioMes * MESES_PAGADOS_AL_ANO;
+export const ahorroAnual = (precioMes: number) => precioMes * 12 - precioAnual(precioMes);
+
+/**
  * Founding Studio tal como era hasta el 19-oct-2026: todo menos varias sedes y
  * la app propia. Es lo que tienen quien ya lo pagaba antes de los complementos
  * (lo conservan sin pagar más, decisión del fundador), quien está en la prueba

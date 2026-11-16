@@ -11,9 +11,11 @@ import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
-import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, type EstadoBilling } from '@/lib/api-client';
+import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, intervaloSuscripcion, type EstadoBilling } from '@/lib/api-client';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { SelectorPlan } from '@/components/planes/selector-plan';
+import { SelectorIntervalo } from '@/components/planes/selector-intervalo';
+import { euros, importeDe, type IntervaloUi } from '@/lib/billing/intervalo-ui';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { ExportarDatosEstudio } from '@/components/billing/exportar-datos-estudio';
 import { BorrarDatosEstudio } from '@/components/billing/borrar-datos-estudio';
@@ -130,6 +132,10 @@ export default function SuscripcionPage() {
   const [estado, setEstado] = useState<EstadoBilling | null>(null);
   const [cargando, setCargando] = useState(true);
   const [elegido, setElegido] = useState<Plan>('ESTUDIO');
+  // Mensual o anual (solo se ofrece si el servidor dice que el anual está disponible).
+  const [intervalo, setIntervalo] = useState<IntervaloUi>('mensual');
+  // Cómo paga HOY quien ya paga (lo dice Stripe, no la base de datos).
+  const [intervaloActual, setIntervaloActual] = useState<IntervaloUi>('mensual');
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Se lee una vez: la página no se pinta hasta tener sesión (ni en el
@@ -174,10 +180,20 @@ export default function SuscripcionPage() {
     return () => { vivo = false; clearTimeout(espera); };
   }, [session, retornoCheckout]);
 
+  // Cómo paga hoy (mensual o anual): solo si ya paga y solo la propietaria. Se lee
+  // de Stripe una vez por visita; ante un fallo, «mensual» (lo de siempre).
+  const pagaYEsPropietaria = Boolean(estado && estado.esPropietaria && estado.subscriptionStatus && estado.subscriptionStatus !== 'gratis' && estado.subscriptionStatus !== 'gratis_cerrado' && estado.subscriptionStatus !== 'trial_expirado');
+  useEffect(() => {
+    if (!session || !pagaYEsPropietaria) return;
+    let vivo = true;
+    intervaloSuscripcion().then((i) => { if (vivo) setIntervaloActual(i); });
+    return () => { vivo = false; };
+  }, [session, pagaYEsPropietaria]);
+
   async function suscribir() {
     setError(null);
     setAccion('suscribir');
-    const r = await iniciarSuscripcion(elegido);
+    const r = await iniciarSuscripcion(elegido, estado?.anual ? intervalo : 'mensual');
     if ('url' in r) window.location.assign(r.url);
     else { setError(r.error); setAccion(null); }
   }
@@ -323,6 +339,7 @@ export default function SuscripcionPage() {
               {/* Crecer es Founding Studio de pago, 29 €/mes y lo mismo sin límites (fundador, 15-oct-2026:
                   «cuando pasa de esos limites cuesta 29€»): va el primero y elegido, también dentro del gratis.
                   Estudio y Cadena se ofrecen, pero nunca se eligen solos. */}
+              {estado?.anual && <SelectorIntervalo valor={intervalo} onCambio={setIntervalo} className="mt-4" />}
               <div role="radiogroup" aria-label="Plan" className="mt-4 grid gap-3 sm:grid-cols-3">
                 {(['BASE', 'ESTUDIO', 'CADENA'] as const).map(p => (
                   <button
@@ -338,7 +355,7 @@ export default function SuscripcionPage() {
                   >
                     <span className="flex items-baseline justify-between gap-2">
                       <span className="text-[16px] font-bold text-foreground"><NombrePlan plan={p} /></span>
-                      <span className="text-[15px] font-bold tabular-nums text-foreground">{PLAN_INFO[p].precioMes} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></span>
+                      <span className="text-[15px] font-bold tabular-nums text-foreground">{euros(importeDe(PLAN_INFO[p].precioMes, estado?.anual ? intervalo : 'mensual'))} €<span className="text-[12.5px] font-medium text-muted-foreground">{estado?.anual && intervalo === 'anual' ? '/año' : '/mes'}</span></span>
                     </span>
                     <span className="mt-1 block text-[12.5px] text-muted-foreground">
                       {p === 'BASE' ? 'Sin límite de clientes ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.' : p === 'ESTUDIO' ? `Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.` : 'Varias sedes, cada una con lo suyo, en una sola cuenta.'}
@@ -355,7 +372,7 @@ export default function SuscripcionPage() {
                     className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none sm:w-auto"
                   >
                     {accion === 'suscribir' && <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                    {accion === 'suscribir' ? 'Redirigiendo a Stripe…' : `Pasarme a ${PLAN_INFO[elegido].nombre} · ${PLAN_INFO[elegido].precioMes} €/mes`}
+                    {accion === 'suscribir' ? 'Redirigiendo a Stripe…' : `Pasarme a ${PLAN_INFO[elegido].nombre} · ${euros(importeDe(PLAN_INFO[elegido].precioMes, estado?.anual ? intervalo : 'mensual'))} €/${estado?.anual && intervalo === 'anual' ? 'año' : 'mes'}`}
                   </button>
                   <p className="mt-2 text-[12.5px] text-muted-foreground">Tus datos y tu app siguen igual. Puedes cancelar cuando quieras desde esta misma pantalla.</p>
                 </>
@@ -376,13 +393,13 @@ export default function SuscripcionPage() {
                     <NombrePlan plan={(estado?.plan as Plan) ?? 'BASE'} />
                   </span>
                   <span className="text-[15px] font-semibold text-muted-foreground tabular-nums">
-                    {precioMensual((estado?.plan as Plan) ?? 'BASE', estado?.complementos?.pagaAparte ? estado.complementos.contratados : [])}€
+                    {euros(importeDe(precioMensual((estado?.plan as Plan) ?? 'BASE', estado?.complementos?.pagaAparte ? estado.complementos.contratados : []), intervaloActual))}€
                   </span>
                 </div>
                 {/* «al mes, IVA incluido» literal: es la frase que pidió P2-20
                     («es mi factura mensual, quiero ver 249 €, la fecha y la
                     tarjeta») y que su test fija. */}
-                <p className="mt-1 text-[13.5px] text-muted-foreground">al mes, IVA incluido · sin permanencia</p>
+                <p className="mt-1 text-[13.5px] text-muted-foreground">{intervaloActual === 'anual' ? 'al año, IVA incluido' : 'al mes, IVA incluido'} · sin permanencia</p>
               </div>
               {enImpago ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/10 px-3 py-1.5 text-[12.5px] font-bold text-warning">
@@ -429,6 +446,7 @@ export default function SuscripcionPage() {
                 contratados={estado.complementos.contratados}
                 disponibles={estado.complementos.disponibles}
                 esPropietaria={esPropietaria}
+                intervalo={intervaloActual}
                 onCambio={(addons) => setEstado((e) => (e && e.complementos ? { ...e, complementos: { ...e.complementos, contratados: addons } } : e))}
                 onPlanCambiado={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }}
               />
@@ -444,7 +462,8 @@ export default function SuscripcionPage() {
                 una sola suscripción para todas tus sedes. Founding Studio y Estudio son para un solo estudio, y solo los puede contratar tu sede principal.
               </p>
             )}
-            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} planes={soloCadena ? ['CADENA'] : undefined} />
+            {estado?.anual && <SelectorIntervalo valor={intervalo} onCambio={setIntervalo} className="mb-4" />}
+            <SelectorPlan valor={elegido} onCambio={setElegido} enPrueba={enPrueba} planes={soloCadena ? ['CADENA'] : undefined} intervalo={estado?.anual ? intervalo : 'mensual'} />
 
             <div className="mt-6 rounded-2xl border border-border bg-card p-4 sm:p-5">
               {elegido === 'CADENA' && <div className="mb-4"><AvisoAlPasarACadena opciones={opciones} /></div>}
@@ -456,7 +475,7 @@ export default function SuscripcionPage() {
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
                   >
                     {accion === 'suscribir' && <Loader2 size={15} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-                    {accion === 'suscribir' ? 'Redirigiendo a Stripe…' : `Continuar con ${PLAN_INFO[elegido].nombre} · ${PLAN_INFO[elegido].precioMes}€/mes`}
+                    {accion === 'suscribir' ? 'Redirigiendo a Stripe…' : `Continuar con ${PLAN_INFO[elegido].nombre} · ${euros(importeDe(PLAN_INFO[elegido].precioMes, estado?.anual ? intervalo : 'mensual'))}€/${estado?.anual && intervalo === 'anual' ? 'año' : 'mes'}`}
                   </button>
                   <p className="mt-2.5 text-center text-[12.5px] text-muted-foreground">
                     {enPrueba

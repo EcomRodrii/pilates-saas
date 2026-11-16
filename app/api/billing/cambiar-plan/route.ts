@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { addonDePriceId, planDePriceId, priceIdDe } from '@/lib/billing/billing';
+import { addonDePriceId, intervaloDePrice, planDePriceId, priceIdDe } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { lecturaSuscripcion } from '@/lib/billing/lectura-suscripcion';
 import { COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
@@ -42,9 +42,6 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => null) as { plan?: unknown } | null;
-  const precioEstudio = priceIdDe('ESTUDIO');
-  if (!precioEstudio) return NextResponse.json({ error: 'El plan Estudio no está disponible ahora mismo.' }, { status: 503 });
-
   const { data: fila, error: eFila } = await admin
     .from('studios').select(`id, cadena_id, subscription_id, ${COLUMNAS_PLAN}`)
     .eq('id', sesion.studioId).maybeSingle();
@@ -74,6 +71,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: MENSAJE_NO_CAMBIO_PLAN['baja-programada'], codigo: 'baja-programada' }, { status: 409 });
     }
     const lineas = sub.items.data;
+    // El Price de Estudio es el del MISMO periodo que el plan de ahora: quien paga
+    // por año pasa al Estudio anual, y quien paga por meses, al mensual. Mezclar
+    // los dos en una suscripción no lo admite Stripe, y cobrar otro periodo del que
+    // eligió sería peor.
+    const lineaActual = lineas.find((l) => planDePriceId(l.price?.id) === 'BASE');
+    const intervalo = intervaloDePrice(lineaActual?.price?.recurring);
+    const precioEstudio = priceIdDe('ESTUDIO', intervalo);
+    if (!precioEstudio) return NextResponse.json({ error: 'El plan Estudio no está disponible ahora mismo.' }, { status: 503 });
     const leidas = lineas.map((l) => ({ id: l.id, priceId: l.price?.id }));
     const items = itemsParaPasarAEstudio(leidas, precioEstudio, { plan: planDePriceId, esAddon: (p) => !!addonDePriceId(p) });
     if (!items) {

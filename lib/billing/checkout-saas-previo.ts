@@ -25,6 +25,18 @@ import type Stripe from 'stripe';
 export const ESTADOS_VIVOS = ['active', 'trialing', 'past_due', 'unpaid'];
 
 export interface SuscripcionPrevia { id: string; status: string }
+/**
+ * La «clave» con la que se compara un Checkout abierto: el plan y, si es anual,
+ * `:anual`. Un Checkout mensual abierto NO se reutiliza para quien ahora pide el
+ * anual del mismo plan (cobraría otra cosa de lo que ha elegido): se caduca y se
+ * abre el nuevo, como con un plan distinto. Sin `intervalo` en la metadata (los
+ * Checkout de antes del pago anual) cuenta como mensual.
+ */
+export function claveDePlan(plan: string | null | undefined, intervalo?: string | null): string | null {
+  if (!plan) return null;
+  return intervalo === 'anual' ? `${plan}:anual` : plan;
+}
+
 export interface SesionAbiertaPrevia { id: string; url: string | null; plan: string | null }
 
 export type DecisionCheckoutPrevio =
@@ -66,7 +78,7 @@ export async function leerPagosDelCliente(
     suscripciones: subs.data.map(s => ({ id: s.id, status: s.status })),
     sesionesAbiertas: sesiones.data
       .filter(s => s.mode === 'subscription')
-      .map(s => ({ id: s.id, url: s.url, plan: s.metadata?.plan ?? null })),
+      .map(s => ({ id: s.id, url: s.url, plan: claveDePlan(s.metadata?.plan, s.metadata?.intervalo) })),
   };
 }
 
