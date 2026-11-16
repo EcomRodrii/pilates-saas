@@ -119,7 +119,7 @@ export const CTA = {
   boton: { texto: 'Empezar hoy', href: '/crear-estudio' },
 } as const;
 
-// Los planes REALES (lib/billing/entitlements.ts → PLAN_INFO: Founding Studio 29 €, Estudio 59 €, Cadena 149 €). Founding Studio
+// Los planes REALES (lib/billing/entitlements.ts → PLAN_INFO: Founding Studio 29 €, Estudio 79 €, Cadena 249 €). Founding Studio
 // es gratis hasta 150 reservas al mes. Las filas, solo lo que el producto cumple hoy.
 export const PRECIOS = {
   etiqueta: 'Planes y precios',
@@ -130,11 +130,11 @@ export const PRECIOS = {
       lista: ['Calendario de clases y salas', 'Reservas online con lista de espera', 'Cuotas, bonos y clases sueltas', 'Cobros con tarjeta', 'App de tus alumnas con tu marca'],
     },
     {
-      nombre: 'Estudio', texto: 'Más herramientas para un estudio que crece.', precio: '59 €', periodo: '/ mes', boton: 'Elegir Estudio', destacado: true,
+      nombre: 'Estudio', texto: 'Más herramientas para un estudio que crece.', precio: '79 €', periodo: '/ mes', boton: 'Elegir Estudio', destacado: true,
       lista: ['Todo lo de Founding Studio', 'Sin límite de alumnas ni de reservas', 'Centro de Control', 'Redacción con IA', 'Más consultas al asistente'],
     },
     {
-      nombre: 'Cadena', texto: 'Para quien lleva varios estudios.', precio: '149 €', periodo: '/ mes', boton: 'Hablar con el equipo', destacado: false,
+      nombre: 'Cadena', texto: 'Para quien lleva varios estudios.', precio: '249 €', periodo: '/ mes', boton: 'Hablar con el equipo', destacado: false,
       lista: ['Todo lo de Estudio', 'Varias sedes en una sola cuenta', 'Catálogo común para todas las sedes'],
     },
   ],

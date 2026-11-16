@@ -68,8 +68,8 @@ test('los ids de complemento son los del CHECK de la migración', () => {
   assert.deepEqual(m[1].split(',').map((x) => x.trim().replace(/'/g, '')), LISTA_ADDONS);
 });
 
-test('el total del mes: 29 € más lo contratado (el ejemplo del fundador, 35 €)', () => {
+test('el total del mes: 29 € más lo contratado (con los precios de 16-nov-2026, 41 €)', () => {
   assert.equal(precioMensual('BASE', []), 29);
-  assert.equal(precioMensual('BASE', ['sustituciones']), 35);
-  assert.equal(precioMensual('BASE', ['decisiones', 'ia', 'sustituciones', 'basura']), 53);
+  assert.equal(precioMensual('BASE', ['sustituciones']), 41);
+  assert.equal(precioMensual('BASE', ['decisiones', 'ia', 'sustituciones', 'basura']), 79);
 });

@@ -93,7 +93,7 @@ test('el schema.org de la home y el de /precios dan lo mismo: Founding Studio a 
   expect(enPrecios).toEqual(enHome);
   expect(enHome['Founding Studio'].price).toBe(0);
   expect(enHome['Founding Studio'].description).toContain('150 reservas al mes; si pasas de ahí, 29 €/mes');
-  expect(enHome['Estudio'].price).toBe(59);
-  expect(enHome['Cadena'].price).toBe(149);
+  expect(enHome['Estudio'].price).toBe(79);
+  expect(enHome['Cadena'].price).toBe(249);
   for (const o of Object.values(enHome)) expect(o.description).not.toMatch(/prueba/i);
 });

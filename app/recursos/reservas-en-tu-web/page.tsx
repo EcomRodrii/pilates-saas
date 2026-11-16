@@ -127,7 +127,7 @@ export default function ReservasEnTuWebPage() {
         <h2 id="s6">Proveedores para estudios de Pilates en España</h2>
 
         <h3>Tentare: una solución orientada a la realidad de un estudio de Pilates</h3>
-        <p>Tentare es una solución del mercado español diseñada específicamente para estudios de Pilates. Gestiona por reformer individual, no solo por aforo general, lo que marca una diferencia real en la operativa diaria. Su sistema de listas de espera es automático y las sustituciones de instructoras se resuelven sin que la propietaria escriba un solo mensaje: le basta con dar el visto bueno a la candidata, o ni eso en modo autónomo (en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes).</p>
+        <p>Tentare es una solución del mercado español diseñada específicamente para estudios de Pilates. Gestiona por reformer individual, no solo por aforo general, lo que marca una diferencia real en la operativa diaria. Su sistema de listas de espera es automático y las sustituciones de instructoras se resuelven sin que la propietaria escriba un solo mensaje: le basta con dar el visto bueno a la candidata, o ni eso en modo autónomo (en el plan gratis, Estudio y Cadena, o con un complemento de 12 €/mes).</p>
         <p>Su widget de reservas se instala en cualquier web en minutos, mantiene la identidad visual del estudio y, con la sesión iniciada, la alumna reserva dentro de tu web; la primera vez, la reserva se termina en la página de tu estudio en Tentare. Está disponible gratis hasta 150 reservas al mes, sin permanencia, y la app con la marca del estudio va incluida en todos los planes.</p>
 
         <h3>Otras opciones a conocer para tener contexto</h3>

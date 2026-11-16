@@ -28,12 +28,26 @@ export function priceIdDe(plan: Plan): string | null {
   return priceEnv()[plan] ?? null;
 }
 
+/**
+ * Price IDs HEREDADOS de un plan: los de antes de la subida de precios
+ * (16-nov-2026, Estudio 59→79 € y Cadena 149→249 €). Stripe no deja cambiar el
+ * importe de un Price, así que el plan nuevo es un Price nuevo y los viejos se
+ * quedan vivos con las suscripciones que ya los usan. Solo SE RECONOCEN (para
+ * que el webhook no deje `plan = null` a quien conserva el suyo): nunca se
+ * venden. Lista separada por comas en `STRIPE_PRICE_<PLAN>_LEGACY`.
+ */
+function preciosHeredados(plan: Plan): string[] {
+  const crudo = process.env[`STRIPE_PRICE_${plan}_LEGACY`] ?? '';
+  return crudo.split(',').map((x) => x.trim()).filter(Boolean);
+}
+
 /** Mapea un price ID de Stripe de vuelta a un plan (para el webhook). */
 export function planDePriceId(priceId: string | null | undefined): Plan | null {
   if (!priceId) return null;
   const env = priceEnv();
   for (const plan of ['BASE', 'ESTUDIO', 'CADENA'] as Plan[]) {
     if (env[plan] && env[plan] === priceId) return plan;
+    if (preciosHeredados(plan).includes(priceId)) return plan;
   }
   return null;
 }
@@ -64,12 +78,18 @@ export function complementosALaVenta(): boolean {
   return (['decisiones', 'sustituciones', 'ia'] as Addon[]).every((a) => !!priceIdDeAddon(a));
 }
 
-/** Mapea un price ID de vuelta a su complemento (para leer la suscripción). */
+/**
+ * Mapea un price ID de vuelta a su complemento (para leer la suscripción).
+ * Como con los planes, los Price de antes de la subida (`STRIPE_PRICE_ADDON_<X>_LEGACY`,
+ * lista separada por comas) se reconocen pero no se venden.
+ */
 export function addonDePriceId(priceId: string | null | undefined): Addon | null {
   if (!priceId) return null;
   const env = priceEnvAddons();
   for (const a of ['decisiones', 'sustituciones', 'ia'] as Addon[]) {
     if (env[a] && env[a] === priceId) return a;
+    const heredados = (process.env[`STRIPE_PRICE_ADDON_${a.toUpperCase()}_LEGACY`] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (heredados.includes(priceId)) return a;
   }
   return null;
 }

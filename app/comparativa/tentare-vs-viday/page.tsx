@@ -35,7 +35,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['yes', 'Sí: «solo avísanos y te damos de baja»'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con tu marca, incluida desde el plan Estándar'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta; sí ofrece plazas fijas con recuperación'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 12 €/mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Aforo por sala individual', tentare: ['yes', 'Cada clase pertenece a una sala con capacidad propia, no solo un aforo global de la clase'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Reglas de reserva/cancelación por tipo de clase', tentare: ['yes', 'Antelación mínima, penalización y mínimo de asistentes se fijan por tipo de clase, heredando lo del estudio'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Empezar gratis, sin tarjeta', tentare: ['yes', 'Sí: Founding Studio es gratis hasta 150 reservas al mes, sin pedir tarjeta'], them: ['partial', 'No consta en su web pública; solo ofrece agendar una demo'] },
@@ -47,7 +47,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta ViDay?',
-    a: 'Según su web (IVA no incluido): planes Individual Estándar 39 €/mes y Pro 59 €/mes, y planes de Equipo desde 44 €/mes (Estándar), 75 €/mes (Pro) y 129 €/mes (Empresa), con descuento por pago anual. Tentare: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web (IVA no incluido): planes Individual Estándar 39 €/mes y Pro 59 €/mes, y planes de Equipo desde 44 €/mes (Estándar), 75 €/mes (Pro) y 129 €/mes (Empresa), con descuento por pago anual. Tentare: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 79 €/mes y Cadena 249 €/mes, IVA incluido.',
   },
 ];
 

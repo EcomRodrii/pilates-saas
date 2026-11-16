@@ -42,7 +42,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Mindbody?',
-    a: 'Su página de precios indica «desde 99 € al mes por ubicación» y el resto de planes se consultan con ellos; no hay cuota de alta. Tentare publica todos sus precios: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Su página de precios indica «desde 99 € al mes por ubicación» y el resto de planes se consultan con ellos; no hay cuota de alta. Tentare publica todos sus precios: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 79 €/mes y Cadena 249 €/mes, IVA incluido.',
   },
   {
     q: '¿Puedo pasar mis datos de Mindbody a Tentare?',

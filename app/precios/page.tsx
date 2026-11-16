@@ -9,7 +9,7 @@ import { OrganizationStructuredData } from '@/components/OrganizationStructuredD
 import { FeatureFaq } from '@/components/funcionalidades/bloques';
 import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
-import { PLANS } from '@/components/landing/data';
+import { novedadesFrenteAlAnterior, resumenCorto } from '@/lib/billing/catalogo-planes';
 import { COMPLEMENTOS_DE_PAGO, CTA_ALTA, FRASE_FOUNDING, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, SI_PASAS_CON_COMPLEMENTOS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
 import { softwareApplicationLd } from '@/lib/seo/software-application';
@@ -35,11 +35,22 @@ export const metadata: Metadata = {
 // texto del botón es el mismo que en la home (`CTA_ALTA`): desde el 15-oct-2026
 // no hay prueba de 7 días, se empieza en Founding Studio gratis, con todo.
 const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
-  BASE: { gancho: 'Para empezar', para: 'Un estudio con una sala y una o dos instructoras.', cta: CTA_ALTA },
-  // Estudio ya no se vende por el equipo ni por las alumnas: Founding Studio
-  // también los tiene, sin tope (15-oct-2026). El mismo texto que la home.
-  ESTUDIO: { gancho: 'Más consultas al asistente', para: PLANS.find((x) => x.id === 'ESTUDIO')!.desc, cta: CTA_ALTA },
-  CADENA: { gancho: 'Varias sedes', para: 'Dos o más centros bajo la misma marca.', cta: 'Hablar con nosotros' },
+  BASE: { gancho: 'Para empezar', para: 'Para estudios pequeños que quieren tener todo organizado.', cta: CTA_ALTA },
+  ESTUDIO: { gancho: 'Recomendado', para: 'Para estudios que quieren crecer y automatizar su operación.', cta: CTA_ALTA },
+  CADENA: { gancho: 'Varias sedes', para: 'Para negocios con varios centros que necesitan control centralizado.', cta: 'Hablar con nosotros' },
+};
+
+// Lo que cada plan añade, DERIVADO del catálogo (que a su vez sale de
+// PLAN_ENTITLEMENTS): nada escrito a mano que pueda prometer lo que el
+// servidor no deja hacer. Base enseña lo esencial; Estudio y Cadena, solo lo
+// que suman frente al plan de al lado.
+const INCLUYE: Record<Plan, { intro: string | null; items: string[] }> = {
+  BASE: {
+    intro: null,
+    items: [...resumenCorto('BASE', null), 'Sustituciones con tu visto bueno'],
+  },
+  ESTUDIO: { intro: `Todo lo de ${PLAN_INFO.BASE.nombre}, y además:`, items: novedadesFrenteAlAnterior('ESTUDIO', 'BASE') },
+  CADENA: { intro: `Todo lo de ${PLAN_INFO.ESTUDIO.nombre}, y además:`, items: novedadesFrenteAlAnterior('CADENA', 'ESTUDIO') },
 };
 
 // La comparativa por categorías vive en lib/billing/catalogo-planes.ts y la
@@ -112,18 +123,27 @@ export default function PreciosPage() {
         <div className="pre-grid">
           {PLANES.map((p) => {
             const destacado = p === 'ESTUDIO';
+            const inc = INCLUYE[p];
             return (
               <div
                 key={p}
+                className={destacado ? 'pre-card pre-card-rec' : 'pre-card'}
                 style={{
                   background: destacado ? 'var(--w-noche)' : 'var(--w-papel)',
                   color: destacado ? 'var(--w-sobre-noche)' : undefined,
                   border: destacado ? 'none' : '1px solid var(--w-linea)',
-                  borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(26px,3vw,34px)', position: 'relative',
+                  borderRadius: 'var(--w-r-tarjeta)', padding: destacado ? 'clamp(30px,3.4vw,40px) clamp(26px,3vw,34px)' : 'clamp(26px,3vw,34px)', position: 'relative',
                   boxShadow: destacado ? 'var(--w-sombra-flotante)' : undefined,
                 }}
               >
-                <div style={{ fontSize: 16, fontWeight: 600, color: destacado ? 'var(--w-sand)' : 'var(--w-texto)', marginBottom: 12 }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, minHeight: 26 }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: destacado ? 'var(--w-sand)' : 'var(--w-texto)' }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
+                  {destacado && (
+                    <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--w-olive)', background: 'var(--w-sand)', borderRadius: 999, padding: '4px 10px' }}>
+                      {RESUMEN[p].gancho}
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontSize: 46, fontWeight: 600, letterSpacing: '-.035em', color: destacado ? 'var(--w-sobre-noche)' : 'var(--w-texto)', lineHeight: 1 }}>
                   {p === 'BASE' ? 'Gratis' : <>{PLAN_INFO[p].precioMes}€<span style={{ fontSize: 15, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)' }}>/mes</span></>}
                 </div>
@@ -131,8 +151,7 @@ export default function PreciosPage() {
                     página: el precio de un SaaS español se lee para compararlo
                     con otro, y "29 €" sin decir nada admite dos lecturas que se
                     llevan un 21%. Misma frase que ya se ve en /suscripcion, que
-                    la pidió una clienta con estas palabras (P2-20) — no una
-                    redacción nueva para decir lo mismo. */}
+                    la pidió una clienta con estas palabras (P2-20). */}
                 {p === 'BASE' ? (
                   <>
                     {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
@@ -148,19 +167,34 @@ export default function PreciosPage() {
                     IVA incluido
                   </div>
                 )}
-                <p style={{ fontSize: 14.5, lineHeight: 1.5, color: destacado ? 'var(--w-sobre-noche-2)' : 'var(--w-texto-2)', margin: '10px 0 6px' }}>{RESUMEN[p].para}</p>
-                <div style={{ height: 14 }} />
+                {/* Para quién es: lo primero que se lee tras el precio. */}
+                <p style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.45, color: destacado ? 'var(--w-sobre-noche)' : 'var(--w-texto)', margin: '14px 0 0' }}>{RESUMEN[p].para}</p>
                 <Link
                   href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'}
                   className="block hover:brightness-110 transition-all"
-                  style={{ textAlign: 'center', display: 'block', background: destacado ? 'var(--w-sand)' : 'var(--w-olive)', color: destacado ? 'var(--w-olive)' : 'var(--w-sand)', fontWeight: 600, fontSize: 15, padding: 14, borderRadius: 999, textDecoration: 'none' }}
+                  style={{ textAlign: 'center', display: 'block', background: destacado ? 'var(--w-sand)' : 'var(--w-olive)', color: destacado ? 'var(--w-olive)' : 'var(--w-sand)', fontWeight: 600, fontSize: destacado ? 16 : 15, padding: destacado ? '15px 18px' : '13px 18px', borderRadius: 999, textDecoration: 'none', marginTop: 20 }}
                 >
                   {RESUMEN[p].cta}
                 </Link>
+                <p style={{ fontSize: 12.5, lineHeight: 1.4, textAlign: 'center', color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)', margin: '10px 0 0' }}>
+                  Sin permanencia · Cancela cuando quieras
+                </p>
+                <div style={{ height: 1, background: destacado ? 'rgba(255,255,255,.14)' : 'var(--w-linea)', margin: '20px 0 16px' }} />
+                {inc.intro && <p style={{ fontSize: 13.5, fontWeight: 600, margin: '0 0 10px', color: destacado ? 'var(--w-sand)' : 'var(--w-texto)' }}>{inc.intro}</p>}
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 9 }}>
+                  {inc.items.map((t) => (
+                    <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14, lineHeight: 1.45, color: destacado ? 'var(--w-sobre-noche-2)' : 'var(--w-texto-2)' }}>
+                      <span aria-hidden="true" style={{ color: destacado ? 'var(--w-sand)' : 'var(--w-exito)', flexShrink: 0 }}>✓</span>{t}
+                    </li>
+                  ))}
+                </ul>
               </div>
             );
           })}
         </div>
+        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--w-texto-3)', margin: '22px 0 0' }}>
+          Pagos seguros con Stripe · Configuración guiada · Precios con IVA incluido
+        </p>
 
         {/* Respuesta directa a la pregunta que se hace quien compara: pasaje
             autocontenido de ~130 palabras, con las cifras de entitlements.ts
@@ -179,7 +213,7 @@ export default function PreciosPage() {
         </section>
 
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué incluye cada plan</h2>
+          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Todo lo que incluye Tentare</h2>
           <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>
             Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia son las alumnas, las reservas
             al mes y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
@@ -249,9 +283,11 @@ export default function PreciosPage() {
 
       <style>{`
         .pre-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; align-items: start; }
+        .pre-card-rec { transform: translateY(-14px); }
         .pre-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
         .pre-links { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
         @media (max-width: 900px) {
+          .pre-card-rec { transform: none; }
           .pre-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; }
           .pre-dos { grid-template-columns: 1fr; }
           .pre-links { grid-template-columns: 1fr 1fr; }

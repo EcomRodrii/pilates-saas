@@ -191,9 +191,9 @@ test('⚠️ revisarBorrador caza un precio que no está en el catálogo', () =>
 });
 
 test('revisarBorrador acepta los precios REALES de los planes sin quejarse', () => {
-  // 29 / 59 / 149 salen de PLAN_INFO: si mañana suben, este test sigue valiendo
+  // 29 / 79 / 249 salen de PLAN_INFO: si mañana suben, este test sigue valiendo
   // y es el correo el que tendría que cambiar, no al revés.
-  for (const p of ['29€', '59 €', '149 euros']) {
+  for (const p of ['29€', '79 €', '249 euros']) {
     const avisos = revisarBorrador(
       { asunto: 'Sobre Pilates BCN', cuerpo: `${CUERPO_LIMPIO}\n\nDesde ${p} al mes.` },
       LEAD,

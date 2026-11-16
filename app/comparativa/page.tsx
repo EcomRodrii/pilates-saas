@@ -172,7 +172,7 @@ const ROWS: {
   },
   {
     feature: 'Sustitución de instructoras',
-    tentare: ['yes', 'Con tu visto bueno; autónoma en gratis, Estudio y Cadena, o con complemento de 6 €/mes'],
+    tentare: ['yes', 'Con tu visto bueno; autónoma en gratis, Estudio y Cadena, o con complemento de 12 €/mes'],
     bsport: ['yes', 'Sustituciones automáticas'],
     momence: ['yes', 'Automatiza sustituciones'],
     eversports: ['yes', 'Gestión de sustituciones'],
