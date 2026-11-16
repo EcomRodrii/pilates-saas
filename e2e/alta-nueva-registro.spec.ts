@@ -127,6 +127,31 @@ test.describe('Validación en línea, campo a campo', () => {
     expect(altas, 'validar no gasta viajes al servidor').toBe(0);
   });
 
+  test('la lista de requisitos de la contraseña se marca mientras escribe y se puede ver lo escrito', async ({ page }) => {
+    await page.goto(ALTA);
+    await escribirNombre(page);
+    const largo = page.getByRole('listitem').filter({ hasText: '8 caracteres o más' });
+    const dificil = page.getByRole('listitem').filter({ hasText: 'Difícil de adivinar' });
+    await expect(largo).toContainText('(pendiente)');
+    await expect(dificil).toContainText('(pendiente)');
+
+    await contrasena(page).fill('12345678');
+    await expect(largo).toContainText('(cumplido)');
+    await expect(dificil).toContainText('(pendiente)');
+
+    await contrasena(page).fill('mi perro come peras');
+    await expect(largo).toContainText('(cumplido)');
+    await expect(dificil).toContainText('(cumplido)');
+
+    // Ver lo escrito sin perder lo tecleado.
+    await expect(contrasena(page)).toHaveAttribute('type', 'password');
+    await page.getByRole('button', { name: 'Mostrar la contraseña' }).click();
+    await expect(contrasena(page)).toHaveAttribute('type', 'text');
+    await expect(contrasena(page)).toHaveValue('mi perro come peras');
+    await page.getByRole('button', { name: 'Ocultar la contraseña' }).click();
+    await expect(contrasena(page)).toHaveAttribute('type', 'password');
+  });
+
   test('pulsar con algo mal no envía nada y lleva el foco al primer campo que arreglar', async ({ page }) => {
     let altas = 0;
     await page.route('**/auth/v1/signup**', (route) => { altas += 1; return json(route, ALTA_PENDIENTE); });
