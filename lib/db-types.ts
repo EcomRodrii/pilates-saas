@@ -4456,6 +4456,16 @@ export interface RowEtiquetas {
   creada_en: string;
 }
 
+export interface RowEstudiosAtascadosSeguimiento {
+  id: string;
+  auth_user_id: string;
+  accion: string;
+  hasta: string | null;
+  nota: string | null;
+  por: string;
+  creado_en: string;
+}
+
 export interface RowAyudaVideos {
   articulo: string;
   proveedor: string;
@@ -12344,6 +12354,26 @@ export type EtiquetasUpdate = {
   creada_en?: string | null;
 }
 
+export type EstudiosAtascadosSeguimientoInsert = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  accion?: string | null;
+  hasta?: string | null | null;
+  nota?: string | null | null;
+  por?: string | null;
+  creado_en?: string | null;
+}
+
+export type EstudiosAtascadosSeguimientoUpdate = {
+  id?: string | null;
+  auth_user_id?: string | null;
+  accion?: string | null;
+  hasta?: string | null | null;
+  nota?: string | null | null;
+  por?: string | null;
+  creado_en?: string | null;
+}
+
 export type AyudaVideosInsert = {
   articulo?: string | null;
   proveedor?: string | null;
@@ -13788,6 +13818,11 @@ export type Database = {
         Row: RowEtiquetas;
         Insert: EtiquetasInsert;
         Update: EtiquetasUpdate;
+      };
+      estudios_atascados_seguimiento: {
+        Row: RowEstudiosAtascadosSeguimiento;
+        Insert: EstudiosAtascadosSeguimientoInsert;
+        Update: EstudiosAtascadosSeguimientoUpdate;
       };
       ayuda_videos: {
         Row: RowAyudaVideos;
