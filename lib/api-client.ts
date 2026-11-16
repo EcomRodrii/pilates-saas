@@ -1468,11 +1468,13 @@ export async function intervaloSuscripcion(): Promise<'mensual' | 'anual'> {
 }
 
 // Abre el portal de facturación de Stripe (cambiar plan, cancelar, ver facturas).
-export async function gestionarSuscripcion(): Promise<{ url: string } | { error: string }> {
+// Con `flujo: 'metodo_pago'` abre directamente el cambio de tarjeta (el botón de los avisos de impago).
+export async function gestionarSuscripcion(flujo?: 'metodo_pago'): Promise<{ url: string } | { error: string }> {
   try {
     const res = await fetch('/api/billing/portal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(flujo ? { flujo } : {}),
     });
     const data = await res.json();
     if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };

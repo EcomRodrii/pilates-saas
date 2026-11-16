@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
@@ -143,6 +143,11 @@ export default function SuscripcionPage() {
   const [retornoCheckout] = useState(() =>
     typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('suscripcion'));
   const [confirmacionAgotada, setConfirmacionAgotada] = useState(false);
+  // El botón «Actualizar la tarjeta» de los avisos de impago llega con ?tarjeta=1: abre derecho el
+  // cambio de tarjeta (una vez), sin que la propietaria tenga que buscar el botón.
+  const [pideTarjeta] = useState(() =>
+    typeof window === 'undefined' ? false : new URLSearchParams(window.location.search).get('tarjeta') === '1');
+  const tarjetaAbierta = useRef(false);
 
   useEffect(() => {
     if (!loading && !session) router.replace('/login');
@@ -151,8 +156,8 @@ export default function SuscripcionPage() {
   // Quitado de la URL en cuanto se ha leído: recargar mañana no debe repetir
   // «estamos confirmando tu pago».
   useEffect(() => {
-    if (retornoCheckout) window.history.replaceState(null, '', '/suscripcion');
-  }, [retornoCheckout]);
+    if (retornoCheckout || pideTarjeta) window.history.replaceState(null, '', '/suscripcion');
+  }, [retornoCheckout, pideTarjeta]);
 
   useEffect(() => {
     if (!session) return;
@@ -198,13 +203,20 @@ export default function SuscripcionPage() {
     else { setError(r.error); setAccion(null); }
   }
 
-  async function abrirPortal() {
+  async function abrirPortal(flujo?: 'metodo_pago') {
     setError(null);
     setAccion('portal');
-    const r = await gestionarSuscripcion();
+    const r = await gestionarSuscripcion(flujo);
     if ('url' in r) window.location.assign(r.url);
     else { setError(r.error); setAccion(null); }
   }
+
+  useEffect(() => {
+    if (!pideTarjeta || tarjetaAbierta.current || !session || !pagaYEsPropietaria) return;
+    tarjetaAbierta.current = true;
+    void abrirPortal('metodo_pago');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pideTarjeta, session, pagaYEsPropietaria]);
 
   if (loading || !session) return null;
 
@@ -424,7 +436,7 @@ export default function SuscripcionPage() {
             {esPropietaria ? (
               <>
                 <button
-                  onClick={abrirPortal}
+                  onClick={() => abrirPortal()}
                   disabled={accion === 'portal'}
                   className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-[15px] font-bold text-brand-foreground transition-all hover:brightness-110 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none sm:w-auto"
                 >

@@ -153,3 +153,56 @@ test('el mismo evento no duplica filas del ciclo de vida, y un evento puede dar 
     await limpiarFixtures(admin, studio);
   }
 });
+
+// ── Recuperación de impagos (migración 20261116231548, Fase 2) ──────────────
+test('las funciones de los avisos solo las ejecuta service_role', async () => {
+  for (const fn of ['billing_registrar_aviso(text, integer, text)', 'billing_liberar_aviso(text, integer)', 'billing_escalar_incidente(text)', 'billing_fijar_motivo(text, text, text)']) {
+    const [r] = await sql<{ anon: boolean; auth: boolean; svc: boolean }[]>`
+      select has_function_privilege('anon', ${`public.${fn}`}, 'EXECUTE') as anon,
+             has_function_privilege('authenticated', ${`public.${fn}`}, 'EXECUTE') as auth,
+             has_function_privilege('service_role', ${`public.${fn}`}, 'EXECUTE') as svc`;
+    assert.deepEqual(r, { anon: false, auth: false, svc: true }, fn);
+  }
+});
+
+test('un aviso se reclama una sola vez, se puede devolver si el envío falla, y no se avisa de un incidente cerrado', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const id = `in_${randomUUID()}`;
+  try {
+    await admin.rpc('billing_registrar_factura', { p: factura(id, studio.studioId) });
+    await admin.rpc('billing_abrir_incidente', { p: { stripe_invoice_id: id, studio_id: studio.studioId, importe_cents: 7900, intentos: 1, fallo_en: iso(0) } });
+    const reclama = async (dia: number) => (await admin.rpc('billing_registrar_aviso', { p_stripe_invoice_id: id, p_dia: dia, p_tipo: 'recordatorio' })).data;
+    assert.equal(await reclama(0), true);
+    assert.equal(await reclama(0), false, 'el mismo hito no se reclama dos veces (webhook y cron a la vez)');
+    assert.equal(await reclama(2), true);
+    assert.equal((await admin.rpc('billing_liberar_aviso', { p_stripe_invoice_id: id, p_dia: 2 })).data, true);
+    assert.equal(await reclama(2), true, 'un envío que falló se puede reintentar');
+    const [fila] = await sql<{ n: number }[]>`select jsonb_array_length(avisos) as n from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
+    assert.equal(fila.n, 2);
+
+    await admin.rpc('billing_cerrar_incidente', { p_stripe_invoice_id: id, p_en: iso(30) });
+    assert.equal(await reclama(5), false, 'un incidente recuperado no recibe más avisos');
+  } finally {
+    await sql`delete from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
+    await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
+    await limpiarFixtures(admin, studio);
+  }
+});
+
+test('escalar solo pasa un incidente ABIERTO a ESCALADO, una vez; el motivo se guarda recortado', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const id = `in_${randomUUID()}`;
+  try {
+    await admin.rpc('billing_registrar_factura', { p: factura(id, studio.studioId) });
+    await admin.rpc('billing_abrir_incidente', { p: { stripe_invoice_id: id, studio_id: studio.studioId, importe_cents: 7900, intentos: 1, fallo_en: iso(0) } });
+    assert.equal((await admin.rpc('billing_fijar_motivo', { p_stripe_invoice_id: id, p_codigo: 'x'.repeat(200), p_texto: 'y'.repeat(500) })).data, true);
+    assert.equal((await admin.rpc('billing_escalar_incidente', { p_stripe_invoice_id: id })).data, true);
+    assert.equal((await admin.rpc('billing_escalar_incidente', { p_stripe_invoice_id: id })).data, false);
+    const [f] = await sql<{ estado: string; c: number; t: number }[]>`select estado, length(motivo_codigo) as c, length(motivo_texto) as t from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
+    assert.deepEqual(f, { estado: 'ESCALADO', c: 80, t: 300 });
+  } finally {
+    await sql`delete from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
+    await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
+    await limpiarFixtures(admin, studio);
+  }
+});

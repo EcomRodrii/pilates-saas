@@ -9,6 +9,8 @@ import { barrerAlertasApertura } from '@/lib/opening/alertas-cron';
 import { revisarAppsSinPlan } from '@/lib/app-nativa/apps-sin-plan-cron';
 import { registrarSituacionDiaria } from '@/lib/retencion/situacion-diaria';
 import { medirGratisEnSeco } from '@/lib/retencion/gratis-en-seco-servidor';
+import { barrerImpagos } from '@/lib/billing/impagos/servidor';
+import Stripe from 'stripe';
 
 export const dynamic = 'force-dynamic';
 // El ciclo de estudios vencidos puede, en modo activo, borrar Storage y R2 de
@@ -61,6 +63,19 @@ export async function POST(req: NextRequest) {
     appsSinPlan = { error: 'Error revisando las apps de estudio sin plan.' };
   }
 
+  // Recuperación de impagos del SaaS (lib/billing/impagos): avisos de los días 2/5/7 y sincronía con
+  // Stripe. Stripe reintenta el cobro; esto solo avisa, escala y cierra. Mismo cron horario: ya
+  // existe, y la pasada es idempotente (cada aviso se reclama antes de mandarse).
+  let impagosSaas: unknown;
+  try {
+    const clave = process.env.STRIPE_SECRET_KEY;
+    const stripe = clave && !clave.startsWith('sk_test_XXXX') ? new Stripe(clave, { apiVersion: '2026-06-24.dahlia' }) : null;
+    impagosSaas = await barrerImpagos(requireSupabaseAdmin(), stripe);
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial', area: 'billing' } });
+    impagosSaas = { error: 'Error en la recuperación de impagos.' };
+  }
+
   // Los avisos a las propietarias, antes que el informe.
   let resumen: Awaited<ReturnType<typeof barrerTrialAvisos>> | null = null;
   let errorAvisos: unknown = null;
@@ -93,5 +108,5 @@ export async function POST(req: NextRequest) {
   if (errorAvisos || !resumen) {
     return errorInterno('cron/notif-trial:POST', errorAvisos, 'Error avisando de prueba gratuita a punto de acabar.');
   }
-  return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, situacionDiaria, gratisEnSeco });
+  return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, impagosSaas, situacionDiaria, gratisEnSeco });
 }
