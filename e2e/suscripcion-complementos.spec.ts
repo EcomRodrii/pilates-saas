@@ -46,12 +46,12 @@ test.describe('Complementos de Founding Studio', () => {
     await expect(page.getByText('Total al mes:')).toContainText('29€');
 
     await fila(page, 'decisiones').getByRole('button', { name: 'Activar' }).click();
-    await expect(page.getByText(/Tu cuota pasará a/)).toContainText('38€/mes');
+    await expect(page.getByText(/Tu cuota pasará a/)).toContainText('51€/mes');
     expect(intentos).toHaveLength(0); // nada sin confirmar
 
     await page.getByRole('button', { name: /Sí, activar por 22€\/mes/ }).click();
     await expect(fila(page, 'decisiones').getByText('Activo')).toBeVisible();
-    await expect(page.getByText('Total al mes:')).toContainText('38€');
+    await expect(page.getByText('Total al mes:')).toContainText('51€');
     expect(intentos).toEqual([{ addon: 'decisiones', activar: true }]);
   });
 
