@@ -15,6 +15,7 @@ import { ESTADOS_VIVOS } from '@/lib/billing/checkout-saas-previo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decidirAcreditacion, disputaRetiraElPack, efectoDelReembolso, esDePack, idDeReferencia } from '@/lib/asistente/packs-stripe';
 import { acreditarPack, retirarPackPorPago } from '@/lib/asistente/packs-libro';
+import { apuntarEnElLibro } from '@/lib/billing/libro/servidor';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
 // webhook de Connect (pagos de socias). Fuente de verdad del estado de la
@@ -183,6 +184,15 @@ export async function POST(req: NextRequest) {
     // PAY-4: el reintento de Stripe lo reclama al instante, sin esperar la expiración.
     await fallarWebhookEvent(admin, claveEvento);
     return NextResponse.json({ error: 'Error al procesar el webhook' }, { status: 500 });
+  }
+
+  // Libro de billing (Fase 1): el espejo con el historial. Va DESPUÉS de sincronizar el
+  // estado del estudio y no puede tumbarlo: si falla, Sentry y 200 (Stripe sigue siendo
+  // la verdad; el script de relleno recupera lo que se pierda). Idempotente por evento.
+  try {
+    await apuntarEnElLibro(admin, event);
+  } catch (err) {
+    Sentry.captureException(err, { tags: { area: 'billing', tipo: 'libro-no-escribe' }, extra: { eventId: event.id, eventType: event.type } });
   }
 
   // M10: marcar procesado solo si llegó aquí sin error (el catch devuelve 500 antes).
