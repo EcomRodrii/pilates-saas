@@ -26,13 +26,19 @@ const RESUMEN: Record<Plan, { gancho: string; para: string; cta: string }> = {
 // PLAN_ENTITLEMENTS): nada escrito a mano que pueda prometer lo que el
 // servidor no deja hacer. Base enseña lo esencial; Estudio y Cadena, solo lo
 // que suman frente al plan de al lado.
+/** Lo más vendible primero: las filas del catálogo salen en su orden de categorías, no en el de venta. */
+function ordenar(items: string[], prioridad: RegExp[]): string[] {
+  const peso = (t: string) => { const i = prioridad.findIndex((r) => r.test(t)); return i === -1 ? prioridad.length : i; };
+  return [...items].sort((a, b) => peso(a) - peso(b));
+}
+
 const INCLUYE: Record<Plan, { intro: string | null; items: string[] }> = {
   BASE: {
     intro: null,
     items: [...resumenCorto('BASE', null), 'Sustituciones con tu visto bueno'],
   },
-  ESTUDIO: { intro: `Todo lo de ${PLAN_INFO.BASE.nombre}, y además:`, items: novedadesFrenteAlAnterior('ESTUDIO', 'BASE') },
-  CADENA: { intro: `Todo lo de ${PLAN_INFO.ESTUDIO.nombre}, y además:`, items: novedadesFrenteAlAnterior('CADENA', 'ESTUDIO') },
+  ESTUDIO: { intro: `Todo lo de ${PLAN_INFO.BASE.nombre}, y además:`, items: ordenar(novedadesFrenteAlAnterior('ESTUDIO', 'BASE'), [/Centro de Control/, /Piloto/, /Riesgo/, /autónomo/, /IA/, /Pregúntale/]) },
+  CADENA: { intro: `Todo lo de ${PLAN_INFO.ESTUDIO.nombre}, y además:`, items: ordenar(novedadesFrenteAlAnterior('CADENA', 'ESTUDIO'), [/Varias sedes/, /suscripción/, /Menú/, /instructora/, /Pregúntale/]) },
 };
 
 

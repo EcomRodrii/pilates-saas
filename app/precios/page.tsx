@@ -92,7 +92,7 @@ export default function PreciosPage() {
           </h1>
           <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', margin: '0 auto', maxWidth: 560 }}>
             Tres planes, publicados. Sin «solicita una demo para saber el precio», sin comisión sobre tus cobros y sin
-            contrato anual.
+            permanencia (también si pagas por años).
           </p>
           <p style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: 'var(--w-olive)', color: 'var(--w-sand)', fontSize: 14, fontWeight: 600 }}>
             Empieza gratis · Sin tarjeta de crédito
@@ -122,8 +122,8 @@ export default function PreciosPage() {
         <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
           <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Todo lo que incluye Tentare</h2>
           <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>
-            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia son las alumnas, las reservas
-            al mes y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
+            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es cuánto se automatiza y se
+            controla —Centro de Control, sustituciones autónomas, IA— y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
           </p>
           <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
           <p style={{ fontSize: 14, color: 'var(--w-texto-3)', margin: '14px 0 0' }}>
