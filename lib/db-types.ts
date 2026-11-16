@@ -4487,6 +4487,72 @@ export interface RowMigracionChecklist {
   actualizado_por: string | null;
 }
 
+export interface RowBillingEventos {
+  id: string;
+  stripe_event_id: string;
+  tipo: string;
+  studio_id: string | null;
+  cadena_id: string | null;
+  subscription_id: string | null;
+  customer_id: string | null;
+  plan_antes: string | null;
+  plan_despues: string | null;
+  intervalo_antes: string | null;
+  intervalo_despues: string | null;
+  estado_antes: string | null;
+  estado_despues: string | null;
+  mrr_lista_antes_cents: number | null;
+  mrr_lista_despues_cents: number | null;
+  detalle: any;
+  ocurrido_en: string;
+  creado_en: string;
+}
+
+export interface RowBillingFacturas {
+  stripe_invoice_id: string;
+  studio_id: string | null;
+  cadena_id: string | null;
+  customer_id: string | null;
+  subscription_id: string | null;
+  numero: string | null;
+  estado: string;
+  motivo: string | null;
+  moneda: string;
+  total_cents: number;
+  pagado_cents: number;
+  impuestos_cents: number;
+  devuelto_cents: number;
+  periodo_inicio: string | null;
+  periodo_fin: string | null;
+  intentos: number;
+  siguiente_intento: string | null;
+  pagada_en: string | null;
+  url_factura: string | null;
+  url_pdf: string | null;
+  creada_en: string;
+  ultimo_evento_en: string;
+  actualizada_en: string;
+}
+
+export interface RowBillingIncidentesPago {
+  id: string;
+  stripe_invoice_id: string;
+  studio_id: string | null;
+  cadena_id: string | null;
+  customer_id: string | null;
+  subscription_id: string | null;
+  estado: string;
+  importe_cents: number;
+  intentos: number;
+  motivo_codigo: string | null;
+  motivo_texto: string | null;
+  siguiente_intento: string | null;
+  abierto_en: string;
+  ultimo_fallo_en: string;
+  recuperado_en: string | null;
+  avisos: any;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12406,6 +12472,138 @@ export type MigracionChecklistUpdate = {
   actualizado_por?: string | null | null;
 }
 
+export type BillingEventosInsert = {
+  id?: string | null;
+  stripe_event_id?: string | null;
+  tipo?: string | null;
+  studio_id?: string | null | null;
+  cadena_id?: string | null | null;
+  subscription_id?: string | null | null;
+  customer_id?: string | null | null;
+  plan_antes?: string | null | null;
+  plan_despues?: string | null | null;
+  intervalo_antes?: string | null | null;
+  intervalo_despues?: string | null | null;
+  estado_antes?: string | null | null;
+  estado_despues?: string | null | null;
+  mrr_lista_antes_cents?: number | null | null;
+  mrr_lista_despues_cents?: number | null | null;
+  detalle?: any | null;
+  ocurrido_en?: string | null;
+  creado_en?: string | null;
+}
+
+export type BillingEventosUpdate = {
+  id?: string | null;
+  stripe_event_id?: string | null;
+  tipo?: string | null;
+  studio_id?: string | null | null;
+  cadena_id?: string | null | null;
+  subscription_id?: string | null | null;
+  customer_id?: string | null | null;
+  plan_antes?: string | null | null;
+  plan_despues?: string | null | null;
+  intervalo_antes?: string | null | null;
+  intervalo_despues?: string | null | null;
+  estado_antes?: string | null | null;
+  estado_despues?: string | null | null;
+  mrr_lista_antes_cents?: number | null | null;
+  mrr_lista_despues_cents?: number | null | null;
+  detalle?: any | null;
+  ocurrido_en?: string | null;
+  creado_en?: string | null;
+}
+
+export type BillingFacturasInsert = {
+  stripe_invoice_id?: string | null;
+  studio_id?: string | null | null;
+  cadena_id?: string | null | null;
+  customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  numero?: string | null | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  moneda?: string | null;
+  total_cents?: number | null;
+  pagado_cents?: number | null;
+  impuestos_cents?: number | null;
+  devuelto_cents?: number | null;
+  periodo_inicio?: string | null | null;
+  periodo_fin?: string | null | null;
+  intentos?: number | null;
+  siguiente_intento?: string | null | null;
+  pagada_en?: string | null | null;
+  url_factura?: string | null | null;
+  url_pdf?: string | null | null;
+  creada_en?: string | null;
+  ultimo_evento_en?: string | null;
+  actualizada_en?: string | null;
+}
+
+export type BillingFacturasUpdate = {
+  stripe_invoice_id?: string | null;
+  studio_id?: string | null | null;
+  cadena_id?: string | null | null;
+  customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  numero?: string | null | null;
+  estado?: string | null;
+  motivo?: string | null | null;
+  moneda?: string | null;
+  total_cents?: number | null;
+  pagado_cents?: number | null;
+  impuestos_cents?: number | null;
+  devuelto_cents?: number | null;
+  periodo_inicio?: string | null | null;
+  periodo_fin?: string | null | null;
+  intentos?: number | null;
+  siguiente_intento?: string | null | null;
+  pagada_en?: string | null | null;
+  url_factura?: string | null | null;
+  url_pdf?: string | null | null;
+  creada_en?: string | null;
+  ultimo_evento_en?: string | null;
+  actualizada_en?: string | null;
+}
+
+export type BillingIncidentesPagoInsert = {
+  id?: string | null;
+  stripe_invoice_id?: string | null;
+  studio_id?: string | null | null;
+  cadena_id?: string | null | null;
+  customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  estado?: string | null;
+  importe_cents?: number | null;
+  intentos?: number | null;
+  motivo_codigo?: string | null | null;
+  motivo_texto?: string | null | null;
+  siguiente_intento?: string | null | null;
+  abierto_en?: string | null;
+  ultimo_fallo_en?: string | null;
+  recuperado_en?: string | null | null;
+  avisos?: any | null;
+}
+
+export type BillingIncidentesPagoUpdate = {
+  id?: string | null;
+  stripe_invoice_id?: string | null;
+  studio_id?: string | null | null;
+  cadena_id?: string | null | null;
+  customer_id?: string | null | null;
+  subscription_id?: string | null | null;
+  estado?: string | null;
+  importe_cents?: number | null;
+  intentos?: number | null;
+  motivo_codigo?: string | null | null;
+  motivo_texto?: string | null | null;
+  siguiente_intento?: string | null | null;
+  abierto_en?: string | null;
+  ultimo_fallo_en?: string | null;
+  recuperado_en?: string | null | null;
+  avisos?: any | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -13803,6 +14001,21 @@ export type Database = {
         Row: RowMigracionChecklist;
         Insert: MigracionChecklistInsert;
         Update: MigracionChecklistUpdate;
+      };
+      billing_eventos: {
+        Row: RowBillingEventos;
+        Insert: BillingEventosInsert;
+        Update: BillingEventosUpdate;
+      };
+      billing_facturas: {
+        Row: RowBillingFacturas;
+        Insert: BillingFacturasInsert;
+        Update: BillingFacturasUpdate;
+      };
+      billing_incidentes_pago: {
+        Row: RowBillingIncidentesPago;
+        Insert: BillingIncidentesPagoInsert;
+        Update: BillingIncidentesPagoUpdate;
       };
     };
   };
