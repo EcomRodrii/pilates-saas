@@ -168,6 +168,7 @@ export async function POST(req: NextRequest) {
   for (const i of instructores ?? []) instructorPorNombre.set(norm(i.nombre), i.id);
   const salaPorNombre = new Map<string, { id: string; capacidad: number }>();
   for (const s of salas ?? []) salaPorNombre.set(norm(s.nombre), { id: s.id, capacidad: s.capacidad ?? 10 });
+  const salaUnica = (salas ?? []).length === 1 ? { id: salas![0].id as string, capacidad: (salas![0].capacidad as number | null) ?? 10 } : null;
 
   // ── Tipos de clase que faltan: se crean (sin ellos no hay sesión posible) ──
   const nuevosTipos: Record<string, unknown>[] = [];
@@ -247,7 +248,9 @@ export async function POST(req: NextRequest) {
 
     const instructorId = f.instructor ? instructorPorNombre.get(norm(f.instructor)) ?? null : null;
     if (f.instructor && !instructorId) sinInstructor++;
-    const sala = f.sala ? salaPorNombre.get(norm(f.sala)) : undefined;
+    // Sin columna de sala y con UNA sola sala en el estudio, no hay duda de cuál es: se usa. Dejarla vacía crea clases a las que
+    // luego no se les puede dar una clase fija (la plaza fija exige sala).
+    const sala = f.sala ? salaPorNombre.get(norm(f.sala)) : (salaUnica ?? undefined);
     if (f.sala && !sala) sinSala++;
     const aforo = f.aforo ?? sala?.capacidad ?? 10;
 

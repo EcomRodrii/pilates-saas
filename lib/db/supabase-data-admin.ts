@@ -5075,6 +5075,9 @@ export async function validarPlazaFijaDesdeSesion(
   if (!ses) return { ok: false as const, error: 'Clase no encontrada' };
   if (ses.cancelada) return { ok: false as const, error: 'Esta clase está cancelada: elige otra del horario.' };
   const tipoClaseId = (ses.tipo_clase_id as string | null) ?? null;
+  // Una clase sin sala (la importación de un horario sin columna de sala las dejaba así) no puede llevar clase fija: la plaza se ancla a
+  // una sala y la base de datos la exige. Se dice qué hacer en vez de fallar con un «No se pudo guardar».
+  if (!ses.sala_id) return { ok: false as const, error: 'Esta clase no tiene sala asignada. Edítala en el calendario, elige su sala y vuelve a intentarlo.' };
   const salaId = ses.sala_id as string;
 
   // Niveles: sin esto se podía crear la plaza fija de una clase para la que no
