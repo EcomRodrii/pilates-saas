@@ -1415,6 +1415,8 @@ export interface EstadoBilling {
    * `null` si no se pudo leer.
    */
   opcionesDePlan?: OpcionesDePlan | null;
+  /** El pago anual se puede contratar ya (están los tres Price anuales). Ausente con un servidor anterior. */
+  anual?: boolean;
   /** Complementos de Founding (`ADDONS`). Ausente con un servidor anterior. */
   complementos?: { pagaAparte: boolean; contratados: string[]; disponibles: string[] };
 }
@@ -1434,18 +1436,34 @@ export async function estadoBilling(): Promise<EstadoBilling | null> {
 }
 
 // Abre el Checkout de Stripe para suscribir el estudio al plan elegido.
-export async function iniciarSuscripcion(plan: 'BASE' | 'ESTUDIO' | 'CADENA'): Promise<{ url: string } | { error: string }> {
+export async function iniciarSuscripcion(
+  plan: 'BASE' | 'ESTUDIO' | 'CADENA',
+  /** Sin él, mensual (lo de siempre). */
+  intervalo: 'mensual' | 'anual' = 'mensual',
+): Promise<{ url: string } | { error: string }> {
   try {
     const res = await fetch('/api/billing/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
-      body: JSON.stringify({ plan }),
+      body: JSON.stringify(intervalo === 'anual' ? { plan, intervalo } : { plan }),
     });
     const data = await res.json();
     if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
     return data as { url: string };
   } catch {
     return { error: 'No se pudo iniciar la suscripción' };
+  }
+}
+
+/** ¿La suscripción de este estudio se cobra por meses o por años? Ante un fallo, «mensual». */
+export async function intervaloSuscripcion(): Promise<'mensual' | 'anual'> {
+  try {
+    const res = await fetch('/api/billing/intervalo', { headers: { ...(await authHeader()) } });
+    if (!res.ok) return 'mensual';
+    const data = await res.json();
+    return data?.intervalo === 'anual' ? 'anual' : 'mensual';
+  } catch {
+    return 'mensual';
   }
 }
 

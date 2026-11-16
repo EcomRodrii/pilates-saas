@@ -15,7 +15,17 @@ import type { Addon, Plan } from '@/lib/billing/entitlements';
 // primer intento de Redeploy no hizo nada.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function priceEnv(): Record<Plan, string | undefined> {
+/** Cómo se cobra una suscripción: mes a mes o el año por adelantado (2 meses gratis). */
+export type Intervalo = 'mensual' | 'anual';
+
+function priceEnv(intervalo: Intervalo = 'mensual'): Record<Plan, string | undefined> {
+  if (intervalo === 'anual') {
+    return {
+      BASE: process.env.STRIPE_PRICE_BASE_ANUAL,
+      ESTUDIO: process.env.STRIPE_PRICE_ESTUDIO_ANUAL,
+      CADENA: process.env.STRIPE_PRICE_CADENA_ANUAL,
+    };
+  }
   return {
     BASE: process.env.STRIPE_PRICE_BASE,
     ESTUDIO: process.env.STRIPE_PRICE_ESTUDIO,
@@ -24,8 +34,22 @@ function priceEnv(): Record<Plan, string | undefined> {
 }
 
 /** price ID de Stripe para un plan, o null si no está configurado. */
-export function priceIdDe(plan: Plan): string | null {
-  return priceEnv()[plan] ?? null;
+export function priceIdDe(plan: Plan, intervalo: Intervalo = 'mensual'): string | null {
+  return priceEnv(intervalo)[plan] ?? null;
+}
+
+/**
+ * ¿Se puede contratar ya el pago anual? Solo si están los TRES precios anuales:
+ * un selector que ofreciera «anual» y fallara en un plan sería peor que no
+ * ofrecerlo.
+ */
+export function anualDisponible(): boolean {
+  return (['BASE', 'ESTUDIO', 'CADENA'] as Plan[]).every((p) => !!priceIdDe(p, 'anual'));
+}
+
+/** `recurring` de un Price de Stripe → nuestro intervalo (un año = anual; lo demás, mensual). */
+export function intervaloDePrice(recurring: { interval?: string | null; interval_count?: number | null } | null | undefined): Intervalo {
+  return recurring?.interval === 'year' && (recurring.interval_count ?? 1) === 1 ? 'anual' : 'mensual';
 }
 
 /**
@@ -44,9 +68,11 @@ function preciosHeredados(plan: Plan): string[] {
 /** Mapea un price ID de Stripe de vuelta a un plan (para el webhook). */
 export function planDePriceId(priceId: string | null | undefined): Plan | null {
   if (!priceId) return null;
-  const env = priceEnv();
+  const mensual = priceEnv('mensual');
+  const anual = priceEnv('anual');
   for (const plan of ['BASE', 'ESTUDIO', 'CADENA'] as Plan[]) {
-    if (env[plan] && env[plan] === priceId) return plan;
+    if (mensual[plan] && mensual[plan] === priceId) return plan;
+    if (anual[plan] && anual[plan] === priceId) return plan;
     if (preciosHeredados(plan).includes(priceId)) return plan;
   }
   return null;
@@ -56,7 +82,14 @@ export function planDePriceId(priceId: string | null | undefined): Plan | null {
 // Un precio MENSUAL de Stripe por complemento, en el mismo producto o en uno
 // propio: da igual, se reconocen por el price ID. Sin la env, el complemento no
 // se puede contratar (la ruta contesta 503 y la pantalla lo dice).
-function priceEnvAddons(): Record<Addon, string | undefined> {
+function priceEnvAddons(intervalo: Intervalo = 'mensual'): Record<Addon, string | undefined> {
+  if (intervalo === 'anual') {
+    return {
+      decisiones: process.env.STRIPE_PRICE_ADDON_DECISIONES_ANUAL,
+      sustituciones: process.env.STRIPE_PRICE_ADDON_SUSTITUCIONES_ANUAL,
+      ia: process.env.STRIPE_PRICE_ADDON_IA_ANUAL,
+    };
+  }
   return {
     decisiones: process.env.STRIPE_PRICE_ADDON_DECISIONES,
     sustituciones: process.env.STRIPE_PRICE_ADDON_SUSTITUCIONES,
@@ -65,17 +98,18 @@ function priceEnvAddons(): Record<Addon, string | undefined> {
 }
 
 /** price ID de Stripe de un complemento, o null si no está configurado. */
-export function priceIdDeAddon(addon: Addon): string | null {
-  return priceEnvAddons()[addon] ?? null;
+export function priceIdDeAddon(addon: Addon, intervalo: Intervalo = 'mensual'): string | null {
+  return priceEnvAddons(intervalo)[addon] ?? null;
 }
 
 /**
  * ¿Se pueden contratar ya los tres complementos? Hasta que existan sus precios
  * en Stripe, el checkout sigue vendiendo el Founding completo: quitarle algo a
- * quien no puede comprarlo aparte sería venderle menos por lo mismo.
+ * quien no puede comprarlo aparte sería venderle menos por lo mismo. En anual
+ * hacen falta los tres anuales: una suscripción anual no admite líneas mensuales.
  */
-export function complementosALaVenta(): boolean {
-  return (['decisiones', 'sustituciones', 'ia'] as Addon[]).every((a) => !!priceIdDeAddon(a));
+export function complementosALaVenta(intervalo: Intervalo = 'mensual'): boolean {
+  return (['decisiones', 'sustituciones', 'ia'] as Addon[]).every((a) => !!priceIdDeAddon(a, intervalo));
 }
 
 /**
@@ -85,9 +119,11 @@ export function complementosALaVenta(): boolean {
  */
 export function addonDePriceId(priceId: string | null | undefined): Addon | null {
   if (!priceId) return null;
-  const env = priceEnvAddons();
+  const mensual = priceEnvAddons('mensual');
+  const anual = priceEnvAddons('anual');
   for (const a of ['decisiones', 'sustituciones', 'ia'] as Addon[]) {
-    if (env[a] && env[a] === priceId) return a;
+    if (mensual[a] && mensual[a] === priceId) return a;
+    if (anual[a] && anual[a] === priceId) return a;
     const heredados = (process.env[`STRIPE_PRICE_ADDON_${a.toUpperCase()}_LEGACY`] ?? '').split(',').map((x) => x.trim()).filter(Boolean);
     if (heredados.includes(priceId)) return a;
   }

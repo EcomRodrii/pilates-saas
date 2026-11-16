@@ -5,6 +5,7 @@ import { Check } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { PARA_QUIEN, resumenCorto } from '@/lib/billing/catalogo-planes';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
+import { euros, importeDe, textoAhorro, type IntervaloUi } from '@/lib/billing/intervalo-ui';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 
 // Elegir plan. Lo comparten el alta y /suscripcion.
@@ -30,12 +31,15 @@ export function SelectorPlan({
   enPrueba = false,
   /** Los que se ofrecen (por defecto, todos). Una sede secundaria de una cadena solo puede contratar Cadena. */
   planes = PLANES,
+  /** Pago por meses (de serie) o por años: cambia la cifra, el periodo y el ahorro. */
+  intervalo = 'mensual',
   className = '',
 }: {
   valor: Plan;
   onCambio: (p: Plan) => void;
   enPrueba?: boolean;
   planes?: readonly Plan[];
+  intervalo?: IntervaloUi;
   className?: string;
 }) {
   const uid = useId();
@@ -75,7 +79,7 @@ export function SelectorPlan({
             id={`${uid}-${plan}`}
             role="radio"
             aria-checked={elegido}
-            aria-label={`Plan ${info.nombre}, ${info.precioMes} euros al mes`}
+            aria-label={`Plan ${info.nombre}, ${euros(importeDe(info.precioMes, intervalo))} euros ${intervalo === 'anual' ? 'al año' : 'al mes'}`}
             tabIndex={elegido ? 0 : -1}
             onClick={() => onCambio(plan)}
             onKeyDown={(e) => alTeclado(e, plan)}
@@ -109,10 +113,13 @@ export function SelectorPlan({
                 dicen lo mismo, en vez de dos que lo dicen y una que se calla. */}
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-[28px] font-extrabold leading-none tracking-tight text-foreground tabular-nums">
-                {info.precioMes}€
+                {euros(importeDe(info.precioMes, intervalo))}€
               </span>
-              <span className="text-[12px] font-medium text-muted-foreground">/mes, IVA incluido</span>
+              <span className="text-[12px] font-medium text-muted-foreground">{intervalo === 'anual' ? '/año, IVA incluido' : '/mes, IVA incluido'}</span>
             </div>
+            {intervalo === 'anual' && (
+              <div className="mt-1 text-[11.5px] font-semibold text-brand-medio">{textoAhorro(info.precioMes)} al año · 2 meses gratis</div>
+            )}
             {enPrueba && (
               <div className="mt-1 text-[11.5px] font-medium text-brand-medio">
                 Gratis los primeros {TRIAL_DIAS} días

@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { complementosALaVenta, priceIdDe } from '@/lib/billing/billing';
+import { complementosALaVenta, priceIdDe, type Intervalo } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { METADATA_REGIMEN } from '@/lib/billing/lectura-suscripcion';
 import { PLANES, suscripcionActiva, type Plan } from '@/lib/billing/entitlements';
@@ -11,7 +11,7 @@ import { pagaPlan } from '@/lib/billing/plan-gratis';
 import { planSueltoACancelarAlPasarACadena } from '@/lib/billing/cancelar-suscripcion-anterior';
 import { errorInterno } from '@/lib/errores-servidor';
 import { capturar } from '@/lib/analytics';
-import { consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
+import { claveDePlan, consultarCheckoutPrevio } from '@/lib/billing/checkout-saas-previo';
 import { claveCheckoutLock, reclamarCheckoutLock, liberarCheckoutLock } from '@/lib/billing/checkout-lock';
 import {
   decidirPlanSuelto, consultarCadenaAntesDeIndividual, checkoutsAbiertosDeLasSedes, caducarCheckouts,
@@ -48,15 +48,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Solo la propietaria puede gestionar la suscripción' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { plan?: string } | null;
+  const body = await req.json().catch(() => null) as { plan?: string; intervalo?: unknown } | null;
   const plan = body?.plan as Plan | undefined;
   if (!plan || !PLANES.includes(plan)) {
     return NextResponse.json({ error: 'Plan no válido' }, { status: 400 });
   }
-  const price = priceIdDe(plan);
-  if (!price) {
-    return NextResponse.json({ error: `Falta el price de Stripe para el plan ${plan} (STRIPE_PRICE_${plan})` }, { status: 503 });
+  // Sin `intervalo` es mensual (lo de siempre); solo se acepta uno de los dos.
+  if (body?.intervalo !== undefined && body.intervalo !== 'mensual' && body.intervalo !== 'anual') {
+    return NextResponse.json({ error: 'Periodo de facturación no válido' }, { status: 400 });
   }
+  const intervalo: Intervalo = body?.intervalo === 'anual' ? 'anual' : 'mensual';
+  const price = priceIdDe(plan, intervalo);
+  if (!price) {
+    return NextResponse.json(
+      { error: intervalo === 'anual'
+        ? 'El pago anual todavía no está disponible. Elige el pago mensual o escríbenos.'
+        : `Falta el price de Stripe para el plan ${plan} (STRIPE_PRICE_${plan})` },
+      { status: 503 },
+    );
+  }
+  // Lo que se compara con un Checkout ya abierto y lo que viaja en la metadata.
+  const clavePlan = claveDePlan(plan, intervalo) as string;
+  const regimenAddons = complementosALaVenta(intervalo);
 
   const { data: studio } = await admin
     .from('studios').select('id, nombre, email, cadena_id, stripe_customer_id, subscription_id, subscription_status')
@@ -119,7 +132,7 @@ export async function POST(req: NextRequest) {
     // PAY-5: se pregunta a STRIPE, no a `studio.subscription_id` (que solo escribe
     // el webhook, minutos después). Ver lib/billing/checkout-saas-previo.ts.
     async function checkoutPrevio(customerId: string): Promise<NextResponse | null> {
-      const previo = await consultarCheckoutPrevio(stripe, customerId, plan as string, Boolean(recompensa));
+      const previo = await consultarCheckoutPrevio(stripe, customerId, clavePlan, Boolean(recompensa));
       // Caducar lo que sobra (best-effort: si una ya estaba completada o caducada
       // Stripe lo rechaza, y en el peor caso queda como estaba antes de este arreglo).
       for (const id of previo.expirar) await stripe.checkout.sessions.expire(id).catch(() => {});
@@ -245,9 +258,9 @@ export async function POST(req: NextRequest) {
         subscription_data: {
           // PAY-2: leído por el webhook para cancelar la individual SOLO cuando
           // esta suscripción de cadena está confirmada — nunca antes.
-          metadata: { cadenaId: idCadena, plan, ...(cancelarAlConfirmar ? { cancelarSuscripcionAnterior: cancelarAlConfirmar } : {}) },
+          metadata: { cadenaId: idCadena, plan, intervalo, ...(cancelarAlConfirmar ? { cancelarSuscripcionAnterior: cancelarAlConfirmar } : {}) },
         },
-        metadata: { cadenaId: idCadena, plan },
+        metadata: { cadenaId: idCadena, plan, intervalo },
         success_url: `${appUrl}/suscripcion?suscripcion=ok`,
         cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
         locale: 'es',
@@ -269,7 +282,7 @@ export async function POST(req: NextRequest) {
         // mismo minuto ya no encuentra la recompensa, manda `allow_promotion_codes` con
         // la MISMA clave y parámetros distintos, Stripe la rechaza (500) y la propietaria
         // ha perdido el 20 %. Mismo discriminante que la rama BASE/ESTUDIO.
-        idempotencyKey: `billing-checkout-cadena-${idCadena}-${plan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
+        idempotencyKey: `billing-checkout-cadena-${idCadena}-${clavePlan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
       }));
     }
 
@@ -354,9 +367,9 @@ export async function POST(req: NextRequest) {
       // lo pasa a `studios.regimen_addons`; las suscripciones de antes no lo
       // traen y conservan el Founding completo.
       subscription_data: {
-        metadata: { studioId: studio.id, plan, ...(complementosALaVenta() ? METADATA_REGIMEN : {}) },
+        metadata: { studioId: studio.id, plan, intervalo, ...(regimenAddons ? METADATA_REGIMEN : {}) },
       },
-      metadata: { studioId: studio.id, plan, ...(complementosALaVenta() ? METADATA_REGIMEN : {}) },
+      metadata: { studioId: studio.id, plan, intervalo, ...(regimenAddons ? METADATA_REGIMEN : {}) },
       success_url: `${appUrl}/suscripcion?suscripcion=ok`,
       cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
       locale: 'es',
@@ -375,7 +388,7 @@ export async function POST(req: NextRequest) {
       // clave y parámetros distintos, Stripe la rechaza y la propietaria recibe
       // un 500 «No se pudo iniciar la suscripción». Es exactamente el bug que
       // PAY-3 acaba de cerrar en el checkout de socias, en su gemelo del SaaS.
-      idempotencyKey: `billing-checkout-${studio.id}-${plan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
+      idempotencyKey: `billing-checkout-${studio.id}-${clavePlan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
     }));
   } catch (err) {
     return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');

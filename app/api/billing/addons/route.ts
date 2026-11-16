@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { addonDePriceId, planDePriceId, priceIdDeAddon } from '@/lib/billing/billing';
+import { addonDePriceId, intervaloDePrice, planDePriceId, priceIdDeAddon } from '@/lib/billing/billing';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
 import { lecturaSuscripcion } from '@/lib/billing/lectura-suscripcion';
 import { ADDONS, COLUMNAS_PLAN, esAddon, planDeFila } from '@/lib/billing/entitlements';
@@ -46,11 +46,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Complemento no válido' }, { status: 400 });
   }
   const activar = body.activar;
-  const price = priceIdDeAddon(addon);
-  if (!price) {
-    return NextResponse.json({ error: `«${ADDONS[addon].nombre}» todavía no se puede contratar. Escríbenos y lo activamos.` }, { status: 503 });
-  }
-
   const { data: fila, error: eFila } = await admin
     .from('studios').select(`id, cadena_id, subscription_id, ${COLUMNAS_PLAN}`)
     .eq('id', sesion.studioId).maybeSingle();
@@ -70,6 +65,13 @@ export async function POST(req: NextRequest) {
     const sub = await stripe.subscriptions.retrieve(subId);
     const lineas = sub.items.data;
     const linea = lineas.find((l) => addonDePriceId(l.price?.id) === addon);
+    // El complemento se cobra en el MISMO periodo que el plan (Stripe no admite
+    // líneas de periodos distintos en una suscripción): por años si el plan es anual.
+    const intervalo = intervaloDePrice(lineas.find((l) => planDePriceId(l.price?.id) === 'BASE')?.price?.recurring);
+    const price = priceIdDeAddon(addon, intervalo);
+    if (!price && !(!activar && linea)) {
+      return NextResponse.json({ error: `«${ADDONS[addon].nombre}» todavía no se puede contratar. Escríbenos y lo activamos.` }, { status: 503 });
+    }
     if (activar) {
       // Lo que manda es Stripe, no la fila (que puede ir por detrás del webhook):
       // la suscripción tiene que ser de verdad la de Founding y estar al día.
@@ -95,7 +97,7 @@ export async function POST(req: NextRequest) {
       // a leer las líneas antes de crear (`!linea`). Un reintento de red del SDK
       // lleva su propia clave, que Stripe resuelve.
       await stripe.subscriptionItems.create(
-        { subscription: subId, price, quantity: 1, proration_behavior: 'create_prorations' },
+        { subscription: subId, price: price as string, quantity: 1, proration_behavior: 'create_prorations' },
       );
     } else if (!activar && linea) {
       await stripe.subscriptionItems.del(linea.id, { proration_behavior: 'create_prorations' });

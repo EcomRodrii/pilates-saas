@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { priceIdDe, priceIdDeAddon } from '@/lib/billing/billing';
+import { anualDisponible, priceIdDe, priceIdDeAddon } from '@/lib/billing/billing';
 import { accesoProducto, addonsDe, LISTA_ADDONS, pagaAddonsAparte, planDeFila, PLANES } from '@/lib/billing/entitlements';
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
@@ -195,6 +195,8 @@ export async function GET(req: NextRequest) {
     trial: { fase: trial.fase, diasRestantes: trial.diasRestantes, finaliza: trial.finaliza },
     // Founding Studio gratis: el uso, la fase y el margen, ya derivados. `null` si no lo es.
     gratis,
+    // El pago anual (dos meses gratis): solo se ofrece si están los tres Price anuales.
+    anual: anualDisponible(),
     // Complementos de Founding (lib/billing/entitlements.ts `ADDONS`): si los paga
     // aparte, cuáles tiene y cuáles se pueden contratar ya (con su precio en Stripe).
     complementos: {
