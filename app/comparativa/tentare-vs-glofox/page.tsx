@@ -31,7 +31,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Plaza por reformer individual', tentare: ['yes', 'Cada alumna reserva su reformer concreto, si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Lista de espera automática', tentare: ['yes', 'Por clase: la plaza que se libera pasa a la siguiente'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta como función nativa en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas, contacta y avisa; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 12 €/mes'], them: ['partial', 'No consta como función nativa en su web pública'] },
   { feature: 'App con la marca del estudio', tentare: ['yes', 'Con tu nombre, tu icono, tu logo y tus colores, en todos los planes; se instala desde el navegador'], them: ['yes', 'App con marca propia, según su web'] },
   { feature: 'Reglas de reserva y cancelación por tipo de clase', tentare: ['yes', 'Antelación, cancelación, bono exigido y lista de espera se fijan por tipo de clase'], them: ['yes', 'Aforo, ventana de reserva y cancelación configurables por clase, según su web'] },
   { feature: 'Cobros con Stripe y domiciliación', tentare: ['yes', 'Stripe para la tarjeta; para la domiciliación, Tentare genera la remesa SEPA que presentas en tu banco'], them: ['yes', 'Stripe y GoCardless, según su web'] },
@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta Glofox?',
-    a: 'Su web anuncia planes desde 99 USD al mes, en dólares, y remite a pedir una demo para conocer el precio de cada nivel. Tentare publica sus tres planes en euros: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Su web anuncia planes desde 99 USD al mes, en dólares, y remite a pedir una demo para conocer el precio de cada nivel. Tentare publica sus tres planes en euros: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 79 €/mes y Cadena 249 €/mes, IVA incluido.',
   },
   {
     q: '¿Glofox tiene permanencia?',
@@ -73,7 +73,7 @@ const ANALISIS: SeccionAnalisis[] = [
     cuerpo: (
       <>
         <p>Glofox anuncia planes desde 99 USD al mes y, para saber el precio de cada nivel, remite a pedir una demo. Está en dólares, así que lo que pagas en euros depende del cambio y de las condiciones que te den por escrito.</p>
-        <p>Pide tres cosas: la cuota mensual con impuestos, la duración mínima del contrato y qué incluye cada nivel (app propia, varias sedes, integraciones). En Tentare los tres planes están publicados en <Link href="/precios">/precios</Link>: Founding Studio gratis (hasta 150 reservas al mes, 29 €/mes si pasas de ahí, y con la app con tu marca), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido y sin permanencia.</p>
+        <p>Pide tres cosas: la cuota mensual con impuestos, la duración mínima del contrato y qué incluye cada nivel (app propia, varias sedes, integraciones). En Tentare los tres planes están publicados en <Link href="/precios">/precios</Link>: Founding Studio gratis (hasta 150 reservas al mes, 29 €/mes si pasas de ahí, y con la app con tu marca), Estudio 79 €/mes y Cadena 249 €/mes, IVA incluido y sin permanencia.</p>
       </>
     ),
   },

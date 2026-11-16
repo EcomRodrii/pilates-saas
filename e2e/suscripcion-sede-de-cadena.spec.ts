@@ -74,12 +74,12 @@ test('sede secundaria: solo se ofrece Cadena, dice por qué, y es lo que se paga
 
   const radios = page.getByRole('radiogroup', { name: 'Plan' }).getByRole('radio');
   await expect(radios).toHaveCount(1);
-  await expect(page.getByRole('radio', { name: /^Plan Cadena, 149 euros/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByRole('radio', { name: /^Plan Cadena, 249 euros/ })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: /Founding Studio|Plan Estudio/ })).toHaveCount(0);
   // Ninguna sede paga un plan suelto: no hay nada que avisar.
   await expect(page.locator('[data-aviso-cadena]')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Continuar con Cadena · 149€/mes' }).click();
+  await page.getByRole('button', { name: 'Continuar con Cadena · 249€/mes' }).click();
   await expect(page).toHaveURL(/checkout\.stripe\.com/);
   expect(planes).toEqual(['CADENA']);
 });
@@ -97,7 +97,7 @@ test('sede secundaria con la principal pagando Founding Studio: antes de pagar, 
   );
   // Va ANTES del botón de pagar.
   const caja = await aviso.boundingBox();
-  const boton = await page.getByRole('button', { name: 'Continuar con Cadena · 149€/mes' }).boundingBox();
+  const boton = await page.getByRole('button', { name: 'Continuar con Cadena · 249€/mes' }).boundingBox();
   expect(caja && boton && caja.y + caja.height <= boton.y).toBeTruthy();
 });
 
@@ -143,7 +143,7 @@ test('estudio en el plan gratis sin planes sueltos vivos: elegir Cadena no avisa
   });
   await page.goto('/suscripcion');
   await page.getByRole('radio', { name: /^Cadena/ }).click({ timeout: 30_000 });
-  await expect(page.getByRole('button', { name: 'Pasarme a Cadena · 149 €/mes' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Pasarme a Cadena · 249 €/mes' })).toBeVisible();
   await expect(page.locator('[data-aviso-cadena]')).toHaveCount(0);
 });
 

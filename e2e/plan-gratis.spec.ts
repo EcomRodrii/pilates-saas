@@ -67,7 +67,7 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
   await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'false');
   await expect(page.getByRole('button', { name: /Pasarme a Founding Studio · 29 €\/mes/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /59 €\/mes/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /79 €\/mes/ })).toHaveCount(0);
 });
 
 test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vuelve a bajar', async ({ page }) => {
@@ -81,7 +81,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   // también con más de 150 alumnas. Estudio y Cadena se ofrecen, pero no se eligen solos.
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)');
   await expect(aviso).toContainText('sin límites');
-  await expect(aviso).not.toContainText('Estudio (59');
+  await expect(aviso).not.toContainText('Estudio (79');
   await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'false');
 });

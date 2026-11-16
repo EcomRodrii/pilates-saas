@@ -89,8 +89,8 @@ test.describe('Apps e integraciones', () => {
     await expect(page.getByTestId('tienda-de-apps')).toBeVisible({ timeout: 60_000 });
 
     const tarjeta = (id: string) => page.locator(`[data-testid="tarjeta-app"][data-app="${id}"]`);
-    await expect(tarjeta('complemento-sustituciones').getByTestId('precio-app')).toHaveText('6 €/mes');
-    await expect(tarjeta('complemento-ia').getByTestId('precio-app')).toHaveText('9 €/mes');
+    await expect(tarjeta('complemento-sustituciones').getByTestId('precio-app')).toHaveText('12 €/mes');
+    await expect(tarjeta('complemento-ia').getByTestId('precio-app')).toHaveText('16 €/mes');
     // Centro de Control ya está en su plan (addons: ['decisiones']): activo, sin botón de activar.
     await expect(tarjeta('complemento-decisiones').getByText('Activo').first()).toBeVisible();
     await expect(tarjeta('complemento-sustituciones').getByRole('link', { name: 'Activar' })).toBeVisible();

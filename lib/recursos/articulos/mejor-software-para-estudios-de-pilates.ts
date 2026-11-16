@@ -130,7 +130,7 @@ const articulo: Articulo = {
           t: 'tabla',
           cabecera: ['Programa', 'Precio de entrada publicado', 'Permanencia', 'Facturación Veri*Factu', 'Sustitución de instructoras'],
           filas: [
-            ['Tentare', 'Gratis hasta 150 reservas al mes; si pasas de ahí, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal correlativa; Veri*Factu (huella y envío a la AEAT), todavía no activo', 'Asistidas en todos los planes; autónomas en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'],
+            ['Tentare', 'Gratis hasta 150 reservas al mes; si pasas de ahí, 29 €/mes con IVA', 'Sin permanencia', 'Numeración legal correlativa; Veri*Factu (huella y envío a la AEAT), todavía no activo', 'Asistidas en todos los planes; autónomas en el plan gratis, Estudio y Cadena, o con un complemento de 12 €/mes'],
             ['bsport', 'No publica precios: presupuesto a medida', 'No consta', 'Con Fiskaly, activándolo con su gestor de cuenta', 'Automática, en su plan Elevate'],
             ['Momence', 'No publica precios: «Let\'s talk pricing»', 'No consta', 'No consta', '«automate instructor substitutions»'],
             ['Eversports', '41 €/mes (33 € con pago anual) + IVA, hasta 49 reservas al mes; su web enseña tachada una configuración de 99 €', 'No consta; con pago anual se factura por año', 'Extensión de Veri*factu y TicketBAI con fiskaly', '«Gestión de sustituciones»'],
@@ -204,7 +204,7 @@ const articulo: Articulo = {
         {
           t: 'p',
           texto:
-            'Tentare está hecho para estudios de pilates y yoga en España. Founding Studio es gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio cuesta 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia y sin pedir tarjeta. Lo que hace:',
+            'Tentare está hecho para estudios de pilates y yoga en España. Founding Studio es gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio cuesta 79 €/mes y Cadena 249 €/mes, IVA incluido, sin permanencia y sin pedir tarjeta. Lo que hace:',
         },
         {
           t: 'lista',
@@ -212,7 +212,7 @@ const articulo: Articulo = {
             'Tus alumnas reservan y cancelan solas desde el móvil e instalan la app en su pantalla de inicio, con el nombre, el icono, el logo y los colores de tu estudio, en todos los planes.',
             'Bonos, cuotas y clases sueltas, con caducidad de bonos y reglas por tipo de clase; lista de espera automática, inmediata o con plazo para aceptar, y plazas fijas que pide la alumna y apruebas tú.',
             'Cobros online y recurrentes con tarjeta y Stripe conectado: si un cobro falla, se reintenta a los 3 y a los 7 días y te avisa. La domiciliación va por remesa SEPA, que presentas en tu banco. Bizum, para pagos puntuales y bonos, nunca para cuotas.',
-            'Sustituciones de instructoras asistidas (das tú el visto bueno), en todos los planes, o autónomas, en el plan gratis, Estudio y Cadena o con un complemento de 6 €/mes; si nadie acepta, te avisa y no cancela la clase sola.',
+            'Sustituciones de instructoras asistidas (das tú el visto bueno), en todos los planes, o autónomas, en el plan gratis, Estudio y Cadena o con un complemento de 12 €/mes; si nadie acepta, te avisa y no cancela la clase sola.',
             'Facturas con numeración legal correlativa, check-in y control de asistencia, ficha de cada alumna con su salud e informe de rentabilidad por clase.',
             'Importador desde Timp, Momence, Eversports, bsport, Mindbody y Excel, con acta, botón de deshacer y ayuda de una persona; soporte humano en español por WhatsApp, correo y centro de ayuda.',
           ],
@@ -262,7 +262,7 @@ const articulo: Articulo = {
     },
     {
       q: '¿Qué programa utilizar para mi centro de Pilates?',
-      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido, sin permanencia.',
+      a: 'Tentare. Lleva varias salas con su propio aforo, reformers y mat, varias instructoras con sus sustituciones y, con el plan Cadena, varias sedes con un solo acceso. Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 79 €/mes y Cadena 249 €/mes, IVA incluido, sin permanencia.',
     },
     {
       q: '¿Cuál es el mejor software para un estudio de pilates pequeño?',

@@ -59,7 +59,7 @@ const FAQ = [
   },
   {
     q: '¿Qué pasa si una profesora no puede dar su clase?',
-    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. Puede hacerlo sola, sin esperar a que lo apruebes, en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 6 €/mes.',
+    a: 'Tentare busca quién puede cubrirla según su disponibilidad, la contacta con tu visto bueno y avisa a las alumnas del cambio. Puede hacerlo sola, sin esperar a que lo apruebes, en el plan gratis, en Estudio y en Cadena; en Founding Studio de pago, con el complemento de 12 €/mes.',
   },
   {
     q: '¿Hay funciones pensadas solo para yoga?',
@@ -67,7 +67,7 @@ const FAQ = [
   },
   {
     q: '¿Cuánto cuesta Tentare para un estudio de yoga?',
-    a: 'Founding Studio es gratis hasta 150 reservas al mes, con todas las funcionalidades menos varias sedes, también la app con tu marca; si pasas de ahí, 29 €/mes, y con ese plan el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Estudio, 59 €/mes con IVA, los incluye, y Cadena, 149 €/mes, es para varias sedes. Sin permanencia y sin tarjeta para empezar.',
+    a: 'Founding Studio es gratis hasta 150 reservas al mes, con todas las funcionalidades menos varias sedes, también la app con tu marca; si pasas de ahí, 29 €/mes, y con ese plan el Centro de Control, las sustituciones automáticas y la redacción con IA van aparte. Estudio, 79 €/mes con IVA, los incluye, y Cadena, 249 €/mes, es para varias sedes. Sin permanencia y sin tarjeta para empezar.',
   },
 ];
 

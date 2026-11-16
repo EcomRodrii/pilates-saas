@@ -1,8 +1,8 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Complementos de Founding Studio (19-oct-2026): 29 € + Centro de Control 9 €
-// = 38 €/mes. Es dinero: la pantalla solo cambia con lo que contesta el
+// Complementos de Founding Studio (19-oct-2026): 29 € + Centro de Control 22 €
+// = 51 €/mes. Es dinero: la pantalla solo cambia con lo que contesta el
 // servidor, y con un «no» lo dice sin dar el complemento por activado. Cada
 // camino de fallo cuenta sus peticiones: «no mintió» sin haber intentado nada
 // no prueba nada.
@@ -49,7 +49,7 @@ test.describe('Complementos de Founding Studio', () => {
     await expect(page.getByText(/Tu cuota pasará a/)).toContainText('38€/mes');
     expect(intentos).toHaveLength(0); // nada sin confirmar
 
-    await page.getByRole('button', { name: /Sí, activar por 9€\/mes/ }).click();
+    await page.getByRole('button', { name: /Sí, activar por 22€\/mes/ }).click();
     await expect(fila(page, 'decisiones').getByText('Activo')).toBeVisible();
     await expect(page.getByText('Total al mes:')).toContainText('38€');
     expect(intentos).toEqual([{ addon: 'decisiones', activar: true }]);
@@ -110,8 +110,8 @@ test.describe('Pasar de Founding con complementos a Estudio', () => {
     marcar = marcarCambiado;
     const bloque = page.locator('[data-pasar-a-estudio]');
     await bloque.getByRole('button', { name: 'Pasarme a Estudio' }).click();
-    await expect(bloque).toContainText('de 38€ a');
-    await expect(bloque).toContainText('59€/mes');
+    await expect(bloque).toContainText('de 51€ a');
+    await expect(bloque).toContainText('79€/mes');
     expect(intentos).toHaveLength(0); // nada sin confirmar
 
     await bloque.getByRole('button', { name: 'Sí, pasarme a Estudio' }).click();

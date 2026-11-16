@@ -130,7 +130,7 @@ test.describe('La píldora de la prueba dice la verdad en cada estado', () => {
     await expect(detalle).toContainText('Te quedan 2 días');
     // El precio del plan que está probando: enterarse de cuánto cuesta el
     // último día es la peor forma de descubrirlo.
-    await expect(detalle).toContainText('59€/mes');
+    await expect(detalle).toContainText('79€/mes');
     await expect(detalle.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
   });
 
@@ -152,7 +152,7 @@ test.describe('La pantalla de suscripción, que es donde se convierte', () => {
     await expect(page.getByText(/Te quedan 3 días de prueba/)).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Plan' })).toBeVisible();
     // El botón dice el plan Y el precio: «Continuar» a secas obliga a fiarse.
-    await expect(page.getByRole('button', { name: /Continuar con Estudio · 59€\/mes/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Continuar con Estudio · 79€\/mes/ })).toBeVisible();
   });
 
   test('prueba agotada: promete que no se ha borrado nada', async ({ page }) => {

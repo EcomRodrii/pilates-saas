@@ -47,7 +47,7 @@ export const PLANS = [
   {
     id: 'ESTUDIO' as const,
     name: 'Estudio',
-    price: '59€',
+    price: '79€',
     desc: `Todo lo de Founding Studio, con ${COMPLEMENTOS_CORTO} incluidos.`,
     features: ['Todo lo de Founding Studio', `${COMPLEMENTOS_CORTO}, incluidos`, `${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al mes al asistente`],
     cta: CTA_ALTA,
@@ -58,7 +58,7 @@ export const PLANS = [
   {
     id: 'CADENA' as const,
     name: 'Cadena',
-    price: '149€',
+    price: '249€',
     desc: 'Varias sedes en un mismo panel.',
     features: ['Todo lo de Estudio', 'Varios centros', 'Un solo acceso para todas'],
     cta: 'Hablar con nosotros',

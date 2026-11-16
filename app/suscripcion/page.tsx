@@ -380,7 +380,7 @@ export default function SuscripcionPage() {
                   </span>
                 </div>
                 {/* «al mes, IVA incluido» literal: es la frase que pidió P2-20
-                    («es mi factura mensual, quiero ver 149 €, la fecha y la
+                    («es mi factura mensual, quiero ver 249 €, la fecha y la
                     tarjeta») y que su test fija. */}
                 <p className="mt-1 text-[13.5px] text-muted-foreground">al mes, IVA incluido · sin permanencia</p>
               </div>

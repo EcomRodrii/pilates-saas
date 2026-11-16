@@ -57,8 +57,8 @@ test('el límite de reservas de la web es el del producto', () => {
 
 test('precio en la web: Founding Studio 0, el resto el de su plan', () => {
   assert.equal(precioMesWeb('BASE'), 0);
-  assert.equal(precioMesWeb('ESTUDIO'), 59);
-  assert.equal(precioMesWeb('CADENA'), 149);
+  assert.equal(precioMesWeb('ESTUDIO'), 79);
+  assert.equal(precioMesWeb('CADENA'), 249);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ const PROHIBIDO: [RegExp, string][] = [
   [/Founding Studio(?:(?!reservas|pasas)[^.\n]){0,40}\b29\b|\b29\b[^.\n]{0,12}Founding/, 'Founding Studio es gratis; los 29 € van con «si pasas de ahí»'],
   // Pasar de CUALQUIERA de los dos límites lleva a Founding Studio de pago, sin
   // tope (corrección del fundador, 15-oct-2026): nadie va obligado a Estudio.
-  [/después,? 59 ?€|29 o 59|más de 150 alumnas,? (el plan )?Estudio|o 59 €\/mes sin límite/, 'pasado lo gratis, Founding Studio de pago (29 €), sin tope: nadie va obligado a Estudio'],
+  [/después,? (59|79) ?€|29 o (59|79)|más de 150 alumnas,? (el plan )?Estudio|o (59|79) €\/mes sin límite/, 'pasado lo gratis, Founding Studio de pago (29 €), sin tope: nadie va obligado a Estudio'],
   [/con más reservas,? 29/, 'cualquiera de los dos límites lleva a los 29 €: «si pasas de ahí»'],
   // «+ IVA» es de la competencia (Bonsai: «desde 29 €/mes + IVA»); Tentare lo decía con IVA.
   [/[Dd]esde 29(\s|&nbsp;)*(€|euros)(?!\/mes \+ IVA)/, 'el precio de entrada de Tentare es gratis'],

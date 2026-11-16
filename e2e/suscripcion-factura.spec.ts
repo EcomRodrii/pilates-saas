@@ -57,7 +57,7 @@ test.describe('Pantalla de suscripción', () => {
     await expect(page.getByText('Cadena', { exact: true })).toBeVisible();
 
     // El importe que ella pedía ver.
-    await expect(page.getByText(/149€/)).toBeVisible();
+    await expect(page.getByText(/249€/)).toBeVisible();
     await expect(page.getByText(/al mes, IVA incluido/)).toBeVisible();
 
     // Y la fecha del cargo, en cristiano.
@@ -88,7 +88,7 @@ test.describe('Pantalla de suscripción', () => {
     });
 
     await expect(page.getByText('Plan actual')).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/59€/)).toBeVisible();
+    await expect(page.getByText(/79€/)).toBeVisible();
     // Cobrar y "primer cobro" no son lo mismo: durante la prueba aún no se ha pagado.
     await expect(page.getByText(/Primer cobro el/)).toBeVisible();
     await expect(page.getByText(/Próximo cobro el/)).toHaveCount(0);

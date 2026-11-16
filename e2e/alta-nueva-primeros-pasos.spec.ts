@@ -295,7 +295,7 @@ test.describe('«Tu plan, sin sorpresas», una vez tras la primera reserva', () 
     });
     const plan = page.getByTestId('tu-plan');
     await expect(plan).toContainText('Founding Studio · gratis · 1 sede', { timeout: 60_000 });
-    await expect(plan).toContainText('plan Cadena, 149 €/mes, una sola suscripción para toda la cadena');
+    await expect(plan).toContainText('plan Cadena, 249 €/mes, una sola suscripción para toda la cadena');
   });
 });
 

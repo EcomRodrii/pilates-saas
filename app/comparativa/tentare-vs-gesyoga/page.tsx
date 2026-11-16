@@ -28,7 +28,7 @@ const ROWS: ComparativaRow[] = [
   { feature: 'Sin permanencia', tentare: ['yes', 'Sí, mes a mes'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Datos alojados en la UE', tentare: ['yes', 'Base de datos en la UE; algunos proveedores, fuera (ver privacidad)'], them: ['partial', 'No consta en su web pública'] },
   { feature: 'Elegir reformer al reservar', tentare: ['yes', 'Plaza por reformer si la sala tiene sus puestos definidos'], them: ['partial', 'No consta en su web pública'] },
-  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 6 €/mes'], them: ['partial', 'No consta en su web pública'] },
+  { feature: 'Sustitución de instructoras', tentare: ['yes', 'Propone candidatas y contacta con tu visto bueno; autónoma en el plan gratis, Estudio y Cadena, o con un complemento de 12 €/mes'], them: ['partial', 'No consta en su web pública'] },
   // Ejes añadidos el 29-sep-2026 (gesyoga.com y
   // gesyoga.com/funcionalidades-software-gestion-yoga/, revisadas esa fecha).
   { feature: 'Aforo por sala o aparato individual', tentare: ['yes', 'Capacidad por reformer, no solo un número de aforo'], them: ['partial', '«Asignación de sala según la capacidad que requiere cada clase», según su web; no consta a nivel de aparato individual'] },
@@ -43,7 +43,7 @@ const ROWS: ComparativaRow[] = [
 const FAQ = [
   {
     q: '¿Cuánto cuesta GesYoga?',
-    a: 'Según su web, Personal 12 €/mes (o 120 €/año), Profesional 45 €/mes (450 €/año) y Enterprise 65 €/mes (654 €/año), con IVA no incluido y 30 días de prueba sin tarjeta. Tentare: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 59 €/mes y Cadena 149 €/mes, IVA incluido.',
+    a: 'Según su web, Personal 12 €/mes (o 120 €/año), Profesional 45 €/mes (450 €/año) y Enterprise 65 €/mes (654 €/año), con IVA no incluido y 30 días de prueba sin tarjeta. Tentare: Founding Studio gratis (hasta 150 reservas al mes; si pasas de ahí, 29 €/mes), Estudio 79 €/mes y Cadena 249 €/mes, IVA incluido.',
   },
 ];
 

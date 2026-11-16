@@ -90,8 +90,8 @@ export const PLAN_ENTITLEMENTS: Record<Plan, Entitlements> = {
  */
 export const PLAN_INFO: Record<Plan, { nombre: string; precioMes: number; resumen: string }> = {
   BASE: { nombre: 'Founding Studio', precioMes: 29, resumen: 'Sin límite de alumnas ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.' },
-  ESTUDIO: { nombre: 'Estudio', precioMes: 59, resumen: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y más consultas al asistente.' },
-  CADENA: { nombre: 'Cadena', precioMes: 149, resumen: 'Multi-centro y todo incluido.' },
+  ESTUDIO: { nombre: 'Estudio', precioMes: 79, resumen: 'Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y más consultas al asistente.' },
+  CADENA: { nombre: 'Cadena', precioMes: 249, resumen: 'Multi-centro y todo incluido.' },
 };
 
 export const PLANES: Plan[] = ['BASE', 'ESTUDIO', 'CADENA'];
@@ -126,17 +126,17 @@ export interface InfoAddon {
 
 export const ADDONS: Record<Addon, InfoAddon> = {
   decisiones: {
-    nombre: 'Centro de Control', precioMes: 9,
+    nombre: 'Centro de Control', precioMes: 22,
     resumen: 'Un solo aviso al día con lo que merece tu atención, y el piloto automático.',
     features: ['decisiones'],
   },
   sustituciones: {
-    nombre: 'Sustituciones automáticas', precioMes: 6,
+    nombre: 'Sustituciones automáticas', precioMes: 12,
     resumen: 'Busca sustituta, avisa y cierra la sustitución sin ti (modos Autónomo y Vacaciones).',
     features: ['sustitucionesAutonomas'],
   },
   ia: {
-    nombre: 'Redacción con IA', precioMes: 9,
+    nombre: 'Redacción con IA', precioMes: 16,
     // Sin «campañas»: el módulo de marketing está apagado (MARKETING_MODULE_ENABLED,
     // lib/feature-flags.ts) y /marketing lleva a Resumen. No se vende lo que no se usa.
     resumen: 'Notas de sesión y los mensajes de tus automatizaciones redactados con IA.',
