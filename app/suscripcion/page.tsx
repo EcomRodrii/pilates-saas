@@ -215,7 +215,6 @@ export default function SuscripcionPage() {
     if (!pideTarjeta || tarjetaAbierta.current || !session || !pagaYEsPropietaria) return;
     tarjetaAbierta.current = true;
     void abrirPortal('metodo_pago');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pideTarjeta, session, pagaYEsPropietaria]);
 
   if (loading || !session) return null;
