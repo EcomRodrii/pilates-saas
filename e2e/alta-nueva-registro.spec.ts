@@ -411,3 +411,65 @@ test.describe('El alta cabe entera en la ventana (sin bajar ni subir)', () => {
     });
   }
 });
+
+test.describe('La dirección que le toca, comprobada mientras escribe', () => {
+  const resp = (o: Record<string, unknown>) => ({ base: 'estudio-alba', estado: 'libre', asignada: 'estudio-alba', reservada: false, ...o });
+
+  test('si la base es de otro estudio, dice cuál será la suya y la vista previa enseña ESA', async ({ page }) => {
+    let consultas = 0;
+    await page.route('**/api/public/direccion-disponible**', (route) => {
+      consultas += 1;
+      return json(route, resp({ estado: 'con_numero', asignada: 'estudio-alba-2' }));
+    });
+    await page.goto(ALTA);
+    await nombre(page).fill('Estudio Alba');
+    const aviso = page.getByTestId('aviso-direccion');
+    await expect(aviso).toContainText('ya es de otro estudio', { timeout: 15_000 });
+    await expect(aviso).toContainText('«estudio-alba-2»');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba-2');
+    await expect(page.getByTestId('enlace-app-prevista')).toContainText('estudio-alba-2');
+    expect(consultas).toBeGreaterThan(0);
+  });
+
+  test('si está libre, lo dice; una palabra de la aplicación no se presenta como «de otro estudio»', async ({ page }) => {
+    await page.route('**/api/public/direccion-disponible**', (route) => {
+      const nombreEscrito = new URL(route.request().url()).searchParams.get('nombre');
+      return json(route, nombreEscrito === 'Login'
+        ? resp({ base: 'login', estado: 'con_numero', asignada: 'login-2', reservada: true })
+        : resp());
+    });
+    await page.goto(ALTA);
+    await nombre(page).fill('Estudio Alba');
+    await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.', { timeout: 15_000 });
+    await nombre(page).fill('Login');
+    await expect(page.getByTestId('aviso-direccion')).toContainText('palabra que usa la aplicación', { timeout: 15_000 });
+    await expect(page.getByTestId('aviso-direccion')).not.toContainText('de otro estudio');
+  });
+
+  test('si la comprobación falla no promete nada: vuelve al aviso de siempre (y sí se intentó)', async ({ page }) => {
+    let consultas = 0;
+    await page.route('**/api/public/direccion-disponible**', (route) => { consultas += 1; return json(route, { error: 'x' }, 500); });
+    await page.goto(ALTA);
+    await nombre(page).fill('Estudio Alba');
+    await expect(page.getByTestId('aviso-direccion')).toContainText('Si otro estudio ya la tiene, le añadimos un número al final.', { timeout: 15_000 });
+    await expect(page.getByTestId('aviso-direccion')).not.toContainText('Está libre');
+    expect(consultas).toBeGreaterThan(0);
+  });
+
+  test('una respuesta vieja no pisa a la nueva', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.route('**/api/public/direccion-disponible**', async (route) => {
+      const n = new URL(route.request().url()).searchParams.get('nombre');
+      if (n === 'Estudio Al') { await new Promise((r) => setTimeout(r, 1_500)); return json(route, resp({ base: 'estudio-al', estado: 'con_numero', asignada: 'estudio-al-2' })); }
+      return json(route, resp());
+    });
+    await page.goto(ALTA);
+    await nombre(page).fill('Estudio Al');
+    await page.waitForTimeout(600); // la petición vieja ya salió y está retenida
+    await nombre(page).fill('Estudio Alba');
+    await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.', { timeout: 15_000 });
+    await page.waitForTimeout(1_800); // llega tarde la vieja: no debe cambiar nada
+    await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba');
+  });
+});

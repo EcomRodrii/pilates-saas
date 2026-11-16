@@ -25,6 +25,7 @@ import { avisarProgresoAlta } from '@/lib/alta/progreso-cliente';
 import { cn } from '@/lib/utils';
 import { useEscalaIphone } from '@/components/ui/marco-iphone';
 import { AppDeMuestra } from '@/components/alta-nueva/app-de-muestra';
+import { useDireccion } from '@/components/alta-nueva/use-direccion';
 import {
   errorDeCampo,
   guardarBorradorAltaNueva,
@@ -134,7 +135,10 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
   // «@gmail.co» todavía no es una errata.
   const sugerencia = tocado.email ? sugerirEmail(datos.email) : null;
   const reglas = reglasContrasena(datos.contrasena, datos.nombre);
-  const slug = slugPrevisto(datos.nombre);
+  const slugBase = slugPrevisto(datos.nombre);
+  const { resuelta: direccion, comprobando: comprobandoDireccion } = useDireccion(datos.nombre);
+  // La que le toca de verdad si ya sabemos cuál es; si no, la base de siempre.
+  const slug = direccion?.asignada ?? slugBase;
   const nombreVisible = datos.nombre.trim() || 'Tu estudio';
   const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, estoy creando mi estudio en Tentare y tengo una duda:') ?? undefined;
   const lineaPlan = foundingGratis
@@ -510,7 +514,17 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                 </span>
                 {/* La base sale de `slugify`, pero `dbCreateStudio` le pone «-2»,
                     «-3»… si ya es de otro estudio: no se promete la exacta. */}
-                <span className="block">Si otro estudio ya la tiene, le añadimos un número al final.</span>
+                <span className="block" data-testid="aviso-direccion" aria-live="polite">
+                  {direccion?.estado === 'libre'
+                    ? 'Está libre.'
+                    : direccion?.estado === 'con_numero'
+                      ? `«${slugBase}» ${direccion.reservada ? 'es una palabra que usa la aplicación' : 'ya es de otro estudio'}, así que la tuya será «${direccion.asignada}». Podrás cambiarla después en Configuración › Dirección y enlaces.`
+                      : direccion?.estado === 'agotada'
+                        ? 'Esa dirección está muy cogida: te daremos una con un número. Podrás cambiarla después.'
+                        : comprobandoDireccion && datos.nombre.trim()
+                          ? 'Comprobando si está libre…'
+                          : 'Si otro estudio ya la tiene, le añadimos un número al final.'}
+                </span>
               </p>
               <ErrorCampo id={`${id('nombre')}-e`} texto={mostrarError('nombre') ? errores.nombre : ''} />
             </div>
