@@ -112,17 +112,17 @@ export function invoiceMinima(inv: Stripe.Invoice): InvoiceMinima {
   };
 }
 
-async function apuntarFactura(admin: SupabaseClient, event: Stripe.Event): Promise<void> {
+async function apuntarFactura(admin: SupabaseClient, event: Stripe.Event): Promise<ResultadoLibro> {
   const inv = event.data.object as Stripe.Invoice;
   const subscriptionId = idDe(inv.parent?.subscription_details?.subscription ?? null);
   // Una factura que no es de una suscripción (un cobro suelto de otra cosa) no es del libro.
-  if (!subscriptionId) return;
+  if (!subscriptionId) return {};
   const customerId = idDe(inv.customer);
   const dueno = await resolverDueno(admin, customerId, inv.parent?.subscription_details?.metadata);
   const contexto = { dueno, customerId, subscriptionId, eventoCreado: event.created };
   const min = invoiceMinima(inv);
   const fila = filaDeFactura(min, contexto);
-  if (!fila) return;
+  if (!fila) return {};
 
   const { error } = await admin.rpc('billing_registrar_factura', { p: fila });
   if (error) throw new Error(`billing_registrar_factura: ${error.message}`);
@@ -136,18 +136,31 @@ async function apuntarFactura(admin: SupabaseClient, event: Stripe.Event): Promi
     const cierre = event.type === 'invoice.paid'
       ? new Date((min.paid_at ?? event.created) * 1000).toISOString()
       : new Date(event.created * 1000).toISOString();
-    const { error: e3 } = await admin.rpc('billing_cerrar_incidente', {
+    const { data: cerrado, error: e3 } = await admin.rpc('billing_cerrar_incidente', {
       p_stripe_invoice_id: inv.id, p_en: cierre, p_estado: event.type === 'invoice.paid' ? 'RECUPERADO' : 'CANCELADO',
     });
     if (e3) throw new Error(`billing_cerrar_incidente: ${e3.message}`);
+    // La función devuelve 'recuperado' SOLO la primera vez: quien llama manda el «ya está al día» una vez.
+    return { facturaId: inv.id, incidenteCerrado: cierreDe(cerrado) };
   }
+  return { facturaId: inv.id };
 }
+
+/** Lo que el libro cuenta a quien lo llama: si este evento cerró un incidente de pago. */
+export interface ResultadoLibro {
+  facturaId?: string;
+  incidenteCerrado?: 'recuperado' | 'cancelado';
+}
+
+const cierreDe = (r: unknown): ResultadoLibro['incidenteCerrado'] =>
+  r === 'recuperado' ? 'recuperado' : r === 'cancelado' ? 'cancelado' : undefined;
 
 /**
  * Apunta en el libro lo que dice un evento del webhook de billing. Lanza si falla:
  * quien llama decide (el webhook lo captura, lo avisa y sigue).
  */
-export async function apuntarEnElLibro(admin: SupabaseClient, event: Stripe.Event): Promise<void> {
-  if (event.type.startsWith('customer.subscription.')) return apuntarSuscripcion(admin, event);
+export async function apuntarEnElLibro(admin: SupabaseClient, event: Stripe.Event): Promise<ResultadoLibro> {
+  if (event.type.startsWith('customer.subscription.')) { await apuntarSuscripcion(admin, event); return {}; }
   if ((EVENTOS_DE_FACTURA as readonly string[]).includes(event.type)) return apuntarFactura(admin, event);
+  return {};
 }

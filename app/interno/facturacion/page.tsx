@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { fetchFacturacion, type Facturacion, type LineaFacturacionCliente } from '@/lib/interno/client';
+import { fetchFacturacion, fetchImpagos, type Facturacion, type ImpagosSaas, type LineaFacturacionCliente } from '@/lib/interno/client';
 
 const eur = (n: number) =>
   `${n.toLocaleString('es-ES', { minimumFractionDigits: n % 1 ? 2 : 0, maximumFractionDigits: 2 })} €`;
@@ -54,6 +54,57 @@ function Atencion({ titulo, tono, children }: {
       </p>
       <div className="mt-2 flex flex-col gap-1.5 text-[12.5px] text-muted-foreground">{children}</div>
     </div>
+  );
+}
+
+/**
+ * Pagos fallidos de la suscripción de los estudios (libro de billing, Fase 2). Stripe reintenta
+ * el cobro; aquí se ve quién lleva cuánto sin pagar, por qué dice el banco y qué avisos se le
+ * han mandado. Suspender sigue siendo cosa de una persona, desde la ficha del estudio.
+ */
+function PagosFallidos() {
+  const [d, setD] = useState<ImpagosSaas | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    fetchImpagos().then((r) => { if (vivo) setD(r); }).catch((e) => { if (vivo) setError(e instanceof Error ? e.message : 'Error'); });
+    return () => { vivo = false; };
+  }, []);
+
+  if (error) return <p className="text-[12.5px] text-muted-foreground">No se han podido leer los pagos fallidos: {error}</p>;
+  if (!d) return null;
+  if (d.abiertos.length === 0) {
+    return (
+      <p className="text-[12.5px] text-muted-foreground">
+        Ningún pago fallido ahora mismo. Se avisa a la propietaria los días {d.politica.dias.join(', ')} desde el primer fallo.
+      </p>
+    );
+  }
+  return (
+    <Atencion titulo={`${d.abiertos.length} pago(s) fallido(s) sin resolver`} tono="rojo">
+      {d.abiertos.map((i) => (
+        <div key={i.facturaId} className="rounded-xl border border-border bg-card px-3 py-2.5 text-foreground">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            {i.tipo === 'estudio' && i.id
+              ? <Link href={`/interno/estudios/${i.id}`} className="text-[13px] font-semibold underline-offset-2 hover:underline">{i.nombre}</Link>
+              : <span className="text-[13px] font-semibold">{i.nombre}</span>}
+            <span className="tabular-nums text-[13px] font-semibold">{eur(i.importeCents / 100)}</span>
+          </div>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
+            {i.estado === 'ESCALADO' ? 'Escalado · ' : ''}
+            Día {i.diasAbierto} · {i.intentos} intento(s) de Stripe
+            {i.siguienteIntento ? ` · próximo ${fecha(i.siguienteIntento)}` : ' · Stripe no tiene más reintentos programados'}
+            {i.suspendido ? ' · ya suspendido' : ''}
+          </p>
+          <p className="text-[12px] text-muted-foreground">
+            {i.motivo ?? 'Motivo: el banco no lo ha dicho.'}{' '}
+            {i.avisos.length > 0
+              ? `Avisada los días ${i.avisos.map((a) => a.dia).join(', ')}.`
+              : 'Todavía no se le ha avisado.'}
+          </p>
+        </div>
+      ))}
+    </Atencion>
   );
 }
 
@@ -117,6 +168,8 @@ export default function FacturacionInterna() {
           </p>
         </Atencion>
       )}
+
+      <PagosFallidos />
 
       <section>
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">

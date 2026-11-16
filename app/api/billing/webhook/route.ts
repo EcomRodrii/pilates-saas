@@ -15,7 +15,8 @@ import { ESTADOS_VIVOS } from '@/lib/billing/checkout-saas-previo';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { decidirAcreditacion, disputaRetiraElPack, efectoDelReembolso, esDePack, idDeReferencia } from '@/lib/asistente/packs-stripe';
 import { acreditarPack, retirarPackPorPago } from '@/lib/asistente/packs-libro';
-import { apuntarEnElLibro } from '@/lib/billing/libro/servidor';
+import { apuntarEnElLibro, type ResultadoLibro } from '@/lib/billing/libro/servidor';
+import { atenderFalloDePago, avisarRecuperacion, leerIncidente } from '@/lib/billing/impagos/servidor';
 
 // Webhook de Stripe Billing (suscripción del estudio al SaaS). Distinto del
 // webhook de Connect (pagos de socias). Fuente de verdad del estado de la
@@ -164,20 +165,9 @@ export async function POST(req: NextRequest) {
           },
         });
       }
-    } else if (event.type === 'invoice.payment_failed') {
-      // Primer aviso proactivo a la propietaria de que SU suscripción a Tentare
-      // no se ha podido cobrar (tarjeta caducada/sin fondos). Antes de esto, el
-      // único rastro era `subscription_status` cambiando a `past_due` en
-      // silencio — la propietaria no se enteraba hasta que el estudio se
-      // suspendía (`studios.suspendido_en`) semanas después. Best-effort: un
-      // fallo al enviar el email nunca debe hacer que Stripe reintente el
-      // webhook entero.
-      try {
-        await avisarFalloPagoSaas(admin, event.data.object as Stripe.Invoice);
-      } catch (e) {
-        console.error('[billing webhook] fallo al avisar de invoice.payment_failed', e);
-      }
     }
+    // `invoice.payment_failed` ya no se atiende aquí: lo hace la recuperación de impagos
+    // (lib/billing/impagos) DESPUÉS de apuntar el incidente en el libro, justo debajo.
   } catch (err) {
     // Log a Sentry vía consola; devolvemos 500 para que Stripe reintente.
     console.error('[billing webhook]', err);
@@ -189,10 +179,30 @@ export async function POST(req: NextRequest) {
   // Libro de billing (Fase 1): el espejo con el historial. Va DESPUÉS de sincronizar el
   // estado del estudio y no puede tumbarlo: si falla, Sentry y 200 (Stripe sigue siendo
   // la verdad; el script de relleno recupera lo que se pierda). Idempotente por evento.
+  let libro: ResultadoLibro = {};
+  let libroEscrito = true;
   try {
-    await apuntarEnElLibro(admin, event);
+    libro = await apuntarEnElLibro(admin, event);
   } catch (err) {
+    libroEscrito = false;
     Sentry.captureException(err, { tags: { area: 'billing', tipo: 'libro-no-escribe' }, extra: { eventId: event.id, eventType: event.type } });
+  }
+
+  // Recuperación de impagos (Fase 2): avisar a la propietaria y, al pagarse, decírselo.
+  // Best-effort como el libro: nunca un 500 por esto (Stripe reintentaría el evento entero).
+  try {
+    if (event.type === 'invoice.payment_failed') {
+      const invoice = event.data.object as Stripe.Invoice;
+      const r = libroEscrito ? await atenderFalloDePago(admin, stripe, invoice.id as string) : 'sin_incidente';
+      // Sin incidente (el libro no pudo abrirlo) se avisa como siempre: un fallo del libro no
+      // puede dejar a una propietaria sin enterarse de que no se le cobra.
+      if (r === 'sin_incidente') await avisarFalloPagoSaas(admin, invoice);
+    } else if (libro.incidenteCerrado === 'recuperado' && libro.facturaId) {
+      const inc = await leerIncidente(admin, libro.facturaId);
+      if (inc) await avisarRecuperacion(admin, inc);
+    }
+  } catch (err) {
+    Sentry.captureException(err, { tags: { area: 'billing', tipo: 'impago-aviso' }, extra: { eventId: event.id, eventType: event.type } });
   }
 
   // M10: marcar procesado solo si llegó aquí sin error (el catch devuelve 500 antes).

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { correoFalloPagoSaas, correoEstudioVencido, correoAccesoActivado, correoResumenSemanal, correoDatosBorrados } from './cuenta.ts';
+import { correoFalloPagoSaas, correoImpagoSaas, correoEstudioVencido, correoAccesoActivado, correoResumenSemanal, correoDatosBorrados } from './cuenta.ts';
 import { TENTARE } from './plantilla.ts';
 
 const URL = 'https://app.example.com';
@@ -118,4 +118,42 @@ test('el código de acceso va en el cuerpo, legible, y nunca en el preheader', a
   assert.ok(!preheader.includes('048'), 'el código no puede ir en el preheader');
   assert.match(html, /Caduca en 10 minutos/);
   assert.match(html, /He olvidado mi contraseña/);
+});
+
+// ── Recuperación de impagos (lib/billing/impagos) ───────────────────────────
+const impago = { estudioNombre: 'Casa Pilates', plan: 'Estudio', importe: '79 €', urlActualizar: `${URL}/suscripcion?tarjeta=1` };
+
+test('el primer aviso dice el importe y lo que dijo el banco, y lleva a cambiar la tarjeta', () => {
+  const html = correoImpagoSaas({ ...impago, fase: 'primero', motivo: 'La tarjeta ha caducado.', proximoIntento: '19 de noviembre' });
+  assert.match(html, /No hemos podido cobrar tu suscripción/);
+  assert.match(html, /79 €/);
+  assert.match(html, /La tarjeta ha caducado\./);
+  assert.ok(html.includes(`${URL}/suscripcion?tarjeta=1`));
+  assert.match(html, /19 de noviembre/);
+  assert.ok(html.includes(TENTARE.alerta));
+});
+
+test('sin motivo conocido no se inventa uno: dice lo habitual', () => {
+  const html = correoImpagoSaas({ ...impago, fase: 'primero' });
+  assert.match(html, /Suele pasar por una tarjeta caducada o sin fondos/);
+});
+
+test('el recordatorio no repite el primer titular', () => {
+  const html = correoImpagoSaas({ ...impago, fase: 'recordatorio' });
+  assert.match(html, /Tu suscripción sigue sin cobrarse/);
+  assert.match(html, /Seguimos sin poder cobrar/);
+});
+
+test('el aviso de restricción dice «podríamos», sin fecha ni borrado de datos', () => {
+  const html = correoImpagoSaas({ ...impago, fase: 'restriccion' });
+  assert.match(html, /podríamos tener que restringir el acceso/);
+  assert.ok(!/borr/i.test(html), 'no habla de borrar datos');
+  assert.ok(!/el día \d/.test(html), 'no promete una fecha de corte');
+});
+
+test('«ya está al día» no lleva botón ni la regla roja', () => {
+  const html = correoImpagoSaas({ ...impago, fase: 'recuperado' });
+  assert.match(html, /Tu suscripción está al día/);
+  assert.ok(!html.includes(`${URL}/suscripcion?tarjeta=1`));
+  assert.ok(!html.includes(TENTARE.alerta));
 });
