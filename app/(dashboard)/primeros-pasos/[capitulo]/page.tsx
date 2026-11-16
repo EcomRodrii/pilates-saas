@@ -10,6 +10,8 @@ import { calcularProgresoGuia } from '@/lib/guia/progreso';
 import { CAPITULOS, capituloPorId, ETIQUETA_NIVEL } from '@/lib/guia/curriculo';
 import { useTour } from '@/lib/tour-context';
 import { PageHeader } from '@/components/ui/page-header';
+import { VideoFachada } from '@/components/ayuda/VideoFachada';
+import { claveDeLeccion, useVideosAcademy } from '@/components/ayuda/use-videos-academy';
 import { cn } from '@/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -31,6 +33,7 @@ export default function CapituloPage({ params }: { params: Promise<{ capitulo: s
     salas, planesTarifa, suscripciones, automationRules, bannersPortal, reservas,
   } = useStudio();
   const { iniciarTour } = useTour();
+  const video = useVideosAcademy().get(claveDeLeccion(id)) ?? null;
 
   const capitulo = capituloPorId(id);
   if (!capitulo) notFound();
@@ -64,6 +67,9 @@ export default function CapituloPage({ params }: { params: Promise<{ capitulo: s
           </span>
         }
       />
+
+      {/* El vídeo de la lección, si hay uno PUBLICADO (se gestiona desde /interno/ayuda). Sin él, la lección es la de siempre: nunca un hueco. */}
+      {video && <VideoFachada video={video} />}
 
       {/* Por qué, antes que nada. Es lo que decide si sigue leyendo. */}
       <div className="rounded-2xl border border-border bg-card p-5">

@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { CATEGORIAS, articulosPublicadosDe, urlArticulo } from '@/lib/ayuda/registro';
 import { buscarArticulos } from '@/lib/ayuda/busqueda';
+import { crearRegistroDeBusquedas } from '@/lib/ayuda/registrar-busqueda';
 import { enviarMensajeSoporte } from '@/lib/ayuda/enviar-soporte';
 import { filtroDeEtiqueta, type CambioVersion } from '@/lib/actualizaciones/version';
 import type { TipoSoporte } from '@/lib/types';
@@ -157,6 +158,12 @@ function Buscador({ valor, onCambio, placeholder = 'Buscar en la ayuda' }: { val
 
 function Resultados({ consulta }: { consulta: string }) {
   const res = buscarArticulos(consulta).slice(0, 8);
+  const registro = useRef<ReturnType<typeof crearRegistroDeBusquedas> | null>(null);
+  useEffect(() => {
+    registro.current ??= crearRegistroDeBusquedas();
+    registro.current.cambio(consulta, res.length);
+    return () => registro.current?.cancelar();
+  }, [consulta, res.length]);
   if (res.length === 0) {
     return <p className="px-5 py-8 text-center text-[13.5px] text-muted-foreground text-pretty">No hay guías para «{consulta.trim()}». Prueba con otra palabra o escríbenos desde Mensajes.</p>;
   }

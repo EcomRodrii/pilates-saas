@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ACC, MUTED } from '@/components/landing/theme';
 
 type Valoracion = 'MALO' | 'REGULAR' | 'BUENO';
+type Voto = Valoracion | 'DESACTUALIZADA';
 
 const OPCIONES: { valor: Valoracion; emoji: string; etiqueta: string }[] = [
   { valor: 'MALO', emoji: '😞', etiqueta: 'No me ha ayudado' },
@@ -17,11 +18,13 @@ const OPCIONES: { valor: Valoracion; emoji: string; etiqueta: string }[] = [
 export function AyudaFeedback({ categoria, articulo }: { categoria: string; articulo: string }) {
   const [enviado, setEnviado] = useState<Valoracion | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [desactualizada, setDesactualizada] = useState(false);
 
-  async function votar(valor: Valoracion) {
-    if (enviando || enviado) return;
+  async function votar(valor: Voto) {
+    if (enviando) return;
+    if (valor === 'DESACTUALIZADA' ? desactualizada : enviado) return;
     setEnviando(true);
-    setEnviado(valor); // optimista: es una valoración, no una escritura de dinero — no hace falta esperar para dar la sensación de "hecho".
+    if (valor === 'DESACTUALIZADA') setDesactualizada(true); else setEnviado(valor); // optimista: es una valoración, no una escritura de dinero — no hace falta esperar para dar la sensación de "hecho".
     try {
       const res = await fetch('/api/ayuda/feedback', {
         method: 'POST',
@@ -79,6 +82,15 @@ export function AyudaFeedback({ categoria, articulo }: { categoria: string; arti
           ))}
         </div>
       )}
+      {/* «Esta guía ya no describe lo que veo»: lo mismo que votar (misma tabla), con otro valor. Es lo que dice qué actualizar primero. */}
+      <p style={{ margin: '18px 0 0', fontSize: 13, color: MUTED }}>
+        {desactualizada ? 'Gracias: la revisaremos.' : (
+          <button type="button" onClick={() => void votar('DESACTUALIZADA')} disabled={enviando}
+            style={{ background: 'none', border: 0, padding: 0, font: 'inherit', color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>
+            Esta guía está desactualizada
+          </button>
+        )}
+      </p>
     </div>
   );
 }

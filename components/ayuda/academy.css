@@ -1,0 +1,58 @@
+/* Tentare Academy — estilos de lo nuevo (vídeo, ficha de guía, portada). Con los tokens de la web pública (components/web/tokens.css),
+   que llegan con la isla (IslaWeb) a toda página que la monta. Prefijo `ac-` para no pisar nada. */
+
+/* ── Fachada del vídeo ───────────────────────────────────────────────────── */
+.ac-video { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--w-r-tarjeta, 24px); overflow: hidden; background: var(--w-olive-hondo, #0A2014); color: var(--w-sobre-noche, #F9FDFC); box-shadow: 0 24px 48px -32px rgba(11, 26, 18, .5); }
+.ac-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ac-video-boton { position: absolute; inset: 0; width: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: clamp(16px, 3vw, 28px); text-align: left; cursor: pointer; border: 0; font: inherit; color: inherit; background: linear-gradient(160deg, var(--w-olive, #214E36) 0%, var(--w-olive-hondo, #0A2014) 100%); }
+.ac-video-boton:focus-visible { outline: 3px solid var(--w-sand, #BFDCCB); outline-offset: -6px; }
+.ac-video-play { position: absolute; top: 40%; left: 50%; width: clamp(46px, 7vw, 72px); height: clamp(46px, 7vw, 72px); margin: calc(clamp(46px, 7vw, 72px) / -2) 0 0 calc(clamp(46px, 7vw, 72px) / -2); display: grid; place-items: center; border-radius: 50%; background: var(--w-sand, #BFDCCB); color: var(--w-olive-hondo, #0A2014); }
+.ac-video-titulo { font-size: clamp(.9375rem, .9rem + .4vw, 1.25rem); font-weight: 500; letter-spacing: -.01em; line-height: 1.25; max-width: 28em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ac-video-meta { font-size: var(--w-fs-mini, .8125rem); color: var(--w-sobre-noche-2, #C3D3C9); }
+.ac-video-duracion { position: absolute; top: 14px; right: 14px; padding: 4px 10px; border-radius: 999px; background: rgba(10, 32, 20, .6); font-size: var(--w-fs-mini, .8125rem); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: no-preference) {
+  .ac-video-play { transition: transform .35s var(--motion-ease, cubic-bezier(.16, 1, .3, 1)); }
+  .ac-video-boton:hover .ac-video-play { transform: scale(1.08); }
+}
+
+/* ── Ficha de una guía: el vídeo y su nivel ─────────────────────────────── */
+.ac-ficha { display: flex; flex-direction: column; gap: 14px; margin: 0 0 32px; }
+.ac-ficha-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.ac-pildora { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; background: var(--w-sand-claro, #DCE8E1); color: var(--w-ink, #0B1A12); font-size: var(--w-fs-mini, .8125rem); font-weight: 500; }
+.ac-resultado { margin: 0; padding: 14px 18px; border-radius: 16px; background: var(--w-piedra, #EDF3F0); color: var(--w-texto, #0B1A12); font-size: var(--w-fs-pequeno, .875rem); line-height: 1.5; }
+.ac-resultado strong { font-weight: 600; }
+
+/* ── Escaparate público de Academy (/academy) ────────────────────────────── */
+.ac-portada { background: var(--w-cream, #F9FDFC); color: var(--w-texto, #0B1A12); font-family: var(--w-fuente, system-ui, sans-serif); }
+.ac-hero { max-width: 880px; margin: 0 auto; padding: clamp(40px, 7vw, 88px) var(--w-margen, 24px) clamp(24px, 4vw, 40px); text-align: center; }
+.ac-kicker { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; padding: 7px 14px; border-radius: 999px; background: var(--w-sand-claro, #DCE8E1); font-size: var(--w-fs-mini, .8125rem); font-weight: 500; letter-spacing: .02em; }
+.ac-hero h1 { margin: 0 0 16px; font-size: var(--w-fs-h1, 3rem); font-weight: var(--w-peso-titular, 500); line-height: var(--w-alto-titular, 1.1); letter-spacing: var(--w-track-h1, -.022em); text-wrap: balance; }
+.ac-hero p { margin: 0 auto 28px; max-width: 36em; font-size: var(--w-fs-cuerpo, 1.0625rem); line-height: var(--w-alto-cuerpo, 1.6); color: var(--w-texto-2, #3A4A41); text-wrap: pretty; }
+.ac-acciones { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.ac-boton { display: inline-flex; align-items: center; gap: 8px; padding: 13px 22px; border-radius: 999px; background: var(--w-olive, #214E36); color: var(--w-sobre-noche, #F9FDFC); text-decoration: none; font-size: var(--w-fs-pequeno, .875rem); font-weight: 600; }
+.ac-boton--claro { background: var(--w-papel, #fff); color: var(--w-texto, #0B1A12); box-shadow: inset 0 0 0 1px var(--w-linea-fuerte, rgba(11, 26, 18, .2)); }
+.ac-boton:focus-visible { outline: 3px solid var(--w-olive, #214E36); outline-offset: 3px; }
+.ac-cuerpo { max-width: 1120px; margin: 0 auto; padding: 0 var(--w-margen, 24px) var(--w-seccion, 5rem); }
+.ac-seccion { margin: clamp(36px, 5vw, 64px) 0 0; }
+.ac-seccion > h2 { margin: 0 0 6px; font-size: var(--w-fs-h3, 1.5rem); font-weight: var(--w-peso-titular, 500); letter-spacing: var(--w-track-h3, -.012em); }
+.ac-seccion > p { margin: 0 0 20px; color: var(--w-texto-2, #3A4A41); font-size: var(--w-fs-pequeno, .875rem); max-width: 46em; line-height: 1.55; }
+.ac-tres { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.ac-tres article { padding: clamp(20px, 3vw, 28px); border-radius: var(--w-r-tarjeta, 24px); background: var(--w-piedra, #EDF3F0); }
+.ac-tres h3 { margin: 0 0 8px; font-size: 1.125rem; font-weight: 500; letter-spacing: -.01em; }
+.ac-tres p { margin: 0; color: var(--w-texto-2, #3A4A41); font-size: var(--w-fs-pequeno, .875rem); line-height: 1.55; }
+.ac-niveles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; align-items: start; }
+.ac-nivel { padding: clamp(20px, 3vw, 28px); border-radius: var(--w-r-tarjeta, 24px); background: var(--w-papel, #fff); box-shadow: inset 0 0 0 1px var(--w-linea, rgba(11, 26, 18, .12)); }
+.ac-nivel h3 { margin: 0 0 4px; font-size: 1.25rem; font-weight: 500; letter-spacing: -.012em; }
+.ac-nivel > p { margin: 0 0 14px; color: var(--w-texto-3, #586860); font-size: var(--w-fs-mini, .8125rem); line-height: 1.5; }
+.ac-nivel ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.ac-nivel li { display: flex; gap: 12px; font-size: var(--w-fs-pequeno, .875rem); line-height: 1.35; }
+.ac-nivel li b { flex: none; width: 26px; color: var(--w-texto-3, #586860); font-weight: 500; font-variant-numeric: tabular-nums; }
+.ac-nivel li span { display: block; color: var(--w-texto-3, #586860); font-size: var(--w-fs-mini, .8125rem); margin-top: 2px; }
+.ac-cambiar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: clamp(22px, 4vw, 34px); border-radius: var(--w-r-tarjeta, 24px); background: var(--w-sand-claro, #DCE8E1); }
+.ac-cambiar strong { display: block; font-size: 1.125rem; font-weight: 500; }
+.ac-cambiar p { margin: 6px 0 0; max-width: 40em; color: var(--w-texto-2, #3A4A41); font-size: var(--w-fs-pequeno, .875rem); line-height: 1.55; }
+.ac-videos { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 16px; }
+.ac-ayuda { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; margin-top: clamp(40px, 6vw, 72px); padding: clamp(22px, 4vw, 36px); border-radius: var(--w-r-tarjeta, 24px); background: var(--w-olive-hondo, #0A2014); color: var(--w-sobre-noche, #F9FDFC); }
+.ac-ayuda strong { display: block; font-size: 1.125rem; font-weight: 500; }
+.ac-ayuda p { margin: 4px 0 0; color: var(--w-sobre-noche-2, #C3D3C9); font-size: var(--w-fs-pequeno, .875rem); }
+.ac-ayuda .ac-boton { background: var(--w-sand, #BFDCCB); color: var(--w-olive-hondo, #0A2014); }

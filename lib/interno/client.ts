@@ -441,11 +441,25 @@ export const quitarNovedadMenu = (href: string) =>
   pedir<{ ok: true }>(`/menu-novedades?href=${encodeURIComponent(href)}`, { method: 'DELETE' });
 
 // Feedback del Centro de Ayuda (/ayuda) — ver app/api/interno/ayuda-feedback.
-export interface AyudaFeedbackResumen { total: number; pctMalo: number; pctRegular: number; pctBueno: number }
-export interface AyudaFeedbackArticulo { articulo: string; categoria: string; titulo: string; malo: number; regular: number; bueno: number; total: number }
-export interface AyudaFeedbackFila { id: string; articulo_slug: string; categoria_slug: string; valoracion: 'MALO' | 'REGULAR' | 'BUENO'; url: string; creado_en: string }
+export interface AyudaFeedbackResumen { total: number; pctMalo: number; pctRegular: number; pctBueno: number; desactualizadas?: number }
+export interface AyudaFeedbackArticulo { articulo: string; categoria: string; titulo: string; malo: number; regular: number; bueno: number; total: number; desactualizada?: number }
+export interface AyudaFeedbackFila { id: string; articulo_slug: string; categoria_slug: string; valoracion: 'MALO' | 'REGULAR' | 'BUENO' | 'DESACTUALIZADA'; url: string; creado_en: string }
 export const fetchAyudaFeedback = () =>
   pedir<{ resumen: AyudaFeedbackResumen; articulos: AyudaFeedbackArticulo[]; recientes: AyudaFeedbackFila[] }>('/ayuda-feedback');
+
+// Academy: los vídeos de las guías y las búsquedas sin resultado (lib/ayuda/videos.ts, lib/ayuda/busquedas-sin-resultado.ts).
+export interface VideoFilaInterna {
+  articulo: string; video_id: string; hash_privado: string | null; titulo: string; duracion_seg: number; nivel: string;
+  resultado: string | null; destacado: boolean; publicado: boolean; actualizado_en: string;
+}
+export interface GuiaConVideo { articulo: string; titulo: string; categoria: string; video: VideoFilaInterna | null }
+export const fetchAyudaVideos = () => pedir<{ guias: GuiaConVideo[]; sinTabla: boolean }>('/ayuda-videos');
+export const guardarAyudaVideo = (v: { articulo: string; vimeo: string; titulo: string; duracionSeg: number; nivel: string; resultado: string; destacado: boolean; publicado: boolean }) =>
+  pedir<{ ok: true }>('/ayuda-videos', { method: 'PUT', body: JSON.stringify(v) });
+export const quitarAyudaVideo = (articulo: string) =>
+  pedir<{ ok: true }>(`/ayuda-videos?articulo=${encodeURIComponent(articulo)}`, { method: 'DELETE' });
+export interface BusquedaSinResultado { termino: string; veces: number; ultimoDia: string }
+export const fetchAyudaBusquedas = () => pedir<{ terminos: BusquedaSinResultado[]; totalBusquedas: number; sinTabla?: boolean }>('/ayuda-busquedas');
 
 // Llamadas de puesta en marcha (ver app/api/interno/llamadas).
 export interface LlamadaInterna {

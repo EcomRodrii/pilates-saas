@@ -4,6 +4,10 @@ import { ARTICULOS, articuloDe, categoriaDe, urlArticulo } from '@/lib/ayuda/reg
 import { contenidoDe } from '@/lib/ayuda/contenido';
 import { ArticuloShell } from '@/components/ayuda/ArticuloShell';
 import { urlDe } from '@/lib/seo/paginas';
+import { videosPublicados } from '@/lib/ayuda/videos-servidor';
+
+// Los vídeos se publican desde /interno sin desplegar: la página se regenera cada pocos minutos (y al guardar un vídeo, al momento).
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return ARTICULOS.filter((a) => a.estado === 'publicado').map((a) => ({ categoria: a.categoria, articulo: a.slug }));
@@ -33,9 +37,10 @@ export default async function ArticuloPage({ params }: { params: Promise<{ categ
   const cargarContenido = contenidoDe(categoria, slug);
   if (!cargarContenido) notFound();
   const { default: Contenido } = await cargarContenido();
+  const video = (await videosPublicados()).get(`${categoria}/${slug}`) ?? null;
 
   return (
-    <ArticuloShell articulo={articulo}>
+    <ArticuloShell articulo={articulo} video={video}>
       <Contenido />
     </ArticuloShell>
   );

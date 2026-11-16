@@ -803,6 +803,18 @@ export const PAGINAS: PaginaSeo[] = [
   // de app/ por definición, y que app/sitemap.ts añade aparte desde
   // lib/ayuda/registro.ts (mismo patrón que los perfiles de Network).
   {
+    path: '/academy',
+    titulo: 'Academy: aprende Tentare paso a paso | Tentare',
+    descripcion: 'Rutas de aprendizaje, guías y vídeos para configurar tu estudio de Pilates o yoga en Tentare, de la primera clase al primer cobro, a tu ritmo.',
+    grupo: 'ayuda',
+    etiqueta: 'Academy',
+    resumen: 'Rutas, guías y vídeos para aprender Tentare paso a paso.',
+    prioridad: 0.8,
+    changeFrequency: 'weekly',
+    actualizado: '2026-11-14',
+    relacionadas: ['/ayuda'],
+  },
+  {
     path: '/ayuda',
     titulo: 'Centro de Ayuda — Documentación de Tentare',
     descripcion: 'La documentación oficial de Tentare: cómo configurar tu estudio, reservas, pagos, bonos, el portal de reservas, el widget y qué hacer cuando algo falla.',

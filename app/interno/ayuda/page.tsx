@@ -8,6 +8,8 @@
 
 import { useEffect, useState } from 'react';
 import { Frown, Loader2, Meh, Smile, TrendingDown } from 'lucide-react';
+import { SeccionVideos } from './videos';
+import { SeccionBusquedas } from './busquedas';
 import { fetchAyudaFeedback, type AyudaFeedbackArticulo, type AyudaFeedbackResumen, SinAcceso } from '@/lib/interno/client';
 
 function Tarjeta({ label, valor, color }: { label: string; valor: string; color?: string }) {
@@ -19,7 +21,7 @@ function Tarjeta({ label, valor, color }: { label: string; valor: string; color?
   );
 }
 
-export default function AyudaFeedbackPage() {
+function SeccionValoraciones() {
   const [resumen, setResumen] = useState<AyudaFeedbackResumen | null>(null);
   const [articulos, setArticulos] = useState<AyudaFeedbackArticulo[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -54,10 +56,7 @@ export default function AyudaFeedbackPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-bold text-foreground">Feedback del Centro de Ayuda</h1>
-        <p className="text-[13px] text-muted-foreground mt-0.5">Lo que valoran de verdad quienes leen /ayuda — para saber qué artículo reescribir primero.</p>
-      </div>
+      <p className="text-[13px] text-muted-foreground">Lo que valoran de verdad quienes leen /ayuda — para saber qué artículo reescribir primero.{(resumen.desactualizadas ?? 0) > 0 && <> <strong className="text-foreground">{resumen.desactualizadas} aviso{resumen.desactualizadas === 1 ? '' : 's'} de «desactualizada».</strong></>}</p>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Tarjeta label="Total valoraciones" valor={String(resumen.total)} />
@@ -111,6 +110,36 @@ export default function AyudaFeedbackPage() {
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+type Pestana = 'valoraciones' | 'videos' | 'busquedas';
+const PESTANAS: { id: Pestana; etiqueta: string }[] = [
+  { id: 'valoraciones', etiqueta: 'Valoraciones' },
+  { id: 'videos', etiqueta: 'Vídeos' },
+  { id: 'busquedas', etiqueta: 'Sin resultado' },
+];
+
+// Ayuda y Academy: lo que se lee, lo que se graba y lo que se busca sin encontrar. El texto de las guías no se edita aquí: está en código.
+export default function AyudaInternaPage() {
+  const [pestana, setPestana] = useState<Pestana>('valoraciones');
+  return (
+    <div className="flex flex-col gap-5">
+      <h1 className="text-lg font-bold text-foreground">Ayuda y Academy</h1>
+      <div role="tablist" aria-label="Secciones" className="flex gap-1 border-b border-border">
+        {PESTANAS.map(p => (
+          <button key={p.id} role="tab" type="button" aria-selected={pestana === p.id} onClick={() => setPestana(p.id)}
+            className={`-mb-px border-b-2 px-3 py-2 text-[13px] font-semibold ${pestana === p.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground'}`}>
+            {p.etiqueta}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel">
+        {pestana === 'valoraciones' && <SeccionValoraciones />}
+        {pestana === 'videos' && <SeccionVideos />}
+        {pestana === 'busquedas' && <SeccionBusquedas />}
+      </div>
     </div>
   );
 }

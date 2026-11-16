@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  CheckCircle2, Circle, CircleDot, Clock, ArrowRight, Play, Compass, Lightbulb, BookOpen, ChevronDown,
+  CheckCircle2, Circle, CircleDot, Clock, ArrowRight, Play, Compass, Lightbulb, BookOpen, ChevronDown, Repeat,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { avisoVentaOnline, calcularOnboarding, datosOnboardingDelEstudio } from '@/lib/onboarding';
@@ -11,6 +11,7 @@ import { calcularProgresoGuia, porNivel, type CapituloConEstado } from '@/lib/gu
 import { ETIQUETA_NIVEL, EXPLICACION_NIVEL, type NivelGuia } from '@/lib/guia/curriculo';
 import { useTour } from '@/lib/tour-context';
 import { PageHeader } from '@/components/ui/page-header';
+import { useRol, puedeGestionarClientas } from '@/lib/permisos';
 import { cn } from '@/lib/utils';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -39,6 +40,7 @@ export default function PrimerosPasosPage() {
     salas, planesTarifa, suscripciones, automationRules, bannersPortal, reservas,
   } = useStudio();
   const { iniciarTour } = useTour();
+  const puedeMigrar = puedeGestionarClientas(useRol());
 
   // Sin `studio` no hay nada que calcular, pero el early return NO puede ir
   // aquí: los hooks de abajo dejarían de ejecutarse en el primer render y
@@ -89,6 +91,7 @@ export default function PrimerosPasosPage() {
       <PageHeader
         back={{ href: '/dashboard', label: 'Volver al inicio' }}
         title="Aprende a llevar tu estudio con Tentare"
+        badge={<span className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Tentare Academy</span>}
         description={`Empieza por ${esenciales.length} capítulos, unos ${minutosEsenciales} minutos: lo justo para recibir reservas. El resto está plegado abajo para cuando lo necesites.`}
       />
 
@@ -167,6 +170,21 @@ export default function PrimerosPasosPage() {
           <Compass size={15} /> Ver todas las funciones
         </Link>
       </div>
+
+      {/* Un curso aparte para quien viene de otro programa: es lo que más miedo da y lo que menos se explica. */}
+      {puedeMigrar && (
+        <Link
+          href="/primeros-pasos/cambiar-de-software"
+          className="flex items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4 transition-colors hover:bg-muted/50"
+        >
+          <Repeat size={18} className="shrink-0 text-brand-secondary" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14px] font-semibold text-foreground">Cambiar a Tentare</span>
+            <span className="block text-[12px] text-muted-foreground">¿Vienes de otro programa? Un recorrido de 11 pasos, desde sacar tus datos hasta activar Tentare como el principal.</span>
+          </span>
+          <ArrowRight size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+      )}
 
       {datos.recomendaciones.length > 0 && !listo && (
         <div className="rounded-2xl border border-border bg-card p-4 space-y-2">

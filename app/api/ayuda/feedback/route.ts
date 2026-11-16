@@ -7,7 +7,8 @@ import { articuloDe } from '@/lib/ayuda/registro';
 // público (cualquier visitante, sin sesión), así que no puede usar el patrón de
 // `dbInsertSoporteSolicitud` (RLS atada a studio_id): va por API con service
 // role, igual que /api/soporte. Ver supabase/migrations/20260828120000_ayuda_feedback.sql.
-const VALORACIONES = new Set(['MALO', 'REGULAR', 'BUENO']);
+// DESACTUALIZADA: «esta guía ya no describe lo que veo» (Academy). Misma tabla y mismo botón de siempre, un valor más.
+const VALORACIONES = new Set(['MALO', 'REGULAR', 'BUENO', 'DESACTUALIZADA']);
 
 export async function POST(req: NextRequest) {
   const limited = await enforceRateLimit(req, 'ayuda-feedback', { max: 30, windowSeconds: 60 });
