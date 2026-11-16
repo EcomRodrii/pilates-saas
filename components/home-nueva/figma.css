@@ -221,6 +221,10 @@
 .lf-plan-cuerpo .lf-plan-precio { display: flex; align-items: baseline; gap: 8px; margin: 40px 0 28px; color: var(--lf-tinta); }
 .lf-plan-precio b { font-size: 64px; font-weight: 500; letter-spacing: -.03em; line-height: 1; }
 .lf-plan-precio span { font-size: 16px; color: var(--lf-suave); }
+.lf-p-anio { display: none; }
+.lf-planes[data-intervalo="anual"] .lf-p-anio { display: inline; }
+.lf-planes[data-intervalo="anual"] .lf-p-mes { display: none; }
+.lf-selector-precios { display: flex; justify-content: center; margin-top: 32px; }
 .lf-plan-boton { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: 999px; background: #fff; font-size: 15px; font-weight: 500; box-shadow: 0 8px 20px -14px rgba(20, 60, 40, .5); transition: transform .45s var(--lf-suave), box-shadow .45s var(--lf-suave), background-color .25s; }
 .lf-plan-boton:hover { transform: translateY(-2px); box-shadow: 0 14px 26px -14px rgba(20, 60, 40, .6); }
 .lf-plan-boton:active { transform: translateY(0) scale(.98); transition-duration: .1s; }

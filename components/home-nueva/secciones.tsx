@@ -5,7 +5,10 @@ import {
 } from 'lucide-react';
 import { FAQ_ITEMS } from '@/components/landing/data';
 import { FRASE_FOUNDING, GRATIS_CON_LIMITES, LIMITES_GRATIS, SI_PASAS, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
-import { PLAN_INFO } from '@/lib/billing/entitlements';
+import { PLAN_INFO, precioAnual } from '@/lib/billing/entitlements';
+import { euros } from '@/lib/billing/intervalo-ui';
+import { anualDisponible } from '@/lib/billing/billing';
+import { SelectorPreciosHome } from './selector-precios-home';
 import type { LogoCliente } from '@/lib/landing/logos-clientes';
 import { ALT, BENEFICIOS, CONFIANZA, CONTACTO, CTA, FAQ, FUNCIONES, HERO, PRECIOS } from './contenido';
 import { Foto } from './foto';
@@ -256,21 +259,34 @@ function precioDe(nombre: string, texto: string): string {
   return texto;
 }
 
+/** Lo que se paga al año de un plan de pago (el mismo «2 meses gratis» que /precios), o null si no es de pago. */
+function precioAnualDe(nombre: string): string | null {
+  if (nombre === 'Estudio') return `${euros(precioAnual(PLAN_INFO.ESTUDIO.precioMes))} €`;
+  if (nombre === 'Cadena') return `${euros(precioAnual(PLAN_INFO.CADENA.precioMes))} €`;
+  return null;
+}
+
 export function Precios() {
+  // El selector solo se ofrece si el pago anual se puede contratar de verdad.
+  const anual = anualDisponible();
   return (
     <section id="precio" className="lf-precios" aria-labelledby="lf-precios-t">
       <div className="lf-cabeza">
         <Etiqueta icono={<CircleDollarSign size={15} strokeWidth={1.6} />}>{PRECIOS.etiqueta}</Etiqueta>
         <h2 id="lf-precios-t">{PRECIOS.titulo}</h2>
       </div>
-      <div className="lf-planes">
+      {anual && <SelectorPreciosHome />}
+      <div className="lf-planes" id="lf-planes" data-intervalo="mensual">
         {PRECIOS.planes.map(p => (
           <article key={p.nombre} className={p.destacado ? 'lf-plan lf-plan--destacado' : 'lf-plan'}>
             {p.destacado && <p className="lf-plan-cinta">{PRECIOS.etiquetaDestacado}</p>}
             <div className="lf-plan-cuerpo">
               <h3>{p.nombre}</h3>
               <p>{p.texto}</p>
-              <p className="lf-plan-precio"><b>{precioDe(p.nombre, p.precio)}</b> <span>{p.periodo}</span></p>
+              <p className="lf-plan-precio">
+                <b className={anual && precioAnualDe(p.nombre) ? 'lf-p-mes' : undefined}>{precioDe(p.nombre, p.precio)}</b>{' '}<span className={anual && precioAnualDe(p.nombre) ? 'lf-p-mes' : undefined}>{p.periodo}</span>
+                {anual && precioAnualDe(p.nombre) && (<><b className="lf-p-anio">{precioAnualDe(p.nombre)}</b>{' '}<span className="lf-p-anio">/ año</span></>)}
+              </p>
               {p.nombre === 'Founding Studio' && (
                 // Los límites y lo que pasa al superarlos, enteros (la regla de precios de la web: el gratis no se vende sin sus topes), y la frase del fundador.
                 <p className="lf-plan-limites">{TOPE_GRATIS}; {SI_PASAS}. <span>{FRASE_FOUNDING}</span></p>
