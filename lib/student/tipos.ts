@@ -44,6 +44,8 @@ export interface StudioConfig {
   subtituloHeroe: string | null;
   /** Titular de la pantalla de entrada. Vacío = el del producto, no un hueco. */
   tituloAcceso: string | null;
+  /** Normas del centro, una por línea. `null`/ausente = la app no pinta la sección. */
+  normasTexto?: string | null;
   tema: Record<string, string>;
 }
 
