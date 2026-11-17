@@ -1572,10 +1572,12 @@ async function postBilling<T>(ruta: string, cuerpo: unknown, fallo: string): Pro
 }
 
 /** Todo lo que la propietaria ve de lo que paga, leído de Stripe. `{ error }` si no se pudo leer. */
-export async function miSuscripcion(): Promise<MiSuscripcionApi | { error: string }> {
+export async function miSuscripcion(): Promise<MiSuscripcionApi | { error: string; sinSuscripcion?: boolean }> {
   try {
     const res = await fetch('/api/billing/mi-suscripcion', { headers: { ...(await authHeader()) } });
     const data = await res.json().catch(() => ({}));
+    // 409 = el estudio no paga por Stripe (plan puesto a mano): no hay nada que leer, y no es un fallo.
+    if (res.status === 409) return { error: 'Este estudio aún no tiene suscripción.', sinSuscripcion: true };
     if (!res.ok || !data || typeof data !== 'object' || !('acciones' in data)) return { error: mensajeSeguro((data as { error?: string })?.error, mensajeHttp(res.status)) };
     return { ...(data as MiSuscripcionApi), facturas: Array.isArray((data as MiSuscripcionApi).facturas) ? (data as MiSuscripcionApi).facturas : [] };
   } catch {
