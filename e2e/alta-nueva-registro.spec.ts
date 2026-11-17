@@ -127,6 +127,31 @@ test.describe('Validación en línea, campo a campo', () => {
     expect(altas, 'validar no gasta viajes al servidor').toBe(0);
   });
 
+  test('la lista de requisitos de la contraseña se marca mientras escribe y se puede ver lo escrito', async ({ page }) => {
+    await page.goto(ALTA);
+    await escribirNombre(page);
+    const largo = page.getByRole('listitem').filter({ hasText: '8 caracteres o más' });
+    const dificil = page.getByRole('listitem').filter({ hasText: 'Difícil de adivinar' });
+    await expect(largo).toContainText('(pendiente)');
+    await expect(dificil).toContainText('(pendiente)');
+
+    await contrasena(page).fill('12345678');
+    await expect(largo).toContainText('(cumplido)');
+    await expect(dificil).toContainText('(pendiente)');
+
+    await contrasena(page).fill('mi perro come peras');
+    await expect(largo).toContainText('(cumplido)');
+    await expect(dificil).toContainText('(cumplido)');
+
+    // Ver lo escrito sin perder lo tecleado.
+    await expect(contrasena(page)).toHaveAttribute('type', 'password');
+    await page.getByRole('button', { name: 'Mostrar la contraseña' }).click();
+    await expect(contrasena(page)).toHaveAttribute('type', 'text');
+    await expect(contrasena(page)).toHaveValue('mi perro come peras');
+    await page.getByRole('button', { name: 'Ocultar la contraseña' }).click();
+    await expect(contrasena(page)).toHaveAttribute('type', 'password');
+  });
+
   test('pulsar con algo mal no envía nada y lleva el foco al primer campo que arreglar', async ({ page }) => {
     let altas = 0;
     await page.route('**/auth/v1/signup**', (route) => { altas += 1; return json(route, ALTA_PENDIENTE); });
@@ -229,6 +254,36 @@ test.describe('Lo que dice gotrue', () => {
     await expect(crear(page)).toBeEnabled();
   });
 
+  test('sin conexión: lo dice, no anuncia ningún código y deja volver a intentarlo', async ({ page }) => {
+    let intentos = 0;
+    await page.route('**/auth/v1/signup**', (route) => { intentos += 1; return route.abort('failed'); });
+    await page.goto(ALTA);
+    await rellenarTodo(page);
+    await crear(page).click();
+
+    await expect.poll(() => intentos).toBeGreaterThan(0);
+    await expect(page.getByText(/Revisa tu conexión/)).toBeVisible();
+    // (Sin comprobar que «Failed to fetch» no exista en toda la página: el overlay de errores de `next dev` lo cita.)
+    await expect(page.locator('form, main').getByText('Failed to fetch')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toHaveCount(0);
+    await expect(crear(page)).toBeEnabled();
+  });
+
+  test('pulsar «Crear mi estudio» dos veces seguidas manda una sola petición', async ({ page }) => {
+    let intentos = 0;
+    await page.route('**/auth/v1/signup**', async (route) => {
+      intentos += 1;
+      await new Promise((r) => setTimeout(r, 1_500)); // el servidor tarda: la ventana del doble clic
+      return json(route, ALTA_PENDIENTE);
+    });
+    await page.goto(ALTA);
+    await rellenarTodo(page);
+    await crear(page).dblclick();
+
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible({ timeout: 15_000 });
+    expect(intentos, 'un doble clic no crea dos cuentas').toBe(1);
+  });
+
   test('un email ya registrado no recibe un «revisa tu correo» que es mentira', async ({ page }) => {
     let intentos = 0;
     await page.route('**/auth/v1/signup**', (route) => { intentos += 1; return json(route, YA_REGISTRADO); });
@@ -292,6 +347,21 @@ test.describe('El código y el estudio', () => {
     await expect(page.getByRole('group', { name: 'Código de verificación de 6 dígitos' })).toBeVisible();
     await expect(page.getByRole('heading', { name: /ya existe/ })).toHaveCount(0);
     expect(estudios, 'sin código bueno no se monta ningún estudio').toBe(0);
+  });
+
+  test('sesión caducada tras verificar: lo dice, deja reintentar y no monta nada', async ({ page }) => {
+    await hastaElCodigo(page);
+    let estudios = 0;
+    await page.route('**/api/auth/otp/verificar', (route) => json(route, { ok: true, session: { access_token: JWT_DE_MENTIRA, refresh_token: 'caducado' } }));
+    await page.route('**/auth/v1/**', (route) => json(route, { error: 'invalid_grant', error_description: 'Invalid Refresh Token' }, 400));
+    await page.route('**/rest/v1/studios**', (route) => { if (route.request().method() === 'POST') estudios += 1; return json(route, []); });
+    await page.getByRole('textbox', { name: 'Dígito 1 de 6' }).fill('123456');
+
+    await expect(page.getByText(/Tu sesión ha caducado/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Invalid (Refresh Token|JWT)/i)).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Dígito 1 de 6' })).toBeVisible();
+    expect(estudios, 'sin sesión no se escribe ningún estudio').toBe(0);
+    await expect(page.getByRole('heading', { name: /ya existe/ })).toHaveCount(0);
   });
 
   test('si montar el estudio falla: «Reintentar ahora», y a la segunda «… ya existe»', async ({ page }) => {
@@ -410,4 +480,74 @@ test.describe('El alta cabe entera en la ventana (sin bajar ni subir)', () => {
       expect((await medir()).base, 'la tarjeta acaba dentro de la ventana').toBeLessThanOrEqual(1);
     });
   }
+});
+
+test.describe('La dirección que le toca, comprobada mientras escribe', () => {
+  // Antes de hidratar, React devuelve el campo a vacío (WebKit lo hace seguro): se escribe hasta que la
+  // vista previa deja de ser la de «sin nombre», señal de que React ya tiene el valor.
+  async function primerNombre(page: Page, texto: string) {
+    await expect(async () => {
+      await nombre(page).fill(texto);
+      await expect(page.getByTestId('direccion-prevista')).not.toHaveText('tentare.app/portal/tu-estudio', { timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+  }
+  const resp = (o: Record<string, unknown>) => ({ base: 'estudio-alba', estado: 'libre', asignada: 'estudio-alba', reservada: false, ...o });
+
+  test('si la base es de otro estudio, dice cuál será la suya y la vista previa enseña ESA', async ({ page }) => {
+    let consultas = 0;
+    await page.route('**/api/public/direccion-disponible**', (route) => {
+      consultas += 1;
+      return json(route, resp({ estado: 'con_numero', asignada: 'estudio-alba-2' }));
+    });
+    await page.goto(ALTA);
+    await primerNombre(page, 'Estudio Alba');
+    const aviso = page.getByTestId('aviso-direccion');
+    await expect(aviso).toContainText('ya es de otro estudio', { timeout: 15_000 });
+    await expect(aviso).toContainText('«estudio-alba-2»');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba-2');
+    await expect(page.getByTestId('enlace-app-prevista')).toContainText('estudio-alba-2');
+    expect(consultas).toBeGreaterThan(0);
+  });
+
+  test('si está libre, lo dice; una palabra de la aplicación no se presenta como «de otro estudio»', async ({ page }) => {
+    await page.route('**/api/public/direccion-disponible**', (route) => {
+      const nombreEscrito = new URL(route.request().url()).searchParams.get('nombre');
+      return json(route, nombreEscrito === 'Login'
+        ? resp({ base: 'login', estado: 'con_numero', asignada: 'login-2', reservada: true })
+        : resp());
+    });
+    await page.goto(ALTA);
+    await primerNombre(page, 'Estudio Alba');
+    await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.', { timeout: 15_000 });
+    await nombre(page).fill('Login');
+    await expect(page.getByTestId('aviso-direccion')).toContainText('palabra que usa la aplicación', { timeout: 15_000 });
+    await expect(page.getByTestId('aviso-direccion')).not.toContainText('de otro estudio');
+  });
+
+  test('si la comprobación falla no promete nada: vuelve al aviso de siempre (y sí se intentó)', async ({ page }) => {
+    let consultas = 0;
+    await page.route('**/api/public/direccion-disponible**', (route) => { consultas += 1; return json(route, { error: 'x' }, 500); });
+    await page.goto(ALTA);
+    await primerNombre(page, 'Estudio Alba');
+    await expect(page.getByTestId('aviso-direccion')).toContainText('Si otro estudio ya la tiene, le añadimos un número al final.', { timeout: 15_000 });
+    await expect(page.getByTestId('aviso-direccion')).not.toContainText('Está libre');
+    expect(consultas).toBeGreaterThan(0);
+  });
+
+  test('una respuesta vieja no pisa a la nueva', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.route('**/api/public/direccion-disponible**', async (route) => {
+      const n = new URL(route.request().url()).searchParams.get('nombre');
+      if (n === 'Estudio Al') { await new Promise((r) => setTimeout(r, 1_500)); return json(route, resp({ base: 'estudio-al', estado: 'con_numero', asignada: 'estudio-al-2' })); }
+      return json(route, resp());
+    });
+    await page.goto(ALTA);
+    await primerNombre(page, 'Estudio Al');
+    await page.waitForTimeout(600); // la petición vieja ya salió y está retenida
+    await nombre(page).fill('Estudio Alba');
+    await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.', { timeout: 15_000 });
+    await page.waitForTimeout(1_800); // llega tarde la vieja: no debe cambiar nada
+    await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba');
+  });
 });

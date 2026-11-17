@@ -230,6 +230,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (m.includes('provider is not enabled') || m.includes('unsupported provider')) {
       return 'Iniciar sesión con Google no está disponible ahora mismo.';
     }
+    // Inglés crudo del navegador o de gotrue, sin salida: sin red, o una sesión
+    // que ya no se puede abrir (refresco caducado o token ilegible).
+    if (/failed to fetch|load failed|network ?error|network request failed/.test(m)) {
+      return 'No hemos podido conectar. Revisa tu conexión e inténtalo otra vez.';
+    }
+    if (/refresh token|invalid jwt|jwt expired/.test(m)) {
+      return 'Tu sesión ha caducado. Pide un código nuevo e inténtalo otra vez.';
+    }
     return error.message;
   }
 

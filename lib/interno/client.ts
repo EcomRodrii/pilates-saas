@@ -192,6 +192,15 @@ export interface AltasSinTerminar {
 }
 export const fetchAltasSinTerminar = () => pedir<AltasSinTerminar>('/crecimiento/altas');
 
+/** Estudios atascados en el alta (`growth.read`; anotar seguimiento, `crm.update`). Ver lib/alta/atascados.ts. */
+export interface EstudiosAtascados {
+  alertas: import('../alta/atascados.ts').AlertaAtascada[];
+  resumen: import('../alta/atascados.ts').ResumenAtascados;
+}
+export const fetchEstudiosAtascados = () => pedir<EstudiosAtascados>('/crecimiento/atascados');
+export const anotarSeguimientoAtascado = (cuerpo: import('../alta/atascados.ts').PeticionSeguimiento) =>
+  pedir<{ ok: true }>('/crecimiento/atascados', { method: 'POST', body: JSON.stringify(cuerpo) });
+
 /** Activación de estudios nuevos: embudo del alta y cohortes (`growth.read`). Ver lib/alta/embudo.ts. */
 export const fetchActivacion = () => pedir<import('../alta/embudo.ts').ResumenActivacion>('/crecimiento/activacion');
 
