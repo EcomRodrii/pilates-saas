@@ -35,6 +35,25 @@ export interface DireccionResuelta {
   asignada: string | null;
   /** La base es una palabra de la aplicación (no es que la tenga otro estudio). */
   reservada: boolean;
+  /** Todas las candidatas libres, en orden (incluida `asignada`): de aquí se puede ELEGIR otra. */
+  libres: string[];
+}
+
+/** Cuántas alternativas se enseñan además de la que toca. */
+export const ALTERNATIVAS_MAX = 3;
+
+/** Las alternativas a la que toca: otras candidatas libres, sin pasar de ALTERNATIVAS_MAX. */
+export function alternativasDireccion(d: Pick<DireccionResuelta, 'libres' | 'asignada'> | null): string[] {
+  if (!d || !Array.isArray(d.libres)) return [];
+  return d.libres.filter((c) => c !== d.asignada).slice(0, ALTERNATIVAS_MAX);
+}
+
+/**
+ * ¿Vale esa dirección ELEGIDA? Solo si sigue entre las libres de la última respuesta. Una elección
+ * vieja (el nombre cambió, la respuesta es de otra base) no vale y se vuelve a la que toca.
+ */
+export function direccionElegidaVale(elegida: string | null, d: Pick<DireccionResuelta, 'libres'> | null): boolean {
+  return !!elegida && !!d && Array.isArray(d.libres) && d.libres.includes(elegida);
 }
 
 /** La base de un nombre: la misma que usa el alta al crear el estudio. */
@@ -56,9 +75,10 @@ export function candidatasDireccion(base: string): string[] {
  */
 export function resolverDireccion(base: string, ocupadas: ReadonlySet<string> | null): DireccionResuelta {
   const reservada = RESERVADAS.has(base);
-  if (!ocupadas) return { base, estado: 'desconocido', asignada: null, reservada };
+  if (!ocupadas) return { base, estado: 'desconocido', asignada: null, reservada, libres: [] };
   const candidatas = candidatasDireccion(base);
-  const libre = candidatas.find((c) => !RESERVADAS.has(c) && !ocupadas.has(c));
-  if (!libre) return { base, estado: 'agotada', asignada: null, reservada };
-  return { base, estado: libre === base ? 'libre' : 'con_numero', asignada: libre, reservada };
+  const libres = candidatas.filter((c) => !RESERVADAS.has(c) && !ocupadas.has(c));
+  const libre = libres[0];
+  if (!libre) return { base, estado: 'agotada', asignada: null, reservada, libres: [] };
+  return { base, estado: libre === base ? 'libre' : 'con_numero', asignada: libre, reservada, libres };
 }

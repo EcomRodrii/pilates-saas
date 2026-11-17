@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useEscalaIphone } from '@/components/ui/marco-iphone';
 import { AppDeMuestra } from '@/components/alta-nueva/app-de-muestra';
 import { useDireccion } from '@/components/alta-nueva/use-direccion';
+import { alternativasDireccion, direccionElegidaVale } from '@/lib/alta/direccion';
 import {
   errorDeCampo,
   guardarBorradorAltaNueva,
@@ -138,7 +139,11 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
   const slugBase = slugPrevisto(datos.nombre);
   const { resuelta: direccion, comprobando: comprobandoDireccion } = useDireccion(datos.nombre);
   // La que le toca de verdad si ya sabemos cuál es; si no, la base de siempre.
-  const slug = direccion?.asignada ?? slugBase;
+  // Y si ELIGIÓ otra de las libres que se le enseñaron (y sigue libre en la última respuesta), esa.
+  const [eleccion, setEleccion] = useState<string | null>(null);
+  const eleccionValida = direccionElegidaVale(eleccion, direccion) ? eleccion : null;
+  const alternativas = alternativasDireccion(direccion);
+  const slug = eleccionValida ?? direccion?.asignada ?? slugBase;
   const nombreVisible = datos.nombre.trim() || 'Tu estudio';
   const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, estoy creando mi estudio en Tentare y tengo una duda:') ?? undefined;
   const lineaPlan = foundingGratis
@@ -241,13 +246,16 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
       // Manda el nombre de la metadata (`pending_studio`), que es con el que lo
       // montaría /login si esto no llegara a terminar: el id del estudio sale de
       // (propietaria + nombre), así los dos caminos dan el MISMO estudio.
-      const pendiente = cuenta.user_metadata?.pending_studio as { nombre?: unknown } | undefined;
+      const pendiente = cuenta.user_metadata?.pending_studio as { nombre?: unknown; slug?: unknown } | undefined;
       const nombre = (typeof pendiente?.nombre === 'string' && pendiente.nombre.trim()) || datos.nombre.trim();
       if (!nombre) {
         setError('Escribe el nombre de tu estudio para montarlo.');
         return;
       }
-      const estudio = await dbCreateStudio({ nombre, plan: 'BASE', ownerAuthUserId: cuenta.id });
+      // La dirección que eligió (viaja en la metadata, así sobrevive a verificar el código); si ya no
+      // está libre, `dbCreateStudio` da la que toca.
+      const elegida = typeof pendiente?.slug === 'string' ? pendiente.slug : undefined;
+      const estudio = await dbCreateStudio({ nombre, plan: 'BASE', ownerAuthUserId: cuenta.id, ...(elegida ? { slugPreferido: elegida } : {}) });
       if (!estudio) {
         avisarProgresoAlta('error_estudio');
         setError(conSesion
@@ -311,7 +319,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
       const { error: errorAlta, needsConfirmation, yaRegistrado, userId } = await signUp(
         emailUsado,
         datos.contrasena,
-        { ...metadataDelAlta({ nombre: datos.nombre, version, llegada: leerLlegada(), condicionesVersion: VERSION_TEXTOS_LEGALES }) },
+        { ...metadataDelAlta({ nombre: datos.nombre, version, llegada: leerLlegada(), condicionesVersion: VERSION_TEXTOS_LEGALES, slug: eleccionValida }) },
         token ?? undefined,
       );
       if (yaRegistrado) {
@@ -525,6 +533,25 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                           ? 'Comprobando si está libre…'
                           : 'Si otro estudio ya la tiene, le añadimos un número al final.'}
                 </span>
+                {direccion?.estado === 'con_numero' && alternativas.length > 0 && (
+                  <span className="mt-1.5 flex flex-wrap items-center gap-1.5" data-testid="alternativas-direccion">
+                    <span>O elige otra:</span>
+                    {[direccion.asignada, ...alternativas].filter((c): c is string => !!c).map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-pressed={slug === c}
+                        onClick={() => setEleccion(c === direccion.asignada ? null : c)}
+                        className={cn(
+                          'rounded-full border px-2.5 py-1 font-t-mono text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--t-border-focus)]',
+                          slug === c ? 'border-[color:var(--t-border-strong)] bg-t-raised text-t-primary' : 'border-[color:var(--t-border-default)] text-t-secondary hover:bg-t-raised',
+                        )}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </span>
+                )}
               </p>
               <ErrorCampo id={`${id('nombre')}-e`} texto={mostrarError('nombre') ? errores.nombre : ''} />
             </div>
