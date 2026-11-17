@@ -6,10 +6,6 @@ import { verificarSesionStaff } from '@/lib/auth-server';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { comprobarModoStripe } from '@/lib/billing/modo-stripe';
-import { addonDePriceId, anualDisponible, complementosALaVenta, intervaloDePrice, planDePriceId } from '@/lib/billing/billing';
-import { lecturaSuscripcion } from '@/lib/billing/lectura-suscripcion';
-import { accionesDisponibles, type Acciones } from '@/lib/billing/mi-suscripcion/reglas';
-import type { Plan } from '@/lib/billing/entitlements';
 
 // Lo común de las rutas de «Mi suscripción»: solo la propietaria, Stripe configurado y en un modo
 // coherente, y de quién es la suscripción (la del estudio o la de su cadena).
@@ -68,37 +64,5 @@ export async function cargarContexto(
   };
 }
 
-/** Lo que dice una suscripción de Stripe, ya leído (plan, periodo, baja, líneas). */
-export function leerSuscripcion(sub: Stripe.Subscription) {
-  const lineas = sub.items.data;
-  const lectura = lecturaSuscripcion(
-    lineas.map((l) => ({ priceId: l.price?.id ?? null })), sub.status, { plan: planDePriceId, addon: addonDePriceId },
-  );
-  const lineaPlan = lineas.find((l) => planDePriceId(l.price?.id)) ?? lineas[0];
-  const finUnix =
-    (sub as unknown as { current_period_end?: number }).current_period_end
-    ?? (lineas[0] as unknown as { current_period_end?: number } | undefined)?.current_period_end ?? null;
-  const bajaProgramada = Boolean(sub.cancel_at_period_end || sub.cancel_at);
-  return {
-    plan: lectura.plan as Plan | null,
-    addons: lectura.addons,
-    intervalo: intervaloDePrice(lineaPlan?.price?.recurring),
-    estado: sub.status,
-    bajaProgramada,
-    /** Cuándo se acaba el acceso pagado si hay baja: `cancel_at` si está puesto, si no el fin del periodo. */
-    bajaEl: bajaProgramada ? (sub.cancel_at ?? finUnix) : null,
-    finPeriodoUnix: finUnix,
-    importePeriodoCents: lineas.reduce((t, l) => t + (l.price?.unit_amount ?? 0) * (l.quantity ?? 1), 0),
-    moneda: (lineas[0]?.price?.currency ?? 'eur').toLowerCase(),
-  };
-}
-
-export function accionesDe(lectura: ReturnType<typeof leerSuscripcion>, esCadena: boolean): Acciones {
-  return accionesDisponibles({
-    estado: lectura.estado, plan: lectura.plan, intervalo: lectura.intervalo, bajaProgramada: lectura.bajaProgramada,
-    esCadena, tieneComplementos: lectura.addons.length > 0,
-    anualDisponible: anualDisponible() && (lectura.addons.length === 0 || complementosALaVenta('anual')),
-  });
-}
-
-export const isoDe = (unix: number | null | undefined): string | null => (unix ? new Date(unix * 1000).toISOString() : null);
+// La lectura y las operaciones viven en `operaciones.ts` (sin Next, para probarlas con un Stripe falso).
+export { accionesDe, isoDe, leerSuscripcion } from './operaciones.ts';
