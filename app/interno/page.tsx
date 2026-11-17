@@ -15,7 +15,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import {
-  AlertTriangle, ArrowRight, Building2, CheckCircle2, CreditCard, Flag, Phone, Scale, Smartphone, Sprout,
+  AlertTriangle, ArrowRight, Building2, CheckCircle2, CreditCard, Flag, HeartHandshake, Phone, Scale, Smartphone, Sprout,
   TrendingDown, TrendingUp, type LucideIcon,
 } from 'lucide-react';
 import type { Cifra, EstudioAMirar, Tarea, TipoTarea } from '@/lib/interno/hoy';
@@ -24,7 +24,7 @@ import { useHoyInterno, useSesionInterna } from './layout';
 
 const ICONO: Record<TipoTarea, LucideIcon> = {
   impago: CreditCard, descuadre: Scale, denuncias: Flag, apps: Smartphone,
-  llamadas: Phone, altas: Sprout, 'sin-reservas': Building2,
+  llamadas: Phone, altas: Sprout, exito: HeartHandshake, 'sin-reservas': Building2,
 };
 
 const TONO_TAREA: Record<Tarea['tono'], string> = {
