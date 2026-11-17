@@ -491,7 +491,7 @@ test.describe('La dirección que le toca, comprobada mientras escribe', () => {
       await expect(page.getByTestId('direccion-prevista')).not.toHaveText('tentare.app/portal/tu-estudio', { timeout: 2_000 });
     }).toPass({ timeout: 30_000 });
   }
-  const resp = (o: Record<string, unknown>) => ({ base: 'estudio-alba', estado: 'libre', asignada: 'estudio-alba', reservada: false, ...o });
+  const resp = (o: Record<string, unknown>) => ({ base: 'estudio-alba', estado: 'libre', asignada: 'estudio-alba', reservada: false, libres: ['estudio-alba'], ...o });
 
   test('si la base es de otro estudio, dice cuál será la suya y la vista previa enseña ESA', async ({ page }) => {
     let consultas = 0;
@@ -549,5 +549,104 @@ test.describe('La dirección que le toca, comprobada mientras escribe', () => {
     await page.waitForTimeout(1_800); // llega tarde la vieja: no debe cambiar nada
     await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.');
     await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba');
+  });
+
+  test('se puede ELEGIR otra de las libres: la vista previa, el signUp y el estudio llevan la elegida', async ({ page }) => {
+    test.setTimeout(90_000);
+    await silenciarApi(page);
+    let metadata: Record<string, unknown> | null = null;
+    let slugCreado: string | null = null;
+    let estudios = 0;
+    await page.route('**/api/public/direccion-disponible**', (route) =>
+      json(route, resp({ estado: 'con_numero', asignada: 'estudio-alba-2', libres: ['estudio-alba-2', 'estudio-alba-3', 'estudio-alba-4'] })));
+    await page.route('**/auth/v1/signup**', (route) => {
+      metadata = (route.request().postDataJSON() as { data?: Record<string, unknown> })?.data ?? null;
+      return json(route, ALTA_PENDIENTE);
+    });
+    await page.goto(ALTA);
+    await primerNombre(page, 'Estudio Alba');
+    const alternativas = page.getByTestId('alternativas-direccion');
+    await expect(alternativas).toBeVisible({ timeout: 15_000 });
+    await expect(alternativas.getByRole('button', { name: 'estudio-alba-2' })).toHaveAttribute('aria-pressed', 'true');
+    await alternativas.getByRole('button', { name: 'estudio-alba-4' }).click();
+    await expect(alternativas.getByRole('button', { name: 'estudio-alba-4' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba-4');
+    // Volver a la que toca la deja como estaba.
+    await alternativas.getByRole('button', { name: 'estudio-alba-2' }).click();
+    await expect(page.getByTestId('direccion-prevista')).toHaveText('tentare.app/portal/estudio-alba-2');
+    await alternativas.getByRole('button', { name: 'estudio-alba-4' }).click();
+
+    await email(page).fill('prueba-tentare@example.com');
+    await contrasena(page).fill('mi perro come peras');
+    await crear(page).click();
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible();
+    expect((metadata as { pending_studio?: { slug?: string } } | null)?.pending_studio?.slug, 'la elegida viaja en la metadata').toBe('estudio-alba-4');
+
+    // La sesión que sale de verificar el código lleva esa metadata, y el estudio se crea con ELLA.
+    const usuario = { ...USUARIO, user_metadata: metadata ?? {} };
+    await page.route('**/api/auth/otp/verificar', (route) =>
+      json(route, { ok: true, session: { access_token: JWT_DE_MENTIRA, refresh_token: 'tok-refresco' } }));
+    await page.route('**/auth/v1/token**', (route) => json(route, {
+      access_token: JWT_DE_MENTIRA, refresh_token: 'tok-refresco', token_type: 'bearer', expires_in: 31536000, user: usuario,
+    }));
+    await page.route('**/auth/v1/user**', (route) => json(route, usuario));
+    await page.route('**/rest/v1/**', (route) => json(route, []));
+    await page.route('**/rest/v1/rpc/slug_estudio_disponible', (route) => json(route, true));
+    await page.route('**/rest/v1/studios**', (route) => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      estudios += 1;
+      slugCreado = (route.request().postDataJSON() as { slug?: string })?.slug ?? null;
+      return json(route, [{ id: 's1', slug: slugCreado }], 201);
+    });
+    await page.route('**/api/alta/estudio-creado', (route) => json(route, { ok: true, enviado: true }));
+    await page.getByRole('textbox', { name: 'Dígito 1 de 6' }).fill('123456');
+
+    await expect(page.getByRole('heading', { name: 'Estudio Alba ya existe' })).toBeVisible({ timeout: 30_000 });
+    expect(estudios, 'se intentó crear de verdad').toBeGreaterThan(0);
+    expect(slugCreado, 'el estudio nace con la dirección que eligió').toBe('estudio-alba-4');
+  });
+
+  test('si la elegida ya no está libre al crear, se da la que toca y el alta no falla', async ({ page }) => {
+    test.setTimeout(90_000);
+    await silenciarApi(page);
+    let metadata: Record<string, unknown> | null = null;
+    let slugCreado: string | null = null;
+    await page.route('**/api/public/direccion-disponible**', (route) =>
+      json(route, resp({ estado: 'con_numero', asignada: 'estudio-alba-2', libres: ['estudio-alba-2', 'estudio-alba-3'] })));
+    await page.route('**/auth/v1/signup**', (route) => {
+      metadata = (route.request().postDataJSON() as { data?: Record<string, unknown> })?.data ?? null;
+      return json(route, ALTA_PENDIENTE);
+    });
+    await page.goto(ALTA);
+    await primerNombre(page, 'Estudio Alba');
+    await page.getByTestId('alternativas-direccion').getByRole('button', { name: 'estudio-alba-3' }).click();
+    await email(page).fill('prueba-tentare@example.com');
+    await contrasena(page).fill('mi perro come peras');
+    await crear(page).click();
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible();
+
+    const usuario = { ...USUARIO, user_metadata: metadata ?? {} };
+    await page.route('**/api/auth/otp/verificar', (route) =>
+      json(route, { ok: true, session: { access_token: JWT_DE_MENTIRA, refresh_token: 'tok-refresco' } }));
+    await page.route('**/auth/v1/token**', (route) => json(route, {
+      access_token: JWT_DE_MENTIRA, refresh_token: 'tok-refresco', token_type: 'bearer', expires_in: 31536000, user: usuario,
+    }));
+    await page.route('**/auth/v1/user**', (route) => json(route, usuario));
+    await page.route('**/rest/v1/**', (route) => json(route, []));
+    // Otra propietaria la cogió mientras tanto: ninguna dirección está libre salvo la que toca por defecto.
+    await page.route('**/rest/v1/rpc/slug_estudio_disponible', async (route) => {
+      const p = (route.request().postDataJSON() as { p_slug?: string })?.p_slug;
+      return json(route, p === 'estudio-alba');
+    });
+    await page.route('**/rest/v1/studios**', (route) => {
+      if (route.request().method() !== 'POST') return json(route, []);
+      slugCreado = (route.request().postDataJSON() as { slug?: string })?.slug ?? null;
+      return json(route, [{ id: 's1', slug: slugCreado }], 201);
+    });
+    await page.route('**/api/alta/estudio-creado', (route) => json(route, { ok: true, enviado: true }));
+    await page.getByRole('textbox', { name: 'Dígito 1 de 6' }).fill('123456');
+
+    await expect(page.getByRole('heading', { name: 'Estudio Alba ya existe' })).toBeVisible({ timeout: 30_000 });
+    expect(slugCreado, 'cae a la que toca, no a la elegida').toBe('estudio-alba');
   });
 });

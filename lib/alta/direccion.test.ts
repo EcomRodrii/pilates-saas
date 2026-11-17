@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { baseDeDireccion, candidatasDireccion, CANDIDATAS_MAX, resolverDireccion } from './direccion.ts';
+import { alternativasDireccion, baseDeDireccion, candidatasDireccion, CANDIDATAS_MAX, direccionElegidaVale, resolverDireccion } from './direccion.ts';
 
 test('la base sale del mismo slugify que el alta', () => {
   assert.equal(baseDeDireccion('Pilates Málaga'), 'pilates-malaga');
@@ -37,4 +37,27 @@ test('si no se pudo leer, no se promete nada (y no es «libre»)', () => {
 test('si están todas las miradas, agotada y sin promesa', () => {
   const r = resolverDireccion('alba', new Set(candidatasDireccion('alba')));
   assert.deepEqual([r.estado, r.asignada], ['agotada', null]);
+});
+
+test('libres: todas las candidatas que se pueden coger, en orden, y de ahí salen las alternativas', () => {
+  const r = resolverDireccion('alba', new Set(['alba', 'alba-3']));
+  assert.deepEqual(r.libres, ['alba-2', 'alba-4', 'alba-5']);
+  assert.equal(r.asignada, 'alba-2');
+  assert.deepEqual(alternativasDireccion(r), ['alba-4', 'alba-5']);
+});
+
+test('sin respuesta o agotada no hay libres ni alternativas', () => {
+  assert.deepEqual(resolverDireccion('alba', null).libres, []);
+  assert.deepEqual(resolverDireccion('alba', new Set(candidatasDireccion('alba'))).libres, []);
+  assert.deepEqual(alternativasDireccion(null), []);
+});
+
+test('una dirección elegida solo vale si sigue entre las libres de ESA respuesta', () => {
+  const r = resolverDireccion('alba', new Set(['alba']));
+  assert.equal(direccionElegidaVale('alba-3', r), true);
+  assert.equal(direccionElegidaVale('alba-9', r), false);
+  assert.equal(direccionElegidaVale(null, r), false);
+  assert.equal(direccionElegidaVale('alba-3', null), false);
+  // Una respuesta sin `libres` (un servidor viejo) nunca deja elegir.
+  assert.equal(direccionElegidaVale('alba-3', {} as never), false);
 });

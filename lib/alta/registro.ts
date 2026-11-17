@@ -270,6 +270,8 @@ export interface MetadataAltaNueva {
     version: 'v2' | 'v2_prueba';
     llegada?: string;
     condiciones_version: string;
+    /** La dirección que ELIGIÓ entre las libres (opcional): `dbCreateStudio` la usa si sigue libre. */
+    slug?: string;
   };
 }
 
@@ -285,6 +287,7 @@ export function metadataDelAlta(o: {
   version: 'v2' | 'v2_prueba';
   llegada: unknown;
   condicionesVersion: string;
+  slug?: string | null;
 }): MetadataAltaNueva {
   const llegada = normalizarLlegada(o.llegada);
   return {
@@ -295,6 +298,7 @@ export function metadataDelAlta(o: {
       version: o.version,
       ...(llegada ? { llegada } : {}),
       condiciones_version: o.condicionesVersion,
+      ...(o.slug ? { slug: o.slug } : {}),
     },
   };
 }

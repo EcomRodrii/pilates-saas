@@ -28,7 +28,7 @@ import type { CierreGuardado } from '@/lib/cierres/quitar-cierre';
 // del bono al cancelar es la BD (migr 0129). `esCancelacionTardia` sí sigue,
 // porque decide el texto del aviso a la socia, no la política.
 import { idEstudioDe } from '@/lib/id-estudio';
-import { RESERVADAS as SLUGS_RESERVADOS, slugify } from '@/lib/slug';
+import { RESERVADAS as SLUGS_RESERVADOS, motivoSlugInvalido, slugify } from '@/lib/slug';
 import { mensajeDeFalloAlGuardar, mensajeSeguro, type ResultadoEscritura } from '@/lib/errores';
 import { fotoSalaParaGuardar, salaCambiosToDb } from '@/lib/sala-cambios';
 import { saldoVivo } from '@/lib/creditos-caducidad';
@@ -5231,6 +5231,14 @@ export async function generateUniqueSlug(nombre: string): Promise<string> {
 // negocio (el slug real, que puede llevar sufijo "-2" si hubo colisión de
 // nombre — la UI de éxito lo necesita para no inventarse la URL del portal),
 // o null si falló.
+// Una dirección ELEGIDA vale si tiene forma de dirección, no es una palabra de la aplicación y la RPC dice
+// que está libre. Cualquier duda (RPC caída, otra cosa que `true`) = no vale: se usa la que toca.
+async function slugPreferidoLibre(slug: string | undefined): Promise<string | null> {
+  if (!slug || motivoSlugInvalido(slug)) return null;
+  const { data, error } = await supabase.rpc('slug_estudio_disponible', { p_slug: slug });
+  return !error && data === true ? slug : null;
+}
+
 export async function dbCreateStudio(fields: {
   nombre: string;
   // Opcionales desde la apertura al público: la BD solo exige `nombre`, y el
@@ -5244,6 +5252,11 @@ export async function dbCreateStudio(fields: {
   tipoCuenta?: 'ESTUDIO' | 'FREELANCE';
   /** Plan elegido en el alta. Es el que se disfruta durante la prueba. */
   plan?: Plan;
+  /**
+   * La dirección que eligió entre las libres que le enseñó el alta. Solo se usa a la PRIMERA: si ya no
+   * es válida o está cogida, se cae a la que toca (`generateUniqueSlug`). Nunca falla el alta por esto.
+   */
+  slugPreferido?: string;
 }): Promise<{ id: string; slug: string } | null> {
   // Carreras que se reintentan (en vez de dejar pasar el error crudo):
   //  · 23505 slug: generateUniqueSlug comprueba disponibilidad y el insert llega
@@ -5271,7 +5284,7 @@ export async function dbCreateStudio(fields: {
   const id = idEstudioDe(fields.ownerAuthUserId, fields.nombre);
   let ultimoError: { code: string; message: string } | null = null;
   for (let intento = 0; intento < 8; intento++) {
-    const slug = await generateUniqueSlug(fields.nombre);
+    const slug = (intento === 0 && (await slugPreferidoLibre(fields.slugPreferido))) || await generateUniqueSlug(fields.nombre);
     const { error } = await supabase.from('studios').insert({
       id,
       nombre: fields.nombre,

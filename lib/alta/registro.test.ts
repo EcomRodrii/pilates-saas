@@ -245,3 +245,10 @@ test('mensajeDeErrorAlta: un fallo de red del navegador se dice en castellano y 
     assert.equal(mensajeDeErrorAlta(crudo), 'No hemos podido conectar. Revisa tu conexión e inténtalo otra vez.');
   }
 });
+
+test('metadataDelAlta: la dirección elegida viaja solo si hay', () => {
+  const base = { nombre: ' Estudio Alba ', version: 'v2' as const, llegada: null, condicionesVersion: '2026-10-21' };
+  assert.equal('slug' in metadataDelAlta(base).pending_studio, false);
+  assert.equal('slug' in metadataDelAlta({ ...base, slug: null }).pending_studio, false);
+  assert.equal(metadataDelAlta({ ...base, slug: 'estudio-alba-3' }).pending_studio.slug, 'estudio-alba-3');
+});
