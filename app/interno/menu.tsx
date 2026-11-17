@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Building2, ChevronDown, CreditCard, FileCheck2, Flag, Home, Hourglass, LifeBuoy, Loader2, Megaphone, Network, Phone, Route,
-  ScrollText, Search, Smartphone, Smile, Sprout, Users, X, Zap,
+  ScrollText, Search, Smartphone, Smile, Sprout, TrendingUp, Users, X, Zap,
 } from 'lucide-react';
 import { fetchEstudios, type EstudioFila, type SesionInterna } from '@/lib/interno/client';
 import type { Hoy } from '@/lib/interno/hoy';
@@ -31,6 +31,7 @@ export const GRUPOS: Array<{ titulo: string; secciones: Seccion[] }> = [
     secciones: [
       { href: '/interno/estudios', etiqueta: 'Estudios', icono: Building2, permisos: ['studios.read'] },
       { href: '/interno/facturacion', etiqueta: 'Cobros a estudios', icono: CreditCard, permisos: ['billing.read'] },
+      { href: '/interno/revenue', etiqueta: 'Revenue', icono: TrendingUp, permisos: ['billing.read'] },
       { href: '/interno/apps-estudio', etiqueta: 'Apps en la App Store', icono: Smartphone, permisos: ['studios.read'] },
       { href: '/interno/visita-guiada', etiqueta: 'Visita guiada', icono: Route, permisos: ['studios.read'] },
       // Lo que diría la máquina de bajas, sin hacer nada (solo lectura).
