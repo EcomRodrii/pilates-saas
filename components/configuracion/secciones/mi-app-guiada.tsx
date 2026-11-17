@@ -109,12 +109,13 @@ export function MiAppGuiada({ datos, acciones, slug, hrefPresentacion }: {
             ))}
           </ol>
 
-          {/* Decisión 4 (21-oct-2026): la descripción sale en la página de reservas, no en la app. */}
+          {/* Decisión 4 (21-oct-2026): la descripción sale en la página de reservas, no en la app.
+              Las normas SÍ salen en la app (Ayuda › Normas del centro) y se editan en el mismo sitio. */}
           <aside className="rounded-2xl border border-dashed border-border px-5 py-4 text-sm leading-relaxed text-muted-foreground">
-            <p className="font-semibold text-foreground">¿Buscas «Cómo te presentas»?</p>
+            <p className="font-semibold text-foreground">Normas del centro y descripción</p>
             <p className="mt-1 text-pretty">
-              Tu descripción sale en tu página de reservas y en Tentare Network, no en la app de tus clientes.{' '}
-              <Link href={hrefPresentacion} className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Editar tu descripción</Link>
+              Tus normas las ven tus clientes en su app, en Ayuda. La descripción sale en tu página de reservas y en Tentare Network.{' '}
+              <Link href={hrefPresentacion} className="font-medium text-foreground underline underline-offset-2 hover:no-underline">Editar normas y descripción</Link>
             </p>
           </aside>
         </div>
