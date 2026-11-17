@@ -71,7 +71,11 @@ export type EventoAnalitica =
   // El primer tipo de clase del estudio. Solo cuando antes no había ninguno.
   | { nombre: 'primer_tipo_clase'; props: { origen: 'asistente' | 'panel' } }
   // La cuenta de cobro (Stripe Connect) quedó conectada.
-  | { nombre: 'stripe_conectado'; props: Record<string, never> };
+  | { nombre: 'stripe_conectado'; props: Record<string, never> }
+  // Una alumna nueva ya puede reservar en el estudio (el «sí» de `puedeReservarAlumnaNueva`): el
+  // «primera clase publicada» del embudo. Lo emite el servidor al ver el sí (`/api/alta/estado`);
+  // «primera reserva recibida» es `reserva_completada`. Un embudo de PostHog cuenta solo la primera vez.
+  | { nombre: 'clase_reservable'; props: Record<string, never> };
 
 type PropsDe<N extends EventoAnalitica['nombre']> = Extract<EventoAnalitica, { nombre: N }>['props'];
 
@@ -100,6 +104,7 @@ export const PROPS_PERMITIDAS = {
   horario_propuesto_descartado: [],
   primer_tipo_clase: ['origen'],
   stripe_conectado: [],
+  clase_reservable: [],
 } as const satisfies { readonly [N in EventoAnalitica['nombre']]: readonly (keyof PropsDe<N>)[] };
 
 // Y que no FALTE ninguna: una prop nueva en el tipo que no se añade aquí se tiraría
