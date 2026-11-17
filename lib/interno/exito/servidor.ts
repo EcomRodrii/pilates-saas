@@ -30,7 +30,13 @@ export interface ResultadoExito {
   avisos: string[];
 }
 
-export async function leerExito(db: SupabaseClient, ahora = new Date()): Promise<ResultadoExito | null> {
+/**
+ * `vivoPrevio`: la lectura de Stripe que quien llama YA hizo (la portada «Hoy» lee la facturación para
+ * sus propias tareas). Pasarla evita listar otra vez todas las suscripciones. `undefined` = leerla aquí.
+ */
+export async function leerExito(
+  db: SupabaseClient, ahora = new Date(), vivoPrevio?: Awaited<ReturnType<typeof leerFacturacion>>,
+): Promise<ResultadoExito | null> {
   const avisos: string[] = [];
   const hoy = hoyEnEstudio(ahora);
   const hace = (dias: number) => new Date(ahora.getTime() - dias * 86_400_000).toISOString();
@@ -61,7 +67,7 @@ export async function leerExito(db: SupabaseClient, ahora = new Date()): Promise
   }
 
   // Stripe en vivo: quién paga, quién ha programado la baja, cuándo renueva.
-  const vivo = await leerFacturacion(db);
+  const vivo = vivoPrevio !== undefined ? vivoPrevio : await leerFacturacion(db);
   if (!vivo || vivo.avisoStripe) avisos.push(`Stripe no ha contestado${vivo?.avisoStripe ? ` (${vivo.avisoStripe})` : ''}: no se calculan bajas programadas, renovaciones ni contrataciones sin terminar.`);
   const lineas = vivo && !vivo.avisoStripe ? vivo.resultado.lineas : [];
   const subs = vivo && !vivo.avisoStripe ? vivo.subs : [];

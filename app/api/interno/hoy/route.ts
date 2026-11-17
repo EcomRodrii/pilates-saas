@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { comprobarAdminInterno, respuestaSinAccesoInterno } from '@/lib/interno/auth';
 import { tienePermiso, type Permiso } from '@/lib/interno/permisos';
 import { leerFacturacion } from '@/lib/interno/facturacion-servidor';
+import { leerExito } from '@/lib/interno/exito/servidor';
 import { esDePago } from '@/lib/interno/salud-estudio';
 import { saludDe } from '@/lib/interno/salud-estudio-servidor';
 import { corteTurnoTentare } from '@/lib/moderacion/denuncias';
@@ -187,7 +188,16 @@ export async function GET(req: NextRequest) {
     };
   };
 
-  const [f, den, lla, app, alt, est] = await Promise.all([facturacion(), denuncias(), llamadas(), apps(), altas(), estudios()]);
+  // Customer Success reutiliza la lectura de Stripe de `facturacion()` (no se listan dos veces las suscripciones).
+  const facturacionP = facturacion();
+  const exito = async (): Promise<FuentesTareas['exito']> => {
+    if (!puede('billing.read')) return null;
+    const r = await leerExito(db, ahora, await facturacionP);
+    if (!r) { noLeidos.push('Customer Success'); return null; }
+    const urgentes = r.alertas.filter(a => a.severidad === 'alta');
+    return { n: r.alertas.length, urgentes: urgentes.length, primera: (urgentes[0] ?? r.alertas[0])?.titulo ?? '' };
+  };
+  const [f, den, lla, app, alt, est, exi] = await Promise.all([facturacionP, denuncias(), llamadas(), apps(), altas(), estudios(), exito()]);
 
   const stripeOk = f !== null && f.avisoStripe === null;
   const impagosStripe = new Set(stripeOk ? f.resultado.lineas.filter(l => l.estado === 'impago').map(l => l.id) : []);
@@ -201,6 +211,7 @@ export async function GET(req: NextRequest) {
     llamadas: lla,
     apps: app,
     altas: alt,
+    exito: exi,
     sinReservas: est
       ? est.pago.filter(p => p.salud.senales.reservas7d === 0)
         .map(p => ({ id: p.e.id, nombre: p.e.nombre ?? p.e.slug, semanaAnterior: p.semanaAnterior }))
