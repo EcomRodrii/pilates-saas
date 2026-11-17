@@ -11,7 +11,9 @@ import { NAV } from './contenido';
 // blanco) y «Entrar» + «Empezar gratis», pegada arriba y flotando sobre el héroe. Se comporta como la isla de la web actual: al
 // BAJAR se encoge a logo + botón y al SUBIR se alarga (mismo oyente que la home: `useIslaCompacta`, que pone `data-compacta`).
 // Cliente por eso, por la marca de «dónde estoy» (Inicio / Precios) y por el menú del móvil (≤ 1100 px).
-export function Cabecera() {
+// `fija` es la página interior en la que está (Producto, Soluciones, Precios): ahí no hay sección #precio que vigilar, «Precios» lleva a
+// /precios y la marca de «dónde estoy» es la de la página. Sin `fija` es la home, como siempre.
+export function Cabecera({ fija }: { fija?: 'producto' | 'soluciones' | 'precios' } = {}) {
   const [abierto, setAbierto] = useState(false);
   const [activo, setActivo] = useState<'inicio' | 'precios'>('inicio');
   const idMenu = useId();
@@ -21,12 +23,13 @@ export function Cabecera() {
   useIslaCompacta(barra);
 
   useEffect(() => {
+    if (fija) return;
     const precios = document.getElementById('precio');
     if (!precios || !('IntersectionObserver' in window)) return;
     const io = new IntersectionObserver(([e]) => setActivo(e.isIntersecting ? 'precios' : 'inicio'), { rootMargin: '-35% 0px -45% 0px' });
     io.observe(precios);
     return () => io.disconnect();
-  }, []);
+  }, [fija]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -40,7 +43,12 @@ export function Cabecera() {
     return () => { document.removeEventListener('keydown', esc); document.removeEventListener('pointerdown', fuera); };
   }, [abierto]);
 
-  const esActivo = (href: string) => (href === '#precio' ? activo === 'precios' : href === '/' ? activo === 'inicio' : false);
+  const enlaces = NAV.enlaces.map(e => (fija && e.href === '#precio' ? { ...e, href: '/precios' } : e));
+  const DE_LA_PAGINA = { producto: '/funcionalidades', soluciones: '/soluciones', precios: '/precios' } as const;
+  const esActivo = (href: string) => {
+    if (fija) return href === DE_LA_PAGINA[fija];
+    return href === '#precio' ? activo === 'precios' : href === '/' ? activo === 'inicio' : false;
+  };
 
   return (
     <header className="lf-cabecera">
@@ -52,7 +60,7 @@ export function Cabecera() {
 
         <div className="lf-col lf-col-menu">
           <nav className="lf-menu" aria-label="Principal">
-            {NAV.enlaces.map(e => (
+            {enlaces.map(e => (
               <Link key={e.texto} href={e.href} aria-current={esActivo(e.href) ? 'page' : undefined} className={esActivo(e.href) ? 'lf-menu-activo' : undefined}>{e.texto}</Link>
             ))}
           </nav>
@@ -78,7 +86,7 @@ export function Cabecera() {
 
       <div ref={panel} id={idMenu} className="lf-panel-movil" data-abierto={abierto || undefined} inert={!abierto || undefined}>
         <nav aria-label="Principal (móvil)">
-          {NAV.enlaces.map(e => (
+          {enlaces.map(e => (
             <Link key={e.texto} href={e.href} onClick={() => setAbierto(false)}>{e.texto}</Link>
           ))}
         </nav>

@@ -3,12 +3,10 @@ import Link from 'next/link';
 import { Check } from 'lucide-react';
 import { Reveal } from '@/components/landing/Reveal';
 import { PageShell } from '@/components/recursos/PageShell';
-import { IslaWeb } from '@/components/web/IslaWeb';
-import { PieWeb } from '@/components/web/PieWeb';
+import { HubShell } from '@/components/web/hub/Hub';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { SI_PASAS_CON_COMPLEMENTOS, CTA_ALTA, GRATIS_CON_LIMITES, TODO_MENOS_SEDES, TOPE_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
@@ -54,8 +52,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
     <PageShell>
       <OrganizationStructuredData />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(migasLd).replace(/</g, '\\u003c') }} />
-      <IslaWeb />
-      <div className="wh">
+      <HubShell fija="soluciones" piezas>
       {children}
       {relacionadas.length > 0 && (
         <section className="sol-banda">
@@ -72,8 +69,7 @@ export function SolucionShell({ path, children }: { path: string; children: Reac
           </div>
         </section>
       )}
-      </div>
-      <PieWeb />
+      </HubShell>
       <EstilosSolucion />
     </PageShell>
   );
@@ -111,7 +107,7 @@ export function HeroSolucion({
             <span>{miga}</span>
           </nav>
           <h1 className="sol-h1">
-            <PildoraBusqueda>{busqueda}</PildoraBusqueda>
+            <span className="sol-busqueda">{busqueda}</span>{' '}
             {titular}
           </h1>
           <p className="sol-entrada">{entrada}</p>

@@ -26,7 +26,7 @@ const VIAS = [
     n: 'Enseña su QR',
     d: 'Lo lleva en su app. Lo leéis con la cámara del mostrador y Tentare comprueba su reserva al momento.',
     pie: 'Con Kisi, la puerta la abre quien mira',
-    c: '#343825',
+    c: '#214E36',
   },
   {
     n: 'La instructora pasa lista',
@@ -38,7 +38,7 @@ const VIAS = [
     n: 'Lo marcáis a mano',
     d: 'Desde la lista de asistentes de la clase, como toda la vida.',
     pie: 'Siempre disponible',
-    c: '#5A6142',
+    c: '#3E6B52',
   },
   {
     n: 'No hacéis nada',
@@ -56,11 +56,11 @@ export function CuatroFormasDeMarcar() {
     >
       <div className="asi-vias" style={{ display: 'grid', gap: 12 }}>
         {VIAS.map((v, i) => (
-          <div key={v.n} style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 14, padding: '16px 17px', borderTop: `3px solid ${v.c}` }}>
+          <div key={v.n} style={{ background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 14, padding: '16px 17px', borderTop: `3px solid ${v.c}` }}>
             <div className="lp-mono" style={{ fontSize: 9.5, letterSpacing: '.12em', color: v.c, marginBottom: 7 }}>0{i + 1}</div>
             <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 6 }}>{v.n}</div>
             <div style={{ fontSize: 13.5, lineHeight: 1.5, color: MUTED, marginBottom: 10 }}>{v.d}</div>
-            <div className="lp-mono" style={{ fontSize: 10.5, color: '#A8A89F', lineHeight: 1.4 }}>{v.pie}</div>
+            <div className="lp-mono" style={{ fontSize: 10.5, color: '#A9BDB0', lineHeight: 1.4 }}>{v.pie}</div>
           </div>
         ))}
       </div>
@@ -104,7 +104,7 @@ export function RiesgoDePlanton() {
     { q: 'Falló 3 de 4 veces, la semana pasada', r: 'Riesgo alto', pct: 82, c: '#C2503A' },
     { q: 'Falló 3 de 40, hace tres meses', r: 'Riesgo bajo', pct: 14, c: '#4E9E7F' },
     { q: 'Falló 1 de 1, es nueva', r: 'Riesgo bajo', pct: 22, c: '#4E9E7F' },
-    { q: 'Canceló a tiempo 5 veces', r: 'No cuenta', pct: 0, c: '#8E8E86' },
+    { q: 'Canceló a tiempo 5 veces', r: 'No cuenta', pct: 0, c: '#62736A' },
   ];
   return (
     <PanelClaro
@@ -118,13 +118,13 @@ export function RiesgoDePlanton() {
               <span style={{ fontSize: 14, fontWeight: 600 }}>{c.q}</span>
               <span className="lp-mono" style={{ fontSize: 11.5, color: c.c, whiteSpace: 'nowrap' }}>{c.r}</span>
             </div>
-            <div style={{ height: 7, borderRadius: 4, background: '#F0F0EA', overflow: 'hidden' }}>
+            <div style={{ height: 7, borderRadius: 4, background: '#EAF2EE', overflow: 'hidden' }}>
               <div style={{ width: `${Math.max(c.pct, 2)}%`, height: '100%', borderRadius: 4, background: c.pct === 0 ? '#DDDDD5' : `linear-gradient(90deg, ${c.c}, ${c.c}99)` }} />
             </div>
           </div>
         ))}
       </div>
-      <div style={{ background: '#F1F2EA', border: '1px solid #E1E5D4', borderRadius: 12, padding: '13px 15px', marginTop: 16, fontSize: 13.5, lineHeight: 1.55, color: '#3E4430' }}>
+      <div style={{ background: '#E8F1EC', border: '1px solid #D3E4DA', borderRadius: 12, padding: '13px 15px', marginTop: 16, fontSize: 13.5, lineHeight: 1.55, color: '#3E4430' }}>
         La tercera fila es la que más cuesta acertar y la que más importa: <strong>una de una no es un 100 % de
         riesgo</strong>. Un sistema que lo trate así señala a media clase la primera semana y nadie vuelve a mirarlo.
       </div>

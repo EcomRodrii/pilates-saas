@@ -26,19 +26,19 @@ export function ReglasQueSeHeredan() {
         <table style={{ width: '100%', minWidth: 520, borderCollapse: 'separate', borderSpacing: 0, fontSize: 13.5 }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: 200 }}>Regla</th>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0' }}>Tu estudio</th>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#343825', background: '#F1F2EA', borderBottom: '1px solid #E1E5D4' }}>Reformer avanzado</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#62736A', borderBottom: '1px solid #DCE8E1', minWidth: 200 }}>Regla</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#62736A', borderBottom: '1px solid #DCE8E1' }}>Tu estudio</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#214E36', background: '#E8F1EC', borderBottom: '1px solid #D3E4DA' }}>Reformer avanzado</th>
             </tr>
           </thead>
           <tbody>
             {REGLAS.map((f, i) => (
               <tr key={f.r}>
-                <td style={{ padding: '11px 14px', borderBottom: i === REGLAS.length - 1 ? 'none' : '1px solid #F0F0EA', fontWeight: 600, color: '#1A1A1A' }}>{f.r}</td>
-                <td style={{ padding: '11px 14px', borderBottom: i === REGLAS.length - 1 ? 'none' : '1px solid #F0F0EA', color: MUTED }}>{f.estudio}</td>
-                <td style={{ padding: '11px 14px', borderBottom: i === REGLAS.length - 1 ? 'none' : '1px solid #E1E5D4', background: '#F8F9F2' }}>
-                  <span style={{ color: f.tipo === 'Hereda' ? '#A8A89F' : '#343825', fontWeight: f.tipo === 'Hereda' ? 400 : 700, fontStyle: f.tipo === 'Hereda' ? 'italic' : 'normal' }}>{f.tipo}</span>
-                  {f.ej && <span style={{ display: 'block', fontSize: 11.5, color: '#8E8E86', marginTop: 2 }}>{f.ej}</span>}
+                <td style={{ padding: '11px 14px', borderBottom: i === REGLAS.length - 1 ? 'none' : '1px solid #EAF2EE', fontWeight: 600, color: '#0B1A12' }}>{f.r}</td>
+                <td style={{ padding: '11px 14px', borderBottom: i === REGLAS.length - 1 ? 'none' : '1px solid #EAF2EE', color: MUTED }}>{f.estudio}</td>
+                <td style={{ padding: '11px 14px', borderBottom: i === REGLAS.length - 1 ? 'none' : '1px solid #D3E4DA', background: '#F3F8F5' }}>
+                  <span style={{ color: f.tipo === 'Hereda' ? '#A9BDB0' : '#214E36', fontWeight: f.tipo === 'Hereda' ? 400 : 700, fontStyle: f.tipo === 'Hereda' ? 'italic' : 'normal' }}>{f.tipo}</span>
+                  {f.ej && <span style={{ display: 'block', fontSize: 11.5, color: '#62736A', marginTop: 2 }}>{f.ej}</span>}
                 </td>
               </tr>
             ))}
@@ -80,7 +80,7 @@ export function CicloDeLaOferta() {
         <PasoVertical indice="1" titulo="Alguien cancela" color="#C2503A">
           Queda un hueco en una clase que estaba llena.
         </PasoVertical>
-        <PasoVertical indice="2" titulo="Se busca a la primera de la lista" color="#5A6142">
+        <PasoVertical indice="2" titulo="Se busca a la primera de la lista" color="#3E6B52">
           Por orden de apuntada. No es una rifa.
         </PasoVertical>
         <PasoVertical indice="3" titulo="Se le abre una oferta con plazo" color="#C79A2E">
@@ -89,7 +89,7 @@ export function CicloDeLaOferta() {
         <PasoVertical indice="4a" titulo="Acepta → plaza confirmada" color="#4E9E7F">
           Se le descuenta el bono en ese momento, no antes.
         </PasoVertical>
-        <PasoVertical indice="4b" titulo="No responde → pierde el sitio" color="#8E8E86" ultimo>
+        <PasoVertical indice="4b" titulo="No responde → pierde el sitio" color="#62736A" ultimo>
           Y la oferta pasa a la siguiente. Es duro a propósito: si volviera al final de la cola, la clase se quedaría vacía
           mientras la lista da vueltas.
         </PasoVertical>
@@ -103,12 +103,12 @@ export function EsperaSinPlazo() {
     <PanelOscuro titulo="Dos formas de gestionar la cola">
       <div style={{ display: 'grid', gap: 12 }}>
         <div style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.09)', borderRadius: 12, padding: '15px 16px' }}>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8B080', marginBottom: 8 }}>Por defecto</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8FB8A0', marginBottom: 8 }}>Por defecto</div>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: '#fff', marginBottom: 5 }}>Promoción instantánea</div>
           <div style={{ fontSize: 13, lineHeight: 1.5, color: 'rgba(255,255,255,.65)' }}>La plaza se confirma sola a la primera de la cola. Rápido, y nadie se queda sin cubrir el hueco.</div>
         </div>
         <div style={{ background: 'rgba(217,194,158,.1)', border: '1px solid rgba(217,194,158,.22)', borderRadius: 12, padding: '15px 16px' }}>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#D9C29E', marginBottom: 8 }}>Con plazo</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#BFDCCB', marginBottom: 8 }}>Con plazo</div>
           <div style={{ fontSize: 14.5, fontWeight: 700, color: '#fff', marginBottom: 5 }}>Oferta con tiempo para aceptar</div>
           <div style={{ fontSize: 13, lineHeight: 1.5, color: 'rgba(255,255,255,.65)' }}>Evita meter a alguien en una clase de dentro de una hora sin que se haya enterado — y que después no aparezca.</div>
         </div>

@@ -67,10 +67,10 @@ export function TablaDeReglas() {
     >
       <div style={{ display: 'grid', gap: 10 }}>
         {REGLAS.map((r) => (
-          <div key={r.n} style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 13, padding: '15px 17px' }}>
+          <div key={r.n} style={{ background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 13, padding: '15px 17px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 6 }}>
               <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em' }}>{r.n}</span>
-              <span className="lp-mono" style={{ fontSize: 10.5, color: '#5A6142', background: '#F1F2EA', padding: '3px 8px', borderRadius: 5 }}>{r.umbral}</span>
+              <span className="lp-mono" style={{ fontSize: 10.5, color: '#3E6B52', background: '#E8F1EC', padding: '3px 8px', borderRadius: 5 }}>{r.umbral}</span>
               <span
                 className="lp-mono"
                 style={{ fontSize: 10, letterSpacing: '.06em', textTransform: 'uppercase', marginLeft: 'auto', color: r.escribe ? '#3B7D64' : '#8E6B1E', background: r.escribe ? '#E7F3EC' : '#F7F0DE', padding: '3px 8px', borderRadius: 5 }}
@@ -78,7 +78,7 @@ export function TablaDeReglas() {
                 {r.escribe ? 'Escribe a la clienta' : 'Solo te avisa a ti'}
               </span>
             </div>
-            <div style={{ fontSize: 12.5, color: '#8E8E86', marginBottom: 5 }}>Se dispara cuando: {r.disparo}</div>
+            <div style={{ fontSize: 12.5, color: '#62736A', marginBottom: 5 }}>Se dispara cuando: {r.disparo}</div>
             <div style={{ fontSize: 14, lineHeight: 1.55, color: MUTED }}>{r.hace}</div>
           </div>
         ))}
@@ -111,7 +111,7 @@ export function CanalesPorEvento() {
               <span className="lp-mono" style={{ fontSize: 11, color: 'rgba(255,255,255,.5)' }}>{c.d}</span>
             </div>
             <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,.08)', overflow: 'hidden' }}>
-              <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg,#A8B080,#D9C29E)' }} />
+              <div style={{ width: `${c.pct}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg,#8FB8A0,#BFDCCB)' }} />
             </div>
           </div>
         ))}

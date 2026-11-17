@@ -31,7 +31,7 @@ export function PantallasDelPortal() {
     >
       <div className="app-rejilla" style={{ display: 'grid', gap: 10 }}>
         {PANTALLAS.map((p) => (
-          <div key={p.t} style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 12, padding: '13px 15px' }}>
+          <div key={p.t} style={{ background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 12, padding: '13px 15px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 4 }}>{p.t}</div>
             <div style={{ fontSize: 13, lineHeight: 1.45, color: MUTED }}>{p.d}</div>
           </div>
@@ -60,9 +60,9 @@ export function MockMovil() {
                 <div
                   style={{
                     width: 44, height: 44, borderRadius: 12, margin: '0 auto 5px',
-                    background: i === 0 ? 'linear-gradient(140deg,#D9C29E,#B79A6E)' : 'rgba(255,255,255,.08)',
+                    background: i === 0 ? 'linear-gradient(140deg,#BFDCCB,#B79A6E)' : 'rgba(255,255,255,.08)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 17, fontWeight: 800, color: i === 0 ? '#343825' : 'rgba(255,255,255,.2)',
+                    fontSize: 17, fontWeight: 800, color: i === 0 ? '#214E36' : 'rgba(255,255,255,.2)',
                   }}
                 >
                   {i === 0 ? 'A' : ''}
@@ -80,7 +80,7 @@ export function MockMovil() {
             ['Avisos al móvil', 'Plaza liberada, clase de mañana, bono que se acaba'],
           ].map(([t, d]) => (
             <div key={t} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
-              <span style={{ flexShrink: 0, width: 17, height: 17, borderRadius: 5, background: 'rgba(217,194,158,.16)', color: '#D9C29E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, marginTop: 2 }}>✓</span>
+              <span style={{ flexShrink: 0, width: 17, height: 17, borderRadius: 5, background: 'rgba(217,194,158,.16)', color: '#BFDCCB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, marginTop: 2 }}>✓</span>
               <div>
                 <div style={{ fontSize: 13.5, fontWeight: 700, color: '#fff' }}>{t}</div>
                 <div style={{ fontSize: 12.5, lineHeight: 1.45, color: 'rgba(255,255,255,.62)' }}>{d}</div>
@@ -112,17 +112,17 @@ export function InstalableVsNativa() {
         <table style={{ width: '100%', minWidth: 540, borderCollapse: 'separate', borderSpacing: 0, fontSize: 13.5 }}>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: 200 }} />
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 700, color: '#343825', background: '#F1F2EA', borderBottom: '1px solid #E1E5D4' }}>La de Tentare</th>
-              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 700, color: '#5A5A52', borderBottom: '1px solid #E7E7E0' }}>App de tienda</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#62736A', borderBottom: '1px solid #DCE8E1', minWidth: 200 }} />
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 700, color: '#214E36', background: '#E8F1EC', borderBottom: '1px solid #D3E4DA' }}>La de Tentare</th>
+              <th style={{ textAlign: 'left', padding: '11px 14px', fontSize: 11.5, fontWeight: 700, color: '#5A5A52', borderBottom: '1px solid #DCE8E1' }}>App de tienda</th>
             </tr>
           </thead>
           <tbody>
             {filas.map(([f, a, b], i) => (
               <tr key={f}>
-                <td style={{ padding: '11px 14px', borderBottom: i === filas.length - 1 ? 'none' : '1px solid #F0F0EA', fontWeight: 600, color: '#1A1A1A' }}>{f}</td>
-                <td style={{ padding: '11px 14px', borderBottom: i === filas.length - 1 ? 'none' : '1px solid #E1E5D4', background: '#F8F9F2', color: a.startsWith('No') ? '#C2503A' : '#3A3A34' }}>{a}</td>
-                <td style={{ padding: '11px 14px', borderBottom: i === filas.length - 1 ? 'none' : '1px solid #F0F0EA', color: MUTED }}>{b}</td>
+                <td style={{ padding: '11px 14px', borderBottom: i === filas.length - 1 ? 'none' : '1px solid #EAF2EE', fontWeight: 600, color: '#0B1A12' }}>{f}</td>
+                <td style={{ padding: '11px 14px', borderBottom: i === filas.length - 1 ? 'none' : '1px solid #D3E4DA', background: '#F3F8F5', color: a.startsWith('No') ? '#C2503A' : '#3A4A41' }}>{a}</td>
+                <td style={{ padding: '11px 14px', borderBottom: i === filas.length - 1 ? 'none' : '1px solid #EAF2EE', color: MUTED }}>{b}</td>
               </tr>
             ))}
           </tbody>

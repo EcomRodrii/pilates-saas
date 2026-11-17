@@ -64,7 +64,7 @@ export function QuienVeQue() {
     >
       <div style={{ display: 'grid', gap: 10 }}>
         {ROLES.map((r) => (
-          <div key={r.r} style={{ display: 'flex', gap: 14, background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 12, padding: '13px 15px', flexWrap: 'wrap' }}>
+          <div key={r.r} style={{ display: 'flex', gap: 14, background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 12, padding: '13px 15px', flexWrap: 'wrap' }}>
             <div style={{ minWidth: 108, fontSize: 14, fontWeight: 700 }}>{r.r}</div>
             <div style={{ flex: 1, minWidth: 200, display: 'grid', gap: 3 }}>
               {r.v.map((v) => (
@@ -95,9 +95,9 @@ export function RiesgoDeConcentracion() {
           <div key={r.n}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>{r.n}</span>
-              <span className="lp-mono" style={{ fontSize: 12, color: r.alerta ? '#C2503A' : '#8E8E86' }}>{r.pct} % de las clases</span>
+              <span className="lp-mono" style={{ fontSize: 12, color: r.alerta ? '#C2503A' : '#62736A' }}>{r.pct} % de las clases</span>
             </div>
-            <div style={{ height: 8, borderRadius: 4, background: '#F0F0EA', overflow: 'hidden' }}>
+            <div style={{ height: 8, borderRadius: 4, background: '#EAF2EE', overflow: 'hidden' }}>
               <div style={{ width: `${r.pct}%`, height: '100%', borderRadius: 4, background: r.alerta ? 'linear-gradient(90deg,#C2503A,#E0785F)' : '#C9CFB4' }} />
             </div>
           </div>

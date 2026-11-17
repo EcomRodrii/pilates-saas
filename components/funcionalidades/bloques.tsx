@@ -1,5 +1,6 @@
 import Image from 'next/image';
-import { AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { AlertTriangle, ArrowUpRight } from 'lucide-react';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { CTA_ALTA } from '@/lib/landing/founding-gratis';
@@ -76,8 +77,8 @@ export function Rejilla({ items, columnas = 2 }: { items: { titulo: string; body
   return (
     <div className={columnas === 3 ? 'feat-rej3' : 'feat-rej2'} style={{ display: 'grid', gap: 14, margin: '24px 0' }}>
       {items.map((it) => (
-        <div key={it.titulo} style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 16, padding: '17px 19px' }}>
-          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 6 }}>{it.titulo}</div>
+        <div key={it.titulo} style={{ background: 'var(--w-piedra)', borderRadius: 20, padding: '19px 21px' }}>
+          <div style={{ fontSize: 16, fontWeight: 500, letterSpacing: '-.01em', marginBottom: 6 }}>{it.titulo}</div>
           <div style={{ fontSize: 14, lineHeight: 1.55, color: 'var(--w-texto-2)' }}>{it.body}</div>
         </div>
       ))}
@@ -112,20 +113,18 @@ export function FeatureFaq({ items }: { items: { q: string; a: string }[] }) {
   );
 }
 
-/** Cierre de página. Distinto del CtaBlock de las guías: más sobrio y sin sombra. */
+/** Cierre de página: el mismo bloque verde hondo que los índices (estilos en components/web/hub/hub.css). */
 export function CierreCta({ titulo, body }: { titulo: string; body: string }) {
   return (
-    <section>
-      {/* Tinta plana: sin el degradado ni el destello de antes (fase 2.4). */}
-      <div style={{ background: 'var(--w-noche)', color: 'var(--w-sobre-noche)', borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(28px,4vw,42px)', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'relative', maxWidth: 520 }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(23px,2.8vw,31px)', lineHeight: 1.12, letterSpacing: 'var(--w-track-h2)', margin: '0 0 11px', color: 'var(--w-sobre-noche)' }}>{titulo}</h2>
-          <p style={{ fontSize: 15.5, lineHeight: 1.58, color: 'var(--w-sobre-noche-2)', margin: '0 0 22px' }}>{body}</p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-            <a href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--w-olive)', background: 'var(--w-sand)', padding: '14px 26px', borderRadius: 999, textDecoration: 'none' }}>{CTA_ALTA}</a>
-            <a href="/precios" style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-sobre-noche)', padding: '14px 6px', textDecoration: 'none' }}>Ver precios →</a>
-          </div>
-        </div>
+    <section className="lf-cta hx-cta">
+      <h2>{titulo}</h2>
+      <p>{body}</p>
+      <div className="hx-acciones">
+        <Link href="/crear-estudio" className="lf-boton lf-boton--claro">
+          <span>{CTA_ALTA}</span>
+          <span className="lf-boton-flecha" aria-hidden="true"><ArrowUpRight size={18} strokeWidth={1.8} /></span>
+        </Link>
+        <Link href="/precios" className="hx-boton-linea hx-boton-linea--oscuro">Ver precios</Link>
       </div>
     </section>
   );
