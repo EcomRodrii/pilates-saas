@@ -6,6 +6,7 @@ import { interruptoresDe } from '@/lib/estudio/interruptores';
 import { estudioNacioConAltaNueva } from '@/lib/alta/bienvenida-nueva-servidor';
 import { estadoDelAlta } from '@/lib/alta/estado-servidor';
 import { apuntarPaso } from '@/lib/alta/embudo-servidor';
+import { capturar } from '@/lib/analytics';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,7 +42,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const { estado, apuntarClaseReservable } = await estadoDelAlta(admin, studioId, new Date());
-    if (apuntarClaseReservable) after(() => apuntarPaso(admin, studioId, 'clase_reservable'));
+    if (apuntarClaseReservable) {
+      after(() => apuntarPaso(admin, studioId, 'clase_reservable'));
+      capturar(studioId, { nombre: 'clase_reservable', props: {} });
+    }
     return NextResponse.json(estado, { headers: { 'Cache-Control': 'no-store' } });
   } catch (e) {
     console.error('[alta:estado]', e instanceof Error ? e.message : 'error desconocido');

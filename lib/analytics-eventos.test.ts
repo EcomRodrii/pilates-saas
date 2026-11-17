@@ -70,3 +70,10 @@ test('primer_tipo_clase y stripe_conectado: solo lo de negocio', () => {
     { studio_id: 'studio-x', $lib: 'tentare-server' },
   );
 });
+
+test('clase_reservable: solo el estudio, sin nada de la alumna', () => {
+  assert.deepEqual(
+    construirEvento('studio-x', { nombre: 'clase_reservable', props: {} }).properties,
+    { studio_id: 'studio-x', $lib: 'tentare-server' },
+  );
+});
