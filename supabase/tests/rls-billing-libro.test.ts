@@ -14,6 +14,8 @@ import { clienteAdminLocal, crearStudioConPropietaria, limpiarFixtures, sqlLocal
 const admin = clienteAdminLocal();
 const sql = sqlLocal();
 
+test.after(async () => { await sql.end(); });
+
 const iso = (min: number) => new Date(Date.UTC(2026, 10, 16, 10, min)).toISOString();
 const factura = (id: string, studioId: string, extra: Record<string, unknown> = {}) => ({
   stripe_invoice_id: id, studio_id: studioId, customer_id: 'cus_test', subscription_id: 'sub_test', estado: 'open',
@@ -84,7 +86,7 @@ test('un incidente por factura: se abre, suma intentos, se recupera al pagarse y
     assert.equal((await admin.rpc('billing_abrir_incidente', { p: incidente() })).data, 'abierto');
     assert.equal((await admin.rpc('billing_abrir_incidente', { p: incidente({ intentos: 2, fallo_en: iso(30) }) })).data, 'abierto');
     const filas = await sql<{ estado: string; intentos: number }[]>`select estado, intentos from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
-    assert.deepEqual(filas, [{ estado: 'ABIERTO', intentos: 2 }], 'un solo incidente, con 2 intentos');
+    assert.deepEqual(filas.map((f) => ({ ...f })), [{ estado: 'ABIERTO', intentos: 2 }], 'un solo incidente, con 2 intentos');
 
     assert.equal((await admin.rpc('billing_cerrar_incidente', { p_stripe_invoice_id: id, p_en: iso(60) })).data, 'recuperado');
     // Cerrarlo otra vez, o un fallo entregado después, no lo reabre.
