@@ -15,7 +15,7 @@ const MAPA: MapaPrecios = { plan: planDePriceId, addon: addonDePriceId };
 
 const idDe = (x: string | { id: string } | null | undefined): string | null => (typeof x === 'string' ? x : x?.id ?? null);
 
-function lineasDe(sub: Pick<Stripe.Subscription, 'items'> | { items?: { data?: Stripe.SubscriptionItem[] } }): LineaPrecio[] {
+export function lineasDe(sub: Pick<Stripe.Subscription, 'items'> | { items?: { data?: Stripe.SubscriptionItem[] } }): LineaPrecio[] {
   return (sub.items?.data ?? []).map((it) => ({
     priceId: it.price?.id ?? null,
     unitAmount: it.price?.unit_amount ?? null,
@@ -26,7 +26,7 @@ function lineasDe(sub: Pick<Stripe.Subscription, 'items'> | { items?: { data?: S
 }
 
 /** Quién es el dueño de un cliente de Stripe: un estudio o una cadena (nunca los dos). */
-async function resolverDueno(admin: SupabaseClient, customerId: string | null, metadata?: Stripe.Metadata | null): Promise<Dueno> {
+export async function resolverDueno(admin: SupabaseClient, customerId: string | null, metadata?: Stripe.Metadata | null): Promise<Dueno> {
   const studioMeta = metadata?.studioId ?? null;
   const cadenaMeta = metadata?.cadenaId ?? null;
   if (cadenaMeta) return { studioId: null, cadenaId: cadenaMeta };
@@ -36,6 +36,11 @@ async function resolverDueno(admin: SupabaseClient, customerId: string | null, m
   if (estudio?.id) return { studioId: estudio.id as string, cadenaId: null };
   const { data: cadena } = await admin.from('cadenas').select('id').eq('stripe_customer_id', customerId).maybeSingle();
   return { studioId: null, cadenaId: (cadena?.id as string | undefined) ?? null };
+}
+
+/** La foto de una suscripción de Stripe tal como está ahora (para el relleno y los eventos). */
+export function fotoDeStripe(sub: Stripe.Subscription): FotoSuscripcion {
+  return fotoDeSuscripcion(lineasDe(sub), sub.status, Boolean(sub.cancel_at_period_end || sub.cancel_at), MAPA);
 }
 
 /**
