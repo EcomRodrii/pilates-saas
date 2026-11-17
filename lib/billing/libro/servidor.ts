@@ -2,7 +2,7 @@ import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { addonDePriceId, planDePriceId } from '../billing.ts';
 import {
-  eventosDeSuscripcion, filaDeFactura, filaDeIncidente, fotoDeSuscripcion, EVENTOS_DE_FACTURA,
+  devolucionDeEvento, eventosDeSuscripcion, EVENTOS_DE_DEVOLUCION, filaDeFactura, filaDeIncidente, fotoDeSuscripcion, EVENTOS_DE_FACTURA,
   type Dueno, type FotoSuscripcion, type InvoiceMinima, type LineaPrecio, type MapaPrecios,
 } from './reglas.ts';
 
@@ -163,6 +163,22 @@ async function apuntarFactura(admin: SupabaseClient, event: Stripe.Event): Promi
   return { facturaId: inv.id };
 }
 
+/** La factura de un PaymentIntent, o `null` si no es de una suscripción (un pack, un cobro de socia…). */
+export async function facturaDePaymentIntent(stripe: Stripe, paymentIntentId: string): Promise<string | null> {
+  const r = await stripe.invoicePayments.list({ payment: { type: 'payment_intent', payment_intent: paymentIntentId }, limit: 1 });
+  return idDe(r.data[0]?.invoice ?? null);
+}
+
+/** Devolución o disputa perdida de un cargo: sube `devuelto_cents` de su factura (solo si es del libro). */
+async function apuntarDevolucion(admin: SupabaseClient, stripe: Stripe, event: Stripe.Event): Promise<void> {
+  const d = devolucionDeEvento(event.type, event.data.object as Parameters<typeof devolucionDeEvento>[1]);
+  if (!d) return;
+  const facturaId = await facturaDePaymentIntent(stripe, d.paymentIntentId);
+  if (!facturaId) return; // no es de una suscripción: no es del libro
+  const { error } = await admin.rpc('billing_registrar_devolucion', { p_stripe_invoice_id: facturaId, p_devuelto_cents: d.devueltoCents });
+  if (error) throw new Error(`billing_registrar_devolucion: ${error.message}`);
+}
+
 /** Lo que el libro cuenta a quien lo llama: si este evento cerró un incidente de pago. */
 export interface ResultadoLibro {
   facturaId?: string;
@@ -176,8 +192,9 @@ const cierreDe = (r: unknown): ResultadoLibro['incidenteCerrado'] =>
  * Apunta en el libro lo que dice un evento del webhook de billing. Lanza si falla:
  * quien llama decide (el webhook lo captura, lo avisa y sigue).
  */
-export async function apuntarEnElLibro(admin: SupabaseClient, event: Stripe.Event): Promise<ResultadoLibro> {
+export async function apuntarEnElLibro(admin: SupabaseClient, event: Stripe.Event, stripe?: Stripe): Promise<ResultadoLibro> {
   if (event.type.startsWith('customer.subscription.')) { await apuntarSuscripcion(admin, event); return {}; }
   if ((EVENTOS_DE_FACTURA as readonly string[]).includes(event.type)) return apuntarFactura(admin, event);
+  if (stripe && (EVENTOS_DE_DEVOLUCION as readonly string[]).includes(event.type)) { await apuntarDevolucion(admin, stripe, event); return {}; }
   return {};
 }

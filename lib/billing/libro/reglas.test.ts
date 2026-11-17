@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  eventosDeSuscripcion, filaDeFactura, filaDeIncidente, fotoDeSuscripcion, mrrListaCents,
+  devolucionDeEvento, eventosDeSuscripcion, filaDeFactura, filaDeIncidente, fotoDeSuscripcion, mrrListaCents,
   type InvoiceMinima, type LineaPrecio, type MapaPrecios,
 } from './reglas.ts';
 
@@ -142,4 +142,24 @@ test('el incidente toma lo adeudado, al menos un intento, y la fecha del evento'
   assert.equal(f.intentos, 1);
   assert.equal(f.fallo_en, new Date(1_700_000_200 * 1000).toISOString());
   assert.equal(f.siguiente_intento, new Date(1_700_200_000 * 1000).toISOString());
+});
+
+// ── Devoluciones ────────────────────────────────────────────────────────────
+test('un reembolso trae el TOTAL devuelto del cargo (acumulado), no el de este reembolso', () => {
+  assert.deepEqual(devolucionDeEvento('charge.refunded', { amount_refunded: 2900, payment_intent: 'pi_1' }), { paymentIntentId: 'pi_1', devueltoCents: 2900 });
+  assert.deepEqual(devolucionDeEvento('charge.refunded', { amount_refunded: 500, payment_intent: { id: 'pi_2' } }), { paymentIntentId: 'pi_2', devueltoCents: 500 });
+});
+
+test('una disputa solo devuelve dinero si se PIERDE', () => {
+  const d = (status: string) => devolucionDeEvento('charge.dispute.closed', { amount: 7900, status, payment_intent: 'pi_1' });
+  assert.deepEqual(d('lost'), { paymentIntentId: 'pi_1', devueltoCents: 7900 });
+  assert.equal(d('won'), null);
+  assert.equal(d('warning_closed'), null);
+  assert.equal(devolucionDeEvento('charge.dispute.created', { amount: 7900, status: 'needs_response', payment_intent: 'pi_1' }), null, 'una disputa abierta aún no se sabe quién gana');
+});
+
+test('sin PaymentIntent, sin importe o con otro evento no hay devolución que apuntar', () => {
+  assert.equal(devolucionDeEvento('charge.refunded', { amount_refunded: 2900, payment_intent: null }), null);
+  assert.equal(devolucionDeEvento('charge.refunded', { amount_refunded: 0, payment_intent: 'pi_1' }), null);
+  assert.equal(devolucionDeEvento('invoice.paid', { amount_refunded: 2900, payment_intent: 'pi_1' }), null);
 });

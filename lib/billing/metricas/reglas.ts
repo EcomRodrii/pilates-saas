@@ -7,7 +7,7 @@
 //                      No es dinero recibido. Lo da Stripe en vivo (lib/interno/facturacion-real.ts).
 //   · FACTURADO        lo facturado con fecha de factura en el periodo (un anual cuenta UNA vez, entero,
 //                      el día que se factura: base de caja, no de devengo).
-//   · COBRADO          lo que entró de verdad, por fecha de PAGO, menos devoluciones. Bruto (con IVA) y
+//   · COBRADO          lo que entró de verdad, por fecha de PAGO, menos devoluciones y disputas perdidas. Bruto (con IVA) y
 //                      neto de IVA. NO es neto de comisiones de Stripe: el libro no las guarda.
 //   · Movimientos MRR  nuevo, ampliación, reducción y baja, con el precio de LISTA de cada cambio
 //                      (no incluye descuentos): son el «puente» entre dos MRR, no ingresos.
@@ -197,8 +197,7 @@ export function calcularMetricas(entrada: {
   // ── Pagos fallidos ──
   const abiertos = entrada.incidentes.filter((i) => i.estado === 'ABIERTO' || i.estado === 'ESCALADO');
 
-  // Las devoluciones de suscripciones aún no se apuntan en el libro (se verán en la factura de Stripe).
-  avisos.push('Devoluciones: el libro todavía no las registra, así que «cobrado» no las descuenta.');
+  avisos.push('Devoluciones y disputas perdidas: se descuentan de «cobrado» en el periodo del PAGO original, no en el de la devolución.');
   avisos.push('«Cobrado neto» es neto de IVA, no de comisiones de Stripe (el libro no las guarda).');
 
   return {

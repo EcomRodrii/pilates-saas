@@ -150,7 +150,7 @@ test('los pagos fallidos distinguen lo que sigue abierto de lo recuperado', () =
 
 test('siempre avisa de lo que las cifras NO incluyen', () => {
   const avisos = calc([]).avisos.join(' ');
-  assert.match(avisos, /Devoluciones/);
+  assert.match(avisos, /Devoluciones y disputas perdidas/);
   assert.match(avisos, /comisiones de Stripe/);
 });
 

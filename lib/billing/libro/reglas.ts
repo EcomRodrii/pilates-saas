@@ -249,3 +249,33 @@ export const EVENTOS_DE_FACTURA = [
   'invoice.voided',
   'invoice.marked_uncollectible',
 ] as const;
+
+// ── Devoluciones ────────────────────────────────────────────────────────────
+
+/** Los eventos de Stripe que devuelven dinero de un cargo de la suscripción. */
+export const EVENTOS_DE_DEVOLUCION = ['charge.refunded', 'charge.dispute.closed'] as const;
+
+/**
+ * Cuánto dinero ha vuelto, en céntimos, y por qué PaymentIntent, según un evento de devolución;
+ * `null` si el evento no devuelve nada.
+ *   · `charge.refunded`: `amount_refunded` ya es el TOTAL devuelto del cargo (acumulado), no el de este reembolso.
+ *   · `charge.dispute.closed`: solo cuenta si se PERDIÓ (`lost`): el banco se lleva todo lo disputado.
+ *     Una disputa ganada o cerrada con aviso no mueve dinero.
+ * Una disputa abierta (`created`) tampoco: aún no se sabe quién gana.
+ */
+export function devolucionDeEvento(
+  tipo: string,
+  objeto: { amount?: number | null; amount_refunded?: number | null; status?: string | null; payment_intent?: string | { id: string } | null },
+): { paymentIntentId: string; devueltoCents: number } | null {
+  const pi = typeof objeto.payment_intent === 'string' ? objeto.payment_intent : objeto.payment_intent?.id ?? null;
+  if (!pi) return null;
+  if (tipo === 'charge.refunded') {
+    const n = objeto.amount_refunded ?? 0;
+    return n > 0 ? { paymentIntentId: pi, devueltoCents: n } : null;
+  }
+  if (tipo === 'charge.dispute.closed' && objeto.status === 'lost') {
+    const n = objeto.amount ?? 0;
+    return n > 0 ? { paymentIntentId: pi, devueltoCents: n } : null;
+  }
+  return null;
+}
