@@ -208,3 +208,33 @@ test('escalar solo pasa un incidente ABIERTO a ESCALADO, una vez; el motivo se g
     await limpiarFixtures(admin, [studio]);
   }
 });
+
+// ── Devoluciones (migración 20261117114350) ──────────────────────────────────
+test('la función de devoluciones solo la ejecuta service_role', async () => {
+  const [r] = await sql<{ anon: boolean; auth: boolean; svc: boolean }[]>`
+    select has_function_privilege('anon', 'public.billing_registrar_devolucion(text, integer)', 'EXECUTE') as anon,
+           has_function_privilege('authenticated', 'public.billing_registrar_devolucion(text, integer)', 'EXECUTE') as auth,
+           has_function_privilege('service_role', 'public.billing_registrar_devolucion(text, integer)', 'EXECUTE') as svc`;
+  assert.deepEqual({ ...r }, { anon: false, auth: false, svc: true });
+});
+
+test('una devolución solo sube, nunca pasa del total de la factura, y una factura desconocida da false', async () => {
+  const studio = await crearStudioConPropietaria(admin);
+  const id = `in_${randomUUID()}`;
+  try {
+    await admin.rpc('billing_registrar_factura', { p: factura(id, studio.studioId, { estado: 'paid', pagado_cents: 7900, total_cents: 7900 }) });
+    const devolver = async (cents: number) => (await admin.rpc('billing_registrar_devolucion', { p_stripe_invoice_id: id, p_devuelto_cents: cents })).data;
+    const leer = async () => (await sql<{ d: number }[]>`select devuelto_cents as d from public.billing_facturas where stripe_invoice_id = ${id}`)[0]!.d;
+    assert.equal(await devolver(1000), true);
+    assert.equal(await leer(), 1000);
+    assert.equal(await devolver(500), true);
+    assert.equal(await leer(), 1000, 'un evento viejo (menos devuelto) no baja lo ya devuelto');
+    assert.equal(await devolver(99_999), true);
+    assert.equal(await leer(), 7900, 'nunca más que el total de la factura');
+    assert.equal((await admin.rpc('billing_registrar_devolucion', { p_stripe_invoice_id: 'in_desconocida', p_devuelto_cents: 100 })).data, false);
+    assert.ok((await admin.rpc('billing_registrar_devolucion', { p_stripe_invoice_id: id, p_devuelto_cents: -1 })).error, 'una devolución negativa se rechaza');
+  } finally {
+    await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
+    await limpiarFixtures(admin, [studio]);
+  }
+});

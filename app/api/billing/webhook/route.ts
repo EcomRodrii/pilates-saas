@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
   let libro: ResultadoLibro = {};
   let libroEscrito = true;
   try {
-    libro = await apuntarEnElLibro(admin, event);
+    libro = await apuntarEnElLibro(admin, event, stripe);
   } catch (err) {
     libroEscrito = false;
     Sentry.captureException(err, { tags: { area: 'billing', tipo: 'libro-no-escribe' }, extra: { eventId: event.id, eventType: event.type } });

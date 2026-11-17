@@ -1,7 +1,7 @@
 import type Stripe from 'stripe';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { filaDeFactura } from './reglas.ts';
-import { fotoDeStripe, invoiceMinima, resolverDueno } from './servidor.ts';
+import { facturaDePaymentIntent, fotoDeStripe, invoiceMinima, resolverDueno } from './servidor.ts';
 
 // Rellena el libro de billing con lo que YA existe en Stripe: el alta (y la cancelación, si la
 // hubo) de cada suscripción y todas las facturas de suscripciones. El webhook solo apunta lo que
@@ -26,6 +26,7 @@ export interface ResumenRelleno {
   eventos: number;
   facturas: number;
   facturasAjenas: number;
+  devoluciones: number;
   sinDueno: number;
   errores: string[];
 }
@@ -38,7 +39,7 @@ export async function rellenarLibro(
 ): Promise<ResumenRelleno> {
   const { ejecutar } = opciones;
   const ahora = opciones.ahora ?? Math.floor(Date.now() / 1000);
-  const r: ResumenRelleno = { ejecutado: ejecutar, suscripciones: 0, eventos: 0, facturas: 0, facturasAjenas: 0, sinDueno: 0, errores: [] };
+  const r: ResumenRelleno = { ejecutado: ejecutar, suscripciones: 0, eventos: 0, facturas: 0, facturasAjenas: 0, devoluciones: 0, sinDueno: 0, errores: [] };
 
   for await (const sub of stripe.subscriptions.list({ status: 'all', limit: 100 })) {
     r.suscripciones++;
@@ -74,6 +75,24 @@ export async function rellenarLibro(
     if (ejecutar) {
       const { error } = await db.rpc('billing_registrar_factura', { p: fila });
       if (error) r.errores.push(`factura ${inv.id}: ${error.message}`);
+    }
+  }
+
+  // Devoluciones ya hechas: lo devuelto por cada cargo (un cargo puede tener varios reembolsos) → su factura.
+  // Después de las facturas, para que la fila ya exista.
+  const devueltoPorPago = new Map<string, number>();
+  for await (const re of stripe.refunds.list({ limit: 100 })) {
+    const pi = idDe(re.payment_intent);
+    if (!pi || re.status !== 'succeeded') continue;
+    devueltoPorPago.set(pi, (devueltoPorPago.get(pi) ?? 0) + re.amount);
+  }
+  for (const [pi, cents] of devueltoPorPago) {
+    const facturaId = await facturaDePaymentIntent(stripe, pi);
+    if (!facturaId) continue; // un reembolso que no es de una suscripción (un pack, una socia…)
+    r.devoluciones++;
+    if (ejecutar) {
+      const { error } = await db.rpc('billing_registrar_devolucion', { p_stripe_invoice_id: facturaId, p_devuelto_cents: cents });
+      if (error) r.errores.push(`devolución de ${facturaId}: ${error.message}`);
     }
   }
   return r;
