@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { PLAN_ENTITLEMENTS, PLAN_INFO, entitlementsDe, precioMensual, type Plan } from '@/lib/billing/entitlements';
+import { MiSuscripcion } from '@/components/billing/mi-suscripcion';
 import { Complementos } from '@/components/billing/complementos';
 import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
@@ -450,6 +451,14 @@ export default function SuscripcionPage() {
               </p>
             )}
           </div>
+            {/* «Mi suscripción»: lo que paga, su tarjeta, sus facturas y lo que puede cambiar (Stripe, en vivo). */}
+            {esPropietaria && (
+              <MiSuscripcion
+                className="mt-6"
+                ocultarEstudio={Boolean(estado?.complementos?.pagaAparte)}
+                onCambio={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }}
+              />
+            )}
             {/* Los complementos de Founding, solo para quien los paga aparte. */}
             {estado?.complementos?.pagaAparte && (
               <Complementos
