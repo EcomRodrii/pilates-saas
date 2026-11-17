@@ -4563,6 +4563,12 @@ export interface RowBillingIncidentesPago {
   avisos: any;
 }
 
+export interface RowBillingVisitasPlanes {
+  studio_id: string;
+  dia: string;
+  visitas: number;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12634,6 +12640,18 @@ export type BillingIncidentesPagoUpdate = {
   avisos?: any | null;
 }
 
+export type BillingVisitasPlanesInsert = {
+  studio_id?: string | null;
+  dia?: string | null;
+  visitas?: number | null;
+}
+
+export type BillingVisitasPlanesUpdate = {
+  studio_id?: string | null;
+  dia?: string | null;
+  visitas?: number | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -14051,6 +14069,11 @@ export type Database = {
         Row: RowBillingIncidentesPago;
         Insert: BillingIncidentesPagoInsert;
         Update: BillingIncidentesPagoUpdate;
+      };
+      billing_visitas_planes: {
+        Row: RowBillingVisitasPlanes;
+        Insert: BillingVisitasPlanesInsert;
+        Update: BillingVisitasPlanesUpdate;
       };
     };
   };

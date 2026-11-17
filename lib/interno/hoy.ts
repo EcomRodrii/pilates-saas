@@ -29,6 +29,7 @@ export const TIPOS_TAREA = [
   'apps', // una app de estudio esperando a una persona
   'llamadas', // un estudio nuevo pidió que le llamen
   'altas', // altas que se quedaron a medias
+  'exito', // Customer Success: alertas de cobros, retención y oportunidades (/interno/exito)
   'sin-reservas', // un cliente de pago que ha dejado de usarlo
 ] as const;
 export type TipoTarea = (typeof TIPOS_TAREA)[number];
@@ -59,6 +60,8 @@ export interface FuentesTareas {
   apps: { estudio: string; estado: EstadoApp; sinHueco: boolean }[] | null;
   altas: { n: number; fallidas: number; masAntigua: string | null } | null;
   sinReservas: { id: string; nombre: string; semanaAnterior: number | null }[] | null;
+  /** Alertas de Customer Success (lib/interno/exito). Ausente o `null` = sin permiso o sin leer. */
+  exito?: { n: number; urgentes: number; primera: string } | null;
 }
 
 const MS_HORA = 3_600_000;
@@ -163,6 +166,16 @@ export function tareasDeHoy(f: FuentesTareas, ahora: Date): Tarea[] {
       titulo: `${n} ${plural(n, 'alta se quedó', 'altas se quedaron')} a medias esta semana`,
       porque: `Empezaron a darse de alta y no llegaron a tener su estudio${fallidas > 0 ? ` (${fallidas} porque falló al montarlo)` : ''}.${f.altas.masAntigua ? ` La más antigua, ${haceCuanto(f.altas.masAntigua, ahora)}.` : ''} A las 24 h les llega un correo solo.`,
       boton: 'Ver quiénes',
+    });
+  }
+
+  if (f.exito && f.exito.n > 0) {
+    const { n, urgentes, primera } = f.exito;
+    out.push({
+      tipo: 'exito', tono: urgentes > 0 ? 'ambar' : 'gris', n, href: '/interno/exito',
+      titulo: `${n} ${plural(n, 'alerta', 'alertas')} de Customer Success${urgentes > 0 ? ` (${urgentes} ${plural(urgentes, 'urgente', 'urgentes')})` : ''}`,
+      porque: `${primera}. Cada una trae el dato que la sostiene y qué haría una persona: no se contacta con nadie solo.`,
+      boton: 'Abrir Customer Success',
     });
   }
 

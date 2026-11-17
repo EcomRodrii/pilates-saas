@@ -159,6 +159,12 @@ export interface RevenueInterno {
 }
 /** «Revenue & Subscriptions»: cifras del libro de billing por periodo y plan, más el MRR de Stripe en vivo. */
 export const fetchRevenue = (consulta: string) => pedir<RevenueInterno>(`/revenue${consulta ? `?${consulta}` : ''}`);
+export interface AlertaExito {
+  id: string; tipo: string; familia: 'billing' | 'retencion' | 'oportunidad'; severidad: 'alta' | 'media' | 'baja';
+  estudioId: string | null; nombre: string; titulo: string; contexto: string[]; accion: string; href: string | null; eurosMes: number | null;
+}
+/** Customer Success ligado a billing: alertas internas con contexto y acción recomendada. */
+export const fetchExito = () => pedir<{ alertas: AlertaExito[]; avisos: string[] }>('/exito');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);
 

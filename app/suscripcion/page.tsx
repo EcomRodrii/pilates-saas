@@ -12,7 +12,7 @@ import { usoDelTope } from '@/lib/billing/uso-tope';
 import { useEstadosClientas } from '@/lib/clientas/use-estados-clientas';
 import { DIAS_VINO_HACE_POCO } from '@/lib/clientas/estado';
 import { TRIAL_DIAS } from '@/lib/billing/trial';
-import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, intervaloSuscripcion, type EstadoBilling } from '@/lib/api-client';
+import { estadoBilling, iniciarSuscripcion, gestionarSuscripcion, intervaloSuscripcion, registrarVisitaPlanes, type EstadoBilling } from '@/lib/api-client';
 import { AyudaDePantalla } from '@/components/ayuda/AyudaDePantalla';
 import { SelectorPlan } from '@/components/planes/selector-plan';
 import { SelectorIntervalo } from '@/components/planes/selector-intervalo';
@@ -217,6 +217,15 @@ export default function SuscripcionPage() {
     tarjetaAbierta.current = true;
     void abrirPortal('metodo_pago');
   }, [pideTarjeta, session, pagaYEsPropietaria]);
+
+  // Customer Success: la propietaria que aún no paga ha visto sus planes (una vez por visita; el servidor
+  // lo guarda como mucho una vez al día y solo si el estudio no paga). Ver /api/billing/visita-planes.
+  const visitaApuntada = useRef(false);
+  useEffect(() => {
+    if (visitaApuntada.current || !session || !estado || !estado.esPropietaria || pagaYEsPropietaria) return;
+    visitaApuntada.current = true;
+    void registrarVisitaPlanes();
+  }, [session, estado, pagaYEsPropietaria]);
 
   if (loading || !session) return null;
 

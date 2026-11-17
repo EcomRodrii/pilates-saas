@@ -29,14 +29,15 @@ test('el orden es el de lo que cuesta dejarlo: dinero y Apple primero, clientes 
     llamadas: { n: 2, masAntigua: hace(20) },
     apps: [{ estudio: 'Estudio C', estado: 'EN_PRUEBAS', sinHueco: false }],
     altas: { n: 3, fallidas: 1, masAntigua: hace(50) },
+    exito: { n: 4, urgentes: 1, primera: 'Estudio E ha programado su baja' },
     sinReservas: [{ id: 'e1', nombre: 'Estudio D', semanaAnterior: 41 }],
   }, AHORA);
   assert.deepEqual(tareas.map(t => t.tipo), [...TIPOS_TAREA]);
-  assert.deepEqual(tareas.map(t => t.tono), ['rojo', 'rojo', 'rojo', 'ambar', 'ambar', 'gris', 'gris']);
+  assert.deepEqual(tareas.map(t => t.tono), ['rojo', 'rojo', 'rojo', 'ambar', 'ambar', 'gris', 'ambar', 'gris']);
   // Cada una lleva a la pantalla donde se resuelve.
   assert.deepEqual(tareas.map(t => t.href), [
     '/interno/facturacion', '/interno/facturacion', '/interno/denuncias', '/interno/apps-estudio',
-    '/interno/llamadas', '/interno/crecimiento', '/interno/estudios/e1',
+    '/interno/llamadas', '/interno/crecimiento', '/interno/exito', '/interno/estudios/e1',
   ]);
 });
 
@@ -182,4 +183,17 @@ test('estudios que miraría: los peores primero, y los gratis solo si se acercan
   assert.equal(filas[2].uso, '139 de 150 reservas · 30 alumnas');
   assert.equal(filas[2].estado, 'Cerca del límite');
   assert.equal(filas[3].tono, 'verde');
+});
+
+test('Customer Success: una tarea con el recuento, urgente si hay alguna alta, y sin alertas no hay tarea', () => {
+  assert.deepEqual(tareasDeHoy({ ...VACIAS, exito: { n: 0, urgentes: 0, primera: '' } }, AHORA), []);
+  assert.deepEqual(tareasDeHoy({ ...VACIAS, exito: null }, AHORA), [], 'sin permiso o sin leer no es «hay algo»');
+  const [urgente] = tareasDeHoy({ ...VACIAS, exito: { n: 3, urgentes: 2, primera: 'Casa ha programado su baja' } }, AHORA);
+  assert.equal(urgente.tono, 'ambar');
+  assert.equal(urgente.n, 3);
+  assert.equal(urgente.titulo, '3 alertas de Customer Success (2 urgentes)');
+  assert.match(urgente.porque, /Casa ha programado su baja\. .*no se contacta con nadie solo/);
+  const [tranquila] = tareasDeHoy({ ...VACIAS, exito: { n: 1, urgentes: 0, primera: 'Casa lleva 14 días sin entrar' } }, AHORA);
+  assert.equal(tranquila.tono, 'gris');
+  assert.equal(tranquila.titulo, '1 alerta de Customer Success');
 });
