@@ -33,6 +33,71 @@ export function correoFalloPagoSaas(p: {
   });
 }
 
+/**
+ * Los avisos de la recuperación de impagos (lib/billing/impagos): el primero, los
+ * recordatorios, el aviso de posible restricción y el «ya está al día». Mismo marco
+ * que `correoFalloPagoSaas`, que se queda para el camino de respaldo del webhook.
+ *
+ * ⚠️ No promete fechas ni consecuencias que no estén decididas: la restricción dice
+ * «podríamos», nunca «el día X», y nada habla de borrar datos.
+ */
+export function correoImpagoSaas(p: {
+  fase: 'primero' | 'recordatorio' | 'restriccion' | 'recuperado';
+  estudioNombre: string;
+  plan: string;
+  /** Ya formateado («79 €»). */
+  importe?: string | null;
+  /** Lo que dijo el banco, en cristiano. Ausente = no se sabe. */
+  motivo?: string | null;
+  /** Ya formateado. Ausente = Stripe no da fecha de reintento. */
+  proximoIntento?: string | null;
+  /** Enlace que abre directamente el cambio de tarjeta. */
+  urlActualizar: string;
+}): string {
+  const importe = p.importe ? ` (${p.importe})` : '';
+  if (p.fase === 'recuperado') {
+    return correoTentare({
+      preheader: 'Tu suscripción está al día',
+      antetitulo: 'Tu suscripción',
+      titular: 'Tu suscripción está al día',
+      parrafos: [`Hemos podido cobrar la suscripción de ${p.estudioNombre} al plan ${p.plan}${importe}. No tienes que hacer nada más.`],
+      boton: null,
+      acento: TENTARE.dorado,
+      motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,
+    });
+  }
+  const titulares = {
+    primero: 'No hemos podido cobrar tu suscripción',
+    recordatorio: 'Tu suscripción sigue sin cobrarse',
+    restriccion: 'Tu cuenta podría restringirse si el pago no se completa',
+  } as const;
+  const parrafos = [
+    p.fase === 'primero'
+      ? `No hemos podido cobrar la suscripción de ${p.estudioNombre} al plan ${p.plan}${importe}.`
+      : `Seguimos sin poder cobrar la suscripción de ${p.estudioNombre} al plan ${p.plan}${importe}.`,
+    p.motivo ?? 'Suele pasar por una tarjeta caducada o sin fondos.',
+  ];
+  if (p.fase === 'restriccion') {
+    parrafos.push('Si el pago no se completa, podríamos tener que restringir el acceso a tu cuenta. Actualizar la tarjeta lleva un minuto y lo evita.');
+  }
+  return correoTentare({
+    preheader: `Problema con el cobro de tu plan ${p.plan}`,
+    antetitulo: 'Tu suscripción',
+    titular: titulares[p.fase],
+    parrafos,
+    agenda: p.proximoIntento
+      ? { titulo: 'Qué pasa ahora', filas: [
+          { cuando: p.proximoIntento, que: 'Stripe lo vuelve a intentar solo.' },
+          { cuando: 'Antes de esa fecha', que: 'Actualiza la tarjeta para que el cobro salga.' },
+        ] }
+      : null,
+    boton: { href: p.urlActualizar, texto: 'Actualizar la tarjeta' },
+    nota: 'También desde tu panel: Suscripción → «Facturas, tarjeta y cambio de plan».',
+    acento: TENTARE.alerta,
+    motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,
+  });
+}
+
 export function correoEstudioVencido(p: {
   fase: 'aviso_30' | 'aviso_baja' | 'aviso_final';
   /** Por qué el estudio se ha quedado sin contrato. Sin él, la prueba vencida (lo de siempre). */

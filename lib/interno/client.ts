@@ -138,6 +138,17 @@ export const fetchKpis = () => pedir<Kpis>('/kpis');
 /** «Hoy» y los contadores del menú (ver lib/interno/hoy.ts). */
 export const fetchHoy = () => pedir<import('./hoy.ts').Hoy>('/hoy');
 export const fetchFacturacion = () => pedir<Facturacion>('/facturacion');
+export interface IncidenteImpago {
+  facturaId: string; estado: string; tipo: 'estudio' | 'cadena'; id: string | null; nombre: string; plan: string | null;
+  suspendido: boolean; importeCents: number; intentos: number; motivo: string | null; siguienteIntento: string | null;
+  abiertoEn: string; diasAbierto: number; recuperadoEn: string | null; avisos: Array<{ dia: number; tipo: string; en: string }>;
+}
+export interface ImpagosSaas {
+  abiertos: IncidenteImpago[]; recientes: IncidenteImpago[];
+  politica: { dias: number[]; horaDesde: number; horaHasta: number };
+}
+/** Pagos fallidos de la suscripción de los estudios a Tentare y la política de avisos. */
+export const fetchImpagos = () => pedir<ImpagosSaas>('/impagos');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);
 

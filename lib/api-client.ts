@@ -1468,11 +1468,13 @@ export async function intervaloSuscripcion(): Promise<'mensual' | 'anual'> {
 }
 
 // Abre el portal de facturación de Stripe (cambiar plan, cancelar, ver facturas).
-export async function gestionarSuscripcion(): Promise<{ url: string } | { error: string }> {
+// Con `flujo: 'metodo_pago'` abre directamente el cambio de tarjeta (el botón de los avisos de impago).
+export async function gestionarSuscripcion(flujo?: 'metodo_pago'): Promise<{ url: string } | { error: string }> {
   try {
     const res = await fetch('/api/billing/portal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(flujo ? { flujo } : {}),
     });
     const data = await res.json();
     if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
@@ -1516,6 +1518,77 @@ export async function pasarAEstudio(): Promise<{ ok: true } | { error: string }>
     return { error: 'No se ha podido cambiar de plan. Vuelve a intentarlo.' };
   }
 }
+
+// ── «Mi suscripción» (lib/billing/mi-suscripcion) ─────────────────────────────
+
+export interface MiSuscripcionApi {
+  plan: string | null;
+  complementos: string[];
+  intervalo: 'mensual' | 'anual';
+  importePeriodoCents: number;
+  moneda: string;
+  proximaRenovacion: string | null;
+  /** Con baja programada: hasta cuándo sigue el acceso pagado. */
+  accesoHasta: string | null;
+  estado: 'al_dia' | 'prueba' | 'impago' | 'baja_programada' | 'cancelada' | 'sin_suscripcion';
+  estadoTexto: string;
+  esCadena: boolean;
+  metodoPago: { tipo: 'tarjeta' | 'sepa'; marca: string; ultimos4: string; caduca: string | null } | null;
+  acciones: { actualizarTarjeta: boolean; cambiarAAnual: boolean; pasarAEstudio: boolean; cancelar: boolean; reactivar: boolean };
+  mensajeSinCambios: string | null;
+  facturas: Array<{
+    id: string; numero: string | null; fecha: string | null; importeCents: number; estado: string; moneda: string;
+    urlFactura: string | null; urlPdf: string | null;
+  }>;
+}
+
+export interface VistaPreviaCambio {
+  cuando: 'ahora' | 'proxima_factura';
+  fecha: string | null;
+  importeCents: number;
+  lineas: Array<{ descripcion: string; importeCents: number }>;
+}
+
+async function postBilling<T>(ruta: string, cuerpo: unknown, fallo: string): Promise<T | { error: string }> {
+  try {
+    const res = await fetch(ruta, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify(cuerpo),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as T;
+  } catch {
+    return { error: fallo };
+  }
+}
+
+/** Todo lo que la propietaria ve de lo que paga, leído de Stripe. `{ error }` si no se pudo leer. */
+export async function miSuscripcion(): Promise<MiSuscripcionApi | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/mi-suscripcion', { headers: { ...(await authHeader()) } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data || typeof data !== 'object' || !('acciones' in data)) return { error: mensajeSeguro((data as { error?: string })?.error, mensajeHttp(res.status)) };
+    return { ...(data as MiSuscripcionApi), facturas: Array.isArray((data as MiSuscripcionApi).facturas) ? (data as MiSuscripcionApi).facturas : [] };
+  } catch {
+    return { error: 'No se ha podido leer tu suscripción.' };
+  }
+}
+
+/** Lo que Stripe dice que se pagaría con el cambio, ANTES de aplicarlo. No escribe nada. */
+export const vistaPreviaCambio = (cambio: 'anual' | 'estudio') =>
+  postBilling<VistaPreviaCambio>('/api/billing/vista-previa', { cambio }, 'No se ha podido calcular lo que pagarías.');
+
+/** Mensual → anual, al momento y con el crédito del tiempo no usado. */
+export const cambiarAPagoAnual = () =>
+  postBilling<{ ok: true }>('/api/billing/cambio-periodo', { a: 'anual' }, 'No se ha podido cambiar a pago anual. Vuelve a intentarlo.');
+
+/** Baja al final del periodo pagado, o quitarla. El acceso no se corta antes. */
+export const cambiarBaja = (accion: 'programar' | 'reactivar', motivo?: string) =>
+  postBilling<{ ok: true; bajaProgramada: boolean; accesoHasta: string | null }>(
+    '/api/billing/baja', { accion, ...(motivo ? { motivo } : {}) }, 'No se ha podido cambiar la baja. Vuelve a intentarlo.',
+  );
 
 // ── Importación de socias (CSV) ────────────────────────────────────────────────
 

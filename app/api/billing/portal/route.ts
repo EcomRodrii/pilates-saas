@@ -39,10 +39,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Este estudio aún no tiene suscripción' }, { status: 409 });
     }
 
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${appUrl}/suscripcion`,
-    });
+    const body = await req.json().catch(() => null) as { flujo?: unknown } | null;
+    const parametros = { customer: customerId, return_url: `${appUrl}/suscripcion` };
+    // El botón de los avisos de impago lleva derecho al cambio de tarjeta. Si el portal no tiene
+    // activado ese flujo (se configura en Stripe, no aquí), se abre el portal de siempre: la
+    // propietaria llega igual, con un clic más, en vez de un error.
+    if (body?.flujo === 'metodo_pago') {
+      try {
+        const directo = await stripe.billingPortal.sessions.create({ ...parametros, flow_data: { type: 'payment_method_update' } });
+        return NextResponse.json({ url: directo.url });
+      } catch (err) {
+        console.warn('[billing/portal] flujo metodo_pago no disponible, portal normal', (err as Error).message);
+      }
+    }
+    const portal = await stripe.billingPortal.sessions.create(parametros);
 
     return NextResponse.json({ url: portal.url });
   } catch (err) {
