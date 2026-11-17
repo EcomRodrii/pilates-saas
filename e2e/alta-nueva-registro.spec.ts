@@ -483,6 +483,14 @@ test.describe('El alta cabe entera en la ventana (sin bajar ni subir)', () => {
 });
 
 test.describe('La dirección que le toca, comprobada mientras escribe', () => {
+  // Antes de hidratar, React devuelve el campo a vacío (WebKit lo hace seguro): se escribe hasta que la
+  // vista previa deja de ser la de «sin nombre», señal de que React ya tiene el valor.
+  async function primerNombre(page: Page, texto: string) {
+    await expect(async () => {
+      await nombre(page).fill(texto);
+      await expect(page.getByTestId('direccion-prevista')).not.toHaveText('tentare.app/portal/tu-estudio', { timeout: 2_000 });
+    }).toPass({ timeout: 30_000 });
+  }
   const resp = (o: Record<string, unknown>) => ({ base: 'estudio-alba', estado: 'libre', asignada: 'estudio-alba', reservada: false, ...o });
 
   test('si la base es de otro estudio, dice cuál será la suya y la vista previa enseña ESA', async ({ page }) => {
@@ -492,7 +500,7 @@ test.describe('La dirección que le toca, comprobada mientras escribe', () => {
       return json(route, resp({ estado: 'con_numero', asignada: 'estudio-alba-2' }));
     });
     await page.goto(ALTA);
-    await nombre(page).fill('Estudio Alba');
+    await primerNombre(page, 'Estudio Alba');
     const aviso = page.getByTestId('aviso-direccion');
     await expect(aviso).toContainText('ya es de otro estudio', { timeout: 15_000 });
     await expect(aviso).toContainText('«estudio-alba-2»');
@@ -509,7 +517,7 @@ test.describe('La dirección que le toca, comprobada mientras escribe', () => {
         : resp());
     });
     await page.goto(ALTA);
-    await nombre(page).fill('Estudio Alba');
+    await primerNombre(page, 'Estudio Alba');
     await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.', { timeout: 15_000 });
     await nombre(page).fill('Login');
     await expect(page.getByTestId('aviso-direccion')).toContainText('palabra que usa la aplicación', { timeout: 15_000 });
@@ -520,7 +528,7 @@ test.describe('La dirección que le toca, comprobada mientras escribe', () => {
     let consultas = 0;
     await page.route('**/api/public/direccion-disponible**', (route) => { consultas += 1; return json(route, { error: 'x' }, 500); });
     await page.goto(ALTA);
-    await nombre(page).fill('Estudio Alba');
+    await primerNombre(page, 'Estudio Alba');
     await expect(page.getByTestId('aviso-direccion')).toContainText('Si otro estudio ya la tiene, le añadimos un número al final.', { timeout: 15_000 });
     await expect(page.getByTestId('aviso-direccion')).not.toContainText('Está libre');
     expect(consultas).toBeGreaterThan(0);
@@ -534,7 +542,7 @@ test.describe('La dirección que le toca, comprobada mientras escribe', () => {
       return json(route, resp());
     });
     await page.goto(ALTA);
-    await nombre(page).fill('Estudio Al');
+    await primerNombre(page, 'Estudio Al');
     await page.waitForTimeout(600); // la petición vieja ya salió y está retenida
     await nombre(page).fill('Estudio Alba');
     await expect(page.getByTestId('aviso-direccion')).toHaveText('Está libre.', { timeout: 15_000 });
