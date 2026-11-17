@@ -12,7 +12,7 @@ import { PanelClaro, PanelOscuro } from './comunes';
 
 const ETAPAS = [
   { t: 'Se cobra', d: 'Tarjeta, remesa SEPA o cobro de mostrador. El recibo pasa a COBRADO.', c: '#3E7C86' },
-  { t: 'Se reserva el número', d: 'Correlativo, con bloqueo por estudio: dos cobros a la vez no pueden partir la serie.', c: '#5A6142' },
+  { t: 'Se reserva el número', d: 'Correlativo, con bloqueo por estudio: dos cobros a la vez no pueden partir la serie.', c: '#3E6B52' },
   { t: 'Sale la factura', d: 'Para la clienta y para tu gestoría, sin que la emitas a mano.', c: '#4E9E7F' },
 ];
 
@@ -27,8 +27,8 @@ export function DelCobroALaFactura() {
           <div key={e.t} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <span style={{ width: 9, height: 9, borderRadius: '50%', background: e.c, flexShrink: 0 }} />
-              <span className="lp-mono" style={{ fontSize: 10, color: '#A8A89F' }}>0{i + 1}</span>
-              {i < ETAPAS.length - 1 && <span className="fac-linea" style={{ flex: 1, height: 1, background: '#E7E7E0' }} />}
+              <span className="lp-mono" style={{ fontSize: 10, color: '#A9BDB0' }}>0{i + 1}</span>
+              {i < ETAPAS.length - 1 && <span className="fac-linea" style={{ flex: 1, height: 1, background: '#DCE8E1' }} />}
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 4 }}>{e.t}</div>
@@ -60,18 +60,18 @@ export function CadenaDeHuellas() {
       <div style={{ display: 'grid', gap: 10 }}>
         {eslabones.map((e, i) => (
           <div key={e.num}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 12, padding: '13px 15px', flexWrap: 'wrap' }}>
-              <span className="lp-mono" style={{ fontSize: 12.5, fontWeight: 500, color: '#1A1A1A' }}>{e.num}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 12, padding: '13px 15px', flexWrap: 'wrap' }}>
+              <span className="lp-mono" style={{ fontSize: 12.5, fontWeight: 500, color: '#0B1A12' }}>{e.num}</span>
               <span style={{ fontSize: 12.5, color: MUTED }}>Huella</span>
-              <span className="lp-mono" style={{ fontSize: 12.5, color: '#343825', background: '#F1F2EA', padding: '3px 9px', borderRadius: 6 }}>{e.hash}</span>
+              <span className="lp-mono" style={{ fontSize: 12.5, color: '#214E36', background: '#E8F1EC', padding: '3px 9px', borderRadius: 6 }}>{e.hash}</span>
               {i > 0 && (
-                <span className="lp-mono" style={{ fontSize: 11, color: '#8E8E86', marginLeft: 'auto' }}>
+                <span className="lp-mono" style={{ fontSize: 11, color: '#62736A', marginLeft: 'auto' }}>
                   incluye {eslabones[i - 1].hash}
                 </span>
               )}
             </div>
             {i < eslabones.length - 1 && (
-              <div style={{ height: 14, marginLeft: 22, borderLeft: '2px solid #E1E5D4' }} />
+              <div style={{ height: 14, marginLeft: 22, borderLeft: '2px solid #D3E4DA' }} />
             )}
           </div>
         ))}
@@ -90,7 +90,7 @@ export function LoQueLlevaLaFactura() {
           ['Datos del emisor', 'NIF validado antes de sellar'],
         ].map(([t, d]) => (
           <div key={t} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, background: 'rgba(217,194,158,.16)', color: '#D9C29E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, marginTop: 2 }}>✓</span>
+            <span style={{ flexShrink: 0, width: 18, height: 18, borderRadius: 5, background: 'rgba(217,194,158,.16)', color: '#BFDCCB', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, marginTop: 2 }}>✓</span>
             <div>
               <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{t}</div>
               <div style={{ fontSize: 13, lineHeight: 1.45, color: 'rgba(255,255,255,.62)' }}>{d}</div>

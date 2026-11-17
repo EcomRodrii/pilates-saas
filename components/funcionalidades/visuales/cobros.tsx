@@ -28,7 +28,7 @@ export function CadenciaDeReintentos() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, width: 62 }}>
               <span className="lp-mono" style={{ fontSize: 11, color: COLOR[p.estado], fontWeight: 500, whiteSpace: 'nowrap' }}>{p.d}</span>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: COLOR[p.estado], marginTop: 6 }} />
-              {i < PASOS.length - 1 && <span style={{ flex: 1, width: 2, minHeight: 16, background: '#E7E7E0', marginTop: 2 }} />}
+              {i < PASOS.length - 1 && <span style={{ flex: 1, width: 2, minHeight: 16, background: '#DCE8E1', marginTop: 2 }} />}
             </div>
             <div style={{ paddingBottom: i < PASOS.length - 1 ? 20 : 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '-.01em', marginBottom: 3 }}>{p.t}</div>
@@ -56,7 +56,7 @@ export function ViasDeCobro() {
           <div key={v.t} style={{ background: 'rgba(255,255,255,.04)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, padding: '13px 15px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 4 }}>{v.t}</div>
             <div style={{ fontSize: 13, lineHeight: 1.45, color: 'rgba(255,255,255,.62)', marginBottom: 6 }}>{v.d}</div>
-            <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8B080' }}>{v.pie}</div>
+            <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8FB8A0' }}>{v.pie}</div>
           </div>
         ))}
       </div>

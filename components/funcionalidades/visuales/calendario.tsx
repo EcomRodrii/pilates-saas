@@ -19,7 +19,7 @@ export function RejillaDeSala() {
     >
       <div style={{ display: 'flex', gap: 'clamp(18px,3vw,34px)', flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8A89F', marginBottom: 11 }}>Sala Reformer · 10 puestos</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A9BDB0', marginBottom: 11 }}>Sala Reformer · 10 puestos</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 8 }}>
             {PUESTOS.map((p) => (
               <div
@@ -27,9 +27,9 @@ export function RejillaDeSala() {
                 title={p.averiado ? `Reformer ${p.n} — fuera de servicio` : `Reformer ${p.n}`}
                 style={{
                   width: 46, height: 34, borderRadius: 8,
-                  background: p.averiado ? '#FBF0ED' : '#F1F2EA',
-                  border: `1px solid ${p.averiado ? '#E8C9C0' : '#DDE0CC'}`,
-                  color: p.averiado ? '#C2503A' : '#5A6142',
+                  background: p.averiado ? '#FBF0ED' : '#E8F1EC',
+                  border: `1px solid ${p.averiado ? '#E8C9C0' : '#CFE0D6'}`,
+                  color: p.averiado ? '#C2503A' : '#3E6B52',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 600,
                 }}
@@ -39,17 +39,17 @@ export function RejillaDeSala() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12, color: MUTED, flexWrap: 'wrap' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#F1F2EA', border: '1px solid #DDE0CC' }} />Disponible</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#E8F1EC', border: '1px solid #CFE0D6' }} />Disponible</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: '#FBF0ED', border: '1px solid #E8C9C0' }} />Averiado</span>
           </div>
         </div>
 
-        <div style={{ background: '#0F0F0F', borderRadius: 14, padding: '18px 20px', color: '#E8E8E4', minWidth: 210 }}>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#A8B080', marginBottom: 12 }}>Martes 19:00</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#A6A69E', marginBottom: 6 }}><span>Aforo de la sala</span><span style={{ color: '#fff' }}>10</span></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#A6A69E', marginBottom: 10 }}><span>Fuera de servicio</span><span style={{ color: '#E0785F' }}>−1</span></div>
+        <div style={{ background: '#0A2014', borderRadius: 14, padding: '18px 20px', color: '#E1EBE6', minWidth: 210 }}>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8FB8A0', marginBottom: 12 }}>Martes 19:00</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#A9BDB0', marginBottom: 6 }}><span>Aforo de la sala</span><span style={{ color: '#fff' }}>10</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13.5, color: '#A9BDB0', marginBottom: 10 }}><span>Fuera de servicio</span><span style={{ color: '#E0785F' }}>−1</span></div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <span style={{ fontSize: 13.5, color: '#A6A69E' }}>Plazas reales</span>
+            <span style={{ fontSize: 13.5, color: '#A9BDB0' }}>Plazas reales</span>
             <span style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: '-.03em' }}>9</span>
           </div>
         </div>

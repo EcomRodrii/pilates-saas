@@ -1,27 +1,27 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Check, CircleHelp, CircleDollarSign, Layers, Percent, Store } from 'lucide-react';
 import { FOTOS, rutaFoto } from '@/components/landing/fotos';
-import { PageShell } from '@/components/recursos/PageShell';
-import { IslaWeb } from '@/components/web/IslaWeb';
-import { PieWeb } from '@/components/web/PieWeb';
-import { CtaBlock } from '@/components/recursos/ArticlePrimitives';
-import { CTA_ALTA, GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
-import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
-import { ArticleFaq } from '@/components/recursos/ArticleFaq';
+import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
+import { CierreHub, Etiqueta, FaqHub, HeroHub, HubShell } from '@/components/web/hub/Hub';
+import { EscenaCambio, EscenaPilates } from '@/components/web/hub/fragmentos';
+import { GRATIS_CON_LIMITES, LIMITES_GRATIS } from '@/lib/landing/founding-gratis';
 import { paginaDe, relacionadasDe, urlDe } from '@/lib/seo/paginas';
 import { FAQ_SOLUCIONES } from '@/lib/seo/faq-hubs';
 
-// Índice de /soluciones (fase 5 del rediseño, 23-sep). Hasta entonces la URL
-// daba 404 aunque colgaran de ella tres páginas: un hueco en las migas de pan y
-// en el árbol que Google recorre. Las tarjetas salen del registro
-// (`relacionadas` de esta página en lib/seo/paginas.ts), no de una lista aquí.
+// Índice de /soluciones (fase 5 del rediseño, 23-sep). Hasta entonces la URL daba 404 aunque colgaran de ella tres páginas: un hueco
+// en las migas de pan y en el árbol que Google recorre. Las tarjetas salen del registro (`relacionadas` de esta página en
+// lib/seo/paginas.ts), no de una lista aquí.
 //
-// 7-oct-2026: la primera tarjeta es el estudio de Pilates, que vive en la home
-// (es la página de «software para estudios de Pilates»: no se duplica aquí), y
-// cada tarjeta lleva la foto de su tipo de estudio cuando la hay.
+// 7-oct-2026: la primera tarjeta es el estudio de Pilates, que vive en la home (es la página de «software para estudios de Pilates»: no
+// se duplica aquí), y cada tarjeta lleva la foto de su tipo de estudio cuando la hay.
+// 16-nov-2026: al idioma de la home nueva (components/web/hub/Hub.tsx). Cada tarjeta dice PARA QUIÉN es («Si tienes…») con tres cosas
+// concretas de esa solución, y la que no tiene foto (cambiarse de programa) enseña lo que se revisa antes de tocar nada.
+//
+// ⚠️ Las frases de «Si…» y las pastillas salen de lo que ya dicen las páginas de cada solución y el registro; no añaden funciones. Y la
+// sección «Lo que no cambia» repite solo lo que ya consta en /precios (sin comisión de Tentare, el mismo precio público) y en las
+// páginas de solución (es la misma plataforma para yoga y Pilates).
 
 const PATH = '/soluciones';
 const pagina = paginaDe(PATH)!;
@@ -42,96 +42,109 @@ const FOTO: Record<string, { src: string; alt: string; pos?: string }> = {
   '/funcionalidades/multi-centro': { src: '/landing/fotos/sala-pilates-reformers-madera-cierre-768.webp', alt: 'Sala de un estudio de Pilates con una fila de reformers de madera clara' },
 };
 
+/** Para quién es cada una y qué trae de concreto. */
+const PARA: Record<string, { si: string; trae: string[] }> = {
+  '/soluciones/programa-de-gestion-para-estudio-de-pilates': { si: 'Quieres un solo programa para reservas, bonos, cobros, facturas y equipo.', trae: ['Calendario con salas', 'Cobro con tarjeta o SEPA', 'Facturas'] },
+  '/soluciones/estudio-de-pilates-reformer': { si: 'Tus reformers son las plazas y cada una se reserva por separado.', trae: ['Aforo por sala', 'Plazas fijas', 'Lista de espera'] },
+  '/soluciones/estudio-de-yoga': { si: 'Das yoga, solo o junto al Pilates, y vendes clase suelta, bono y mensualidad.', trae: ['Cada estilo, un tipo de clase', 'Talleres con precio propio', 'Mensualidades'] },
+  '/soluciones/abrir-un-estudio': { si: 'Estás montando tu estudio y quieres empezar con todo listo.', trae: ['Tu horario', 'Tu página de reservas', 'Tu app'] },
+  '/funcionalidades/multi-centro': { si: 'Tienes dos o más centros y no quieres mezclar sus datos.', trae: ['Un solo acceso', 'Datos separados', 'Instructoras en varios centros'] },
+  '/soluciones/cambiar-de-software': { si: 'Vienes de otro programa y no quieres perder tus datos.', trae: ['Clientas y bonos', 'Reservas y pagos', 'Reversible con un clic'] },
+};
+
+const IGUAL = [
+  { titulo: 'El mismo producto', texto: 'Reservas, bonos, cobros, app y equipo son los mismos en todos los tipos de estudio. Cambia cómo los configuras: tus clases, tus bonos y tus reglas.' },
+  { titulo: 'El mismo precio público', texto: `Empiezas gratis, con ${LIMITES_GRATIS}, y los planes de pago están en `, enlace: { href: '/precios', texto: 'Precios' }, cola: '. Sin permanencia.' },
+  { titulo: 'Sin comisión sobre tus cobros', texto: 'Tentare no añade ninguna comisión a lo que cobras a tus alumnas. Solo pagas la de Stripe por procesar cada pago.' },
+] as const;
+
 export default function SolucionesPage() {
   const soluciones = relacionadasDe(PATH);
   return (
-    <PageShell>
+    <HubShell fija="soluciones">
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Soluciones" />
-      <IslaWeb />
 
-      <header style={{ padding: 'clamp(44px,6vw,80px) clamp(20px,4vw,44px) clamp(28px,4vw,44px)' }}>
-        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 600, fontSize: 'clamp(38px,5.4vw,64px)', lineHeight: 1.04, letterSpacing: 'var(--w-track-display)', margin: '0 0 18px', maxWidth: '18ch', color: 'var(--w-texto)' }}>
-            <PildoraBusqueda>Software para cada tipo de estudio</PildoraBusqueda>
-            Tentare, según tu estudio.
-          </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', maxWidth: 640, margin: 0 }}>
-            El mismo producto y el mismo precio público, contado desde lo que más le importa a cada estudio: un estudio de
-            Pilates, uno de reformer, uno de yoga, varias sedes o quien viene de otro programa.
-          </p>
-        </div>
-      </header>
+      <HeroHub
+        etiqueta={<Etiqueta icono={<Store size={16} strokeWidth={1.6} />}>Soluciones</Etiqueta>}
+        categoria="Software para cada tipo de estudio"
+        titulo={<>Tentare, según tu estudio.</>}
+        texto="Es el mismo producto y el mismo precio para todos. Lo que cambia es por dónde empezar: un estudio de Pilates, uno de reformer, uno de yoga, varias sedes o venir de otro programa."
+      />
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,80px)' }}>
-        <div className="solh-grid">
-          <Link href="/" className="solh-card solh-card-ancha">
-            <span className="solh-eyebrow">La más buscada</span>
-            <span className="solh-nombre">Estudio de Pilates</span>
-            <span className="solh-resumen">Reservas y lista de espera, app con tu marca, bonos, cuotas y cobros automáticos: todo lo que necesita un estudio de Pilates, en un solo programa.</span>
-            <span className="solh-ir">Software para estudios de Pilates <ArrowRight size={15} aria-hidden /></span>
-          </Link>
-          {soluciones.map((s) => {
+      <div className="hx-sol">
+        <section className="hx-sol-destacada" aria-labelledby="hx-sol-pilates-t">
+          <div className="hx-area-texto">
+            <Etiqueta oscuro icono={<Layers size={15} strokeWidth={1.6} />}>La más buscada</Etiqueta>
+            <h2 id="hx-sol-pilates-t">Estudio de Pilates</h2>
+            <p>Reservas y lista de espera, app con tu marca, bonos, cuotas y cobros automáticos: todo lo que necesita un estudio de Pilates, en un solo programa.</p>
+            <Link href="/" className="lf-boton lf-boton--claro">
+              <span>Software para estudios de Pilates</span>
+              <span className="lf-boton-flecha" aria-hidden="true"><ArrowRight size={18} strokeWidth={1.8} /></span>
+            </Link>
+          </div>
+          <div className="hx-area-escena"><EscenaPilates /></div>
+        </section>
+
+        <div className="hx-sol-malla">
+          {soluciones.map(s => {
             const f = FOTO[s.path];
+            const para = PARA[s.path];
             return (
-              <Link key={s.path} href={s.path} className={f ? 'solh-card solh-card-foto' : 'solh-card'}>
-                {f && (
-                  <span className="solh-foto">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
+              <Link key={s.path} href={s.path} className="hx-sol-card">
+                <div className="hx-sol-visual">
+                  {f ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={f.src} alt={f.alt} loading="lazy" decoding="async" style={{ objectPosition: f.pos ?? 'center' }} />
-                  </span>
-                )}
-                <span className="solh-cuerpo">
-                  <span className="solh-nombre">{s.etiqueta}</span>
-                  <span className="solh-resumen">{s.resumen ?? s.descripcion}</span>
-                  <span className="solh-ir">Ver la solución <ArrowRight size={15} aria-hidden /></span>
-                </span>
+                  ) : (
+                    <EscenaCambio />
+                  )}
+                </div>
+                <div className="hx-sol-cuerpo">
+                  <h3>{s.etiqueta}</h3>
+                  <p>{para?.si ?? s.resumen ?? s.descripcion}</p>
+                  {para && <ul className="lf-chips">{para.trae.map(t => <li key={t}>{t}</li>)}</ul>}
+                  <span className="hx-sol-ir">Ver la solución <ArrowRight size={16} strokeWidth={1.8} aria-hidden /></span>
+                </div>
               </Link>
             );
           })}
         </div>
-      </section>
+      </div>
 
-      {/* Las preguntas del índice (Ronda 1, 19-oct-2026): las cuatro soluciones tienen
-          las suyas; esta es la de quien aún no sabe cuál es la suya. Marcado y texto,
-          del mismo array. */}
-      <section aria-labelledby="solh-faq-h" style={{ padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,80px)' }}>
-        <div style={{ maxWidth: 780, margin: '0 auto' }}>
-          <FaqStructuredData items={FAQ_SOLUCIONES} />
-          <h2 id="solh-faq-h" style={{ fontWeight: 600, fontSize: 'clamp(24px,3vw,32px)', letterSpacing: 'var(--w-track-h2)', lineHeight: 1.12, margin: 0, color: 'var(--w-texto)' }}>Preguntas frecuentes</h2>
-          <ArticleFaq items={FAQ_SOLUCIONES} />
+      <section className="hx-igual" aria-labelledby="hx-igual-t">
+        <div className="hx-igual-izq">
+          <Etiqueta icono={<CircleDollarSign size={15} strokeWidth={1.6} />}>Lo que no cambia</Etiqueta>
+          <h2 id="hx-igual-t">Elijas la que elijas, esto es igual.</h2>
+          <p>No hay una versión «para yoga» ni otra «para reformer»: hay una plataforma, y estas son las tres cosas que no dependen de tu tipo de estudio.</p>
         </div>
+        <ul>
+          {IGUAL.map(i => (
+            <li key={i.titulo}>
+              <span className="hx-igual-check" aria-hidden="true">{i.titulo.includes('comisión') ? <Percent size={16} strokeWidth={1.8} /> : <Check size={16} strokeWidth={2} />}</span>
+              <div>
+                <h3>{i.titulo}</h3>
+                <p>
+                  {i.texto}
+                  {'enlace' in i && <><Link href={i.enlace.href}>{i.enlace.texto}</Link>{i.cola}</>}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
 
-      <section style={{ padding: '0 clamp(20px,4vw,44px) clamp(64px,8vw,110px)' }}>
-        <div style={{ maxWidth: 640, margin: '0 auto' }}>
-          <CtaBlock title="Pruébalo con tu estudio de verdad." body={`${GRATIS_CON_LIMITES}, sin tarjeta y sin permanencia.`} cta={CTA_ALTA} />
-        </div>
-      </section>
+      {/* Las preguntas del índice (Ronda 1, 19-oct-2026): las soluciones tienen las suyas; esta es la de quien aún no sabe cuál es la suya. Marcado y texto, del mismo array. */}
+      <FaqHub
+        id="preguntas"
+        icono={<CircleHelp size={15} strokeWidth={1.6} />}
+        etiqueta="Preguntas"
+        titulo="Antes de elegir tu caso."
+        texto="Si no sabes cuál es el tuyo, casi seguro es una de estas."
+        items={FAQ_SOLUCIONES}
+      />
 
-      <PieWeb />
-
-      <style>{`
-        .solh-grid { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
-        .solh-card { display: flex; flex-direction: column; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: var(--w-r-tarjeta); overflow: hidden;
-          text-decoration: none; transition: transform var(--motion-normal) var(--motion-ease), box-shadow var(--motion-normal) var(--motion-ease); }
-        .solh-card:hover { transform: translateY(-4px); box-shadow: var(--w-sombra-suave); }
-        .solh-card-ancha { grid-column: 1 / -1; padding: clamp(26px,3.6vw,40px); background: var(--w-noche); border-color: var(--w-noche); }
-        .solh-card-ancha .solh-nombre { color: var(--w-sobre-noche); font-size: clamp(24px,2.8vw,32px); }
-        .solh-card-ancha .solh-resumen { color: var(--w-sobre-noche-2); max-width: 60ch; font-size: 16px; }
-        .solh-card-ancha .solh-ir { color: var(--w-sand); }
-        .solh-eyebrow { font-size: 14px; font-weight: 600; color: var(--w-sand); margin-bottom: 10px; }
-        .solh-foto { display: block; aspect-ratio: 16 / 9; overflow: hidden; background: var(--w-sand-claro); }
-        .solh-foto img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .6s var(--motion-ease); }
-        .solh-card:hover .solh-foto img { transform: scale(1.03); }
-        .solh-cuerpo { display: flex; flex-direction: column; padding: 22px 24px 24px; flex: 1; }
-        .solh-card:not(.solh-card-foto):not(.solh-card-ancha) { padding: 22px 24px 24px; }
-        .solh-nombre { display: block; font-size: 20px; font-weight: 600; letter-spacing: var(--w-track-h3); color: var(--w-texto); margin-bottom: 8px; }
-        .solh-resumen { display: block; font-size: 14.5px; line-height: 1.55; color: var(--w-texto-2); margin-bottom: 16px; }
-        .solh-ir { margin-top: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 14.5px; font-weight: 600; color: var(--w-olive); }
-        @media (max-width: 760px) { .solh-grid { grid-template-columns: minmax(0,1fr); } }
-        @media (prefers-reduced-motion: reduce) { .solh-card, .solh-foto img { transition: none; } }
-      `}</style>
-    </PageShell>
+      <CierreHub titulo="Pruébalo con tu estudio de verdad." texto={`${GRATIS_CON_LIMITES}, sin tarjeta y sin permanencia.`} />
+    </HubShell>
   );
 }

@@ -15,8 +15,10 @@ import { test, expect, type Page } from '@playwright/test';
 
 test.setTimeout(240_000);
 
+// ⚠️ La isla con paneles (nav.v5-nav) es la de las interiores que aún no pasaron a la cabecera de la home. Las funcionalidades y las
+// soluciones (índices e hijas) ya la llevan: las cubre e2e/hubs-producto-y-soluciones.spec.ts.
 const PAGINAS = [
-  { nombre: 'interior', path: '/funcionalidades/reservas-online' },
+  { nombre: 'interior', path: '/precios' },
   { nombre: 'legal', path: '/privacidad' },
   { nombre: 'artículo', path: '/recursos/cuanto-cuesta-abrir-un-estudio-de-pilates' },
 ];
@@ -70,7 +72,7 @@ for (const p of PAGINAS) {
 
 test('el menú «Producto» se abre y se cierra con el teclado, y cuelga del ancho de la isla', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await abrir(page, '/funcionalidades/reservas-online');
+  await abrir(page, '/precios');
   const boton = isla(page).getByRole('button', { name: 'Producto' });
   const panel = isla(page).getByRole('region', { name: 'Producto' });
   // CONTROL: cerrado de entrada.

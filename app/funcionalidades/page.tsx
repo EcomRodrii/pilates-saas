@@ -1,16 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight } from 'lucide-react';
-import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
-import { PageShell } from '@/components/recursos/PageShell';
-import { IslaWeb } from '@/components/web/IslaWeb';
-import { PieWeb } from '@/components/web/PieWeb';
-import { PageBreadcrumb, FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
-import { ArticleFaq } from '@/components/recursos/ArticleFaq';
+import { CalendarDays, CircleDollarSign, CircleHelp, Compass, LayoutGrid, Smartphone, Users } from 'lucide-react';
+import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
+import { AreaHub, CierreHub, Etiqueta, FaqHub, HeroHub, HubShell, type FilaFuncion } from '@/components/web/hub/Hub';
+import { EscenaCobros, EscenaEquipo, EscenaInformes, EscenaAlumnas, EscenaReservas } from '@/components/web/hub/fragmentos';
+import { GRATIS_CON_LIMITES } from '@/lib/landing/founding-gratis';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
 import { FAQ_FUNCIONALIDADES } from '@/lib/seo/faq-hubs';
-import { CTA_ALTA } from '@/lib/landing/founding-gratis';
 
 const PATH = '/funcionalidades';
 const pagina = paginaDe(PATH)!;
@@ -22,142 +19,140 @@ export const metadata: Metadata = {
   openGraph: { siteName: 'Tentare', type: 'website', locale: 'es_ES', title: pagina.titulo, description: pagina.descripcion, url: urlDe(PATH), images: [{ url: '/funcionalidades/opengraph-image' }] },
 };
 
-// Agrupación editorial del hub. Los `path` salen del registro, así que una
-// página nueva no puede quedarse fuera sin que el test de cobertura lo cante —
-// pero SÍ hay que meterla en uno de estos bloques a mano, que es la decisión
-// que no se puede automatizar: dónde encaja conceptualmente.
-const BLOQUES: { titulo: string; lead: string; paths: string[] }[] = [
+// «Producto» en el menú. Rediseñada el 16-nov-2026 al idioma de la home nueva (ver components/web/hub/Hub.tsx): cada área enseña el
+// MOMENTO del producto que demuestra su promesa (components/web/hub/fragmentos.tsx, datos de muestra) y sus funciones como filas con lo
+// que hacen. Las frases de cada función salen del registro (`resumen`), la misma fuente que el menú, el pie y el sitemap.
+//
+// Agrupación editorial: los `path` salen del registro, así que una página nueva no puede quedarse fuera sin que el test de cobertura lo
+// cante, pero SÍ hay que meterla en uno de estos bloques a mano (dónde encaja conceptualmente no se puede automatizar). Si alguna no
+// estuviera en ningún bloque, se pinta igualmente al final en vez de desaparecer del hub sin avisar.
+//
+// ⚠️ Los textos de cada área solo dicen lo que ya consta en las páginas de función (reglas por tipo de clase, plazo para aceptar la plaza,
+// reintentos, factura por cobro salvo efectivo, ficha de salud solo para quien debe verla, margen por clase…). Los fragmentos son de
+// muestra y nada de esto promete la sustitución «sola»: en el modo de serie espera tu visto bueno.
+interface Bloque {
+  id: string;
+  icono: React.ReactNode;
+  etiqueta: string;
+  titulo: string;
+  texto: string;
+  paths: string[];
+  escena: React.ReactNode;
+}
+
+const BLOQUES: Bloque[] = [
   {
-    titulo: 'Que las clases se llenen',
-    lead: 'Lo que tus alumnas tocan, y las reglas con las que lo tocan.',
+    id: 'reservas',
+    icono: <CalendarDays size={15} strokeWidth={1.6} />,
+    etiqueta: 'Reservas y horario',
+    titulo: 'Que las clases se llenen.',
+    texto: 'Tus alumnas reservan solas desde el móvil y tú pones las reglas, clase por clase: antelación, cancelación, lista de espera y plazas fijas.',
     paths: ['/funcionalidades/reservas-online', '/funcionalidades/lista-de-espera', '/funcionalidades/plazas-fijas', '/funcionalidades/calendario-y-salas', '/funcionalidades/clases-recurrentes', '/funcionalidades/cancelaciones-y-politicas', '/funcionalidades/control-de-asistencia'],
+    escena: <EscenaReservas />,
   },
   {
-    titulo: 'Que el equipo funcione sin ti',
-    lead: 'Quién puede dar qué, y qué pasa el día que alguien no puede.',
+    id: 'equipo',
+    icono: <Users size={15} strokeWidth={1.6} />,
+    etiqueta: 'Equipo',
+    titulo: 'Que el equipo funcione sin ti.',
+    texto: 'Quién puede dar qué, cuánto cuesta cada hora y qué pasa el día que una instructora no puede dar su clase.',
     paths: ['/funcionalidades/gestion-de-instructoras', '/funcionalidades/sustituciones'],
+    escena: <EscenaEquipo />,
   },
   {
-    titulo: 'Que el dinero entre y cuadre',
-    lead: 'Lo que vendes, cómo se cobra y cómo se justifica ante Hacienda.',
+    id: 'dinero',
+    icono: <CircleDollarSign size={15} strokeWidth={1.6} />,
+    etiqueta: 'Cobros y facturas',
+    titulo: 'Que el dinero entre y cuadre.',
+    texto: 'Bonos, cuotas y cobros con tarjeta o remesa SEPA, y una factura numerada por cada cobro que llega a tu gestoría sin que la emitas a mano.',
     paths: ['/funcionalidades/bonos-y-membresias', '/funcionalidades/cobros-recurrentes', '/funcionalidades/facturacion'],
+    escena: <EscenaCobros />,
   },
   {
-    titulo: 'Que nadie se te escape',
-    lead: 'Lo que sabes de cada alumna, lo que ella ve, y lo que el sistema hace con ambas cosas.',
+    id: 'alumnas',
+    icono: <Smartphone size={15} strokeWidth={1.6} />,
+    etiqueta: 'Alumnas y app',
+    titulo: 'Que nadie se te escape.',
+    texto: 'Cada alumna con su historial, su ficha de salud y su app con tu nombre; y avisos que salen solos cuando algo pide atención.',
     paths: ['/funcionalidades/ficha-de-clienta', '/funcionalidades/app-para-alumnas', '/funcionalidades/automatizaciones-y-avisos'],
+    escena: <EscenaAlumnas />,
   },
   {
-    titulo: 'Que las decisiones no sean a ojo',
-    lead: 'Los números con los que se decide qué franja mover y qué precio tocar.',
+    id: 'decisiones',
+    icono: <LayoutGrid size={15} strokeWidth={1.6} />,
+    etiqueta: 'Informes y sedes',
+    titulo: 'Que las decisiones no sean a ojo.',
+    texto: 'Ingresos, ocupación y margen de cada clase para decidir qué franja mover y qué precio tocar, y varias sedes con un solo acceso.',
     paths: ['/funcionalidades/informes-y-rentabilidad', '/funcionalidades/multi-centro'],
+    escena: <EscenaInformes />,
   },
 ];
 
-// Salvaguarda de coherencia: si algún día una funcionalidad del registro no
-// estuviera en ningún bloque, se pinta igualmente al final en vez de
-// desaparecer del hub sin avisar (una página huérfana no se ve, y por eso es el
-// fallo más fácil de no detectar).
-const enBloques = new Set(BLOQUES.flatMap((b) => b.paths));
-const SUELTAS = funcionalidades().filter((f) => !enBloques.has(f.path));
+const INDICE = [...BLOQUES.map(b => ({ href: `#${b.id}`, texto: b.etiqueta })), { href: '#preguntas', texto: 'Preguntas' }];
 
+const enBloques = new Set(BLOQUES.flatMap(b => b.paths));
+const SUELTAS = funcionalidades().filter(f => !enBloques.has(f.path));
+
+function filasDe(paths: string[]): FilaFuncion[] {
+  return paths.flatMap(p => {
+    const f = paginaDe(p);
+    return f ? [{ href: p, nombre: f.etiqueta, resumen: f.resumen ?? f.descripcion }] : [];
+  });
+}
+
+// El número de funciones sale del registro: escrito a mano decía «diez» y se quedó desfasado en cuanto entraron dos páginas más.
 export default function FuncionalidadesPage() {
   return (
-    <PageShell>
+    <HubShell fija="producto">
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Funcionalidades" />
-      <IslaWeb />
 
-      <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(28px,4vw,44px)' }}>
-        <div style={{ position: 'relative', maxWidth: 780, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 600, fontSize: 'clamp(34px,5.2vw,58px)', lineHeight: 1.02, letterSpacing: 'var(--w-track-h1)', margin: '0 0 20px' }}>
-            <PildoraBusqueda>Funcionalidades del software para estudios de Pilates</PildoraBusqueda>
-            Todo lo que hace Tentare,<br />sin adjetivos.
-          </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', maxWidth: 600, margin: 0 }}>
-            {/* El número sale del registro. Escrito a mano decía «diez» y se
-                quedó desfasado en cuanto entraron dos páginas más. */}
-            {funcionalidades().length} áreas, explicadas por lo que resuelven en un estudio de Pilates de verdad — con sus
-            reglas, sus umbrales y también sus límites.
-          </p>
-        </div>
-      </header>
+      <HeroHub
+        etiqueta={<Etiqueta icono={<Compass size={16} strokeWidth={1.6} />}>Producto</Etiqueta>}
+        categoria="Funcionalidades del software para estudios de Pilates"
+        titulo={<>Todo lo que hace Tentare, sin adjetivos.</>}
+        texto={<>{funcionalidades().length} funciones en cinco áreas, explicadas por lo que resuelven en un estudio de Pilates de verdad, con sus reglas, sus umbrales y también sus límites.</>}
+        indice={INDICE}
+      />
 
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 clamp(20px,4vw,44px) clamp(48px,6vw,72px)' }}>
-        {BLOQUES.map((bloque) => (
-          <section key={bloque.titulo} style={{ marginBottom: 'clamp(38px,5vw,58px)' }}>
-            <div style={{ marginBottom: 18 }}>
-              <h2 style={{ fontWeight: 600, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: 'var(--w-track-h2)', lineHeight: 1.15, margin: '0 0 6px' }}>{bloque.titulo}</h2>
-              <p style={{ fontSize: 15.5, lineHeight: 1.5, color: 'var(--w-texto-2)', margin: 0 }}>{bloque.lead}</p>
-            </div>
-            <div className="fun-grid">
-              {bloque.paths.map((p) => {
-                const f = paginaDe(p);
-                if (!f) return null;
-                return (
-                  <Link key={p} href={p} className="fun-card" style={{ display: 'flex', flexDirection: 'column', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '22px 23px', textDecoration: 'none', color: 'inherit' }}>
-                    <h3 style={{ fontSize: 17.5, fontWeight: 600, letterSpacing: '-.02em', lineHeight: 1.2, margin: '0 0 8px' }}>{f.etiqueta}</h3>
-                    <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--w-texto-2)', margin: '0 0 16px', flex: 1 }}>{f.resumen}</p>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14, fontWeight: 600, color: 'var(--w-olive)' }}>
-                      Ver cómo funciona
-                      <ArrowRight size={15} />
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
+      <div className="hx-areas">
+        {BLOQUES.map((b, i) => (
+          <AreaHub key={b.id} id={b.id} icono={b.icono} etiqueta={b.etiqueta} titulo={b.titulo} texto={b.texto} filas={filasDe(b.paths)} escena={b.escena} inversa={i % 2 === 1} />
         ))}
-
         {SUELTAS.length > 0 && (
-          <section style={{ marginBottom: 'clamp(38px,5vw,58px)' }}>
-            <h2 style={{ fontWeight: 600, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: 'var(--w-track-h2)', margin: '0 0 18px' }}>Más funcionalidades</h2>
-            <div className="fun-grid">
-              {SUELTAS.map((f) => (
-                <Link key={f.path} href={f.path} className="fun-card" style={{ display: 'block', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '22px 23px', textDecoration: 'none', color: 'inherit' }}>
-                  <h3 style={{ fontSize: 17.5, fontWeight: 600, letterSpacing: '-.02em', margin: '0 0 8px' }}>{f.etiqueta}</h3>
-                  <p style={{ fontSize: 14.5, lineHeight: 1.55, color: 'var(--w-texto-2)', margin: 0 }}>{f.resumen}</p>
-                </Link>
-              ))}
-            </div>
-          </section>
+          <AreaHub id="mas" icono={<LayoutGrid size={15} strokeWidth={1.6} />} etiqueta="Más funciones" titulo="Y también esto." texto="Lo que no encaja en ninguna de las áreas de arriba." filas={filasDe(SUELTAS.map(f => f.path))} escena={<EscenaReservas />} />
         )}
-
-        {/* Las preguntas del índice (Ronda 1, 19-oct-2026): las 17 áreas tienen la suya;
-            esta es la de quien aún no sabe en cuál mirar. Marcado y texto, del mismo array. */}
-        <section aria-labelledby="fun-faq-h" style={{ maxWidth: 780, marginBottom: 'clamp(38px,5vw,58px)' }}>
-          <FaqStructuredData items={FAQ_FUNCIONALIDADES} />
-          <h2 id="fun-faq-h" style={{ fontWeight: 600, fontSize: 'clamp(21px,2.4vw,27px)', letterSpacing: 'var(--w-track-h2)', lineHeight: 1.15, margin: '0 0 6px' }}>Preguntas frecuentes</h2>
-          <ArticleFaq items={FAQ_FUNCIONALIDADES} />
-        </section>
-
-        <section style={{ background: 'var(--w-noche)', color: 'var(--w-sobre-noche)', borderRadius: 'var(--w-r-tarjeta)', padding: 'clamp(28px,4.5vw,48px)', position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'relative', display: 'flex', gap: 'clamp(20px,4vw,48px)', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ maxWidth: 470 }}>
-              <h2 style={{ fontWeight: 600, fontSize: 'clamp(23px,2.8vw,32px)', lineHeight: 1.12, letterSpacing: 'var(--w-track-h2)', margin: '0 0 11px', color: 'var(--w-sobre-noche)' }}>Y lo que todavía no hacemos</h2>
-              <p style={{ fontSize: 15.5, lineHeight: 1.58, color: 'var(--w-sobre-noche-2)', margin: 0 }}>
-                No hay app nativa en las tiendas —tus alumnas usan un portal web instalable—, ni herramienta de campañas de
-                email marketing, ni pantalla de kiosko para fichar en tablet. Está en la{' '}
-                <Link href="/comparativa" style={{ color: 'var(--w-sand)' }}>comparativa</Link>, sin rodeos.
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Link href="/precios" className="hover:brightness-110" style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--w-olive)', background: 'var(--w-sand)', padding: '14px 26px', borderRadius: 999 }}>Ver precios</Link>
-              <Link href="/crear-estudio" style={{ fontSize: 15.5, fontWeight: 600, color: '#fff', background: 'rgba(255,255,255,.08)', border: '1px solid rgba(255,255,255,.16)', padding: '14px 26px', borderRadius: 999 }}>{CTA_ALTA}</Link>
-            </div>
-          </div>
-        </section>
       </div>
 
-      <PieWeb />
+      {/* Lo que Tentare todavía no hace, dicho en el propio índice (la comparativa lo detalla). El texto es el que ya estaba publicado. */}
+      <section className="hx-limites" aria-labelledby="hx-limites-t">
+        <div className="hx-limites-in">
+          <div>
+            <Etiqueta icono={<CircleHelp size={15} strokeWidth={1.6} />}>Con franqueza</Etiqueta>
+            <h2 id="hx-limites-t">Y lo que todavía no hacemos</h2>
+            <p>
+              No hay app nativa en las tiendas —tus alumnas usan un portal web instalable—, ni herramienta de campañas de email marketing, ni
+              pantalla de kiosko para fichar en tablet. Está en la <Link href="/comparativa">comparativa</Link>, sin rodeos.
+            </p>
+          </div>
+          <ul className="hx-limites-chips" aria-label="Lo que todavía no hay">
+            <li>App nativa en las tiendas</li>
+            <li>Campañas de email marketing</li>
+            <li>Kiosko para fichar en tablet</li>
+          </ul>
+        </div>
+      </section>
 
-      <style>{`
-        .fun-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 18px; }
-        .fun-card { transition: transform .26s cubic-bezier(.2,.7,0,1), box-shadow .26s; }
-        .fun-card:hover { transform: translateY(-5px); box-shadow: 0 36px 66px -38px rgba(26,26,26,.32); }
-        @media (max-width: 900px) { .fun-grid { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 600px) { .fun-grid { grid-template-columns: 1fr; } }
-      `}</style>
-    </PageShell>
+      <FaqHub
+        id="preguntas"
+        icono={<CircleHelp size={15} strokeWidth={1.6} />}
+        etiqueta="Preguntas"
+        titulo="Lo que se pregunta antes de empezar."
+        texto="Si no sabes en qué área mirar, empieza por aquí."
+        items={FAQ_FUNCIONALIDADES}
+      />
+
+      <CierreHub titulo="Pruébalo con tu estudio de verdad." texto={`${GRATIS_CON_LIMITES}, sin tarjeta y sin permanencia.`} />
+    </HubShell>
   );
 }

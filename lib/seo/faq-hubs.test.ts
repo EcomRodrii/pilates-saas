@@ -87,7 +87,11 @@ for (const hub of HUBS) {
 export function usaUnSoloArray(fuente: string, constante: string): boolean {
   const marcado = [...fuente.matchAll(/<FaqStructuredData items=\{(\w+)\}/g)].map((m) => m[1]);
   const visible = [...fuente.matchAll(/<ArticleFaq items=\{(\w+)\}/g)].map((m) => m[1]);
-  return marcado.length === 1 && visible.length === 1 && marcado[0] === constante && visible[0] === constante;
+  if (marcado.length === 1 && visible.length === 1 && marcado[0] === constante && visible[0] === constante) return true;
+  // Los índices en el idioma de la home nueva (nov-2026) montan las dos cosas con UN componente, <FaqHub> (components/web/hub/Hub.tsx),
+  // que pinta el JSON-LD y los <details> del mismo `items`: basta con que la página le pase el array una sola vez, y nada más.
+  const hub = [...fuente.matchAll(/<FaqHub\b[\s\S]*?\bitems=\{(\w+)\}/g)].map((m) => m[1]);
+  return hub.length === 1 && hub[0] === constante && marcado.length === 0 && visible.length === 0;
 }
 
 for (const hub of HUBS) {
@@ -109,7 +113,7 @@ function paginasDeDetalle(arbol: 'funcionalidades' | 'soluciones'): string[] {
 
 /** ¿El fichero monta el marcado FAQPage (directamente o por los componentes que lo llevan)? */
 export function llevaFaqPage(fuente: string): boolean {
-  return /<FeatureFaq items=\{/.test(fuente) || /<FaqSolucion /.test(fuente) || /<FaqStructuredData items=\{/.test(fuente);
+  return /<FeatureFaq items=\{/.test(fuente) || /<FaqSolucion /.test(fuente) || /<FaqStructuredData items=\{/.test(fuente) || /<FaqHub\b/.test(fuente);
 }
 
 test('los dos índices y las 22 páginas de detalle llevan marcado FAQPage', () => {
@@ -151,6 +155,11 @@ test('CONTROL: el validador y los detectores cazan lo que deben', () => {
   assert.equal(usaUnSoloArray('<FaqStructuredData items={A} /><ArticleFaq items={B} />', 'A'), false);
   assert.equal(usaUnSoloArray('<FaqStructuredData items={A} />', 'A'), false);
   assert.equal(usaUnSoloArray('<FaqStructuredData items={A} /><ArticleFaq items={A} />', 'A'), true);
+  // <FaqHub> pinta el marcado y la lista con el mismo `items`: vale una vez, con el array correcto y sin mezclarlo con los sueltos.
+  assert.equal(usaUnSoloArray('<FaqHub\n id="p"\n icono={<X />}\n items={A}\n/>', 'A'), true);
+  assert.equal(usaUnSoloArray('<FaqHub items={B} />', 'A'), false);
+  assert.equal(usaUnSoloArray('<FaqHub items={A} /><FaqHub items={A} />', 'A'), false);
+  assert.equal(usaUnSoloArray('<FaqHub items={A} /><ArticleFaq items={A} />', 'A'), false);
   // Una página sin FAQ se detecta.
   assert.equal(llevaFaqPage('export default function P() { return <main /> }'), false);
   assert.equal(llevaFaqPage('<FeatureFaq items={FAQ} />'), true);

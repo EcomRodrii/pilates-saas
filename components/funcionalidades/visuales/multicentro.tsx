@@ -30,9 +30,9 @@ export function SelectorDeSede() {
               borderRadius: 12, padding: '13px 15px',
             }}
           >
-            <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: s.activa ? '#D9C29E' : 'rgba(255,255,255,.18)' }} />
+            <span style={{ flexShrink: 0, width: 8, height: 8, borderRadius: '50%', background: s.activa ? '#BFDCCB' : 'rgba(255,255,255,.18)' }} />
             <span style={{ fontSize: 14.5, fontWeight: 700, color: '#fff' }}>{s.n}</span>
-            <span style={{ fontWeight: 600, fontSize: 11.5, color: s.activa ? '#D9C29E' : 'rgba(255,255,255,.42)', marginLeft: 'auto' }}>{s.rol}</span>
+            <span style={{ fontWeight: 600, fontSize: 11.5, color: s.activa ? '#BFDCCB' : 'rgba(255,255,255,.42)', marginLeft: 'auto' }}>{s.rol}</span>
           </div>
         ))}
       </div>
@@ -64,7 +64,7 @@ export function QueSeCompartYQueNo() {
           <thead>
             <tr>
               {['', 'Alcance', ''].map((c, i) => (
-                <th key={i} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#8E8E86', borderBottom: '1px solid #E7E7E0', minWidth: i === 0 ? 190 : 120 }}>{c}</th>
+                <th key={i} style={{ textAlign: 'left', padding: '11px 14px', fontSize: 12.5, fontWeight: 600, color: '#62736A', borderBottom: '1px solid #DCE8E1', minWidth: i === 0 ? 190 : 120 }}>{c}</th>
               ))}
             </tr>
           </thead>
@@ -73,11 +73,11 @@ export function QueSeCompartYQueNo() {
               const cadena = a === 'Por cadena';
               return (
                 <tr key={f}>
-                  <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #F0F0EA', fontWeight: 600, color: '#1A1A1A' }}>{f}</td>
-                  <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #F0F0EA' }}>
-                    <span style={{ fontWeight: 600, fontSize: 11.5, color: cadena ? '#3E7C86' : '#5A6142', background: cadena ? '#EDF3F4' : '#F1F2EA', padding: '4px 9px', borderRadius: 6, whiteSpace: 'nowrap' }}>{a}</span>
+                  <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #EAF2EE', fontWeight: 600, color: '#0B1A12' }}>{f}</td>
+                  <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #EAF2EE' }}>
+                    <span style={{ fontWeight: 600, fontSize: 11.5, color: cadena ? '#3E7C86' : '#3E6B52', background: cadena ? '#EDF3F4' : '#E8F1EC', padding: '4px 9px', borderRadius: 6, whiteSpace: 'nowrap' }}>{a}</span>
                   </td>
-                  <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #F0F0EA', color: MUTED, lineHeight: 1.45 }}>{d}</td>
+                  <td style={{ padding: '12px 14px', borderBottom: i === FILAS.length - 1 ? 'none' : '1px solid #EAF2EE', color: MUTED, lineHeight: 1.45 }}>{d}</td>
                 </tr>
               );
             })}
@@ -96,13 +96,13 @@ export function InstructoraEnDosSedes() {
     >
       <div className="mc-dos" style={{ display: 'grid', gap: 14 }}>
         {[
-          { sede: 'Gràcia', rol: 'Gerencia', tarifa: '38 €/h', dispo: 'Lunes a viernes, mañanas', c: '#343825' },
+          { sede: 'Gràcia', rol: 'Gerencia', tarifa: '38 €/h', dispo: 'Lunes a viernes, mañanas', c: '#214E36' },
           { sede: 'Sant Cugat', rol: 'Instructora', tarifa: '32 €/h', dispo: 'Martes y jueves, tardes', c: '#3E7C86' },
         ].map((s) => (
-          <div key={s.sede} style={{ background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 14, padding: '17px 18px', borderTop: `3px solid ${s.c}` }}>
+          <div key={s.sede} style={{ background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 14, padding: '17px 18px', borderTop: `3px solid ${s.c}` }}>
             <div style={{ fontSize: 15.5, fontWeight: 800, letterSpacing: '-.02em', marginBottom: 12 }}>{s.sede}</div>
             {[['Rol', s.rol], ['Tarifa', s.tarifa], ['Disponibilidad', s.dispo]].map(([k, v]) => (
-              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13.5, padding: '5px 0', borderTop: '1px solid #EDEDE5' }}>
+              <div key={k} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13.5, padding: '5px 0', borderTop: '1px solid #E3EEE8' }}>
                 <span style={{ color: MUTED }}>{k}</span>
                 <span style={{ fontWeight: 600, textAlign: 'right' }}>{v}</span>
               </div>

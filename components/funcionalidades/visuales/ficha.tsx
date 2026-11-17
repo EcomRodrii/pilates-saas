@@ -49,25 +49,25 @@ export function CondicionesYZonas() {
     >
       <div style={{ display: 'grid', gap: 18 }}>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 10 }}>Ocho zonas</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#62736A', marginBottom: 10 }}>Ocho zonas</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {ZONAS.map((z) => (
-              <span key={z} style={{ fontSize: 13, color: '#3A3A34', background: '#F1F2EA', border: '1px solid #E1E5D4', padding: '6px 12px', borderRadius: 8 }}>{z}</span>
+              <span key={z} style={{ fontSize: 13, color: '#3A4A41', background: '#E8F1EC', border: '1px solid #D3E4DA', padding: '6px 12px', borderRadius: 8 }}>{z}</span>
             ))}
           </div>
         </div>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 10 }}>Seis categorías</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#62736A', marginBottom: 10 }}>Seis categorías</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
             {CATEGORIAS.map((c) => (
-              <span key={c} style={{ fontSize: 13, color: '#3A3A34', background: '#FAFAF6', border: '1px solid #EDEDE5', padding: '6px 12px', borderRadius: 8 }}>{c}</span>
+              <span key={c} style={{ fontSize: 13, color: '#3A4A41', background: '#F4F9F6', border: '1px solid #E3EEE8', padding: '6px 12px', borderRadius: 8 }}>{c}</span>
             ))}
           </div>
         </div>
         <div>
-          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#8E8E86', marginBottom: 10 }}>Cómo respondió a la última sesión</div>
+          <div style={{ fontWeight: 600, fontSize: 11.5, color: '#62736A', marginBottom: 10 }}>Cómo respondió a la última sesión</div>
           <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-            {[['Mejor', '#4E9E7F'], ['Igual', '#8E8E86'], ['Molestias', '#C79A2E'], ['Dolor', '#C2503A']].map(([c, col]) => (
+            {[['Mejor', '#4E9E7F'], ['Igual', '#62736A'], ['Molestias', '#C79A2E'], ['Dolor', '#C2503A']].map(([c, col]) => (
               <span key={c} style={{ fontSize: 13, color: col as string, background: '#fff', border: `1px solid ${col}33`, padding: '6px 12px', borderRadius: 8, fontWeight: 600 }}>{c}</span>
             ))}
           </div>
@@ -79,8 +79,8 @@ export function CondicionesYZonas() {
 
 export function LineaDeVida() {
   const hitos = [
-    { t: 'Alta', d: 'Marzo · vino por una recomendación', c: '#5A6142' },
-    { t: 'Primera clase', d: 'Reformer iniciación, con Marta', c: '#5A6142' },
+    { t: 'Alta', d: 'Marzo · vino por una recomendación', c: '#3E6B52' },
+    { t: 'Primera clase', d: 'Reformer iniciación, con Marta', c: '#3E6B52' },
     { t: 'Bono 10', d: 'Comprado en abril · quedan 3 sesiones', c: '#3E7C86' },
     { t: 'Molestia lumbar', d: 'Junio · adaptaciones activas, semáforo ámbar', c: '#C79A2E' },
     { t: 'Tres semanas sin venir', d: 'La regla de ausencia ya le ha escrito', c: '#C2503A' },
@@ -95,7 +95,7 @@ export function LineaDeVida() {
           <div key={h.t} style={{ display: 'flex', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: h.c, marginTop: 5 }} />
-              {i < hitos.length - 1 && <span style={{ flex: 1, width: 2, minHeight: 14, background: '#E7E7E0', marginTop: 3 }} />}
+              {i < hitos.length - 1 && <span style={{ flex: 1, width: 2, minHeight: 14, background: '#DCE8E1', marginTop: 3 }} />}
             </div>
             <div style={{ paddingBottom: i < hitos.length - 1 ? 16 : 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 700, letterSpacing: '-.01em' }}>{h.t}</div>

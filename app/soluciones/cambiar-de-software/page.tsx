@@ -4,8 +4,7 @@ import { ArrowRight, CalendarCheck, CalendarClock, Check, FileText, LayoutGrid, 
 import { Reveal } from '@/components/landing/Reveal';
 import { FOTOS, rutaFoto } from '@/components/landing/fotos';
 import { PageShell } from '@/components/recursos/PageShell';
-import { IslaWeb } from '@/components/web/IslaWeb';
-import { PieWeb } from '@/components/web/PieWeb';
+import { HubShell } from '@/components/web/hub/Hub';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData, PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
@@ -174,7 +173,7 @@ export default function CambiarDeSoftwarePage() {
       <OrganizationStructuredData />
       <FaqStructuredData items={FAQ} />
       <PageBreadcrumb path={PATH} name="Cambiarte de software" />
-      <IslaWeb />
+      <HubShell fija="soluciones">
 
       <header className="cs-heroe">
         <div className="cs-ancho cs-heroe-rejilla">
@@ -327,7 +326,7 @@ export default function CambiarDeSoftwarePage() {
         </section>
       )}
 
-      <PieWeb />
+      </HubShell>
 
       <style>{`
         .cs-ancho { max-width: 1180px; margin: 0 auto; padding: 0 var(--w-margen); }
@@ -344,12 +343,12 @@ export default function CambiarDeSoftwarePage() {
         .cs-entrada strong { color: var(--w-texto); }
         .cs-lead { margin-bottom: 34px; }
 
-        .cs-heroe { padding: clamp(40px,6vw,80px) 0 clamp(32px,4vw,48px); background: linear-gradient(180deg, var(--w-cream), #EFEBE2); }
+        .cs-heroe { padding: clamp(112px,12vw,148px) 0 clamp(32px,4vw,48px); background: linear-gradient(180deg, #e3efe8, var(--w-cream) 90%); }
         .cs-heroe-rejilla { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(0,1fr); gap: clamp(28px,5vw,72px); align-items: center; }
         .cs-acciones { display: flex; flex-wrap: wrap; gap: 12px; margin: 30px 0 22px; }
-        .cs-boton { display: inline-flex; align-items: center; gap: 8px; min-height: 50px; padding: 0 24px; border-radius: 999px; font-size: 15.5px;
-          font-weight: 600; text-decoration: none; transition: background .2s, border-color .2s; }
-        .cs-boton-oscuro { background: var(--w-olive); color: var(--w-sand); }
+        .cs-boton { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 24px; border-radius: 999px; font-size: 15px;
+          font-weight: 500; text-decoration: none; transition: background .2s, border-color .2s; }
+        .cs-boton-oscuro { background: var(--w-olive); color: #fff; }
         .cs-boton-oscuro:hover { background: var(--w-olive-hondo); }
         .cs-boton-borde { border: 1.5px solid var(--w-linea-fuerte); color: var(--w-texto); background: transparent; }
         .cs-boton-borde:hover { border-color: var(--w-texto); }
@@ -371,7 +370,7 @@ export default function CambiarDeSoftwarePage() {
         .cs-cal-dia { font-size: 10px; color: var(--w-texto-3); padding-bottom: 4px; border-bottom: 1px solid var(--w-linea); }
         .cs-cal-clase { display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; min-height: 44px; border-radius: 8px; font-size: 9.5px; color: var(--w-texto-2); }
         .cs-cal-clase b { font-size: 10.5px; color: var(--w-texto); font-weight: 600; }
-        .cs-tono-a { background: #E6EDDD; } .cs-tono-b { background: #E9E3F1; } .cs-tono-c { background: #F4E6DC; }
+        .cs-tono-a { background: #E3EEE8; } .cs-tono-b { background: #E9E3F1; } .cs-tono-c { background: #F4E6DC; }
         .cs-base { height: 14px; margin: 0 -26px; border-radius: 0 0 22px 22px; background: linear-gradient(180deg, #C9C6BE, #A9A69E); }
         .cs-ficha { position: absolute; background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 16px; box-shadow: var(--w-sombra-suave); }
         .cs-ficha-importa { top: 0; left: 26%; width: 240px; padding: 16px 18px; }
@@ -381,7 +380,7 @@ export default function CambiarDeSoftwarePage() {
         .cs-barra-pista span { display: block; height: 100%; border-radius: 999px; background: var(--w-olive); }
         .cs-ficha ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 12px; color: var(--w-texto-2); }
         .cs-ficha li { display: flex; align-items: center; gap: 7px; }
-        .cs-ficha li svg { flex-shrink: 0; width: 16px; height: 16px; padding: 2px; border-radius: 999px; background: #E6EDDD; color: var(--w-olive); }
+        .cs-ficha li svg { flex-shrink: 0; width: 16px; height: 16px; padding: 2px; border-radius: 999px; background: #E3EEE8; color: var(--w-olive); }
         .cs-pendiente span { width: 16px; height: 16px; border-radius: 999px; border: 1.5px solid var(--w-linea-fuerte); }
         .cs-ficha-segura { right: -6px; bottom: 10px; display: flex; gap: 12px; align-items: center; max-width: 250px; padding: 14px 16px; font-size: 12px; color: var(--w-texto-2); }
         .cs-ficha-segura b, .cs-foto-ficha b { display: block; font-size: 13.5px; color: var(--w-texto); margin-bottom: 2px; }
@@ -406,7 +405,7 @@ export default function CambiarDeSoftwarePage() {
           background: var(--w-papel); border: 1px solid var(--w-linea); border-radius: 18px; box-shadow: var(--w-sombra-suave); font-size: 13px; color: var(--w-texto-2); }
 
         .cs-panel { display: grid; grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); gap: clamp(28px,5vw,64px); align-items: center;
-          padding: clamp(28px,4vw,48px); border-radius: 28px; background: #EFEBE2; }
+          padding: clamp(28px,4vw,48px); border-radius: 28px; background: #EDF3F0; }
         .cs-panel p { margin: 0 0 26px; font-size: 16px; line-height: 1.6; color: var(--w-texto-2); max-width: 560px; }
         .cs-acta { padding: 18px; border-radius: 18px; background: var(--w-papel); border: 1px solid var(--w-linea); box-shadow: var(--w-sombra-suave); }
         .cs-acta-cab { display: flex; align-items: center; gap: 12px; padding: 4px 4px 14px; border-bottom: 1px solid var(--w-linea); font-size: 12px; color: var(--w-texto-3); }

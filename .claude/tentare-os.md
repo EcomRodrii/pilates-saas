@@ -1497,6 +1497,19 @@ cambio que toque **código**. Y al comprobar un despliegue, mirar que el build
 corrió de verdad, no solo que el check está en verde — es el mismo error de
 categoría que ya documenta [[deploy-atascado-rate-limit-vercel]].
 
+## Los índices «Producto» y «Soluciones» (16-nov-2026)
+
+`/funcionalidades` y `/soluciones` van en el idioma de la home nueva, no con la isla antigua: `components/web/hub/` (`HubShell`, `HeroHub`,
+`AreaHub`, `FaqHub`, `CierreHub`) sobre `figma.css`, y la cabecera de la home con `<Cabecera fija="producto" | "soluciones" />` (marca dónde estás
+y «Precios» lleva a `/precios`, no al ancla `#precio`). Cada área enseña un fragmento de producto dibujado (`fragmentos.tsx`, datos de MUESTRA,
+siempre `aria-hidden` dentro de un `<figure>` con su descripción) y sus funciones como filas; las frases de cada función salen del registro
+(`resumen`), no de aquí.
+- ⚠️ Las páginas HIJAS (las 17 funcionalidades y las soluciones) siguen con `IslaWeb`: el salto de cabecera entre índice e hija es conocido y se
+  cierra al migrarlas, no antes.
+- `<FaqHub items={…}>` pinta el JSON-LD y los `<details>` del MISMO array; la guarda de `lib/seo/faq-hubs.test.ts` lo acepta (una vez y sin mezclar con
+  `FaqStructuredData`/`ArticleFaq` sueltos). Su `<summary class="afaq-q"><span>` es lo que cruza `e2e/landing-ronda-1.spec.ts`.
+- ⚠️ `--lf-suave` está declarado dos veces en `figma.css` y la segunda (la curva) gana: un gris de texto va con su propio nombre (`--hx-suave`).
+
 ## La visita guiada por capítulos (7-oct-2026)
 
 Estudio NUEVO + propietaria = visita obligatoria por 10 capítulos (`lib/tour/`,

@@ -34,27 +34,27 @@ export function ComoSeCalculaElMargen() {
     >
       <div style={{ display: 'grid', gap: 9, marginBottom: 18 }}>
         {ASISTENTES.map((a) => (
-          <div key={a.n} style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap', background: '#FAFAF6', border: '1px solid #EDEDE5', borderRadius: 11, padding: '11px 14px' }}>
+          <div key={a.n} style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap', background: '#F4F9F6', border: '1px solid #E3EEE8', borderRadius: 11, padding: '11px 14px' }}>
             <span style={{ fontSize: 14, fontWeight: 700, minWidth: 52 }}>{a.n}</span>
             <span style={{ fontSize: 13, color: MUTED, flex: 1, minWidth: 190 }}>{a.plan}</span>
-            <span className="lp-mono" style={{ fontSize: 11.5, color: '#8E8E86' }}>{a.regla}</span>
-            <span className="lp-mono" style={{ fontSize: 13, fontWeight: 500, color: '#343825', minWidth: 62, textAlign: 'right' }}>{eur(a.imputado)}</span>
+            <span className="lp-mono" style={{ fontSize: 11.5, color: '#62736A' }}>{a.regla}</span>
+            <span className="lp-mono" style={{ fontSize: 13, fontWeight: 500, color: '#214E36', minWidth: 62, textAlign: 'right' }}>{eur(a.imputado)}</span>
           </div>
         ))}
       </div>
 
-      <div style={{ background: '#0F0F0F', borderRadius: 14, padding: '18px 20px', color: '#E8E8E4' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#A6A69E', marginBottom: 7 }}>
+      <div style={{ background: '#0A2014', borderRadius: 14, padding: '18px 20px', color: '#E1EBE6' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#A9BDB0', marginBottom: 7 }}>
           <span>Ingreso imputado · 6 asistentes</span>
           <span className="lp-mono" style={{ color: '#fff' }}>{eur(INGRESO)}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#A6A69E', marginBottom: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, color: '#A9BDB0', marginBottom: 12 }}>
           <span>Coste de instructora · 42 €/h × 1 h</span>
           <span className="lp-mono" style={{ color: '#E0785F' }}>−{eur(COSTE)}</span>
         </div>
         <div style={{ borderTop: '1px solid rgba(255,255,255,.12)', paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-          <span style={{ fontSize: 14, color: '#A6A69E' }}>Margen sobre coste de instructora</span>
-          <span style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-.03em', color: '#A8B080' }}>{eur(INGRESO - COSTE)}</span>
+          <span style={{ fontSize: 14, color: '#A9BDB0' }}>Margen sobre coste de instructora</span>
+          <span style={{ fontSize: 25, fontWeight: 800, letterSpacing: '-.03em', color: '#8FB8A0' }}>{eur(INGRESO - COSTE)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'rgba(255,255,255,.55)', gap: 12 }}>
           {/* El punto de equilibrio NO se calcula con los seis de arriba: usa el
