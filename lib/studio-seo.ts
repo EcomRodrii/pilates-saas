@@ -17,7 +17,7 @@ const COLUMNAS_ESTABLES =
 const COLUMNAS_JOVENES =
   'creditos_nombre, lema, frase_heroe, frase_manuscrita, subtitulo_heroe, titulo_acceso, imagen_bienvenida_url, '
   + 'plaza_fija_solicitar_desde_app, plaza_fija_pausa_desde_app, apertura_suave, fecha_apertura, preguntas_alta_activas, '
-  + 'control_acceso_qr, plaza_fija_aprobacion';
+  + 'control_acceso_qr, plaza_fija_aprobacion, normas_texto';
 
 /** La fila tal y como la lee esta función: las jóvenes pueden no venir. */
 interface FilaStudio {
@@ -35,6 +35,7 @@ interface FilaStudio {
   preguntas_alta_activas?: boolean | null;
   control_acceso_qr?: boolean | null;
   plaza_fija_aprobacion?: string | null;
+  normas_texto?: string | null;
 }
 
 /**
@@ -136,6 +137,8 @@ export interface StudioSeo {
   subtituloHeroe: string | null;
   /** Titular de la pantalla de entrada. NULL = el del producto (lib/student/titulo-acceso.ts). */
   tituloAcceso: string | null;
+  /** Normas del centro, una por línea (`studios.normas_texto`). `null` = no las ha escrito: la app no pinta la sección. */
+  normasTexto: string | null;
   /**
    * La portada del PORTAL — la que ve la alumna al abrir la app y al entrar.
    *
@@ -253,6 +256,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
       // «¿Qué te apetece hoy?» para saber que Inicio ha cargado.
       subtituloHeroe: process.env.E2E_SUBTITULO_HEROE ?? null,
       tituloAcceso: process.env.E2E_TITULO_ACCESO ?? null,
+      normasTexto: process.env.E2E_NORMAS ?? null,
       imagenBienvenidaUrl: process.env.E2E_PORTADA_URL ?? null,
       // Configurable para que el gate de página oculta se pueda ejercitar
       // alguna vez desde la suite: se decide en el SERVIDOR, así que
@@ -385,6 +389,7 @@ export const getStudioSeoResultado = cache(async (slug: string): Promise<Resulta
     fraseManuscrita: (data.frase_manuscrita as string | null) ?? null,
     subtituloHeroe: (data.subtitulo_heroe as string | null) ?? null,
     tituloAcceso: (data.titulo_acceso as string | null) ?? null,
+    normasTexto: (data.normas_texto as string | null) ?? null,
     imagenBienvenidaUrl: (data.imagen_bienvenida_url as string | null) ?? null,
     // `=== true` y no un truthy: sin la columna todavía aplicada, «no sé» tiene
     // que significar «no oculta» y no esconder la página de todo el mundo.

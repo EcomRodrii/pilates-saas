@@ -30,6 +30,9 @@ export default function AyudaPage() {
     },
   ].filter(Boolean) as { label: string; href: string; valor: string }[];
 
+  // Una norma por línea; las líneas en blanco no cuentan. Sin texto, no se pinta la sección.
+  const normas = (estudio.normasTexto ?? '').split('\n').map(l => l.trim()).filter(Boolean);
+
   const faq: Array<[string, string]> = [
     ['¿Cómo cancelo una clase?', `Desde Actividad → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.`],
     ['¿Qué pasa si la clase está llena?', 'Puedes apuntarte a la lista de espera. Si se libera una plaza, pasa a ser tuya y te avisamos al momento (algunos estudios te dan un plazo para aceptarla).'],
@@ -49,6 +52,15 @@ export default function AyudaPage() {
       <PageHeader titulo="Ayuda" back />
       <div className="px grid-lg-2" style={{ ['--lg2-gap' as string]: '16px', marginTop: 14 }}>
         {contacto.length > 0 && <ProfileSection titulo="Contacto" items={contacto} />}
+
+        {normas.length > 0 && (
+          <section>
+            <p className="t-label" style={{ margin: '0 0 7px' }}>Normas del centro</p>
+            <ul className="card" style={{ margin: 0, padding: '13px 15px 13px 32px', display: 'grid', gap: 8, fontSize: 'var(--t-small)', lineHeight: 1.55 }}>
+              {normas.map((n, i) => <li key={i}>{n}</li>)}
+            </ul>
+          </section>
+        )}
 
         <section>
           <p className="t-label" style={{ margin: '0 0 7px' }}>Preguntas frecuentes</p>

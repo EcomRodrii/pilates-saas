@@ -181,9 +181,9 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
             <DetallePresentacion showToast={showToast} onGuardado={guardado} campos="lema" />
           </div>
         </CajonAjuste>
-        {/* Por enlaces de antes (`#textos-de-tu-app`): la descripción y el lema, sin normas ni año (decisión 3). */}
-        <CajonAjuste id="textos-de-tu-app" abierto={cajon === 'textos-de-tu-app'} onCerrar={cerrar} frase="Tu descripción sale en tu página de reservas (Mi web); tu lema, bajo tu nombre en la app.">
-          <DetallePresentacion showToast={showToast} onGuardado={guardado} campos="descripcion-y-lema" />
+        {/* Descripción, lema y normas (sin año de apertura, que no sale en la app de la alumna). */}
+        <CajonAjuste id="textos-de-tu-app" abierto={cajon === 'textos-de-tu-app'} onCerrar={cerrar} frase="Tu descripción sale en tu página de reservas (Mi web); tu lema, bajo tu nombre en la app; tus normas, en Ayuda de la app.">
+          <DetallePresentacion showToast={showToast} onGuardado={guardado} campos="descripcion-lema-y-normas" />
         </CajonAjuste>
         <CajonAjuste
           id="textos-de-bienvenida" abierto={cajon === 'textos-de-bienvenida'} onCerrar={cerrar}

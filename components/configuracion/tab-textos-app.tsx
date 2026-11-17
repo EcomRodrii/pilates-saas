@@ -46,30 +46,34 @@ const oNulo = (v: string) => v.trim() || null;
 /**
  * Qué campos enseña «Cómo te presentas». Con «Mi app» guiada (MI_WEB_NUEVA, maqueta aprobada el
  * 21-oct-2026) se reparte por dónde se lee cada uno: la descripción sale en tu página de reservas
- * (va en «Mi web»), el lema en la cabecera de la app (va con el logo, paso 1). Las normas y el año de
- * apertura no salen en ninguna pantalla de la alumna (decisión 3): se guardan, pero ya no se piden.
+ * (va en «Mi web»), el lema en la cabecera de la app (va con el logo, paso 1). Las normas vuelven a
+ * verse en la app de la alumna (Ayuda › Normas del centro, nov-2026: se habían quitado y un estudio
+ * dejó de encontrarlas); el año de apertura sigue sin salir en ninguna pantalla suya.
  */
-export type CamposPresentacion = 'todo' | 'descripcion-y-lema' | 'descripcion' | 'lema';
+export type CamposPresentacion = 'todo' | 'descripcion-lema-y-normas' | 'descripcion-y-lema' | 'descripcion' | 'lema';
 
 export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: {
   showToast: (m: string) => void;
   onGuardado: (texto: string) => void;
   campos?: CamposPresentacion;
 }) {
-  const ver = { descripcion: campos !== 'lema', lema: campos !== 'descripcion', resto: campos === 'todo' };
+  const ver = {
+    descripcion: campos !== 'lema',
+    lema: campos !== 'descripcion',
+    normas: campos === 'todo' || campos === 'descripcion-lema-y-normas',
+    anio: campos === 'todo',
+  };
   const { form, setForm, hayCambios, guardar, descartar } = useFormularioEstudio(aPresentacion, showToast);
   const anioInvalido = form.anioFundacion.trim() !== '' && !/^\d{4}$/.test(form.anioFundacion.trim());
 
   async function alGuardar(): Promise<string | null> {
-    if (ver.resto && anioInvalido) return 'El año de apertura tiene que ser de cuatro cifras.';
+    if (ver.anio && anioInvalido) return 'El año de apertura tiene que ser de cuatro cifras.';
     // Solo lo que se ve: lo que no se enseña aquí no se toca (lo guardado sigue como estaba).
     const res = await guardar({
       ...(ver.descripcion ? { descripcion: oNulo(form.descripcion) } : {}),
       ...(ver.lema ? { lema: oNulo(form.lema) } : {}),
-      ...(ver.resto ? {
-        normasTexto: oNulo(form.normasTexto),
-        anioFundacion: form.anioFundacion.trim() ? Number(form.anioFundacion.trim()) : null,
-      } : {}),
+      ...(ver.normas ? { normasTexto: oNulo(form.normasTexto) } : {}),
+      ...(ver.anio ? { anioFundacion: form.anioFundacion.trim() ? Number(form.anioFundacion.trim()) : null } : {}),
     }, null);
     if (!res) return 'Ya se estaba guardando';
     if (!res.ok) return res.error;
@@ -104,7 +108,7 @@ export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: 
             />
           )}
         </Campo>}
-        {ver.resto && <><Campo label="Normas del centro" ayuda="Una norma por línea. Las ven tus clientes en la app, en «Mi centro».">
+        {ver.normas && <Campo label="Normas del centro" ayuda="Una norma por línea. Las ven tus clientes en la app, en Ayuda › Normas del centro.">
           {id => (
             <textarea
               id={id}
@@ -115,8 +119,8 @@ export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: 
               onChange={e => setForm(f => ({ ...f, normasTexto: e.target.value }))}
             />
           )}
-        </Campo>
-        <Campo
+        </Campo>}
+        {ver.anio && <Campo
           label="Año de apertura"
           ayuda={anioInvalido ? undefined : 'Para el «desde 2016» de tu página. Déjalo vacío si prefieres no decirlo.'}
           error={anioInvalido ? 'Tienen que ser cuatro cifras.' : null}
@@ -133,7 +137,7 @@ export function DetallePresentacion({ showToast, onGuardado, campos = 'todo' }: 
               onChange={e => setForm(f => ({ ...f, anioFundacion: e.target.value.replace(/\D/g, '') }))}
             />
           )}
-        </Campo></>}
+        </Campo>}
       </div>
       <BarraGuardar
         seccion="marca"
