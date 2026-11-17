@@ -149,6 +149,16 @@ export interface ImpagosSaas {
 }
 /** Pagos fallidos de la suscripción de los estudios a Tentare y la política de avisos. */
 export const fetchImpagos = () => pedir<ImpagosSaas>('/impagos');
+export interface RevenueInterno {
+  metricas: import('../billing/metricas/reglas.ts').Metricas;
+  enVivo: {
+    stripeDisponible: boolean; avisoStripe: string | null; mrrEuros: number | null; arrEuros: number | null; pagando: number | null;
+    renovaciones: Array<{ nombre: string; plan: string | null; renuevaEl: string; eurosMes: number }>;
+  };
+  hoy: string;
+}
+/** «Revenue & Subscriptions»: cifras del libro de billing por periodo y plan, más el MRR de Stripe en vivo. */
+export const fetchRevenue = (consulta: string) => pedir<RevenueInterno>(`/revenue${consulta ? `?${consulta}` : ''}`);
 export interface AlertaExito {
   id: string; tipo: string; familia: 'billing' | 'retencion' | 'oportunidad'; severidad: 'alta' | 'media' | 'baja';
   estudioId: string | null; nombre: string; titulo: string; contexto: string[]; accion: string; href: string | null; eurosMes: number | null;
