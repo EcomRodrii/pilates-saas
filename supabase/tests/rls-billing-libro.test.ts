@@ -47,7 +47,7 @@ test('la propietaria no ve ni escribe el libro desde el navegador', async () => 
     assert.ok(rpc.error, 'la propietaria no debe ejecutar billing_registrar_factura');
   } finally {
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${idFactura}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -68,7 +68,7 @@ test('un evento más viejo no pisa a uno más nuevo, y el más nuevo sí actuali
     assert.deepEqual(f2, { estado: 'paid', pagado_cents: 7900 });
   } finally {
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -96,7 +96,7 @@ test('un incidente por factura: se abre, suma intentos, se recupera al pagarse y
   } finally {
     await sql`delete from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -113,7 +113,7 @@ test('un payment_failed que llega después de pagarse la factura no abre inciden
     assert.equal(filas.length, 0);
   } finally {
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -131,7 +131,7 @@ test('una factura anulada cierra el incidente como CANCELADO, no como recuperado
   } finally {
     await sql`delete from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -150,7 +150,7 @@ test('el mismo evento no duplica filas del ciclo de vida, y un evento puede dar 
     assert.ok(dos.error, 'una fila no puede tener estudio y cadena a la vez');
   } finally {
     await sql`delete from public.billing_eventos where stripe_event_id = ${evt}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -185,7 +185,7 @@ test('un aviso se reclama una sola vez, se puede devolver si el envío falla, y 
   } finally {
     await sql`delete from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });
 
@@ -203,6 +203,6 @@ test('escalar solo pasa un incidente ABIERTO a ESCALADO, una vez; el motivo se g
   } finally {
     await sql`delete from public.billing_incidentes_pago where stripe_invoice_id = ${id}`;
     await sql`delete from public.billing_facturas where stripe_invoice_id = ${id}`;
-    await limpiarFixtures(admin, studio);
+    await limpiarFixtures(admin, [studio]);
   }
 });

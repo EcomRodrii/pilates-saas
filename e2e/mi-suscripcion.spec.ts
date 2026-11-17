@@ -94,7 +94,7 @@ test.describe('Mi suscripción', () => {
     const m = await montar(page, { baja: (route) => json(route, { error: 'No se ha podido confirmar el cambio.' }, 500) });
     await page.getByRole('button', { name: 'Cancelar suscripción' }).click();
     await page.getByRole('button', { name: 'Sí, cancelar al final del periodo' }).click();
-    await expect(page.getByRole('alert')).toContainText('No se ha podido');
+    await expect(page.getByRole('region', { name: 'Mi suscripción' }).getByRole('alert')).toContainText('No se ha podido');
     await expect(page.getByText(/Tu suscripción termina el/)).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cancelar suscripción' })).toBeVisible();
     expect(m.baja.length).toBeGreaterThan(0);
@@ -130,7 +130,7 @@ test.describe('Mi suscripción', () => {
     const m = await montar(page, { periodo: (route) => json(route, { error: 'No hemos podido cobrar el año por adelantado, así que no se ha cambiado nada.' }, 402) });
     await page.getByRole('button', { name: 'Pasar a pago anual' }).click();
     await page.getByRole('button', { name: 'Confirmar el cambio' }).click();
-    await expect(page.getByRole('alert')).toContainText('no se ha cambiado nada');
+    await expect(page.getByRole('region', { name: 'Mi suscripción' }).getByRole('alert')).toContainText('no se ha cambiado nada');
     await expect(page.getByRole('region', { name: 'Mi suscripción' }).getByText('al mes')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Pasar a pago anual' })).toBeVisible();
     expect(m.periodo.length).toBeGreaterThan(0);
