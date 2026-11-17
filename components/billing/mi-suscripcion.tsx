@@ -49,6 +49,7 @@ export function MiSuscripcion({
 }) {
   const [d, setD] = useState<MiSuscripcionApi | null>(null);
   const [sinDatos, setSinDatos] = useState(false);
+  const [sinSuscripcion, setSinSuscripcion] = useState(false);
   const [trabajando, setTrabajando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelar, setCancelar] = useState(false);
@@ -58,8 +59,11 @@ export function MiSuscripcion({
 
   const cargar = useCallback(async () => {
     const r = await miSuscripcion();
-    if ('error' in r) { setSinDatos(true); return; }
-    setSinDatos(false); setD(r);
+    if ('error' in r) {
+      if ('sinSuscripcion' in r && r.sinSuscripcion) setSinSuscripcion(true); else setSinDatos(true);
+      return;
+    }
+    setSinDatos(false); setSinSuscripcion(false); setD(r);
   }, []);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -75,6 +79,8 @@ export function MiSuscripcion({
     return () => { vivo = false; };
   }, [cambio]);
 
+  // Sin suscripción de Stripe (plan concedido a mano): no hay detalle que enseñar, ni es un error.
+  if (sinSuscripcion && !d) return null;
   if (sinDatos && !d) {
     return <p className={cn('text-[12.5px] text-muted-foreground', className)}>No se ha podido cargar el detalle de tu suscripción. Recarga la página en unos segundos.</p>;
   }
