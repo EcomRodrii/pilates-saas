@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
+import { Boton } from '@/components/web/hub/Hub';
 import { ArticleFaq } from '@/components/recursos/ArticleFaq';
 import { FaqStructuredData } from '@/components/recursos/ArticleStructuredData';
 import { CTA_ALTA } from '@/lib/landing/founding-gratis';
@@ -120,10 +121,7 @@ export function CierreCta({ titulo, body }: { titulo: string; body: string }) {
       <h2>{titulo}</h2>
       <p>{body}</p>
       <div className="hx-acciones">
-        <Link href="/crear-estudio" className="lf-boton lf-boton--claro">
-          <span>{CTA_ALTA}</span>
-          <span className="lf-boton-flecha" aria-hidden="true"><ArrowUpRight size={18} strokeWidth={1.8} /></span>
-        </Link>
+        <Boton href="/crear-estudio" tipo="claro">{CTA_ALTA}</Boton>
         <Link href="/precios" className="hx-boton-linea hx-boton-linea--oscuro">Ver precios</Link>
       </div>
     </section>

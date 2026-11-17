@@ -34,7 +34,8 @@ const CUERPOS = [
   'components/funcionalidades/FeatureShell.tsx',
   'components/funcionalidades/bloques.tsx',
   'components/soluciones/LandingSolucion.tsx',
-  'app/funcionalidades/page.tsx',
+  // Los índices y las hijas, en el idioma de la home nueva (nov-2026): sus botones salen de <Boton> (components/web/hub/Hub.tsx).
+  'components/web/hub/Hub.tsx',
   // La isla y su menú móvil, en toda la web pública desde la fase 2.1.
   'components/web/IslaWeb.tsx',
 ];
@@ -47,11 +48,11 @@ const ISLA = 'components/web/IslaWeb.tsx';
 // flecha, o el texto del plan que viene de data.ts (cuyos `cta` son la constante).
 const CONTENIDO_VALIDO = [/^\{CTA_ALTA\}$/, /^\{CTA_ALTA\} <span aria-hidden>→<\/span>$/, /^\{CTA_ALTA\}\s*<ArrowRight[^>]*\/>$/, /^\{plan\.cta\}$/];
 
-/** Botones (`<Link|a href={ALTA}|"/crear-estudio"…>contenido</…>`) y su contenido. */
+/** Botones (`<Link|a|Boton href={ALTA}|"/crear-estudio"…>contenido</…>`) y su contenido. */
 export function botonesAlAlta(fuente: string): string[] {
   const salida: string[] = [];
   // Los atributos pueden llevar `=>` (un onClick): `(?:=>|[^>])` los atraviesa (la flecha va primero, para no tomar su `>` por el cierre de la etiqueta).
-  const re = /<(Link|a)\b((?:=>|[^>])*?)href=(\{ALTA\}|"\/crear-estudio"|'\/crear-estudio')((?:=>|[^>])*)>([\s\S]*?)<\/\1>/g;
+  const re = /<(Link|a|Boton)\b((?:=>|[^>])*?)href=(\{ALTA\}|"\/crear-estudio"|'\/crear-estudio')((?:=>|[^>])*)>([\s\S]*?)<\/\1>/g;
   for (const m of fuente.matchAll(re)) salida.push(m[5].trim().replace(/\s+/g, ' '));
   return salida;
 }
@@ -99,4 +100,7 @@ test('CONTROL: el detector caza «Crear mi estudio», «Empezar» a secas y no c
   assert.deepEqual(botonesFueraDeRegla('<Link\n  href="/crear-estudio"\n  onClick={() => f(true)}\n>\n  {CTA_ALTA}\n  <ArrowRight size={17} aria-hidden="true" />\n</Link>'), []);
   // Un enlace que no es al alta no cuenta.
   assert.deepEqual(botonesAlAlta('<Link href="/precios">Ver precios</Link>'), []);
+  // El botón de la home (<Boton>, components/web/hub/Hub.tsx) también entra en la regla.
+  assert.deepEqual(botonesFueraDeRegla('<Boton href="/crear-estudio">Crear mi estudio</Boton>'), ['Crear mi estudio']);
+  assert.deepEqual(botonesFueraDeRegla('<Boton href="/crear-estudio">{CTA_ALTA}</Boton>'), []);
 });
