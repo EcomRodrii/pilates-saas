@@ -1519,6 +1519,13 @@ export async function pasarAEstudio(): Promise<{ ok: true } | { error: string }>
   }
 }
 
+/** Apunta (como mucho una vez por visita) que la propietaria ha visto la pantalla de elegir plan. Nunca falla. */
+export async function registrarVisitaPlanes(): Promise<void> {
+  try {
+    await fetch('/api/billing/visita-planes', { method: 'POST', headers: { ...(await authHeader()) } });
+  } catch { /* es una señal, no una función */ }
+}
+
 // ── «Mi suscripción» (lib/billing/mi-suscripcion) ─────────────────────────────
 
 export interface MiSuscripcionApi {

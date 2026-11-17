@@ -149,6 +149,12 @@ export interface ImpagosSaas {
 }
 /** Pagos fallidos de la suscripción de los estudios a Tentare y la política de avisos. */
 export const fetchImpagos = () => pedir<ImpagosSaas>('/impagos');
+export interface AlertaExito {
+  id: string; tipo: string; familia: 'billing' | 'retencion' | 'oportunidad'; severidad: 'alta' | 'media' | 'baja';
+  estudioId: string | null; nombre: string; titulo: string; contexto: string[]; accion: string; href: string | null; eurosMes: number | null;
+}
+/** Customer Success ligado a billing: alertas internas con contexto y acción recomendada. */
+export const fetchExito = () => pedir<{ alertas: AlertaExito[]; avisos: string[] }>('/exito');
 export const fetchEstudios = (q = '') => pedir<{ estudios: EstudioFila[] }>(`/estudios${q ? `?q=${encodeURIComponent(q)}` : ''}`);
 export const fetchFichaEstudio = (id: string) => pedir<FichaEstudio>(`/estudios/${id}`);
 
