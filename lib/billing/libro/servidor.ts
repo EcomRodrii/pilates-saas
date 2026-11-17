@@ -25,12 +25,24 @@ export function lineasDe(sub: Pick<Stripe.Subscription, 'items'> | { items?: { d
   }));
 }
 
-/** Quién es el dueño de un cliente de Stripe: un estudio o una cadena (nunca los dos). */
+/**
+ * Quién es el dueño de un cliente de Stripe: un estudio o una cadena (nunca los dos).
+ *
+ * ⚠️ La metadata de Stripe NO es de fiar para esto: guarda el id de un estudio que puede haberse
+ * borrado (la FK del libro es `on delete set null`, pero insertar un id que ya no existe viola la
+ * FK). Se comprueba que exista; si no, se cae al cliente de Stripe y, si tampoco, el dueño queda
+ * vacío: la fila entra igual (el dinero cobrado cuenta aunque el estudio ya no esté).
+ */
 export async function resolverDueno(admin: SupabaseClient, customerId: string | null, metadata?: Stripe.Metadata | null): Promise<Dueno> {
-  const studioMeta = metadata?.studioId ?? null;
+  const existe = async (tabla: 'studios' | 'cadenas', id: string | null | undefined): Promise<boolean> => {
+    if (!id) return false;
+    const { data } = await admin.from(tabla).select('id').eq('id', id).maybeSingle();
+    return Boolean(data?.id);
+  };
   const cadenaMeta = metadata?.cadenaId ?? null;
-  if (cadenaMeta) return { studioId: null, cadenaId: cadenaMeta };
-  if (studioMeta) return { studioId: studioMeta, cadenaId: null };
+  const studioMeta = metadata?.studioId ?? null;
+  if (await existe('cadenas', cadenaMeta)) return { studioId: null, cadenaId: cadenaMeta };
+  if (await existe('studios', studioMeta)) return { studioId: studioMeta, cadenaId: null };
   if (!customerId) return { studioId: null, cadenaId: null };
   const { data: estudio } = await admin.from('studios').select('id').eq('stripe_customer_id', customerId).maybeSingle();
   if (estudio?.id) return { studioId: estudio.id as string, cadenaId: null };
