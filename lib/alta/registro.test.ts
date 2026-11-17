@@ -239,3 +239,9 @@ test('la función sigue siendo solo de service_role, con los tres pasos y su com
   assert.match(MIGRACION, /has_function_privilege\('service_role', t, 'EXECUTE'\)/);
   assert.doesNotMatch(MIGRACION, /create policy/i);
 });
+
+test('mensajeDeErrorAlta: un fallo de red del navegador se dice en castellano y con salida', () => {
+  for (const crudo of ['Failed to fetch', 'Load failed', 'NetworkError when attempting to fetch resource.']) {
+    assert.equal(mensajeDeErrorAlta(crudo), 'No hemos podido conectar. Revisa tu conexión e inténtalo otra vez.');
+  }
+});

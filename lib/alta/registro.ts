@@ -223,6 +223,10 @@ export function mensajeDeErrorAlta(texto: string): string {
   if (!t || /^[{[]/.test(t)) {
     return 'No hemos podido crear tu cuenta ahora mismo. Inténtalo otra vez en unos minutos; si sigue, escríbenos por WhatsApp.';
   }
+  // Sin red el navegador dice «Failed to fetch» / «Load failed» / «NetworkError…»: en inglés y sin salida.
+  if (/failed to fetch|load failed|network ?error|network request failed|fetch failed/i.test(t)) {
+    return 'No hemos podido conectar. Revisa tu conexión e inténtalo otra vez.';
+  }
   if (/confirmation (e-?mail|mail)|sending .*e-?mail|smtp/i.test(t)) {
     return 'No hemos podido mandarte el código. Inténtalo otra vez en unos minutos; si sigue, escríbenos por WhatsApp.';
   }

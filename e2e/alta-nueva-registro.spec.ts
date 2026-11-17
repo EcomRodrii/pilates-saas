@@ -254,6 +254,36 @@ test.describe('Lo que dice gotrue', () => {
     await expect(crear(page)).toBeEnabled();
   });
 
+  test('sin conexión: lo dice, no anuncia ningún código y deja volver a intentarlo', async ({ page }) => {
+    let intentos = 0;
+    await page.route('**/auth/v1/signup**', (route) => { intentos += 1; return route.abort('failed'); });
+    await page.goto(ALTA);
+    await rellenarTodo(page);
+    await crear(page).click();
+
+    await expect.poll(() => intentos).toBeGreaterThan(0);
+    await expect(page.getByText(/Revisa tu conexión/)).toBeVisible();
+    // (Sin comprobar que «Failed to fetch» no exista en toda la página: el overlay de errores de `next dev` lo cita.)
+    await expect(page.locator('form, main').getByText('Failed to fetch')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toHaveCount(0);
+    await expect(crear(page)).toBeEnabled();
+  });
+
+  test('pulsar «Crear mi estudio» dos veces seguidas manda una sola petición', async ({ page }) => {
+    let intentos = 0;
+    await page.route('**/auth/v1/signup**', async (route) => {
+      intentos += 1;
+      await new Promise((r) => setTimeout(r, 1_500)); // el servidor tarda: la ventana del doble clic
+      return json(route, ALTA_PENDIENTE);
+    });
+    await page.goto(ALTA);
+    await rellenarTodo(page);
+    await crear(page).dblclick();
+
+    await expect(page.getByRole('heading', { name: 'Revisa tu correo' })).toBeVisible({ timeout: 15_000 });
+    expect(intentos, 'un doble clic no crea dos cuentas').toBe(1);
+  });
+
   test('un email ya registrado no recibe un «revisa tu correo» que es mentira', async ({ page }) => {
     let intentos = 0;
     await page.route('**/auth/v1/signup**', (route) => { intentos += 1; return json(route, YA_REGISTRADO); });
@@ -317,6 +347,21 @@ test.describe('El código y el estudio', () => {
     await expect(page.getByRole('group', { name: 'Código de verificación de 6 dígitos' })).toBeVisible();
     await expect(page.getByRole('heading', { name: /ya existe/ })).toHaveCount(0);
     expect(estudios, 'sin código bueno no se monta ningún estudio').toBe(0);
+  });
+
+  test('sesión caducada tras verificar: lo dice, deja reintentar y no monta nada', async ({ page }) => {
+    await hastaElCodigo(page);
+    let estudios = 0;
+    await page.route('**/api/auth/otp/verificar', (route) => json(route, { ok: true, session: { access_token: JWT_DE_MENTIRA, refresh_token: 'caducado' } }));
+    await page.route('**/auth/v1/**', (route) => json(route, { error: 'invalid_grant', error_description: 'Invalid Refresh Token' }, 400));
+    await page.route('**/rest/v1/studios**', (route) => { if (route.request().method() === 'POST') estudios += 1; return json(route, []); });
+    await page.getByRole('textbox', { name: 'Dígito 1 de 6' }).fill('123456');
+
+    await expect(page.getByText(/Tu sesión ha caducado/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Invalid (Refresh Token|JWT)/i)).toHaveCount(0);
+    await expect(page.getByRole('textbox', { name: 'Dígito 1 de 6' })).toBeVisible();
+    expect(estudios, 'sin sesión no se escribe ningún estudio').toBe(0);
+    await expect(page.getByRole('heading', { name: /ya existe/ })).toHaveCount(0);
   });
 
   test('si montar el estudio falla: «Reintentar ahora», y a la segunda «… ya existe»', async ({ page }) => {
