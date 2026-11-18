@@ -5,7 +5,7 @@ import { ArrowUp } from 'lucide-react';
 import { usePuertaAsistente } from '@/lib/asistente-context';
 import { useColumnaAsistente } from '@/lib/asistente-columna';
 import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { TextoRotatorio } from '@/components/asistente/vista-chat';
+import { TextoRotatorio } from '@/components/asistente/texto-rotatorio';
 
 // El compositor de la home de Shopify, en el Resumen (marco a sangre): una tarjeta de radio 26 bajo el saludo
 // con el texto que rota y, debajo, la pestaña gris. Al enviar, abre la COLUMNA del asistente con la pregunta ya
@@ -50,7 +50,7 @@ export function CompositorInicio() {
           <ArrowUp size={16} aria-hidden="true" />
         </button>
       </div>
-      <p className="px-4 pb-1.5 pt-2 text-[12px] text-muted-foreground">Tentare consulta tus datos y crea clases, salas, eventos y citas si tú confirmas.</p>
+      <p className="px-4 pb-1.5 pt-2 text-[12px] text-muted-foreground">Te responde con los datos de tu estudio y no cambia nada sin tu visto bueno.</p>
     </form>
   );
 }

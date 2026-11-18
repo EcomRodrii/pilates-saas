@@ -9,7 +9,10 @@ import { useRol } from '@/lib/permisos';
 import { puedeVerFinanzas } from '@/lib/permisos-reglas';
 import { usePuertaAsistente } from '@/lib/asistente-context';
 import { ANCHO_COLUMNA_ASISTENTE, useColumnaAsistente } from '@/lib/asistente-columna';
-import { VistaChat } from '@/components/asistente/vista-chat';
+import dynamic from 'next/dynamic';
+
+// El chat llega aparte, al abrir la columna: no viaja con el panel (lo vigilan e2e/asistente*.spec.ts).
+const VistaChat = dynamic(() => import('@/components/asistente/vista-chat').then(m => m.VistaChat), { ssr: false });
 
 // «Pregúntale a Tentare» como columna a la derecha del lienzo y como píldora flotante abajo al
 // centro (marco a sangre). Solo con `SHELL_NUEVO` y donde el asistente está disponible (rol, plan
