@@ -1590,7 +1590,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 /* Marco a sangre (`SHELL_NUEVO`): en escritorio el panel entero es el marco oscuro y el contenido
    un lienzo claro encima (components/layout/dashboard-shell.tsx). Por atributo y no por clase: ver
    `PanelThemeProvider`. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] {
     background-color: var(--shell-marco);
   }
@@ -1604,7 +1604,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
    28 px, tabla con cabecera gris); los colores, de los tokens de `brand/`.
    Las piezas llevan `data-vivo` / `data-slot` para enganchar aquí sin tocar cada pantalla.
    ───────────────────────────────────────────────────────────────────────────── */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   /* 1 · Cabecera de página: una fila — icono pequeño + título de 13 px — y acciones a la derecha.
      Solo donde la sección lleva su icono (`page-header-icono` con contenido): el saludo de Resumen
      y las fichas (con su flecha de volver) conservan el título grande, como en Shopify. */
@@ -1745,7 +1745,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
 /* Tipografía y títulos del admin real (variables `--p-font-*` leídas): cuerpo 13 px con -0,01em,
    títulos de tarjeta de 15 px/500 y saludo de 28 px/500 con -0,025em. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] { letter-spacing: -0.01em; }
   .panel-app[data-shell-nuevo] [data-slot='page-header']:not(:has([data-slot='page-header-icono']:not(:empty))) [data-slot='page-header-title'] {
     font-size: 28px; line-height: 33.6px; font-weight: 500; letter-spacing: -0.025em;
@@ -1764,7 +1764,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 /* Marco a sangre: la píldora de prueba/plan de la barra de arriba como el aviso negro de Shopify
    (`#0a0a0a`, 36 px, radio completo, texto `#fcfcfc` 13/500 y sombra suave). Solo el color y la forma:
    el contenido (puntos, plazos, desplegable) es el de siempre. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-tour='pildora-prueba'] > button {
     background: #0a0a0a !important;
     color: #fcfcfc !important;
@@ -1783,7 +1783,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
    columnas y se apretaba («1 / confirmada / Falta / pasar…»). Aquí se pasa a una columna y a dos
    cifras por fila mientras la columna esté abierta. (Sin `container-type` en el lienzo: aplicaría
    contención de diseño y los elementos `fixed` de las pantallas dejarían de mirar a la ventana.) */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   [data-columna-abierta] [data-resumen-columnas] { grid-template-columns: minmax(0, 1fr); }
   [data-columna-abierta] [data-resumen-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -1791,7 +1791,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 /* Listados con el aspecto de «Buscar y filtrar» de Shopify (Clientes): el buscador es una barra plana
    de 36 px y radio 12 con el aro de 1 px de Polaris, y los estados («Todas / Activa / De baja») son
    pastillas grises de 28 px, la activa en gris más oscuro con texto de tinta (no el relleno negro). */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] input[aria-label='Buscar clientes'] {
     min-height: 36px; height: 36px; border: 0; border-radius: 12px; font-size: 13px;
     box-shadow: 0 0 0 1px #0000001f, 0 1px 1px #0000000a;
@@ -1810,7 +1810,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 }
 
 /* La barra de arriba dentro del lienzo redondeado: sus esquinas de arriba siguen el radio del lienzo. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-panel-topbar] { border-top-left-radius: 16px; border-top-right-radius: 16px; }
 }
 
@@ -1821,7 +1821,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
    diálogos de radio 24 con `--p-shadow-600`, y la entrada de las tarjetas (450 ms, 24 px, escalonada 70 ms).
    Solo escritorio y solo con `data-shell-nuevo`.
    ───────────────────────────────────────────────────────────────────────────── */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   /* Lienzo blanco como el de Shopify (en oscuro se queda con su fondo). */
   .panel-app[data-shell-nuevo]:not(.dark) { --background: #ffffff; }
 
@@ -1905,7 +1905,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
 /* Pestañas como las de Shopify («Todos ＋»): sin cápsula de fondo; cada una es una pastilla de 28 px y radio 8,
    la activa en gris `#ebebeb` y la de al lado con el hover `#f7f7f7`, 0,15 s. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) {
     background: transparent !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; gap: 4px;
   }
@@ -1920,7 +1920,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
 /* Avisos (toasts) como los de Shopify: píldora oscura `#1b1b1b` con texto `#fcfcfc` de 13 px, radio 12 y
    sombra de elevación; el de error lleva un punto rojo en vez de teñir todo el aviso. */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-slot='toast'],
   [data-shell-nuevo] ~ [data-slot='toast'] {
     background: #1b1b1b !important; color: #fcfcfc !important; border-radius: 12px; padding: 8px 14px 8px 12px;
@@ -1935,7 +1935,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 /* ── Configuración como la de Shopify ─────────────────────────────────────────────────────────────────
    Una sola columna centrada de 680 px (el contenido de `settings/*` mide ~682), título de 22/500, grupos
    apilados en vez de en dos columnas y los iconos de fila sin baldosa de color (16 px, tinta). ───────── */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-config-raiz] { max-width: 680px; margin-inline: auto; padding-top: 12px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] { margin-bottom: 8px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-title'] { font-size: 22px !important; line-height: 28px !important; font-weight: 500 !important; letter-spacing: -0.02em !important; }
@@ -1953,7 +1953,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
 /* ── Informes como los de Shopify ─────────────────────────────────────────────────────────────────────
    «Se actualizó hoy a las HH:MM» junto al título y el periodo como pastillas grises de 28 px. ───────── */
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-actualizado] { display: inline; }
   .panel-app[data-shell-nuevo] [data-vivo='pildora-mover'] {
     border: 0; border-radius: 9999px; background: color-mix(in srgb, var(--foreground) 7%, var(--card)); height: 28px; align-items: center;
@@ -1961,4 +1961,64 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-vivo='pildora-mover'] button { width: 28px; height: 28px; min-height: 28px; }
   .panel-app[data-shell-nuevo] [data-vivo='pildora-mover'] > span { border: 0; min-width: 6rem; padding-block: 0; font-size: 13px; font-weight: 500; }
   .panel-app[data-shell-nuevo] [data-vivo='pildoras'] > [data-vivo='pildora'] { border-radius: 9999px; }
+}
+
+/* ── Marco a sangre en MÓVIL y TABLET (< 1024 px) ─────────────────────────────────────────────────────
+   Como el admin de Shopify en pantalla pequeña: el panel entero es el marco oscuro, el contenido un lienzo
+   blanco redondeado a 4 px del borde, sin barra de arriba ni de abajo; el menú es un botón redondo abajo a
+   la izquierda (`data-movil-menu`, abre el mismo cajón «Más») y la ayuda/asistente el de abajo a la derecha.
+   Se conserva la tira de arriba del lienzo (privacidad, mensajes, avisos, perfil) para no perder acceso. */
+@media (max-width: 767.98px) {
+  .panel-app[data-shell-nuevo] { background-color: var(--shell-marco); }
+  .panel-app[data-shell-nuevo] [data-movil-superior],
+  .panel-app[data-shell-nuevo] [data-movil-inferior] { display: none !important; }
+  .panel-app[data-shell-nuevo] [data-movil-menu] { display: flex; }
+  .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-top: 0.25rem !important; padding-bottom: 6rem !important; }
+  .panel-app[data-shell-nuevo] [data-panel-topbar] {
+    display: flex !important; position: sticky; top: 0; height: 44px; margin-bottom: 4px; padding-inline: 12px; margin-inline: -16px;
+    border-top-left-radius: 16px; border-top-right-radius: 16px; gap: 4px; overflow: hidden;
+  }
+  .panel-app[data-shell-nuevo] [data-panel-topbar] > div:first-child { min-width: 0; flex: 1 1 auto; }
+  .panel-app[data-shell-nuevo] [data-panel-topbar] > div:last-child { flex: none; }
+  /* Sin la barra de abajo, el botón de ayuda baja a su sitio y las barras de guardar suben menos. */
+  .panel-app[data-shell-nuevo] [data-testid='boton-ayuda'] { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important; }
+}
+
+/* ── Textos: nada por debajo de 12-13 px dentro del lienzo ────────────────────────────────────────────
+   El panel tenía muchas líneas de 10-12,5 px (descripciones, rótulos, filas) que en el admin de Shopify son de
+   13 px (cuerpo) y 12 px (detalle y botones). Dentro del contenido: 10-11,5 px → 12 px y 12-12,5 px → 13 px.
+   Solo bajo `main`, para no tocar el menú, los avisos ni los diálogos. ─────────────────────────────────── */
+.panel-app[data-shell-nuevo] main :is([class*='text-[10px]'], [class*='text-[10.5px]'], [class*='text-[11px]'], [class*='text-[11.5px]']) { font-size: 12px; }
+.panel-app[data-shell-nuevo] main :is([class*='text-[12px]'], [class*='text-[12.5px]'], .text-xs) { font-size: 13px; }
+
+/* ── Tablet (768–1023 px): el MISMO marco de escritorio ───────────────────────────────────────────────
+   Shopify cambia de escritorio a móvil en 48 em = 768 px (medido: `@media (min-width: 48em)` /
+   `(max-width: 47.9975em)`), no en 1024: el menú de 220 px se queda y el lienzo se estrecha. El resto del
+   panel usa `lg` (1024) para su propia maqueta, así que aquí solo se vuelven a pintar las piezas del marco
+   y el contenido sigue con su maqueta compacta, dentro de un lienzo de ~540 px. ────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023.98px) {
+  .panel-app[data-shell-nuevo] { background-color: var(--shell-marco); }
+  .panel-app[data-shell-nuevo] aside[data-panel-menu],
+  .panel-app[data-shell-nuevo] div[data-panel-menu] { display: flex !important; }
+  .panel-app[data-shell-nuevo] .shell-brillo { display: block !important; }
+  .panel-app[data-shell-nuevo] [data-panel-topbar] { display: flex !important; }
+  .panel-app[data-shell-nuevo] [data-movil-superior],
+  .panel-app[data-shell-nuevo] [data-movil-inferior],
+  .panel-app[data-shell-nuevo] [data-movil-menu] { display: none !important; }
+  .panel-app[data-shell-nuevo] main { padding-left: var(--sidebar-w, 224px); }
+  .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-top: 0.25rem !important; padding-bottom: 1.5rem !important; }
+  .panel-app[data-shell-nuevo] [data-compositor-inicio] { display: block; }
+  .panel-app[data-shell-nuevo] [data-columna-asistente],
+  .panel-app[data-shell-nuevo] [data-pildora-asistente] { display: flex; }
+}
+
+/* El asistente en columna solo EMPUJA el lienzo cuando hay sitio (≥ 1280 px); con menos, se pone encima. */
+@media (max-width: 1279.98px) {
+  [data-columna-abierta] { margin-right: 0.25rem !important; }
+}
+
+/* Tarjetas del admin de Shopify (medido en Configuración, 19-nov-2026): radio 20, sombra de cuatro capas y sin borde. */
+.panel-app[data-shell-nuevo] [data-slot='card'] {
+  border-radius: 20px; border-color: transparent;
+  box-shadow: 0 0 2px 0 #0000003d, 0 2px 12px 0 #00000005, 0 4px 16px 0 #00000005, 0 4px 48px 0 #00000005;
 }

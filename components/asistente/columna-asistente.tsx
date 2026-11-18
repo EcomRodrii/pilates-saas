@@ -35,7 +35,7 @@ export function ColumnaAsistente() {
       aria-hidden={!abierta}
       inert={!abierta}
       data-columna-asistente
-      className="fixed bottom-1 right-1 top-1 z-20 hidden flex-col overflow-hidden rounded-2xl bg-card transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] lg:flex"
+      className="fixed bottom-1 right-1 top-1 z-20 hidden flex-col overflow-hidden rounded-2xl bg-card shadow-[0_24px_56px_-12px_#0000003d,0_0_0_1px_#00000012] transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] md:flex"
       style={{
         width: ANCHO_COLUMNA_ASISTENTE - 4,
         transform: abierta ? 'none' : 'translateX(calc(100% + 8px))',
@@ -82,7 +82,7 @@ export function PildoraAsistente() {
       data-pildora-asistente
       aria-hidden={abierta}
       tabIndex={abierta ? -1 : 0}
-      className="fixed bottom-4 left-[calc(50%+var(--sidebar-w,0px)/2)] z-20 hidden h-11 w-[300px] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-3 text-[13px] text-muted-foreground shadow-t-floating transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] hover:text-foreground lg:flex"
+      className="fixed bottom-4 left-[calc(50%+var(--sidebar-w,0px)/2)] z-20 hidden h-11 w-[300px] -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-card px-3 text-[13px] text-muted-foreground shadow-t-floating transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] hover:text-foreground md:flex"
       style={{ opacity: abierta ? 0 : 1, pointerEvents: abierta ? 'none' : 'auto' }}
     >
       <Sparkles size={15} aria-hidden="true" className="shrink-0 text-[var(--t-blue-500)]" />

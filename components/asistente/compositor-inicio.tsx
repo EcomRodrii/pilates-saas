@@ -26,7 +26,7 @@ export function CompositorInicio() {
     <form
       data-compositor-inicio
       onSubmit={e => { e.preventDefault(); enviar(); }}
-      className="hidden max-w-[620px] rounded-[26px] bg-muted/70 pb-1 lg:block"
+      className="hidden max-w-[620px] rounded-[26px] bg-muted/70 pb-1 md:block"
     >
       <div className="flex items-end gap-2 rounded-[26px] bg-card p-3 shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_2px_2px_-1px_#00000005,0_1px_1px_-0.5px_#00000008,0_0.5px_0.5px_0_#0000000a,0_0_0_1px_#0000000f]">
         <label htmlFor="compositor-inicio" className="sr-only">Pregúntale a Tentare</label>

@@ -166,18 +166,36 @@ test('a sangre — Resumen de un estudio nuevo: tarjetas de paso con imagen', as
 
 // ── Revisión de lo que dependía del hueco del menú y del móvil ───────────────────────────────
 
-test('a sangre — móvil (390): sin desbordes y con su barra de abajo', async ({ page }) => {
+test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y sin desbordes', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 390, height: 844 });
   await ir(page, 'dashboard');
-  await page.waitForTimeout(1500);
+  await listo(page).catch(() => {});
+  await page.waitForTimeout(1200);
   const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
   expect(ancho.doc, 'ni una barra de scroll horizontal').toBeLessThanOrEqual(ancho.ventana + 1);
-  // Ninguna pieza del marco a sangre se pinta en el móvil.
-  await expect(page.locator('aside[data-panel-menu]')).toBeHidden();
+  await expect(page.locator('[data-movil-menu]'), 'el botón redondo del menú').toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('[data-movil-inferior]'), 'sin barra de abajo').toBeHidden();
+  await expect(page.locator('[data-movil-superior]'), 'sin barra de arriba').toBeHidden();
   await expect(page.locator('[data-pildora-asistente]')).toBeHidden();
-  await expect(page.locator('[data-columna-asistente]')).toBeHidden();
   await page.screenshot({ path: 'test-results/shell-sangre-movil.png' });
+  await page.locator('[data-movil-menu]').click();
+  await expect(page.getByText('Menú', { exact: true }).first()).toBeVisible();
+  await page.screenshot({ path: 'test-results/shell-sangre-movil-menu.png' });
+});
+
+test('a sangre — tablet (768): el mismo menú a sangre que en escritorio (Shopify corta en 48 em), sin desbordes', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await ir(page, 'clientas');
+  await page.waitForTimeout(1500);
+  const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
+  expect(ancho.doc).toBeLessThanOrEqual(ancho.ventana + 1);
+  await expect(page.locator('aside[data-panel-menu]'), 'el menú a sangre ya sale a 768').toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('[data-movil-menu]'), 'y no hay botón flotante').toBeHidden();
+  const menu = await page.locator('aside[data-panel-menu]').boundingBox();
+  expect(menu?.x).toBe(0);
+  await page.screenshot({ path: 'test-results/shell-sangre-tablet-768.png' });
 });
 
 test('a sangre — tablet (1024): clientas sin desbordes', async ({ page }) => {

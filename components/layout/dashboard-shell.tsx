@@ -113,8 +113,9 @@ function LienzoDelPanel({ shellNuevo, children }: { shellNuevo: boolean; childre
     <div
       data-columna-abierta={shellNuevo && abierta ? '' : undefined}
       className={cn(
-        shellNuevo && 'lg:min-h-[calc(100dvh-0.5rem)] lg:rounded-2xl lg:bg-background lg:transition-[margin] lg:duration-300 lg:ease-[cubic-bezier(0.2,0.8,0,1)]',
-        shellNuevo && (abierta ? 'lg:mr-[356px]' : 'lg:mr-1'),
+        // Móvil y tablet incluidos: lienzo blanco redondeado a 4 px del marco oscuro (en escritorio, además, cede el hueco al asistente).
+        shellNuevo && 'mx-1 min-h-[calc(100dvh-0.5rem)] rounded-2xl bg-background md:ml-0 md:mr-1 lg:transition-[margin] lg:duration-300 lg:ease-[cubic-bezier(0.2,0.8,0,1)]',
+        shellNuevo && (abierta ? 'xl:mr-[356px]' : 'lg:mr-1'),
       )}
     >
       {children}
@@ -523,7 +524,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               se cambia de pantalla, y una página se desmonta al salir de ella. */}
           <VentanaCalendario />
           <ControlAmpliado />
-          <main className={cn('lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200', shellNuevo && 'lg:py-1')}>
+          <main className={cn('lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200', shellNuevo && 'py-1')}>
             <LienzoDelPanel shellNuevo={shellNuevo}>
             {/* ⚠️ El hueco de arriba lo pone el MENÚ en `--panel-top`, no este
                 armazón: aquí no se pide el layout (este proveedor envuelve
