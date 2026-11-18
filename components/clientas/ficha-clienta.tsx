@@ -39,6 +39,8 @@ import { BotonBajaRecuperacion } from '@/components/socios/boton-baja-recuperaci
 import { BotonDevolverRecibo } from '@/components/socios/boton-devolver-recibo';
 import { BotonCobrarConMetodo } from '@/components/cobros/dialogo-metodo-cobro';
 import { DialogoNuevoCobro } from '@/components/cobros/dialogo-nuevo-cobro';
+import { useAccionesRecibo } from '@/components/cobros/use-acciones-recibo';
+import { puedeEliminarRecibo } from '@/lib/recibos-eliminar';
 import { MENSAJE_YA_ESTABA, textoLoteCobrado } from '@/lib/cobros/marcar-cobrado';
 import { BotonRectificarFactura } from '@/components/socios/boton-rectificar-factura';
 import { estadoReembolso } from '@/lib/billing/estado-reembolso';
@@ -326,6 +328,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
   // quien avisa de un error lo dice con `setToastError` (o `{ variant: 'error' }`).
   const setToast: MostrarToast = (mensaje, opciones) => setToastEstado({ mensaje, variant: opciones?.variant ?? 'exito' });
   const setToastError = (mensaje: string) => setToastEstado({ mensaje, variant: 'error' });
+  // «Eliminar el recibo» (el mismo diálogo y las mismas reglas que el ⋯ de Cobros): un cobro anotado por error se quita desde aquí.
+  const accionesRecibo = useAccionesRecibo({ ok: setToast, error: setToastError });
   const [cambiandoPlan, setCambiandoPlan] = useState(false);
   // «Cambiar la fecha de renovación» de la cuota: la fecha escrita y lo que contestó el servidor.
   const [fechaRenovacion, setFechaRenovacion] = useState<{ valor: string; error: string | null; enCurso: boolean } | null>(null);
@@ -2229,6 +2233,18 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                                       style={{ backgroundColor: 'color-mix(in srgb, var(--success) 12%, var(--card))', color: 'var(--success)' }}
                                     />
                                   )}
+                                  {/* Eliminar: solo lo que aún no es dinero (sin cobro, sin factura). La cerradura es la RPC. */}
+                                  {puedeCobrar && puedeEliminarRecibo(r, { tieneFactura: facturas.some(f => f.reciboId === r.id) }).ok && (
+                                    <button
+                                      type="button"
+                                      data-testid="eliminar-recibo-ficha"
+                                      onClick={() => accionesRecibo.ejecutar('ELIMINAR', r)}
+                                      disabled={accionesRecibo.enVuelo(r.id)}
+                                      className="ml-1.5 text-xs font-bold px-2.5 py-1 rounded-lg text-destructive bg-destructive/10 hover:bg-destructive/15 transition-colors disabled:opacity-50"
+                                    >
+                                      Eliminar
+                                    </button>
+                                  )}
                                   {/* Devolver: mismo gate de rol que cobrar (`puedeMoverDinero`).
                                       El componente se calla solo si la política del estudio está
                                       apagada o el recibo no es de los que se devuelven. */}
@@ -2999,6 +3015,8 @@ export function FichaClienta({ id, modo = 'pagina' }: {
           )}
         </DialogContent>
       </Dialog>
+
+      {accionesRecibo.dialogos}
 
       {/* Nuevo cobro: el mismo diálogo que Cobros, con la clienta ya elegida */}
       <DialogoNuevoCobro
