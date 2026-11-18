@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown,
+  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, Search, Bell,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -15,7 +15,9 @@ import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { NavItemConHijos } from './nav-item-con-hijos';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { EVENTO_ABRIR_BUSCADOR } from '@/lib/buscador-evento';
+import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
 import { useMenuNovedades } from '@/lib/menu-novedades-cliente';
 import { useMensajesSinLeerStaff } from '@/lib/mensajeria/use-sin-leer-staff';
 import { useEstadoEstudio } from '@/lib/estado-estudio-cliente';
@@ -118,6 +120,9 @@ function BadgeContador({ n, compacto, etiqueta = 'sin leer' }: { n: number; comp
 function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, contadorEtiqueta = 'sin leer', horizontal }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number; contadorEtiqueta?: string; horizontal?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+  // Marco a sangre (`SHELL_NUEVO`): fila rectangular de radio 8 y selección neutra, no la píldora
+  // de la marca del estudio. Con el menú arriba (`horizontal`) no cambia.
+  const sangre = useShellNuevo() && !horizontal;
   return (
     <Link
       href={href}
@@ -126,26 +131,126 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
       onClick={e => { onClick?.(); alPulsarEnlaceAConfiguracion(e, href); }}
       title={collapsed ? (contador ? `${label} (${contador} ${contadorEtiqueta})` : nuevo ? `${label} (nuevo)` : label) : undefined}
       className={cn(
-        'zona-tactil flex items-center rounded-full text-[13px] font-medium transition-all relative',
+        'zona-tactil flex items-center text-[13px] font-medium transition-all relative',
+        sangre ? 'rounded-xl' : 'rounded-full',
         // Alto de siempre (~36), no los 40 de la guía: con 40, a 900 px de alto
         // «Configuración» se quedaba bajo el pliegue del menú (OPEN DECISION 18).
         // Con el dedo y el panel nuevo (el iPad), 44: las filas de un grupo van
         // pegadas, así que la zona táctil no puede crecer sin meterse en la de
         // al lado; tiene que crecer la fila. Ahí el menú se desliza con el dedo,
         // y una fila que no se acierta cuesta más que una bajo el pliegue.
-        collapsed ? 'justify-center w-10 h-10 mx-auto tactil:size-11' : 'gap-2.5 px-3 py-2 tactil:min-h-11',
+        collapsed ? 'justify-center w-10 h-10 mx-auto tactil:size-11' : cn('gap-2.5 px-3 tactil:min-h-11', sangre ? 'h-[30px] py-0' : 'py-2'),
         // ⚠️ Tumbado, el item NO se encoge ni parte la etiqueta. Sin esto,
         // «Centro de Control» se rompía en tres líneas y «Configuración» salía
         // cortada a media palabra: en una fila, flex reparte el hueco que falta
         // encogiendo a todos. Lo correcto es que la fila SE DESPLACE.
         horizontal && 'shrink-0 whitespace-nowrap',
-        active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/45 hover:text-white/80 hover:bg-card/5'
+        active
+          ? (sangre ? 'shell-vidrio text-[#fcfcfc] font-medium' : 'bg-brand text-brand-foreground font-semibold')
+          : (sangre ? 'text-[#dcdcdc] font-[450] hover:text-white hover:bg-white/[0.06]' : 'text-white/45 hover:text-white/80 hover:bg-card/5')
       )}
     >
-      <Icon size={17} className="shrink-0" strokeWidth={active ? 2.5 : 2} />
+      <Icon size={17} className="shrink-0" strokeWidth={sangre ? 1.6 : active ? 2.5 : 2} />
       {!collapsed && label}
       {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} etiqueta={contadorEtiqueta} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
+  );
+}
+
+/**
+ * Marco a sangre, dentro de Configuración: el menú pasa a ser el de sus secciones, con «‹ Configuración»
+ * para volver (como Shopify). La lista la pinta `config-shell.tsx` por un portal en `#host-menu-configuracion`:
+ * `dark` re-escopa los tokens para que sus textos se lean sobre el fondo oscuro, y la fila activa deja
+ * de ser el color de marca (regla en `globals.css`).
+ */
+function MenuConfiguracion({ modulos, tienda, direccion }: {
+  modulos: { href: string; label: string; icon: React.ElementType }[];
+  tienda: string;
+  direccion: string | null;
+}) {
+  return (
+    <div className="flex min-h-0 flex-1">
+      {/* La columna de iconos de los módulos, como la de Shopify: sigue ahí para salir de Configuración a cualquier sitio. */}
+      <nav aria-label="Módulos" className="flex w-11 shrink-0 flex-col items-center gap-1 overflow-y-auto py-2">
+        {modulos.map(m => (
+          <Link key={m.href} href={m.href} title={m.label} aria-label={m.label} className="zona-tactil flex size-8 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+            <m.icon size={16} strokeWidth={1.6} aria-hidden="true" />
+          </Link>
+        ))}
+      </nav>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col pr-2">
+        <Link
+          href="/dashboard"
+          className="zona-tactil mb-1 mt-1 flex h-8 items-center gap-1.5 rounded-xl px-2 text-[13px] font-medium text-white transition-colors hover:bg-white/10"
+        >
+          <ChevronLeft size={16} aria-hidden="true" />
+          Configuración
+        </Link>
+        <BotonBuscarAjuste />
+        {/* La ficha de la tienda, primera fila (con su dirección). */}
+        <Link href="/configuracion" className="shell-vidrio mb-1 mt-2 flex items-center gap-2 px-2 py-1.5 text-white">
+          <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-[var(--t-blue-500)] text-[9px] font-bold text-white">{tienda.trim().slice(0, 2).toUpperCase()}</span>
+          <span className="min-w-0 flex-1 leading-tight">
+            <span className="block truncate text-[12px] font-medium">{tienda}</span>
+            {direccion && <span className="block truncate text-[11px] text-white/55">{direccion}</span>}
+          </span>
+        </Link>
+        <div id="host-menu-configuracion" className="dark min-h-0 flex-1 overflow-y-auto pb-3 text-foreground" />
+      </div>
+    </div>
+  );
+}
+
+/** «Buscar configuración»: lleva el foco al buscador de ajustes de la pantalla (o abre el buscador global si no está). */
+function BotonBuscarAjuste() {
+  const ir = () => {
+    const campo = document.querySelector<HTMLInputElement>('input[placeholder^="Busca un ajuste"], input[aria-label="Buscar un ajuste"], #inicio-buscador');
+    if (campo) { campo.focus(); campo.scrollIntoView({ block: 'center' }); return; }
+    window.dispatchEvent(new Event(EVENTO_ABRIR_BUSCADOR));
+  };
+  return (
+    <button type="button" onClick={ir} className="shell-vidrio shell-vidrio-busqueda zona-tactil flex h-8 items-center gap-2 px-2.5 text-[12px] text-[#a6a6a6] transition-colors hover:text-white">
+      <Search size={14} aria-hidden="true" className="shrink-0" />
+      <span className="flex-1 text-left">Buscar configuración</span>
+    </button>
+  );
+}
+
+/**
+ * El resplandor de abajo del menú (el «trial-wave» de Shopify, medido: una franja de 400 px con el
+ * degradado que se enciende en el último 18 % y dos haces que se desplazan 17,5 s en bucle lineal),
+ * con los colores de Tentare: turquesa de la marca abajo y un haz magenta que cruza despacio. Va
+ * detrás del menú (`z-10`) y con «reducir movimiento» se queda quieto. Decoración: `aria-hidden`.
+ */
+function BrilloDelMarco() {
+  return (
+    <div aria-hidden className="shell-brillo pointer-events-none fixed bottom-0 left-0 z-10 hidden overflow-hidden lg:block" style={{ width: 'var(--sidebar-w)' }}>
+      <div className="shell-brillo-base" />
+      <div className="shell-brillo-haz shell-brillo-haz-azul" />
+      <div className="shell-brillo-haz shell-brillo-haz-magenta" />
+    </div>
+  );
+}
+
+/** «Buscar ⌘K» del menú a sangre: abre el buscador global que monta la barra de arriba. */
+function BotonBuscarMenu({ colapsado }: { colapsado: boolean }) {
+  const atajo = useAtajoBuscar();
+  const abrir = () => window.dispatchEvent(new Event(EVENTO_ABRIR_BUSCADOR));
+  return colapsado ? (
+    <button type="button" onClick={abrir} data-tour="buscador" aria-label="Buscar" className="zona-tactil mx-auto mt-2 flex size-10 items-center justify-center rounded-xl text-white/70 transition-colors hover:bg-white/10 hover:text-white">
+      <Search size={17} aria-hidden="true" />
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={abrir}
+      data-tour="buscador"
+      className="shell-vidrio shell-vidrio-busqueda zona-tactil mx-3 mt-2 mb-2 flex h-9 items-center gap-2 px-3 text-[13px] text-[#a6a6a6] transition-colors hover:text-white"
+    >
+      <Search size={15} aria-hidden="true" className="shrink-0" />
+      <span className="flex-1 text-left">Buscar</span>
+      <kbd className="font-sans text-[13px] leading-none text-[#a6a6a6]">{atajo}</kbd>
+    </button>
   );
 }
 
@@ -324,6 +429,17 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
 };
 
 /**
+ * Con el shell a sangre (`SHELL_NUEVO`) el menú pega al borde: sin los 16 px de aire a la
+ * izquierda ni los 16 de separación del lienzo. Son los anchos de `grid.panel` de
+ * `brand/design-tokens.json` (64 / 224 / 288).
+ */
+const SIDEBAR_SANGRE: Record<SidebarSize, { aside: string; cssVar: string }> = {
+  compacto: { aside: 'w-16', cssVar: '64px' },
+  normal: { aside: 'w-56', cssVar: '224px' },
+  grande: { aside: 'w-72', cssVar: '288px' },
+};
+
+/**
  * Escribe en el DOM los huecos que calcula `huecosDelMenu`.
  *
  * El cálculo —y la memoria de la última medida— viven en `lib/panel-huecos.ts`,
@@ -333,8 +449,9 @@ const SIDEBAR_SIZES: Record<SidebarSize, { aside: string; cssVar: string; label:
  * una fila». Ver el comentario de `altoBarraMedido` en ese fichero: confundir
  * las dos cosas es lo que dejaba el buscador clavado dentro del menú.
  */
-function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra?: number) {
-  const huecos = huecosDelMenu(horizontal, SIDEBAR_SIZES[size].cssVar, altoBarra);
+function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra?: number, sangre = false) {
+  const ancho = (sangre ? SIDEBAR_SANGRE : SIDEBAR_SIZES)[size].cssVar;
+  const huecos = huecosDelMenu(horizontal, ancho, altoBarra);
   const raiz = document.documentElement.style;
   raiz.setProperty('--sidebar-w', huecos.sidebarW);
   raiz.setProperty('--panel-top', huecos.panelTop);
@@ -390,6 +507,7 @@ export function Sidebar() {
   const { rol, puedeVer } = usePermisos();
   // Con el panel nuevo, el menú trae también sus secciones propias (Festivos).
   const panelNuevo = usePanelNuevo();
+  const shellNuevo = useShellNuevo();
   // Mientras `studio` no ha cargado, `useRol()` cae al mínimo (INSTRUCTOR,
   // fail-closed de A-2 en lib/permisos.ts) — sin este guard se veía el logo/
   // título de Tentare Core un instante en CUALQUIER rol, incluida la
@@ -423,6 +541,10 @@ export function Sidebar() {
   // era leerlo, no inventarlo.
   const [menuPosition, setMenuPosition] = useState<MenuPosicion>('lateral');
   const horizontal = menuPosition === 'superior';
+  // A sangre solo en columna: con el menú arriba no hay borde izquierdo al que pegarlo.
+  const sangre = shellNuevo && !horizontal;
+  const pathnameMenu = usePathname();
+  const enConfiguracion = sangre && (pathnameMenu ?? '').startsWith('/configuracion');
   useEffect(() => {
     let vivo = true;
     function cargar() {
@@ -473,7 +595,7 @@ export function Sidebar() {
   function applySize(next: SidebarSize) {
     setSize(next);
     localStorage.setItem('sidebar-size', next);
-    aplicarHuecos(horizontal, next);
+    aplicarHuecos(horizontal, next, undefined, sangre);
   }
 
   // Restore the size preference (migrating the old binary "collapsed" flag if
@@ -488,15 +610,15 @@ export function Sidebar() {
     // Con el menú arriba el <main> no lleva hueco a la izquierda: la barra
     // ocupa el ancho entero. El tamaño guardado se conserva igualmente, para
     // que al volver a «izquierda» esté como lo dejó.
-    aplicarHuecos(horizontal, initial);
-  }, [horizontal]);
+    aplicarHuecos(horizontal, initial, undefined, sangre);
+  }, [horizontal, sangre]);
 
   // ⚠️ Los dos huecos los pone el MENÚ, no el armazón. `dashboard-shell` no
   // pide el layout —y no debe: es el proveedor de TODAS las rutas— así que si
   // la posición viviera solo en su estado, el hueco y la barra podrían
   // discrepar medio segundo en cada carga. Con variables CSS hay un solo
   // dueño y el desfase no existe.
-  useEffect(() => { aplicarHuecos(horizontal, size); }, [horizontal, size]);
+  useEffect(() => { aplicarHuecos(horizontal, size, undefined, sangre); }, [horizontal, size, sangre]);
 
   // ⚠️ El alto de la barra se MIDE, no se supone.
   //
@@ -593,7 +715,7 @@ export function Sidebar() {
           {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
               orden, que ya agrupa por sección. */}
           {section.label && !collapsed && !horizontal && (
-            <p className="t-label px-3 pt-3 pb-1 text-white/50">
+            <p className={sangre ? 'px-3 pb-1 pt-4 text-[12px] font-medium leading-4 text-[#a6a6a6]' : 't-label px-3 pt-3 pb-1 text-white/50'}>
               {section.label}
             </p>
           )}
@@ -625,7 +747,7 @@ export function Sidebar() {
             // 10-nov-2026; OPEN DECISION 18). Fondo opaco para tapar lo que pasa por
             // debajo al desplazar. Tumbado (horizontal) la fila envuelve y no hace falta.
             return item.href === ANCLADO && !horizontal
-              ? <div key={item.href} className="sticky bottom-0 z-10 bg-[#0A0A0A] pt-1">{fila}</div>
+              ? <div key={item.href} className={cn('sticky bottom-0 z-10 pt-1', !sangre && 'bg-[#0A0A0A]')}>{fila}</div>
               : fila;
           })}
         </div>
@@ -688,18 +810,32 @@ export function Sidebar() {
           Con el menú a la izquierda va FUERA de la píldora, encima. Con el
           menú arriba no hay «encima»: se oculta aquí y se pinta dentro de la
           propia barra, a la izquierda del todo. */}
+      {sangre && <BrilloDelMarco />}
       <div
         data-panel-menu
         className={cn(
-          'fixed top-4 left-4 z-20 items-center justify-center h-20 shrink-0 transition-[width] duration-200',
+          'fixed z-20 items-center shrink-0 transition-[width] duration-200',
+          sangre && collapsed ? 'justify-center' : !sangre && 'justify-center',
+          sangre ? 'top-0 left-0 z-[32] h-14 px-5 justify-between' : 'top-4 left-4 h-20',
           horizontal ? 'hidden' : 'hidden lg:flex',
-          SIDEBAR_SIZES[size].aside,
+          (sangre ? SIDEBAR_SANGRE : SIDEBAR_SIZES)[size].aside,
         )}
       >
-        {collapsed ? (
-          <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={46} animacion={animacionLogo} />
+        {collapsed || sangre ? (
+          <LogoTentare formato="isotipo" tinta={sangre ? 'blanco' : 'auto'} producto={producto} titulo={marca} alto={sangre ? 28 : 46} animacion={animacionLogo} />
         ) : (
           <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={52} animacion={animacionLogo} />
+        )}
+        {sangre && !collapsed && (
+          <button
+            type="button"
+            onClick={() => applySize('compacto')}
+            aria-label="Contraer el menú"
+            title="Contraer el menú"
+            className="zona-tactil flex size-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <PanelLeft size={16} aria-hidden="true" />
+          </button>
         )}
       </div>
 
@@ -718,14 +854,16 @@ export function Sidebar() {
             // `rounded-3xl` es el mismo lenguaje de la píldora, solo que
             // tumbada.
             ? 'top-4 left-4 right-4 flex-row items-start gap-2 rounded-3xl px-3 py-4'
-            : 'top-[104px] left-4 bottom-4 flex-col rounded-[28px]',
-          !horizontal && SIDEBAR_SIZES[size].aside,
+            : sangre
+              ? 'top-14 left-0 bottom-0 flex-col rounded-none'
+              : 'top-[104px] left-4 bottom-4 flex-col rounded-[28px]',
+          !horizontal && (sangre ? SIDEBAR_SANGRE : SIDEBAR_SIZES)[size].aside,
         )}
         // Sigue en #0A0A0A y no en `surface-nav` (Brand System): con el puente, en
         // oscuro `--sidebar` vale lo mismo que el lienzo y el menú desaparecía
         // contra él. Va con la OPEN DECISION 2 (`surface-nav` en oscuro), y con el
         // degradado de abajo, que repite este color.
-        style={{ backgroundColor: '#0A0A0A', ...(horizontal && { minHeight: BARRA_ALTO_INICIAL }) }}
+        style={{ backgroundColor: sangre ? 'transparent' : '#0A0A0A', ...(sangre && { letterSpacing: '-0.01em' }), ...(horizontal && { minHeight: BARRA_ALTO_INICIAL }) }}
       >
         {/* El logo, solo en horizontal: aquí sí hay sitio a la izquierda. */}
         {horizontal && (
@@ -733,6 +871,8 @@ export function Sidebar() {
             <LogoTentare formato="isotipo" tinta="auto" producto={producto} titulo={marca} alto={34} animacion={animacionLogo} />
           </Link>
         )}
+        {/* Marco a sangre: el buscador vive aquí arriba, como en Shopify (36 px, «Buscar» + atajo). */}
+        {sangre && !enConfiguracion && <BotonBuscarMenu colapsado={collapsed} />}
         {/* Sede activa (solo en cadenas): lo primero de la píldora, porque
             condiciona todo lo que hay debajo. En modo compacto no cabe el
             nombre, y una sede sin nombre no sirve de nada. */}
@@ -767,7 +907,7 @@ export function Sidebar() {
           </div>
         )}
 
-        {horizontal ? menu : (
+        {horizontal ? menu : enConfiguracion ? <MenuConfiguracion modulos={seccionesVisibles.flatMap(s => s.items)} tienda={studio?.nombre ?? marca} direccion={studioSlug ? `tentare.app/${studioSlug}` : null} /> : (
           // `min-h-0`: sin él la envoltura crece hasta el alto del menú entero
           // y el `overflow-y-auto` del <nav> no tiene nada que desplazar.
           <div className="relative flex min-h-0 flex-1 flex-col">
@@ -776,7 +916,7 @@ export function Sidebar() {
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center pb-1"
-                style={{ background: 'linear-gradient(to top, #0A0A0A 35%, transparent)' }}
+                style={{ background: `linear-gradient(to top, ${sangre ? 'var(--shell-marco)' : '#0A0A0A'} 35%, transparent)` }}
               >
                 <ChevronDown size={14} className="text-white/50" />
               </div>
@@ -805,7 +945,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/acceso/login`}
               target="_blank"
-              className="zona-tactil flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium transition-colors hover:bg-card/5 text-sidebar-primary-foreground"
+              className={cn('zona-tactil flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors hover:bg-card/5', sangre ? 'text-[13px] text-white/55 hover:text-white' : 'text-[11px] text-sidebar-primary-foreground')}
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal clientes</span>
@@ -813,9 +953,32 @@ export function Sidebar() {
           </div>
         ))}
 
+        {/* Marco a sangre: la fila de la tienda (ficha de color, nombre y avisos), como Shopify. */}
+        {sangre && !collapsed && enConfiguracion && (
+          // En Configuración, como Shopify: abajo la persona (avatar, nombre y correo), no la tienda.
+          <Link href="/mi-perfil" title="Editar mi perfil" className="flex shrink-0 items-center gap-2.5 px-4 pb-3 pt-2 text-white">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">{userInitials}</span>
+            <span className="min-w-0 flex-1 leading-tight">
+              <span className="block truncate text-[12px] font-medium">{yo?.nombre ?? (user?.user_metadata?.nombre as string | undefined) ?? 'Mi perfil'}</span>
+              <span className="block truncate text-[11px] text-white/55">{userEmail}</span>
+            </span>
+          </Link>
+        )}
+        {sangre && !collapsed && !enConfiguracion && (
+          <div className="flex shrink-0 items-center gap-2.5 px-4 pb-3 pt-2">
+            <Link href="/mi-perfil" title="Editar mi perfil" className="zona-tactil flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--t-blue-500)] text-[10px] font-bold text-white">
+              {(studio?.nombre ?? 'T').trim().slice(0, 2).toUpperCase()}
+            </Link>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-white/90">{studio?.nombre ?? marca}</span>
+            <Link href="/notificaciones" aria-label="Avisos" title="Avisos" className="zona-tactil flex size-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white">
+              <Bell size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        )}
+
         {/* User */}
         <div
-          className={cn(horizontal ? 'shrink-0 pl-2 border-l' : 'px-3 py-3 border-t')}
+          className={cn(horizontal ? 'shrink-0 pl-2 border-l' : 'px-3 py-3 border-t', sangre && !collapsed && 'hidden')}
           style={{ borderColor: 'rgba(255,255,255,0.07)' }}
         >
           <div className={cn('flex items-center gap-2.5 rounded-lg', (collapsed && !horizontal) ? 'justify-center px-0 py-2' : 'px-2 py-2')}>
@@ -848,7 +1011,7 @@ export function Sidebar() {
             Fuera en horizontal: «Pequeño/Normal/Grande» describe el ANCHO de
             la columna, y tumbada no hay ancho que elegir. La preferencia se
             conserva guardada para cuando vuelva a la izquierda. */}
-        {!horizontal && (
+        {!horizontal && (!sangre || collapsed) && (
         <div className="relative shrink-0 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
           {sizeMenuOpen && (
             <>

@@ -25,6 +25,8 @@ import { DEGRADADO_LOGO, BOTON_DESTACADO } from '@/components/dashboard/vivo';
 import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TarjetasDePaso } from '@/components/dashboard/tarjetas-de-paso';
 
 export function PrimerosPasosTarjeta() {
   const {
@@ -33,6 +35,11 @@ export function PrimerosPasosTarjeta() {
   } = useStudio();
   const [ocultando, setOcultando] = useState(false);
   const [fallo, setFallo] = useState(false);
+  // Marco a sangre: los pasos como tarjetas con imagen; lo descartado se recuerda por estudio en este navegador.
+  const shellNuevo = useShellNuevo();
+  const [descartadas, setDescartadas] = useState<Set<string>>(() => {
+    try { return new Set<string>(JSON.parse(window.localStorage.getItem(`tentare:paso-tarjetas:${studio?.id ?? ''}`) ?? '[]') as string[]); } catch { return new Set<string>(); }
+  });
   // La hora de entrar, una vez: el render no puede leer el reloj (react-hooks/purity).
   const [alMontar] = useState(() => Date.now());
 
@@ -94,6 +101,30 @@ export function PrimerosPasosTarjeta() {
           </div>
           {botonOcultar}
         </div>
+      </section>
+    );
+  }
+
+  if (shellNuevo) {
+    const descartar = (id: string) => {
+      const nuevas = new Set(descartadas).add(id);
+      setDescartadas(nuevas);
+      try { window.localStorage.setItem(`tentare:paso-tarjetas:${studio.id}`, JSON.stringify([...nuevas])); } catch { /* solo esta sesión */ }
+    };
+    const filas = p.tareas.map(t => ({ id: t.id, label: t.titulo, descripcion: t.para, href: t.href, done: t.hecha }));
+    return (
+      <section aria-labelledby="primeros-pasos-titulo" data-testid="primeros-pasos" className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h2 id="primeros-pasos-titulo" className="text-[15px] font-medium tracking-[-0.01em] text-foreground">
+            Pon en marcha tu estudio <span className="ml-1 text-[13px] font-normal text-muted-foreground">{p.hechas} de {p.total}</span>
+          </h2>
+          <div className="flex items-center gap-3 text-[12px]">
+            {soporte && <a href={soporte} target="_blank" rel="noreferrer" className="font-medium text-foreground hover:underline">Escríbenos por WhatsApp</a>}
+            <button type="button" onClick={ocultar} disabled={ocultando} className="text-muted-foreground hover:text-foreground hover:underline disabled:opacity-50">Ocultar</button>
+          </div>
+        </div>
+        {fallo && <p className="text-[12px] text-destructive">No se ha podido ocultar. Inténtalo otra vez.</p>}
+        <TarjetasDePaso filas={filas} puedeIr={() => true} publica={h => h.startsWith('/portal/')} descartados={descartadas} onDescartar={descartar} />
       </section>
     );
   }

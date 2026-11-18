@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Escena, type NombreEscena } from '@/components/ilustraciones/escenas';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Estado vacío estándar del panel. Extraído del patrón que Equipo y
 // Sustituciones tenían copiado carácter por carácter (auditoría 2026-08-20:
@@ -22,23 +24,42 @@ import { cn } from '@/lib/utils';
 function EmptyState({
   icono: Icono,
   ilustracion,
+  escena: escenaPedida,
   titulo,
   descripcion,
   cta,
+  ctaSecundaria,
   compacto = false,
   className,
 }: {
   icono?: LucideIcon;
   ilustracion?: { src: string; alt?: string };
+  /**
+   * Una de las ilustraciones propias de `components/ilustraciones/escenas.tsx` (18-nov-2026). Con
+   * ella el vacío pasa a una tarjeta con borde sólido y un botón principal oscuro, más una
+   * acción secundaria opcional: un vacío con intención, no una caja punteada. ⚠️ Nunca en
+   * pantallas de dinero con error ni junto a texto redactado por un modelo.
+   */
+  escena?: NombreEscena;
   titulo: string;
   descripcion?: string;
   cta?: { label: string; onClick?: () => void; href?: string; icono?: LucideIcon };
+  /** Solo con `escena`: la acción de al lado (p. ej. «Importar»). Más discreta que la principal. */
+  ctaSecundaria?: { label: string; onClick?: () => void; href?: string };
   compacto?: boolean;
   className?: string;
 }) {
+  // Las escenas propias (y el botón oscuro) son del marco a sangre: sin `SHELL_NUEVO`, el vacío es el de siempre.
+  const shell = useShellNuevo();
+  const escena = shell ? escenaPedida : undefined;
   const IconoCta = cta?.icono;
   const botonCta = cta && (
-    <span className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand text-brand-foreground text-[13px] font-bold">
+    <span className={cn(
+      'inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold',
+      escena
+        ? 'rounded-full bg-[var(--t-surface-inverse)] text-[var(--t-text-inverse)]'
+        : 'rounded-xl bg-brand text-brand-foreground',
+    )}>
       {IconoCta && <IconoCta size={15} aria-hidden="true" />} {cta.label}
     </span>
   );
@@ -49,11 +70,15 @@ function EmptyState({
         'flex flex-col items-center justify-center text-center',
         compacto
           ? 'py-10'
-          : 'py-20 rounded-2xl border border-dashed border-border bg-card',
+          : escena
+            ? 'py-16 rounded-2xl border border-border bg-card'
+            : 'py-20 rounded-2xl border border-dashed border-border bg-card',
         className,
       )}
     >
-      {ilustracion ? (
+      {escena && !compacto ? (
+        <Escena nombre={escena} className="mb-4" />
+      ) : ilustracion ? (
         // SVG decorativo local — mismo criterio que primeros-pasos: next/image no optimiza SVG.
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -80,14 +105,24 @@ function EmptyState({
           {descripcion}
         </p>
       )}
-      {cta &&
-        (cta.href ? (
-          <Link href={cta.href}>{botonCta}</Link>
-        ) : (
-          <button type="button" onClick={cta.onClick}>
-            {botonCta}
-          </button>
-        ))}
+      {(cta || (escena && ctaSecundaria)) && (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {cta &&
+            (cta.href ? (
+              <Link href={cta.href}>{botonCta}</Link>
+            ) : (
+              <button type="button" onClick={cta.onClick}>
+                {botonCta}
+              </button>
+            ))}
+          {escena && ctaSecundaria && (() => {
+            const clases = 'inline-flex items-center rounded-full border border-border bg-card px-4 py-2.5 text-[13px] font-semibold text-foreground hover:bg-muted transition-colors';
+            return ctaSecundaria.href
+              ? <Link href={ctaSecundaria.href} className={clases}>{ctaSecundaria.label}</Link>
+              : <button type="button" onClick={ctaSecundaria.onClick} className={clases}>{ctaSecundaria.label}</button>;
+          })()}
+        </div>
+      )}
     </div>
   );
 }

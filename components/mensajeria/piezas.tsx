@@ -211,7 +211,7 @@ export function SinHiloElegido() {
 
 export function BandejaVacia({ onNueva }: { onNueva: () => void }) {
   return (
-    <EmptyState
+    <EmptyState escena="personas"
       icono={Inbox}
       titulo="Aquí aparecerán tus conversaciones"
       descripcion="Escribe a un cliente desde el mostrador o deja que ella empiece desde su portal — todo llega a esta bandeja."

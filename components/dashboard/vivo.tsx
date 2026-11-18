@@ -139,11 +139,11 @@ type AlNavegar = (e: { preventDefault: () => void }) => void;
 export function MarcoCifra({ href, tono, children, etiqueta, onNavigate }: { href: string | null; tono: Tono; children: ReactNode; etiqueta: string; onNavigate?: AlNavegar }) {
   const clase = 'group flex min-h-[132px] flex-col rounded-t-card border p-4 shadow-t-card sm:p-5';
   return href ? (
-    <Link href={href} onNavigate={onNavigate} aria-label={etiqueta} className={cn(clase, 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-floating')} style={fondoTenido(tono, 14)}>
+    <Link href={href} onNavigate={onNavigate} aria-label={etiqueta} data-vivo="cifra" className={cn(clase, 'transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-t-floating')} style={fondoTenido(tono, 14)}>
       {children}
     </Link>
   ) : (
-    <div className={clase} style={fondoTenido(tono, 14)}>{children}</div>
+    <div data-vivo="cifra" className={clase} style={fondoTenido(tono, 14)}>{children}</div>
   );
 }
 
@@ -152,8 +152,8 @@ export function MarcoCifra({ href, tono, children, etiqueta, onNavigate }: { hre
 export function Cabecilla({ etiqueta, tono, Icono }: { etiqueta: string; tono: Tono; Icono: React.ElementType }) {
   return (
     <div className="flex items-start justify-between gap-2">
-      <p className="text-[11.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-foreground/60">{etiqueta}</p>
-      <Icono size={19} strokeWidth={2.2} style={{ color: TONOS[tono] }} aria-hidden className="shrink-0" />
+      <p data-vivo="cifra-etiqueta" className="text-[11.5px] font-semibold uppercase leading-tight tracking-[0.06em] text-foreground/60">{etiqueta}</p>
+      <Icono data-vivo="cifra-icono" size={19} strokeWidth={2.2} style={{ color: TONOS[tono] }} aria-hidden className="shrink-0" />
     </div>
   );
 }
@@ -164,7 +164,7 @@ export function NumeroConLado({ valor, arriba, abajo }: { valor: ReactNode; arri
   return (
     // Si no cabe al lado (móvil), la explicación baja debajo del número.
     <div className="mt-auto flex flex-wrap items-end gap-x-2.5 gap-y-1 pt-3">
-      <p className="whitespace-nowrap text-[34px] font-bold leading-[0.9] tracking-tight text-foreground tabular-nums sm:text-[40px]">{valor}</p>
+      <p data-vivo="cifra-valor" className="whitespace-nowrap text-[34px] font-bold leading-[0.9] tracking-tight text-foreground tabular-nums sm:text-[40px]">{valor}</p>
       <div className="min-w-0 pb-0.5 leading-tight">
         {arriba && <p className="truncate text-[13px] font-semibold text-foreground tabular-nums">{arriba}</p>}
         <p className="text-[12px] text-muted-foreground">{abajo}</p>
@@ -216,15 +216,15 @@ export function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles,
   id: string; titulo: string; sub: string; cifra: ReactNode; comparacion?: ReactNode; controles?: ReactNode; children: ReactNode; pie?: ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
+    <section aria-labelledby={id} data-vivo="grafica" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
       {/* En el móvil, la cifra debajo del título: al lado le dejaba al subtítulo dos palabras por línea. */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
-          <h2 id={id} className="text-[16px] font-semibold text-foreground">{titulo}</h2>
-          <p className="mt-0.5 max-w-[34ch] text-[12.5px] leading-snug text-muted-foreground">{sub}</p>
+          <h2 id={id} data-vivo="grafica-titulo" className="text-[16px] font-semibold text-foreground">{titulo}</h2>
+          <p data-vivo="grafica-sub" className="mt-0.5 max-w-[34ch] text-[12.5px] leading-snug text-muted-foreground">{sub}</p>
         </div>
         <div className="shrink-0 sm:text-right">
-          <p className="text-[28px] font-bold leading-none tracking-tight text-foreground tabular-nums">{cifra}</p>
+          <p data-vivo="grafica-cifra" className="text-[28px] font-bold leading-none tracking-tight text-foreground tabular-nums">{cifra}</p>
           {comparacion && <p className="mt-1 text-[12px] leading-tight text-muted-foreground">{comparacion}</p>}
         </div>
       </div>
@@ -239,13 +239,14 @@ export function TarjetaGrafica({ id, titulo, sub, cifra, comparacion, controles,
 /** El periodo en píldoras, como «7 días · Este mes · 3 meses» de Bonsai. */
 export function Pildoras<T extends string | number>({ opciones, valor, onCambio, etiqueta = 'Periodo' }: { opciones: { valor: T; label: string }[]; valor: T; onCambio: (v: T) => void; etiqueta?: string }) {
   return (
-    <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label={etiqueta}>
+    <div data-vivo="pildoras" className="inline-flex rounded-full bg-muted p-1" role="group" aria-label={etiqueta}>
       {opciones.map(o => (
         <button
           key={String(o.valor)}
           type="button"
           onClick={() => onCambio(o.valor)}
           aria-pressed={valor === o.valor}
+          data-vivo="pildora"
           className={cn(
             'zona-tactil rounded-full px-3 py-1 text-[12.5px] font-semibold transition-colors',
             valor === o.valor ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',

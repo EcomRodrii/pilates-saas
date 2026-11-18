@@ -439,10 +439,15 @@ export default function Informes() {
     />
   );
 
+  // La hora a la que se cargó la pantalla, una vez (el render no puede leer el reloj: react-hooks/purity).
+  const [horaDeCarga] = useState(() => new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }));
+
   return (
     <div data-tour="informes-vista" className="space-y-5 pb-24">
       <PageHeader
         title="Informes"
+        // Marco a sangre: «Se actualizó hoy a las HH:MM» junto al título, como el encabezado de Informes y estadísticas de Shopify.
+        badge={<span data-actualizado className="hidden text-[13px] font-normal text-muted-foreground">Se actualizó hoy a las {horaDeCarga}</span>}
         description="Cuánto has cobrado, cómo se llenan las clases y quién viene, frente al mismo tramo del periodo anterior."
         actions={(
           <div className="flex items-center gap-2 print:hidden">

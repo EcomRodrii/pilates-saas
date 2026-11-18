@@ -50,10 +50,10 @@ export function SelectorPeriodo({ periodo, referencia, hoy, haySiguiente, onPeri
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex items-center gap-0.5 rounded-xl bg-muted p-1" role="group" aria-label="Periodo">
+      <div data-vivo="pildoras" className="inline-flex items-center gap-0.5 rounded-xl bg-muted p-1" role="group" aria-label="Periodo">
         {PERIODOS.map(p => (
           <button
-            key={p.id} type="button" onClick={() => onPeriodo(p.id)} aria-pressed={periodo === p.id}
+            key={p.id} type="button" onClick={() => onPeriodo(p.id)} aria-pressed={periodo === p.id} data-vivo="pildora"
             className={cn(
               'zona-tactil min-h-8 items-center rounded-lg px-3 text-[13px] font-medium transition-colors',
               p.soloAncho ? 'hidden sm:inline-flex' : 'inline-flex',
@@ -64,7 +64,7 @@ export function SelectorPeriodo({ periodo, referencia, hoy, haySiguiente, onPeri
           </button>
         ))}
       </div>
-      <div className="inline-flex items-center rounded-lg border border-border bg-card">
+      <div data-vivo="pildora-mover" className="inline-flex items-center rounded-lg border border-border bg-card">
         <button type="button" onClick={() => onMover(-1)} aria-label="Periodo anterior" className="zona-tactil flex size-9 items-center justify-center text-muted-foreground hover:text-foreground">
           <ChevronLeft size={16} />
         </button>

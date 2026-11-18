@@ -66,6 +66,14 @@ export const INTERRUPTORES = {
    * cuyo registro ya no le preguntó lo que la bienvenida de siempre da por hecho.
    */
   altaNueva: 'ALTA_NUEVA',
+  /**
+   * El shell del panel «a sangre» (18-nov-2026, `docs/diseno/fase-3-shell-propuesta.md`): menú a
+   * todo el alto del borde izquierdo en `surface-nav` con el logo dentro, esquina interior
+   * redondeada del lienzo y buscador en píldora neutra. Solo cambia el menú en columna: con el
+   * menú arriba no hay nada que pegar al borde. Apagado de serie; primero en el estudio de prueba
+   * del fundador, a todos cuando él dé el sí.
+   */
+  shellNuevo: 'SHELL_NUEVO',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

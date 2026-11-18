@@ -28,10 +28,12 @@ import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
 import { debeObservar } from '@/lib/analitica/hitos';
-import { finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
+import { cn, finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
-import { useAltaNueva } from '@/lib/estudio/panel-nuevo-cliente';
+import { useAltaNueva, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { ColumnaAsistenteProvider, useColumnaAsistente } from '@/lib/asistente-columna';
+import { ColumnaAsistente, PildoraAsistente } from '@/components/asistente/columna-asistente';
 import { esRutaDelAlta } from '@/lib/alta/bienvenida-nueva';
 import { reviewBoostToca } from '@/lib/growth/review-boost';
 import { vistaPreviaSolicitada } from '@/lib/growth/vista-previa';
@@ -100,6 +102,26 @@ function ReviewBoostSiToca(props: ComponentProps<typeof ReviewBoostModal>) {
 // solo lo puede hacer un Server Component — 'use client' bloquea cualquier
 // export de metadata. Se extrajo el cuerpo tal cual a este componente cliente;
 // el layout ahora es un wrapper fino que solo pone la metadata y renderiza esto.
+/**
+ * El lienzo claro del marco a sangre. Cede su margen derecho a la columna del asistente cuando está
+ * abierta, con la curva y el tiempo medidos en Shopify (0,3 s, `cubic-bezier(0.2, 0.8, 0, 1)`).
+ * Sin `SHELL_NUEVO` no añade nada.
+ */
+function LienzoDelPanel({ shellNuevo, children }: { shellNuevo: boolean; children: React.ReactNode }) {
+  const { abierta } = useColumnaAsistente();
+  return (
+    <div
+      data-columna-abierta={shellNuevo && abierta ? '' : undefined}
+      className={cn(
+        shellNuevo && 'lg:min-h-[calc(100dvh-0.5rem)] lg:rounded-2xl lg:bg-background lg:transition-[margin] lg:duration-300 lg:ease-[cubic-bezier(0.2,0.8,0,1)]',
+        shellNuevo && (abierta ? 'lg:mr-[356px]' : 'lg:mr-1'),
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { session, loading } = useAuth();
   // useCore() y no useStudio(): esto es el marco de las 50 rutas del panel y
@@ -121,6 +143,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // El panel nuevo (14-oct-2026): sus secciones propias (Festivos) entran en el
   // menú y en el título de la pestaña; y trae su propia guía (más abajo).
   const panelNuevo = useInterruptor('panelNuevo', studio?.id);
+  // Marco a sangre (`SHELL_NUEVO`): fondo oscuro, barra fija arriba y el contenido como un lienzo
+  // claro redondeado. Solo en escritorio (`lg:`): en móvil el panel sigue como estaba.
+  const shellNuevo = useShellNuevo();
   // El alta nueva (21-oct-2026): TRES estados, `null` mientras se pregunta. Elige
   // qué bienvenida se enseña (más abajo), y con `null` se espera con el esqueleto
   // en vez de pintar un instante la de siempre.
@@ -474,12 +499,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelPrivacyProvider>
-      <PanelThemeProvider className="panel-app min-h-dvh bg-background" panelNuevo={panelNuevo}>
+      <PanelThemeProvider className="panel-app min-h-dvh bg-background" panelNuevo={panelNuevo} shellNuevo={shellNuevo}>
         <TourProvider>
           {/* El tutorial de cada pantalla (P1.1): dentro de la visita, que manda sobre él. */}
           <TutorialProvider>
           {/* «Pregúntale a Tentare»: el panel llega aparte, al abrirlo por primera vez. */}
           <AsistenteProvider>
+          <ColumnaAsistenteProvider>
           <Sidebar />
           {/* Cambiar de sede recarga el panel entero y aterrizas en un dashboard
               idéntico salvo por los datos: esto es lo único que confirma el salto. */}
@@ -497,7 +523,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               se cambia de pantalla, y una página se desmonta al salir de ella. */}
           <VentanaCalendario />
           <ControlAmpliado />
-          <main className="lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200">
+          <main className={cn('lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200', shellNuevo && 'lg:py-1')}>
+            <LienzoDelPanel shellNuevo={shellNuevo}>
             {/* ⚠️ El hueco de arriba lo pone el MENÚ en `--panel-top`, no este
                 armazón: aquí no se pide el layout (este proveedor envuelve
                 TODAS las rutas), así que decidirlo por estado propio haría que
@@ -519,6 +546,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                 )}
               </PanelPageTransition>
             </div>
+            </LienzoDelPanel>
           </main>
           {/* La esquina: el WhatsApp de soporte y el chat de Tentare encima. En el
               chat de Tentare el botón flotante tapaba el de enviar: ahí el soporte
@@ -528,7 +556,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               no esté terminada, que también trae el recorrido rápido
               (components/guia/flotantes-del-panel.tsx). */}
           <FlotantesDelPanel />
+          {/* Marco a sangre: el asistente como columna a la derecha y su píldora abajo al centro. */}
+          {shellNuevo && <><ColumnaAsistente /><PildoraAsistente /></>}
           {/* «Primeros pasos» ya no flota aquí: es una píldora de la barra de arriba (topbar.tsx). */}
+          </ColumnaAsistenteProvider>
           </AsistenteProvider>
           </TutorialProvider>
         </TourProvider>

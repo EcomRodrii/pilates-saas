@@ -62,7 +62,7 @@ const TONO_EXTERNA: Record<string, Tono> = { plan: 'verde', cuenta: 'azul' };
 function CajaIcono({ Icono, tono, nuevo }: { Icono: ElementType; tono: Tono; nuevo: boolean }) {
   if (!nuevo) return <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>;
   return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: `color-mix(in srgb, ${TONOS[tono]} 14%, var(--card))`, color: TONOS[tono] }}>
+    <span data-config-icono className="flex size-9 shrink-0 items-center justify-center rounded-[10px]" style={{ backgroundColor: `color-mix(in srgb, ${TONOS[tono]} 14%, var(--card))`, color: TONOS[tono] }}>
       <Icono size={18} strokeWidth={2} aria-hidden />
     </span>
   );
@@ -265,7 +265,7 @@ export function InicioConfiguracion({
             </section>
           )}
 
-          <div className={panelNuevo ? 'grid items-start gap-5 xl:grid-cols-2' : 'contents'}>
+          <div data-config-grupos className={panelNuevo ? 'grid items-start gap-5 xl:grid-cols-2' : 'contents'}>
           {(panelNuevo ? gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva) : GRUPOS).map(grupo => {
             const suyas = grupo.secciones
               .map(id => secciones.find(s => s.id === id))

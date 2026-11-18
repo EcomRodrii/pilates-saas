@@ -11,7 +11,10 @@ import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { FelicidadesCrecimiento } from '@/components/billing/felicidades-crecimiento';
 import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
 import { usePanelPrivacy } from '@/lib/panel-privacy';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { cn } from '@/lib/utils';
 import { useAtajoBuscar } from '@/lib/use-atajo-buscar';
+import { EVENTO_ABRIR_BUSCADOR } from '@/lib/buscador-evento';
 
 // El buscador trae el índice de Configuración y de tareas (~15 KB con gzip) y
 // esta barra va en TODAS las pantallas del panel — también en móvil y en el
@@ -23,6 +26,9 @@ const GlobalSearch = dynamic(() => cargarBuscador().then(m => m.GlobalSearch), {
 export function Topbar() {
   const { oculto, setOculto } = usePanelPrivacy();
   const atajo = useAtajoBuscar();
+  // Shell a sangre: el control más usado del panel deja de ser el más ruidoso (la marca del estudio
+  // baja a acento: `ui-rules` §1) y pasa a una píldora neutra sobre el lienzo.
+  const shellNuevo = useShellNuevo();
   // Un solo disparador para las dos cosas (antes había dos pills contiguos que
   // abrían el mismo modal: éste y el propio botón "Buscar" de GlobalSearch).
   // El buscador ya sabe resolver tareas; este botón solo lo abre. Existe porque
@@ -45,7 +51,13 @@ export function Topbar() {
         setLanzadorAbierto(v => !v);
       }
     }
+    // Marco a sangre: el botón «Buscar» vive en el menú (como en Shopify) y avisa por aquí.
+    function onAbrir() {
+      setBuscadorMontado(true);
+      setLanzadorAbierto(true);
+    }
     window.addEventListener('keydown', onKey);
+    window.addEventListener(EVENTO_ABRIR_BUSCADOR, onAbrir);
     // Con el navegador libre se trae ya, para que la primera apertura no espere
     // a la red — pero solo donde esta barra se ve (`lg`): en el móvil y en el
     // iPad en vertical no hay botón que pulsar, y bajarlo ahí sería gastar su
@@ -57,6 +69,7 @@ export function Topbar() {
         : { tipo: 'timeout', id: window.setTimeout(() => { void cargarBuscador(); }, 3000) };
     return () => {
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener(EVENTO_ABRIR_BUSCADOR, onAbrir);
       if (precarga?.tipo === 'idle') window.cancelIdleCallback(precarga.id);
       else if (precarga) window.clearTimeout(precarga.id);
     };
@@ -93,17 +106,17 @@ export function Topbar() {
     // translúcida: lo vigila `lib/barra-superior-opaca.test.ts` y se mide en
     // `e2e/panel-nuevo-barra-opaca.spec.ts`.
     <div data-panel-topbar className="hidden lg:flex sticky top-[var(--panel-sticky-top,0px)] z-30 has-[[aria-expanded=true]]:z-40 items-center justify-between h-14 px-4 -mx-4 mb-2 bg-background">
-      <div className="flex items-center gap-2 flex-1 max-w-[440px]">
-        <button
+      <div className={cn('flex items-center gap-2 flex-1', shellNuevo ? 'max-w-none' : 'max-w-[440px]')}>
+        {!shellNuevo && <button
           onClick={() => abrirBuscador(true)}
           data-tour="buscador"
-          className="zona-tactil flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-brand text-brand-foreground text-[13px] font-semibold hover:brightness-95 transition-all w-full"
+          className="zona-tactil flex items-center gap-2.5 px-3.5 py-2 rounded-full text-[13px] transition-all w-full bg-brand text-brand-foreground font-semibold hover:brightness-95"
         >
           <Zap size={14} aria-hidden="true" className="shrink-0" />
           <Search size={14} aria-hidden="true" className="shrink-0 opacity-70" />
           <span className="flex-1 text-left">¿Qué quieres hacer o buscar?</span>
           <kbd className="text-[10px] px-1.5 py-0.5 rounded font-mono leading-none bg-brand-foreground/10 text-brand-foreground">{atajo}</kbd>
-        </button>
+        </button>}
         {buscadorMontado && (
           <GlobalSearch
             variant="light"
