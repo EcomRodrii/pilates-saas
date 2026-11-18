@@ -13,6 +13,12 @@ export function usePanelNuevo(): boolean {
   return useInterruptor('panelNuevo', studio?.id);
 }
 
+/** ¿Ve este estudio el shell a sangre (interruptor `SHELL_NUEVO`, 18-nov-2026)? */
+export function useShellNuevo(): boolean {
+  const { studio } = useCore();
+  return useInterruptor('shellNuevo', studio?.id);
+}
+
 /** ¿Ve este estudio «Tu app» y «Tu web» rehechos (interruptor `MI_WEB_NUEVA`, 16-oct-2026)? */
 export function useMiWebNueva(): boolean {
   const { studio } = useCore();

@@ -559,7 +559,7 @@ export default function SustitucionesPage() {
           accion={{ label: 'Marcar una baja', onClick: () => setNuevaBaja(true), Icono: Plus }}
         />
       ) : items.length === 0 ? (
-        <EmptyState
+        <EmptyState escena="agenda"
           icono={Sparkles}
           titulo="Ninguna baja ahora mismo"
           descripcion="Cuando una instructora no pueda dar una clase, márcala aquí y te propondremos a quién avisar — con sus motivos, sin números."

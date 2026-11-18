@@ -85,7 +85,7 @@ function PageHeader({
         )}
         {/* El icono de color de la sección (panel nuevo): solo en la pantalla
             principal de cada sección; con el interruptor apagado no pinta nada. */}
-        {!back && <span className="mt-0.5 hidden sm:block sm:empty:hidden"><IconoSeccion /></span>}
+        {!back && <span data-slot="page-header-icono" className="mt-0.5 hidden sm:block sm:empty:hidden"><IconoSeccion /></span>}
         <div className="flex min-w-0 flex-col gap-1">
           {/* `tactil:gap-3`: con el dedo, el ⓘ (20 px) crece 12 px a cada lado hasta
               los 44 de su zona táctil; con 8 de hueco se metía 4 px en la del

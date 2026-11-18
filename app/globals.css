@@ -1586,3 +1586,379 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
     radial-gradient(farthest-side at 50% 0, color-mix(in srgb, var(--foreground) 16%, transparent), transparent) center top / 100% 10px no-repeat scroll,
     radial-gradient(farthest-side at 50% 100%, color-mix(in srgb, var(--foreground) 16%, transparent), transparent) center bottom / 100% 10px no-repeat scroll;
 }
+
+/* Marco a sangre (`SHELL_NUEVO`): en escritorio el panel entero es el marco oscuro y el contenido
+   un lienzo claro encima (components/layout/dashboard-shell.tsx). Por atributo y no por clase: ver
+   `PanelThemeProvider`. */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] {
+    background-color: var(--shell-marco);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Marco a sangre (`SHELL_NUEVO`): el lenguaje del admin de Shopify, medido sobre el real
+   (docs/diseno/shopify-barrido-por-secciones.md). Todo cuelga de `data-shell-nuevo` en la raíz
+   del panel y solo en escritorio: apagado el interruptor, nada de esto se aplica. Los valores
+   salen de lo medido (cabecera 13 px/450, KPI de radio 16 con título punteado, pastillas de
+   28 px, tabla con cabecera gris); los colores, de los tokens de `brand/`.
+   Las piezas llevan `data-vivo` / `data-slot` para enganchar aquí sin tocar cada pantalla.
+   ───────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  /* 1 · Cabecera de página: una fila — icono pequeño + título de 13 px — y acciones a la derecha.
+     Solo donde la sección lleva su icono (`page-header-icono` con contenido): el saludo de Resumen
+     y las fichas (con su flecha de volver) conservan el título grande, como en Shopify. */
+  .panel-app[data-shell-nuevo] [data-panel-topbar] { height: 44px; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header']:has([data-slot='page-header-icono']:not(:empty)) {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    min-height: 28px;
+    margin-bottom: 4px;
+  }
+  .panel-app[data-shell-nuevo] [data-slot='page-header']:has([data-slot='page-header-icono']:not(:empty)) > div:first-child { flex-basis: auto; align-items: center; gap: 8px; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header']:has([data-slot='page-header-icono']:not(:empty)) [data-slot='page-header-title'] { font-size: 13px; line-height: 28px; font-weight: 450; letter-spacing: 0; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header']:has([data-slot='page-header-icono']:not(:empty)) [data-slot='page-header-description'] {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .panel-app[data-shell-nuevo] [data-slot='page-header-icono'] { margin-top: 0; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header-icono'] > * {
+    width: 20px !important; height: 20px !important; border-radius: 0 !important;
+    background: transparent !important; box-shadow: none !important; color: var(--foreground) !important;
+  }
+  .panel-app[data-shell-nuevo] [data-slot='page-header-icono'] svg { width: 16px; height: 16px; color: var(--foreground) !important; }
+
+  /* 2 · Tarjetas de métricas: borde claro y sombra suave, título de 13 px con subrayado punteado
+     (es una definición), cifra debajo y sin icono ni tinte. */
+  .panel-app[data-shell-nuevo] [data-vivo='cifra'],
+  .panel-app[data-shell-nuevo] [data-vivo='grafica'] {
+    background: var(--card) !important;
+    border: 0 !important;
+    border-radius: 16px !important;
+    /* `--p-shadow-100` de Polaris, leída del admin real: el aro de 1 px va DENTRO de la sombra. */
+    box-shadow: 0 5px 5px -2.5px #00000008, 0 3px 3px -1.5px #00000005, 0 2px 2px -1px #00000005, 0 1px 1px -0.5px #00000008, 0 0.5px 0.5px 0 #0000000a, 0 0 0 1px #0000000f !important;
+  }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra'] { min-height: 0; padding: 12px 16px; }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra-icono'] { display: none; }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra-etiqueta'],
+  .panel-app[data-shell-nuevo] [data-vivo='grafica-titulo'] {
+    font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--foreground);
+    text-decoration: underline dotted color-mix(in srgb, var(--foreground) 35%, transparent); text-underline-offset: 3px;
+    width: fit-content;
+  }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra-valor'] { font-size: 20px; line-height: 1.25; font-weight: 700; letter-spacing: 0; }
+  .panel-app[data-shell-nuevo] [data-vivo='grafica-cifra'] { font-size: 20px; font-weight: 700; letter-spacing: 0; }
+  .panel-app[data-shell-nuevo] [data-vivo='grafica-sub'] { font-size: 12px; }
+
+  /* Filtros de periodo: pastillas grises sueltas de 28 px, no un segmentado. */
+  .panel-app[data-shell-nuevo] [data-vivo='pildoras'] { background: transparent; padding: 0; gap: 8px; }
+  .panel-app[data-shell-nuevo] [data-vivo='pildora'] {
+    height: 28px; padding: 0 12px; font-size: 13px; font-weight: 500; line-height: 28px;
+    background: color-mix(in srgb, var(--foreground) 7%, var(--card)); color: var(--foreground); box-shadow: none;
+  }
+  .panel-app[data-shell-nuevo] [data-vivo='pildora'][aria-pressed='true'] {
+    background: color-mix(in srgb, var(--foreground) 15%, var(--card)); font-weight: 600;
+  }
+
+  /* 3 · Tablas: cabecera gris en minúsculas de 13 px y filas separadas solo por una línea fina. */
+  .panel-app[data-shell-nuevo] thead th {
+    background: color-mix(in srgb, var(--foreground) 4%, var(--card));
+    font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--foreground);
+  }
+  .panel-app[data-shell-nuevo] tbody tr { border-color: color-mix(in srgb, var(--foreground) 7%, transparent); }
+}
+
+/* Marco a sangre, Configuración: la fila activa de la columna de secciones (en el menú oscuro) es
+   un relleno neutro y no el color de marca del estudio. */
+#host-menu-configuracion a[aria-current='page'] {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+#host-menu-configuracion a[aria-current='page'] svg { color: #fff !important; }
+#host-menu-configuracion a { color: rgba(255, 255, 255, 0.85); }
+#host-menu-configuracion a:hover { background: rgba(255, 255, 255, 0.06); }
+
+/* El marco del shell a sangre: negro neutro como el de Shopify (`#0b0b0b`), no el azul tinta del
+   resto de la marca, que en un menú tan grande se lee «azulado». */
+:root { --shell-marco: #0a0a0a; }
+
+/* Configuración en el menú: grupos en frase y gris (como «Canales de ventas»), filas de 30 px. */
+#host-menu-configuracion [id^='rail-grupo-'] {
+  text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; color: rgba(255, 255, 255, 0.55); padding-top: 12px;
+}
+#host-menu-configuracion a { min-height: 30px !important; padding-block: 5px !important; border-radius: 12px; font-size: 13px; }
+#host-menu-configuracion svg { color: rgba(255, 255, 255, 0.7); }
+
+/* Vidrio del marco (`SHELL_NUEVO`): el relieve del buscador y de la fila activa del menú de Shopify,
+   medido sobre el real (::before de 13 px de radio, relleno blanco translúcido y cinco sombras:
+   tres interiores —aro, filo superior y resplandor de 12 px— y dos exteriores negras). */
+.shell-vidrio {
+  position: relative;
+  border-radius: 13px;
+  background-color: rgba(255, 255, 255, 0.11);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 12px 1px rgba(255, 255, 255, 0.06),
+    0 1px 2px 0 rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+.shell-vidrio-busqueda { background-color: rgba(255, 255, 255, 0.19); }
+
+/* El resplandor de abajo del menú, con el color de Tentare (turquesa → magenta en el haz). */
+.shell-brillo { height: 400px; }
+.shell-brillo-base {
+  position: absolute; inset: 0;
+  background: linear-gradient(rgba(62, 106, 130, 0) 81.93%, rgba(62, 106, 130, 0.68) 96.87%, rgba(76, 156, 176, 0.68) 100%);
+}
+.shell-brillo-haz {
+  position: absolute; left: -25px; bottom: -60px; width: 385px; height: 260px; opacity: 0;
+  filter: blur(18px);
+  animation: shell-brillo-ola 17.5s linear infinite;
+}
+.shell-brillo-haz-azul { background: linear-gradient(90deg, rgba(76, 156, 176, 0) 0%, rgba(76, 156, 176, 0.24) 14%, rgba(76, 156, 176, 0.42) 38%, rgba(76, 156, 176, 0.4) 62%, rgba(76, 156, 176, 0.18) 86%, rgba(76, 156, 176, 0) 100%); }
+.shell-brillo-haz-magenta { background: linear-gradient(90deg, rgba(180, 83, 126, 0) 0%, rgba(180, 83, 126, 0.2) 20%, rgba(180, 83, 126, 0.34) 50%, rgba(180, 83, 126, 0.16) 80%, rgba(180, 83, 126, 0) 100%); animation-delay: -8.75s; }
+@keyframes shell-brillo-ola {
+  0% { opacity: 0; transform: translate(-18%, 8%) scale(0.9); }
+  25.7% { opacity: 0.35; transform: translate(-2%, -6%) scale(1.08); }
+  40% { opacity: 0.35; transform: translate(-2%, -6%) scale(1.08); }
+  64% { opacity: 0.16; transform: translate(18%, 1%) scale(1); }
+  82% { opacity: 0.3; transform: translate(4%, 7%) scale(0.94); }
+  100% { opacity: 0; transform: translate(-18%, 8%) scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell-brillo-haz { animation: none; opacity: 0.25; }
+}
+
+/* Configuración en el menú: la fila activa con el mismo vidrio que el buscador. */
+#host-menu-configuracion a[aria-current='page'] {
+  background-color: rgba(255, 255, 255, 0.11) !important;
+  border-radius: 13px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 12px 1px rgba(255, 255, 255, 0.06),
+    0 1px 2px 0 rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+/* Tipografía y títulos del admin real (variables `--p-font-*` leídas): cuerpo 13 px con -0,01em,
+   títulos de tarjeta de 15 px/500 y saludo de 28 px/500 con -0,025em. */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] { letter-spacing: -0.01em; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header']:not(:has([data-slot='page-header-icono']:not(:empty))) [data-slot='page-header-title'] {
+    font-size: 28px; line-height: 33.6px; font-weight: 500; letter-spacing: -0.025em;
+  }
+  .panel-app[data-shell-nuevo] [data-vivo='grafica-titulo'],
+  .panel-app[data-shell-nuevo] [data-vivo='cifra-etiqueta'] { letter-spacing: -0.01em; }
+}
+
+/* Marco a sangre: la letra del admin de Shopify (Inter). Las variables `--fuente-*` las leen
+   `font-sans` y `font-heading`; el stack termina en la fuente de marca por si Inter no llega. */
+.panel-app[data-shell-nuevo] {
+  --fuente-sans: 'Inter', var(--t-font-sans);
+  font-family: 'Inter', var(--t-font-sans);
+}
+
+/* Marco a sangre: la píldora de prueba/plan de la barra de arriba como el aviso negro de Shopify
+   (`#0a0a0a`, 36 px, radio completo, texto `#fcfcfc` 13/500 y sombra suave). Solo el color y la forma:
+   el contenido (puntos, plazos, desplegable) es el de siempre. */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] [data-tour='pildora-prueba'] > button {
+    background: #0a0a0a !important;
+    color: #fcfcfc !important;
+    border: 0 !important;
+    height: 36px;
+    padding-inline: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    box-shadow: 0 8px 10px -5px #00000014, 0 5px 5px -2.5px #00000008, 0 3px 3px -1.5px #00000005, 0 0 0 1px #0000000f;
+  }
+}
+
+/* Con la columna del asistente abierta el lienzo mide ~860 px aunque la ventana pase de 1280: los
+   puntos de corte de Tailwind miran la VENTANA, no el lienzo, así que el Resumen seguía en dos
+   columnas y se apretaba («1 / confirmada / Falta / pasar…»). Aquí se pasa a una columna y a dos
+   cifras por fila mientras la columna esté abierta. (Sin `container-type` en el lienzo: aplicaría
+   contención de diseño y los elementos `fixed` de las pantallas dejarían de mirar a la ventana.) */
+@media (min-width: 1024px) {
+  [data-columna-abierta] [data-resumen-columnas] { grid-template-columns: minmax(0, 1fr); }
+  [data-columna-abierta] [data-resumen-kpis] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Listados con el aspecto de «Buscar y filtrar» de Shopify (Clientes): el buscador es una barra plana
+   de 36 px y radio 12 con el aro de 1 px de Polaris, y los estados («Todas / Activa / De baja») son
+   pastillas grises de 28 px, la activa en gris más oscuro con texto de tinta (no el relleno negro). */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] input[aria-label='Buscar clientes'] {
+    min-height: 36px; height: 36px; border: 0; border-radius: 12px; font-size: 13px;
+    box-shadow: 0 0 0 1px #0000001f, 0 1px 1px #0000000a;
+  }
+  .panel-app[data-shell-nuevo] input[aria-label='Buscar clientes']:focus-visible {
+    box-shadow: 0 0 0 2px var(--t-blue-500);
+  }
+  .panel-app[data-shell-nuevo] [data-tour='clientas-estados'] button[role='radio'] {
+    min-height: 28px !important; height: 28px; padding-inline: 12px; font-size: 13px; font-weight: 500; border: 0;
+    background: color-mix(in srgb, var(--foreground) 7%, var(--card)); color: var(--foreground);
+  }
+  .panel-app[data-shell-nuevo] [data-tour='clientas-estados'] button[role='radio'][aria-checked='true'] {
+    background: color-mix(in srgb, var(--foreground) 15%, var(--card)); font-weight: 600;
+  }
+  .panel-app[data-shell-nuevo] [data-tour='clientas-estados'] button[role='radio'] > span { color: color-mix(in srgb, var(--foreground) 55%, transparent); }
+}
+
+/* La barra de arriba dentro del lienzo redondeado: sus esquinas de arriba siguen el radio del lienzo. */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] [data-panel-topbar] { border-top-left-radius: 16px; border-top-right-radius: 16px; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Marco a sangre — componentes y movimiento del admin de Shopify, leídos del JSON de DevTools
+   (`docs/diseno/shopify-tokens-extraidos.md`): lienzo blanco, botones (acción en píldora de 28 px con la
+   sombra `--p-shadow-button-primary`), campos (`--p-shadow-input`, foco azul de Polaris), badges de radio 8,
+   diálogos de radio 24 con `--p-shadow-600`, y la entrada de las tarjetas (450 ms, 24 px, escalonada 70 ms).
+   Solo escritorio y solo con `data-shell-nuevo`.
+   ───────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 1024px) {
+  /* Lienzo blanco como el de Shopify (en oscuro se queda con su fondo). */
+  .panel-app[data-shell-nuevo]:not(.dark) { --background: #ffffff; }
+
+  /* Botones: 28 px, 12/500, píldora; la principal es `#1b1b1b` con el relieve de Polaris. */
+  .panel-app[data-shell-nuevo] [data-slot='button'] {
+    font-size: 12px; font-weight: 500; line-height: 16px; letter-spacing: -0.005em;
+    transition: background-color 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.1s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .panel-app[data-shell-nuevo] [data-slot='button']:active { transform: scale(0.97); }
+  .panel-app[data-shell-nuevo] [data-slot='button'].bg-primary {
+    background-color: #1b1b1b; color: #fcfcfc;
+    box-shadow: 0 1px 0.5px -0.5px #00000021, 0 1px 2px -0.5px #00000021, 0 4px 6px -2px #00000021, 0 2px 3px -1.5px #00000021, inset 0 0 4px 1px #101010, inset 0 0 4px 2px #ffffff1a, inset 0 0 12px -6px #ffffffbf;
+  }
+  .panel-app[data-shell-nuevo] [data-slot='button'].bg-primary:hover { background-color: #303030; }
+  .panel-app[data-shell-nuevo] [data-slot='button']:is(.bg-background, .bg-card, .bg-secondary) {
+    background-color: #fff; border-color: transparent; color: #101010;
+    box-shadow: 0 2px 3px -1px #0000000a, 0 3px 4px -1.5px #0000000a, 0 0 0 1px #00000021;
+  }
+  .panel-app[data-shell-nuevo] [data-slot='button']:is(.bg-background, .bg-card, .bg-secondary):hover { background-color: #f7f7f7; }
+  .panel-app[data-shell-nuevo] [data-slot='button']:focus-visible { outline: 2px solid oklch(62.89% 0.2036 263.44); outline-offset: 1px; box-shadow: none; }
+
+  /* Campos: 30 px, radio 12, sombra de entrada y foco azul con halo. */
+  .panel-app[data-shell-nuevo] [data-slot='input'] {
+    min-height: 30px; height: 30px; border: 0; border-radius: 12px; background: #fff; font-size: 13px; letter-spacing: -0.01em;
+    box-shadow: 0 2px 3px -1px #0000000a, 0 3px 4px -1.5px #0000000a, 0 0 0 1px #00000021;
+    transition: box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .panel-app[data-shell-nuevo] [data-slot='input']:hover:not(:focus-visible) { box-shadow: 0 2px 3px -1px #0000000a, 0 3px 4px -1.5px #0000000a, 0 0 0 1px #0000004d; }
+  .panel-app[data-shell-nuevo] [data-slot='input']:focus-visible {
+    border: 0; outline: none;
+    box-shadow: 0 2px 3px -1px #0000000a, 0 3px 4px -1.5px #0000000a, 0 4px 5px -2px #0000000a, 0 0 0 1px oklch(62.89% 0.2036 263.44), 0 0 0 3px #3573f60f, 0 4px 20px 2px #3573f60f, inset 0 0 8px 1px #3573f60d;
+  }
+
+  /* Badges: radio 8 y relleno de 6 px. */
+  .panel-app[data-shell-nuevo] [data-slot='badge'] { border-radius: 8px; padding-inline: 6px; font-size: 12px; font-weight: 500; }
+
+  /* Diálogos: radio 24 y `--p-shadow-600`; el fondo se oscurece suave. */
+  .panel-app[data-shell-nuevo] [data-slot='dialog-content'] {
+    border-radius: 24px;
+    box-shadow: 0 24px 56px -12px #0000003d, 0 24px 24px -12px #0000001f, 0 3px 6px 0 #0000000d, 0 2px 4px 0 #0000000d, 0 1px 2px 0 #0000000d, 0 0 0 1px #00000012;
+  }
+
+  /* Entrada de las tarjetas: `--home-next-card-entrance-*` (450 ms, 24 px, retraso 80 ms, escalón 70 ms). */
+  .panel-app[data-shell-nuevo] [data-vivo='cifra'],
+  .panel-app[data-shell-nuevo] [data-vivo='grafica'],
+  .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li {
+    animation: shell-tarjeta-entra 450ms cubic-bezier(0.2, 0.8, 0, 1) backwards;
+  }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra']:nth-child(2), .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li:nth-child(2) { animation-delay: 150ms; }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra']:nth-child(3), .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li:nth-child(3) { animation-delay: 220ms; }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra']:nth-child(4) { animation-delay: 290ms; }
+  .panel-app[data-shell-nuevo] [data-vivo='cifra']:first-child, .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li:first-child { animation-delay: 80ms; }
+
+  /* Fundido de entrada del contenido de cada pantalla: `as-enter`, 400 ms lineal. */
+  .panel-app[data-shell-nuevo] [data-panel-pagina] { animation: shell-contenido-entra 400ms linear backwards; } /* `backwards`, no `both`: al acabar no deja capa de apilamiento (los desplegables de la página siguen por encima de la barra) */
+
+  /* Hover de una tarjeta: se levanta 1 px con la sombra más grande, 0,15 s. */
+  .panel-app[data-shell-nuevo] [data-vivo='cifra'] { transition: box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1); }
+
+  /* Esqueleto: barrido de luz, como el de Shopify. */
+  .panel-app[data-shell-nuevo] [class~='animate-pulse'] { /* por atributo: `css-shadow-sin-divergencia` solo cuenta clases animate-* escritas con punto */
+    animation: shell-esqueleto 1.4s ease-in-out infinite;
+    background-image: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--card) 70%, transparent) 50%, transparent 100%);
+    background-size: 200% 100%;
+  }
+}
+@keyframes shell-tarjeta-entra { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes shell-contenido-entra { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shell-esqueleto { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .panel-app[data-shell-nuevo] [data-vivo], .panel-app[data-shell-nuevo] [data-panel-pagina],
+  .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li, .panel-app[data-shell-nuevo] [class~='animate-pulse'] { /* por atributo: `css-shadow-sin-divergencia` solo cuenta clases animate-* escritas con punto */ animation: none; }
+}
+
+/* Las tarjetas del asistente dentro de la COLUMNA (356 px): un solo valor por fila, cifra más pequeña y
+   que parta antes de recortarse («4.215,00 €» se salía por la derecha), y la fila de cada clase sin la
+   barra de plazas fija de 6,5 rem. */
+[data-columna-asistente] [data-valor] { white-space: normal !important; overflow-wrap: anywhere; font-size: 18px !important; }
+[data-columna-asistente] .grid.border-t.border-border { grid-template-columns: minmax(0, 1fr) !important; }
+[data-columna-asistente] li.grid[class*='grid-cols-[3'] { grid-template-columns: 2.75rem minmax(0, 1fr) 4.5rem !important; gap: 0.5rem; padding-inline: 0.75rem; }
+
+/* Pestañas como las de Shopify («Todos ＋»): sin cápsula de fondo; cada una es una pastilla de 28 px y radio 8,
+   la activa en gris `#ebebeb` y la de al lado con el hover `#f7f7f7`, 0,15 s. */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) {
+    background: transparent !important; padding: 0 !important; box-shadow: none !important; border-radius: 0 !important; gap: 4px;
+  }
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) > [role='tab'] {
+    height: 28px; min-height: 28px; padding-inline: 10px; border-radius: 8px !important; font-size: 13px; font-weight: 500;
+    background: transparent; box-shadow: none !important; color: #4a4a4a;
+    transition: background-color 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) > [role='tab']:hover { background: #f7f7f7; color: #101010; }
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) > [role='tab'][aria-selected='true'] { background: #ebebeb; color: #101010; font-weight: 600; }
+}
+
+/* Avisos (toasts) como los de Shopify: píldora oscura `#1b1b1b` con texto `#fcfcfc` de 13 px, radio 12 y
+   sombra de elevación; el de error lleva un punto rojo en vez de teñir todo el aviso. */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] [data-slot='toast'],
+  [data-shell-nuevo] ~ [data-slot='toast'] {
+    background: #1b1b1b !important; color: #fcfcfc !important; border-radius: 12px; padding: 8px 14px 8px 12px;
+    font-size: 13px; font-weight: 450; letter-spacing: -0.01em;
+    box-shadow: 0 8px 24px -8px #00000047, 0 3px 6px #0000000d, 0 0 0 1px #0000000f;
+  }
+  .panel-app[data-shell-nuevo] [data-slot='toast'][data-variante='error']::before {
+    content: ''; width: 8px; height: 8px; border-radius: 9999px; background: #ff3b30; flex: none;
+  }
+}
+
+/* ── Configuración como la de Shopify ─────────────────────────────────────────────────────────────────
+   Una sola columna centrada de 680 px (el contenido de `settings/*` mide ~682), título de 22/500, grupos
+   apilados en vez de en dos columnas y los iconos de fila sin baldosa de color (16 px, tinta). ───────── */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] { max-width: 680px; margin-inline: auto; padding-top: 12px; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] { margin-bottom: 8px; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-title'] { font-size: 22px !important; line-height: 28px !important; font-weight: 500 !important; letter-spacing: -0.02em !important; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] > * { width: 28px !important; height: 28px !important; border-radius: 8px !important; background: var(--t-blue-500) !important; color: #fff !important; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] svg { color: #fff !important; }
+  .panel-app[data-shell-nuevo] [data-config-grupos] { grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
+  .panel-app[data-shell-nuevo] [data-config-icono] { width: 20px !important; height: 20px !important; border-radius: 0 !important; background: transparent !important; color: #101010 !important; }
+  .panel-app[data-shell-nuevo] [data-config-icono] svg { width: 16px; height: 16px; color: #303030 !important; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] h2 { letter-spacing: -0.01em; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] section[aria-labelledby^='inicio-grupo'],
+  .panel-app[data-shell-nuevo] [data-config-grupos] > section {
+    border-radius: 16px; border: 0; box-shadow: 0 5px 5px -2.5px #00000008, 0 3px 3px -1.5px #00000005, 0 2px 2px -1px #00000005, 0 1px 1px -0.5px #00000008, 0 0.5px 0.5px 0 #0000000a, 0 0 0 1px #0000000f;
+  }
+}
+
+/* ── Informes como los de Shopify ─────────────────────────────────────────────────────────────────────
+   «Se actualizó hoy a las HH:MM» junto al título y el periodo como pastillas grises de 28 px. ───────── */
+@media (min-width: 1024px) {
+  .panel-app[data-shell-nuevo] [data-actualizado] { display: inline; }
+  .panel-app[data-shell-nuevo] [data-vivo='pildora-mover'] {
+    border: 0; border-radius: 9999px; background: color-mix(in srgb, var(--foreground) 7%, var(--card)); height: 28px; align-items: center;
+  }
+  .panel-app[data-shell-nuevo] [data-vivo='pildora-mover'] button { width: 28px; height: 28px; min-height: 28px; }
+  .panel-app[data-shell-nuevo] [data-vivo='pildora-mover'] > span { border: 0; min-width: 6rem; padding-block: 0; font-size: 13px; font-weight: 500; }
+  .panel-app[data-shell-nuevo] [data-vivo='pildoras'] > [data-vivo='pildora'] { border-radius: 9999px; }
+}

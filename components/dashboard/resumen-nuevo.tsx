@@ -36,6 +36,7 @@ import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
+import { CompositorInicio } from '@/components/asistente/compositor-inicio';
 import { PonEnMarchaTarjeta } from '@/components/guia/pon-en-marcha';
 import { TuPlanTarjeta } from '@/components/guia/tu-plan-tarjeta';
 import { useAltaNuevaPropia } from '@/components/guia/use-pon-en-marcha';
@@ -134,6 +135,7 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
   return (
     <div className="flex flex-col gap-5" data-testid="resumen-nuevo">
       <PageHeader title={props.titulo} description={props.fecha} />
+      <CompositorInicio />
 
       {props.avisos}
 
@@ -147,7 +149,7 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
       {/* ── Cifras ──────────────────────────────────────────────────────────── */}
       {visible('kpis') && (
         // 2 × 2 hasta que caben cuatro con aire (brand: «máximo 4 por fila; nunca 3+1»).
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+        <div data-resumen-kpis className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
           <TarjetaOcupacion etiqueta="Ocupación hoy" tono="azul" Icono={CalendarCheck} ocupacion={ocupacionHoy} vacio="Hoy no hay clases" href={props.puedeIr('/calendario') ? '/calendario' : null} />
           <TarjetaOcupacion etiqueta="Ocupación semana" tono="indigo" Icono={Activity} ocupacion={ocupacionSemana} vacio={`Semana ${semanaISO(hoy)} sin clases`} contexto={`Semana ${semanaISO(hoy)}`} href={props.puedeIr('/informes') ? '/informes' : null} />
           {verFinanzas ? (
@@ -188,7 +190,7 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
       {/* ── Dos columnas ────────────────────────────────────────────────────── */}
       {/* Dos columnas solo desde 1280: a 1024 (iPad con el menú) la de la izquierda
           medía 400 px y las filas de la agenda se pisaban. */}
-      <div className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      <div data-resumen-columnas className="grid grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
         {/* Hoy */}
         <div className="flex min-w-0 flex-col gap-5">
           {conPrimerosPasos && altaNueva === false && <PrimerosPasosTarjeta />}

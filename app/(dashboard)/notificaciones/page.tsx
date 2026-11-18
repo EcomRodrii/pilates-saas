@@ -127,7 +127,7 @@ export default function NotificationCenterPage() {
       {cargando ? (
         <p className="text-[13px] text-muted-foreground">Cargando…</p>
       ) : items.length === 0 ? (
-        <EmptyState icono={Bell} titulo="Aún no se ha enviado ninguna notificación." />
+        <EmptyState escena="sinDatos" icono={Bell} titulo="Aún no se ha enviado ninguna notificación." />
       ) : (
         <div className="rounded-2xl border border-border bg-card overflow-hidden">
           <div className="overflow-x-auto">

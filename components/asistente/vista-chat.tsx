@@ -8,6 +8,8 @@ import { MS_HECHO } from '@/lib/tenti/asistente';
 import { enVuelo, sugerenciasPara, type EstadoAsistente, type TurnoUI } from '@/lib/asistente/estado-ui';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TextoRotatorio } from './texto-rotatorio';
 import { areaConTeclado } from '@/lib/asistente/teclado';
 import {
   abrirConversacion, cargarConversaciones, cargarSaldo, montarVista, nuevaConversacion, parar, preguntar, prepararEstudio,
@@ -431,6 +433,7 @@ function Acciones({ texto }: { texto: string }) {
 // ── El campo de escribir ─────────────────────────────────────────────────────
 
 function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; grande?: boolean }) {
+  const shell = useShellNuevo();
   const [texto, setTexto] = useState('');
   const campo = useRef<HTMLTextAreaElement>(null);
   const ocupado = enVuelo(estado);
@@ -460,12 +463,19 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
   const bajo = saldoBajo(estado.disponibles, saldo?.cuota);
 
   return (
-    <form onSubmit={e => { e.preventDefault(); enviar(); }}>
+    // Marco a sangre: el campo es una tarjeta de radio 26 sobre una pestaña gris (`#f7f7f7`, radio 26 26 0 0) que
+    // lleva debajo la línea del saldo, como el compositor de Shopify.
+    <form onSubmit={e => { e.preventDefault(); enviar(); }} className={cn(shell && 'rounded-[26px] bg-muted/70 pb-1')}>
       <div className={cn(
-        'flex items-end gap-2 rounded-[28px] bg-card p-2 pl-5 ring-1 ring-black/[0.08] shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)] transition-shadow focus-within:ring-black/[0.14] dark:ring-white/[0.1] dark:focus-within:ring-white/[0.2]',
+        'flex items-end gap-2 bg-card transition-shadow',
+        shell
+          ? 'rounded-[26px] p-3 shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_2px_2px_-1px_#00000005,0_1px_1px_-0.5px_#00000008,0_0.5px_0.5px_0_#0000000a,0_0_0_1px_#0000000f]'
+          : 'rounded-[28px] p-2 pl-5 ring-1 ring-black/[0.08] shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)] focus-within:ring-black/[0.14] dark:ring-white/[0.1] dark:focus-within:ring-white/[0.2]',
         grande && 'min-h-[60px]',
       )}>
         <label htmlFor="asistente-pregunta" className="sr-only">Pregunta sobre tu estudio</label>
+        <span className="relative flex min-w-0 flex-1 self-center">
+        {shell && <TextoRotatorio visible={texto === ''} />}
         <textarea
           id="asistente-pregunta"
           ref={campo}
@@ -476,8 +486,12 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
           maxLength={500}
           enterKeyHint="send"
           placeholder="Pregúntale a Tentare…"
-          className="max-h-[220px] min-h-10 min-w-0 flex-1 resize-none self-center bg-transparent py-2 text-[16px] leading-6 text-foreground placeholder:text-muted-foreground focus:outline-none lg:text-[15px]"
+          className={cn(
+            'max-h-[220px] min-h-10 min-w-0 flex-1 resize-none self-center bg-transparent py-2 text-[16px] leading-6 text-foreground focus:outline-none lg:text-[15px]',
+            shell ? 'px-0.5 placeholder:text-transparent lg:text-[13px]' : 'placeholder:text-muted-foreground',
+          )}
         />
+        </span>
         {ocupado ? (
           <BotonRedondo etiqueta="Parar la respuesta" onClick={parar} ocupado>
             <Square size={13} aria-hidden="true" className="fill-current" />
@@ -488,7 +502,7 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
           </BotonRedondo>
         )}
       </div>
-      <p className="mt-1.5 text-center text-[12px] leading-snug text-muted-foreground sm:mt-2" data-testid="asistente-saldo">
+      <p className={cn('text-center text-[12px] leading-snug text-muted-foreground', shell ? 'px-3 pb-1.5 pt-2' : 'mt-1.5 sm:mt-2')} data-testid="asistente-saldo">
         {saldoTexto && <>{saldoTexto}<span className={bajo ? undefined : 'hidden sm:inline'}> · </span></>}
         {bajo ? (
           saldo?.puedeComprar

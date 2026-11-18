@@ -207,7 +207,11 @@ test('fase 2: las fuentes del panel se sirven con el nombre que dicen los tokens
   // Si el `font-family` de fuentes-panel.ts no coincide con la primera familia de
   // `--t-font-sans`/`--t-font-mono`, el token apunta a una fuente que no existe y
   // el panel cae en silencio a la del sistema.
-  const servidas = new Set([...fuentesPanel.matchAll(/prop: 'font-family', value: "'([^']+)'"/g)].map(m => m[1]));
+  // Excepción con motivo: `Inter`, solo para el marco a sangre (`SHELL_NUEVO`, 18-nov-2026), que copia la
+  // letra del admin de Shopify por decisión del fundador. Se sirve con `preload: false` y solo la usa
+  // `.panel-app[data-shell-nuevo]`; las dos de la marca siguen siendo las únicas de los tokens.
+  const EXCEPCIONES = new Set(['Inter']);
+  const servidas = new Set([...fuentesPanel.matchAll(/prop: 'font-family', value: "'([^']+)'"/g)].map(m => m[1]).filter(f => !EXCEPCIONES.has(f)));
   assert.deepEqual([...servidas].sort(), [primeraFamilia('--t-font-mono'), primeraFamilia('--t-font-sans')].sort());
 });
 
@@ -219,6 +223,7 @@ test('fase 2: solo se cargan los pesos aprobados', () => {
   };
   for (const llamada of fuentesPanel.split('localFont({').slice(1)) {
     const familia = /prop: 'font-family', value: "'([^']+)'"/.exec(llamada)![1];
+    if (familia === 'Inter') continue; // la excepción del marco a sangre (arriba): variable 100–900.
     for (const [, peso] of llamada.matchAll(/weight: '(\d+)'/g)) {
       assert.ok(permitidos[familia].has(peso), `${familia} carga el peso ${peso}, fuera de los de la marca`);
     }

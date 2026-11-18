@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import dynamic from 'next/dynamic';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useRol } from '@/lib/permisos';
@@ -19,7 +20,7 @@ import { ListaSecciones } from './lista-secciones';
 import { CabeceraSeccion } from './cabecera-seccion';
 import { TONO_SECCION_CONFIG, TonoConfigContext } from './tono-config';
 import { presentarSeccion, seccionVisual } from '@/lib/configuracion/mi-web-nueva';
-import { useMiWebNueva } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { CabeceraHerramienta } from './cabecera-herramienta';
 import { idFilaHerramienta } from './fila-herramienta';
 import { InicioConfiguracion } from './inicio-configuracion';
@@ -115,6 +116,16 @@ export function ConfigShell() {
   const searchParams = useSearchParams();
   const rol = useRol();
   const miWebNueva = useMiWebNueva();
+  // Marco a sangre (`SHELL_NUEVO`): la columna de secciones se muda al menú de la izquierda, como en
+  // Shopify (el menú pasa a ser el de Configuración). Se pinta con un portal en el hueco que deja
+  // el menú (`#host-menu-configuracion`, components/layout/sidebar.tsx); sin hueco, en su sitio.
+  const shellNuevo = useShellNuevo();
+  const [hostMenu, setHostMenu] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Lee un nodo del DOM que pinta el menú: un sistema externo a este árbol.
+    setHostMenu(shellNuevo ? document.getElementById('host-menu-configuracion') : null);
+  }, [shellNuevo]);
+  const railEnMenu = shellNuevo && hostMenu !== null;
   const { message: toastMsg, variant: toastVariant, show, showError, dismiss: dismissToast } = useToast();
   // Auditoría 15-sep (C-4): las secciones ya podían avisar de un fallo, pero el
   // toast no distinguía color/aria de un éxito — este wrapper es lo único que
@@ -464,12 +475,14 @@ export function ConfigShell() {
       {/* `config-tactil`: el tamaño mínimo de lo que se pulsa con el dedo (globals.css). */}
       <div
         data-tour="configuracion-vista"
+        data-config-raiz
         data-vista={herramienta ? 'herramienta' : permitida ? 'detalle' : 'inicio'}
         className="group/config config-tactil space-y-6"
       >
         <PageHeader
           title="Configuración"
           description="Cómo está tu estudio y dónde se cambia cada cosa."
+          data-config-cabecera
           className="max-md:group-data-[vista=detalle]/config:sr-only max-md:group-data-[vista=herramienta]/config:sr-only"
         />
 
@@ -480,8 +493,12 @@ export function ConfigShell() {
         )}
 
         {/* Una herramienta va a todo el ancho: sin la columna de secciones. */}
-        <div className={cn(!herramienta && 'md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6')}>
-          {!herramienta && (
+        <div className={cn(!herramienta && !railEnMenu && 'md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6')}>
+          {!herramienta && railEnMenu && hostMenu && createPortal(
+            <ListaSecciones secciones={visibles} rol={rol} activa={mostrada} onElegir={id => irAPreguntando(id)} />,
+            hostMenu,
+          )}
+          {!herramienta && !railEnMenu && (
             // La columna son ~20 filas: en un portátil (≤ 900 px de alto) no cabe y «Plan de Tentare» y «Mi cuenta» quedaban
             // fuera de la vista sin nada que dijera que había más. `.rail-con-sombra` pinta una sombra arriba y abajo SOLO
             // cuando hay más contenido en esa dirección (scroll shadows con `background-attachment: local`, sin JavaScript).

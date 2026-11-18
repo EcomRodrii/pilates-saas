@@ -73,6 +73,8 @@ export function Toast({
       className={`fixed inset-x-4 mx-auto w-fit max-w-md bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+1rem)] lg:bottom-6 z-[60] flex items-center gap-3 ${esError ? 'bg-destructive text-destructive-foreground' : 'bg-brand text-brand-foreground'} text-[13px] font-medium px-4 py-2.5 rounded-xl shadow-lg ${cerrando ? 'toast-out' : 'toast-in'}`}
       // Sin esto el toast no existe para un lector de pantalla: era la ÚNICA
       // señal de error de varias pantallas de Configuración, y era muda.
+      data-slot="toast"
+      data-variante={esError ? 'error' : 'exito'}
       role={esError ? 'alert' : 'status'}
       aria-live={esError ? 'assertive' : 'polite'}
       aria-atomic="true"

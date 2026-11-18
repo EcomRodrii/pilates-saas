@@ -245,7 +245,7 @@ export function QuienMeDebe({ datos, acciones, avisos, nueva = false, filtroInic
           <>
             {barra}
             {grupos.length === 0 ? (
-              <EmptyState titulo="Nadie te debe nada" descripcion="Cuando un cliente tenga un recibo sin cobrar, aparecerá aquí con lo que debe y cómo se le puede cobrar." />
+              <EmptyState escena="cobros" titulo="Nadie te debe nada" descripcion="Cuando un cliente tenga un recibo sin cobrar, aparecerá aquí con lo que debe y cómo se le puede cobrar." />
             ) : filtrados.length === 0 ? (
               <p className="rounded-2xl border border-border bg-card px-4 py-6 text-center text-[13px] text-muted-foreground">Nadie coincide con «{coincidencia}».</p>
             ) : (
