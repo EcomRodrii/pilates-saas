@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANCLA_DECIDIR, construirEstadoEstudio, contarConCandidatosNetwork, tituloDecidir } from './estado-estudio.ts';
+import { ANCLA_DECIDIR, construirEstadoEstudio, contarConCandidatosNetwork, textoMargenGratis, tituloDecidir } from './estado-estudio.ts';
 
 const SUFIJO = 'te proponemos profesionales de Tentare Network';
 
@@ -218,4 +218,32 @@ test('seguimientos de clientes para hoy: van a «por decidir», cuentan y llevan
   assert.equal(construirEstadoEstudio({ seguimientosParaHoy: 3 }).decidir[0].texto, '3 seguimientos de clientes para hoy o atrasados');
   // Una consulta que falla no se enseña como «nada pendiente».
   assert.equal(construirEstadoEstudio({ seguimientosParaHoy: null }).decidir.length, 0);
+});
+
+test('margen del plan gratis: una línea que cuenta 1 (no los días), con los días en el texto y enlace a Suscripción', () => {
+  const e = construirEstadoEstudio({ margenGratisDias: 15 });
+  assert.deepEqual(e.decidir.map(l => l.id), ['margenGratisDias']);
+  assert.equal(e.decidir[0].n, 1);
+  assert.equal(e.nDecidir, 1);
+  assert.equal(e.decidir[0].href, '/suscripcion');
+  assert.equal(e.decidir[0].texto, 'Tu estudio ha crecido: te quedan 15 días de plan gratis para elegir plan');
+});
+
+test('margen del plan gratis: solo se recuerda desde 15 días, y a 3 o menos pasa a «te quedan N días»', () => {
+  assert.deepEqual(construirEstadoEstudio({ margenGratisDias: 16 }).decidir, []);
+  assert.deepEqual(construirEstadoEstudio({ margenGratisDias: 30 }).decidir, []);
+  assert.match(textoMargenGratis(4), /^Tu estudio ha crecido: te quedan 4 días/);
+  assert.equal(textoMargenGratis(3), 'Te quedan 3 días de plan gratis: elige plan para seguir usando el panel');
+  assert.equal(textoMargenGratis(1), 'Te queda 1 día de plan gratis: elige plan para seguir usando el panel');
+});
+
+test('margen del plan gratis: sin permiso (undefined), sin leer (null) o sin días no crea nada, y suma con el resto', () => {
+  for (const margenGratisDias of [undefined, null, 0]) {
+    const e = construirEstadoEstudio({ margenGratisDias, reservasPorAprobar: 2 });
+    assert.deepEqual(e.decidir.map(l => l.id), ['reservasPorAprobar']);
+    assert.equal(e.nDecidir, 2);
+  }
+  const junto = construirEstadoEstudio({ margenGratisDias: 2, reservasPorAprobar: 2 });
+  assert.equal(junto.nDecidir, 3);
+  assert.doesNotMatch(junto.titulo, /todo|bajo control|en orden|nada pendiente/i);
 });
