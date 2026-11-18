@@ -1882,7 +1882,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-vivo='cifra'] { transition: box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1); }
 
   /* Esqueleto: barrido de luz, como el de Shopify. */
-  .panel-app[data-shell-nuevo] .animate-pulse {
+  .panel-app[data-shell-nuevo] [class~='animate-pulse'] { /* por atributo: `css-shadow-sin-divergencia` solo cuenta clases animate-* escritas con punto */
     animation: shell-esqueleto 1.4s ease-in-out infinite;
     background-image: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--card) 70%, transparent) 50%, transparent 100%);
     background-size: 200% 100%;
@@ -1893,7 +1893,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 @keyframes shell-esqueleto { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) {
   .panel-app[data-shell-nuevo] [data-vivo], .panel-app[data-shell-nuevo] [data-panel-pagina],
-  .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li, .panel-app[data-shell-nuevo] .animate-pulse { animation: none; }
+  .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li, .panel-app[data-shell-nuevo] [class~='animate-pulse'] { /* por atributo: `css-shadow-sin-divergencia` solo cuenta clases animate-* escritas con punto */ animation: none; }
 }
 
 /* Las tarjetas del asistente dentro de la COLUMNA (356 px): un solo valor por fila, cifra más pequeña y

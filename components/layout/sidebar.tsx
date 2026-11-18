@@ -1011,8 +1011,8 @@ export function Sidebar() {
             Fuera en horizontal: «Pequeño/Normal/Grande» describe el ANCHO de
             la columna, y tumbada no hay ancho que elegir. La preferencia se
             conserva guardada para cuando vuelva a la izquierda. */}
-        {!horizontal && (!sangre || collapsed) && (
-        <div className="relative shrink-0 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+        {!horizontal && (
+        <div className="relative shrink-0 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)', ...(sangre && !collapsed && { display: 'none' }) }}>
           {sizeMenuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setSizeMenuOpen(false)} />

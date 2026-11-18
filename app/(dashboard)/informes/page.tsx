@@ -100,6 +100,8 @@ export default function Informes() {
   const descargas = useDescargaCobrado(avisos);
 
   const [periodo, setPeriodo] = useState<PeriodoInforme>('MES');
+  // La hora a la que se cargó la pantalla, una vez (el render no puede leer el reloj: react-hooks/purity).
+  const [horaDeCarga] = useState(() => new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }));
 
   const [pestana, setPestana] = useState<PestanaInforme>('resumen');
   useEffect(() => {
@@ -438,9 +440,6 @@ export default function Informes() {
       plazasVacias={estadoPlazasVacias}
     />
   );
-
-  // La hora a la que se cargó la pantalla, una vez (el render no puede leer el reloj: react-hooks/purity).
-  const [horaDeCarga] = useState(() => new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Madrid' }));
 
   return (
     <div data-tour="informes-vista" className="space-y-5 pb-24">
