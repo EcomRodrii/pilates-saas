@@ -11,6 +11,8 @@ import { emiteFacturas } from '@/lib/factura-automatica';
 import { nifEmisorValido } from '@/lib/nif';
 import { ambitosQueRevisa } from '@/lib/moderacion/denuncias';
 import { festivosPorDecidir as leerFestivosPorDecidir } from '@/lib/festivos/por-decidir-servidor';
+import { ESTADO_GRATIS } from '@/lib/billing/plan-gratis';
+import { leerUsoGratis } from '@/lib/billing/uso-gratis-servidor';
 
 // Los recuentos de la bandeja única (lib/estado-estudio.ts), sacados tal cual
 // de GET /api/estado-estudio para que el asistente («¿qué debería revisar
@@ -121,6 +123,29 @@ function argumentosConteos(
   };
 }
 
+/**
+ * Los días que le quedan al margen del plan gratis, solo para la propietaria de un estudio
+ * gratis que se ha pasado de 150 reservas al mes (fase MARGEN). Es lo mismo que enseña
+ * /suscripcion: se lee con `leerUsoGratis`, que no mide ni escribe nada aquí.
+ * `undefined` = no es la propietaria o no es un estudio gratis; `null` = no se pudo leer
+ * o no está en margen (no se enseña, nunca un cero inventado).
+ */
+async function leerMargenGratisDias(
+  admin: SupabaseClient, studioId: string, rol: Rol, ahora: Date,
+): Promise<number | null | undefined> {
+  if (rol !== 'PROPIETARIO') return undefined;
+  try {
+    const { data, error } = await admin.from('studios').select('subscription_status, owner_auth_user_id').eq('id', studioId).maybeSingle();
+    if (error) return null;
+    if (!data || data.subscription_status !== ESTADO_GRATIS) return undefined;
+    const { estado } = await leerUsoGratis(admin, studioId, data.owner_auth_user_id ?? null, ahora);
+    return estado.fase === 'MARGEN' && estado.diasRestantes > 0 ? estado.diasRestantes : null;
+  } catch (e) {
+    console.error('[estado-estudio:margen-gratis]', e);
+    return null;
+  }
+}
+
 export async function contarConteosEstudio(
   admin: SupabaseClient,
   { studioId, rol, userId, ahora }: { studioId: string; rol: Rol; userId: string; ahora: Date },
@@ -128,7 +153,7 @@ export async function contarConteosEstudio(
   const visibles = fuentesVisibles(rol);
   const args = argumentosConteos({ studioId, rol, userId, ahora });
 
-  const [rpc, festivosPorDecidir] = await Promise.all([
+  const [rpc, festivosPorDecidir, margenGratisDias] = await Promise.all([
     args.p_fuentes.length === 0
       ? Promise.resolve({ data: {} as Record<string, unknown>, error: null })
       : admin.rpc('estado_estudio_conteos', args),
@@ -139,6 +164,7 @@ export async function contarConteosEstudio(
       ? leerFestivosPorDecidir(admin, { studioId, ahora, alcance: 'aviso', conReservas: false })
         .then((r): number | null | undefined => (r === null ? null : r.disponible ? r.festivos.length : undefined))
       : Promise.resolve(undefined),
+    leerMargenGratisDias(admin, studioId, rol, ahora),
   ]);
 
   if (rpc.error) console.error('[estado-estudio:conteos]', rpc.error);
@@ -162,7 +188,7 @@ export async function contarConteosEstudio(
     return Math.max(1, f.sinSellar);
   })();
 
-  const conteos: ConteosEstudio = { festivosPorDecidir, facturasSinNif };
+  const conteos: ConteosEstudio = { festivosPorDecidir, facturasSinNif, margenGratisDias };
   for (const clave of CLAVES_NUMERICAS) conteos[clave] = num(clave);
   return conteos;
 }

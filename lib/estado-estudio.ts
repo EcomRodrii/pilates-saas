@@ -93,6 +93,13 @@ export interface ConteosEstudio {
    * ninguno (el NIF falta igual). Solo la propietaria, que es quien lo pone.
    */
   facturasSinNif?: number | null;
+  /**
+   * Founding Studio gratis: los DÍAS que quedan del margen tras pasarse de 150
+   * reservas al mes, solo si toca recordarlo (quedan 15 o menos). NO es un
+   * recuento: la línea cuenta 1 (si no, 15 días sumarían 15 «cosas» al contador).
+   * Solo la propietaria; `null`/ausente = no toca o no se pudo leer.
+   */
+  margenGratisDias?: number | null;
   // En marcha
   sustitucionesBuscando?: number | null;
   ofertasListaEspera?: number | null;
@@ -105,6 +112,21 @@ export interface ConteosEstudio {
 
 // `sustitucionesConNetwork` no es una línea: solo modifica el texto de otra.
 export type ClaveConteo = Exclude<keyof ConteosEstudio, 'sustitucionesConNetwork'>;
+
+/** Desde cuántos días de margen se recuerda en la bandeja, y desde cuántos el texto pasa a «últimos días». */
+export const DIAS_RECORDATORIO_MARGEN_GRATIS = 15;
+export const DIAS_URGENTE_MARGEN_GRATIS = 3;
+
+/**
+ * La línea del margen del plan gratis (decisión del fundador, 18-nov-2026). Dice la verdad y
+ * no amenaza: una buena noticia con fecha. A 3 días o menos, «te quedan N días»; antes,
+ * que su estudio ha crecido.
+ */
+export function textoMargenGratis(dias: number): string {
+  if (dias <= 1) return 'Te queda 1 día de plan gratis: elige plan para seguir usando el panel';
+  if (dias <= DIAS_URGENTE_MARGEN_GRATIS) return `Te quedan ${dias} días de plan gratis: elige plan para seguir usando el panel`;
+  return `Tu estudio ha crecido: te quedan ${dias} días de plan gratis para elegir plan`;
+}
 export type Bandeja = 'decidir' | 'enMarcha' | 'resuelto';
 
 /**
@@ -183,6 +205,11 @@ const LINEAS: DefLinea[] = [
   { id: 'facturasSinNif', bandeja: 'decidir', href: '/configuracion?tab=cobros#datos-fiscales',
     uno: 'Falta el NIF del estudio: sin él tus cobros no sacan factura',
     varios: n => `Falta el NIF del estudio: ${n} cobros sin su factura` },
+  // Se pasó de 150 reservas al mes: el diálogo de felicitación sale una sola vez y se
+  // puede cerrar con «Ahora no», así que esto es lo que queda a la vista hasta que
+  // elija plan o vuelva a estar por debajo. Su `n` es 1; el texto lleva los días.
+  { id: 'margenGratisDias', bandeja: 'decidir', href: '/suscripcion',
+    uno: 'Tu estudio ha crecido: elige plan', varios: () => 'Tu estudio ha crecido: elige plan' },
   { id: 'recibosFallidos', bandeja: 'decidir', href: '/cobros?tab=deudas',
     // Incluye el recibo devuelto por el banco: también es deuda (F0).
     uno: 'Un cobro sin cobrar: rechazado o devuelto por el banco', varios: n => `${n} cobros sin cobrar: rechazados o devueltos por el banco` },
@@ -280,6 +307,11 @@ export function construirEstadoEstudio(c: ConteosEstudio): EstadoEstudio {
     const n = c[def.id];
     // undefined (sin permiso), null (falló) o 0: no hay nada que contar.
     if (typeof n !== 'number' || !Number.isFinite(n) || n <= 0) continue;
+    // Los días del margen no son un recuento: una línea, una cosa, con los días en el texto.
+    if (def.id === 'margenGratisDias') {
+      if (n <= DIAS_RECORDATORIO_MARGEN_GRATIS) porBandeja.decidir.push({ id: def.id, n: 1, href: def.href, texto: textoMargenGratis(n) });
+      continue;
+    }
     let texto = n === 1 ? def.uno : def.varios(n);
     if (def.id === 'sustitucionesPorDecidir') texto += sufijoNetwork(n, c.sustitucionesConNetwork);
     porBandeja[def.bandeja].push({ id: def.id, n, href: def.href, texto });
