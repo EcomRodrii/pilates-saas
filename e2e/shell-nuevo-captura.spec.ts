@@ -349,3 +349,21 @@ test('a sangre — el resplandor del menú sigue bajo la esquina del lienzo', as
   await expect(page.locator('[data-marco-brillo]')).toBeAttached();
   await page.screenshot({ path: 'test-results/shell-brillo-esquina.png', clip: { x: 0, y: 780, width: 700, height: 120 } });
 });
+
+test('a sangre — la página no rebota y detrás del lienzo no hay crema', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'dashboard');
+  await listo(page);
+  const raiz = await page.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    return { rebote: cs.overscrollBehaviorY, fondo: cs.backgroundColor, panel: getComputedStyle(document.querySelector('.panel-app')!).backgroundColor };
+  });
+  expect(raiz.rebote, 'sin scroll de goma en la página').toBe('none');
+  expect(raiz.fondo, 'la raíz, en negro: nada crema que destapar').toBe('rgb(10, 10, 10)');
+  expect(raiz.panel, 'y el fondo del panel, también').toBe('rgb(10, 10, 10)');
+  // Al llegar al final, lo que hay debajo del lienzo sigue siendo el marco.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: 'test-results/shell-final-de-pagina.png', clip: { x: 0, y: 700, width: 1440, height: 200 } });
+});
