@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 
 const ruta = readFileSync(new URL('../../app/api/public/equipo-email/route.ts', import.meta.url), 'utf8')
   .replace(/\/\/.*$/gm, '');
-const login = readFileSync(new URL('../../app/login/page.tsx', import.meta.url), 'utf8')
+const login = readFileSync(new URL('../../app/login/login-cliente.tsx', import.meta.url), 'utf8')
   .replace(/\/\/.*$/gm, '');
 
 test('límites por IP primero, antes de leer el cuerpo y de tocar la base de datos', () => {

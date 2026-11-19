@@ -23,7 +23,7 @@ const reclamar = leer('lib/actions/equipo/equipoReclamarAction.ts');
 const unirse = leer('app/api/portal/instructora/unirse/route.ts');
 const publica = leer('app/api/public/invitacion/route.ts');
 const invitar = leer('lib/actions/equipo/equipoInvitarAction.ts');
-const login = leer('app/login/page.tsx');
+const login = leer('app/login/login-cliente.tsx');
 const pantalla = leer('app/invitacion/page.tsx');
 
 const CUENTA = /cuenta: \{ email: user\.email \?\? null, emailConfirmado: Boolean\(user\.email_confirmed_at\) \}/;

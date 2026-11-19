@@ -60,6 +60,8 @@ type AuthContextType = {
   reenviarConfirmacion: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   verificarOtpSignup: (email: string, token: string) => Promise<{ error: string | null; errorCode: OtpErrorCode | null }>;
   signInWithGoogle: (redirectPath?: string) => Promise<{ error: string | null }>;
+  /** «Continuar con Apple» en la web (proveedor `apple` de Supabase, Service ID propio). */
+  signInWithApple: (redirectPath?: string) => Promise<{ error: string | null }>;
   linkGoogle: () => Promise<{ error: string | null }>;
   unlinkGoogle: () => Promise<{ error: string | null }>;
 };
@@ -329,6 +331,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   }
 
+  // Iniciar sesión con Apple en la WEB. La app de iOS entra con la hoja nativa
+  // (`signInWithIdToken`, components/nativo/BotonApple.tsx); esto es el flujo de
+  // redirección del proveedor `apple`, que necesita su Service ID y su clave en
+  // Supabase. Sin eso, gotrue rechaza ANTES de redirigir y el error se dice.
+  async function signInWithApple(redirectPath = '/login') {
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${redirectPath}` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { ...(redirectTo ? { redirectTo } : {}), scopes: 'name email' },
+    });
+    if (error) return { error: mensajeDeError(error) };
+    return { error: null };
+  }
+
   // Vincular Google a la cuenta YA AUTENTICADA (Fase 9 — Seguridad/Cuenta).
   // linkIdentity es la API nativa de Supabase para esto: nunca busca por
   // email ni toca auth.users a mano desde el cliente. Requiere sesión activa
@@ -523,7 +539,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session, user: session?.user ?? null, loading,
     signIn, signUp, signOut, updateProfile, updateEmail, updatePassword,
     recuperarPassword, establecerPassword, reenviarConfirmacion, verificarOtpSignup,
-    signInWithGoogle, linkGoogle, unlinkGoogle,
+    signInWithGoogle, signInWithApple, linkGoogle, unlinkGoogle,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [session, loading]);
 
