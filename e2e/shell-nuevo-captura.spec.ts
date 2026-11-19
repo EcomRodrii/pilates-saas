@@ -316,6 +316,40 @@ for (const ancho of [768, 900, 1024, 1180]) {
   });
 }
 
+test('a sangre — el menú despliega las vistas de un módulo en línea (Paquetes) y navega entre ellas', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'productos');
+  await listo(page);
+  const acordeon = page.locator('[data-acordeon="/productos"]');
+  await expect(acordeon).toBeVisible({ timeout: 120_000 });
+  const lista = acordeon.locator('[data-sublista]');
+  await expect(lista, 'al entrar en Paquetes se abre solo').toHaveAttribute('data-abierta', '');
+  await expect(lista.getByRole('link', { name: 'Tarifas' })).toHaveAttribute('aria-current', 'page');
+  await page.screenshot({ path: 'test-results/shell-menu-desplegado.png' });
+  // El chevron la cierra y la abre.
+  await acordeon.getByRole('button', { name: /Cerrar Paquetes/ }).click();
+  await expect(lista).not.toHaveAttribute('data-abierta', '');
+  await acordeon.getByRole('button', { name: /Abrir Paquetes/ }).click();
+  await expect(lista).toHaveAttribute('data-abierta', '');
+  // Pulsar otra vista: la URL la sigue y el menú marca la nueva sin recargar la página.
+  const regalo = lista.getByRole('link', { name: 'Tarjeta regalo' });
+  if (await regalo.count()) {
+    await regalo.click();
+    await expect(page).toHaveURL(/tab=regalo/, { timeout: 30_000 });
+    await expect(regalo).toHaveAttribute('aria-current', 'page', { timeout: 30_000 });
+  }
+});
+
+test('a sangre — el resplandor del menú sigue bajo la esquina del lienzo', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'dashboard');
+  await listo(page);
+  await expect(page.locator('[data-marco-brillo]')).toBeAttached();
+  await page.screenshot({ path: 'test-results/shell-brillo-esquina.png', clip: { x: 0, y: 780, width: 700, height: 120 } });
+});
+
 for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 844]] as const) {
   test(`a sangre — calendario (${nombre})`, async ({ page }) => {
     await preparar(page, true);

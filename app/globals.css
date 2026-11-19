@@ -2093,6 +2093,49 @@ body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; poin
   .panel-app[data-shell-nuevo] h1 { font-size: 20px; }
 }
 
+/* El marco vivo (19-nov-2026). En Shopify la página se desplaza DENTRO de un panel redondeado: las esquinas de abajo se ven
+   siempre. Aquí el scroll es el del documento, así que el marco negro es un panel fijo y transparente con esquinas de
+   16 px cuya sombra gigante pinta de negro todo lo de fuera: el contenido pasa por debajo, y el lienzo y la columna del
+   asistente se ven como dos paneles redondeados con 4 px de marco entre ellos. No recibe toques. */
+.panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; }
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-marco-vivo] {
+    display: block; position: fixed; z-index: 25; pointer-events: none;
+    top: 4px; bottom: 4px; left: var(--sidebar-w, 224px); right: 4px; border-radius: 16px;
+    box-shadow: 0 0 0 100vmax #0a0a0a;
+    /* Sin sombra a la izquierda: ahí está el menú y su resplandor. */
+    clip-path: inset(-100vmax -100vmax -100vmax 0);
+    transition: right 0.3s cubic-bezier(0.2, 0.8, 0, 1);
+  }
+}
+@media (min-width: 1024px) {
+  body:has([data-columna-asistente]:not([inert])) .panel-app[data-shell-nuevo] [data-marco-vivo] { right: 360px; }
+}
+@media print { .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; } }
+
+/* El resplandor del menú sigue por debajo del lienzo: por la franja de 4 px del marco y por la esquina redondeada de abajo a la
+   izquierda, desvaneciéndose hacia la derecha, como en Shopify. Es EL MISMO resplandor del menú (la base y las dos ondas, con
+   su animación), no una copia aproximada: así el tono y el contraste son continuos. Va sobre el marco negro, y la máscara deja
+   solo lo que queda FUERA del panel (la franja y el hueco de la esquina), así que no tapa el contenido. */
+.panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; }
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-marco-brillo] {
+    display: block; position: fixed; z-index: 26; pointer-events: none; overflow: hidden;
+    left: 0; bottom: 0; width: calc(var(--sidebar-w, 224px) + 560px); height: 400px;
+    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(90deg, transparent var(--sidebar-w, 224px), #000 var(--sidebar-w, 224px), transparent 100%);
+    -webkit-mask-size: 16px 16px, 100% 4px;
+    -webkit-mask-position: left var(--sidebar-w, 224px) bottom 4px, left 0 bottom 0;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-composite: source-over;
+    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(90deg, transparent var(--sidebar-w, 224px), #000 var(--sidebar-w, 224px), transparent 100%);
+    mask-size: 16px 16px, 100% 4px;
+    mask-position: left var(--sidebar-w, 224px) bottom 4px, left 0 bottom 0;
+    mask-repeat: no-repeat;
+    mask-composite: add;
+  }
+}
+@media print { .panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; } }
+
 /* Calendario con el marco a sangre (19-nov-2026, fase 1): sin tarjeta dentro de la tarjeta, la barra de vistas y de filtros en los
    neutros de Shopify (no el crema de marca), la columna de mes y filtros sin su borde propio, y la semana que entra al cambiar. */
 .panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] { background: transparent; padding: 0; gap: 2px; }

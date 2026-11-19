@@ -26,7 +26,8 @@
 // siempre, en una página.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useMemo, useState } from 'react';
+import { VistaDeLaUrl } from '@/components/layout/vista-de-la-url';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { ChevronDown, Download, FileText, Loader2, Printer } from 'lucide-react';
@@ -445,6 +446,7 @@ export default function Informes() {
 
   return (
     <div data-tour="informes-vista" className="space-y-5 pb-24">
+      <Suspense fallback={null}><VistaDeLaUrl nombre="pestana" onValor={v => { if (!panelNuevo) return; const p = v ?? 'resumen'; if (PESTANAS.some(x => x.id === p)) setPestana(p as PestanaInforme); }} /></Suspense>
       <PageHeader
         title="Informes"
         // Marco a sangre: «Se actualizó hoy a las HH:MM» junto al título, como el encabezado de Informes y estadísticas de Shopify.

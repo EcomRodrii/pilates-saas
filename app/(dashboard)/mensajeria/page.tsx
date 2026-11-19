@@ -1,5 +1,6 @@
 'use client';
 
+import { VistaDeLaUrl, useUrlSigueALaVista } from '@/components/layout/vista-de-la-url';
 import { leerBorradorMensajeria } from '@/lib/opening/comunicaciones';
 import { Suspense, useState, useMemo, useId, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -431,6 +432,7 @@ export default function Mensajeria() {
   // no se le ofrece.
   const escribeAClientas = puedeGestionarClientas(useRol());
   const [tab, setTab] = useState<Tab>('notificaciones');
+  useUrlSigueALaVista('tab', tab, 'notificaciones');
   const [busqueda, setBusqueda] = useState('');
   // Cada petición es un objeto nuevo, aunque el id se repita: así el mismo
   // aviso, tocado otra vez, vuelve a abrir su hilo.
@@ -500,6 +502,7 @@ export default function Mensajeria() {
   return (
     <div data-tour="mensajeria-vista" className="space-y-6">
       <Suspense fallback={null}><ConversacionDeLaUrl onPedida={abrirPedida} /></Suspense>
+      <Suspense fallback={null}><VistaDeLaUrl nombre="tab" onValor={v => { const t = (v ?? 'notificaciones') as Tab; if ((t !== 'enviar' || escribeAClientas) && ['notificaciones', 'comunidad', 'conversaciones', 'enviar'].includes(t)) { setTab(t); setBusqueda(''); setPedida(null); } }} /></Suspense>
       <PageHeader
         title="Mensajería"
         description="Notificaciones, comunidad y conversaciones con tus clientes"
