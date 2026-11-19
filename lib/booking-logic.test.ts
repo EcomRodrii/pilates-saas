@@ -315,6 +315,23 @@ test('contarReservasActivasFuturas: cuenta CONFIRMADA y LISTA_ESPERA en clases f
   assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 2);
 });
 
+test('contarReservasActivasFuturas: la clase fija (res-pf-) no gasta cupo de reservas a la vez', () => {
+  const ahora = new Date('2026-07-10T00:00:00.000Z');
+  const sesiones = [
+    { id: 'fut1', inicio: '2026-07-11T08:00:00.000Z' },
+    { id: 'fut2', inicio: '2026-07-18T08:00:00.000Z' },
+    { id: 'fut3', inicio: '2026-07-12T08:00:00.000Z' },
+  ];
+  const rs: Reserva[] = [
+    res({ id: 'res-pf-1', sesionId: 'fut1', socioId: 'a', estado: 'CONFIRMADA' }),
+    res({ id: 'res-pf-2', sesionId: 'fut2', socioId: 'a', estado: 'CONFIRMADA' }),
+  ];
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 0);
+  // Lo que ella reserva por su cuenta sí cuenta.
+  rs.push(res({ id: 'res-x', sesionId: 'fut3', socioId: 'a', estado: 'CONFIRMADA' }));
+  assert.equal(contarReservasActivasFuturas('a', rs, sesiones, ahora), 1);
+});
+
 test('contarReservasActivasFuturas: las pendientes de aprobar solo cuentan si el estudio lo elige', () => {
   const ahora = new Date('2026-07-10T00:00:00.000Z');
   const sesiones = [
