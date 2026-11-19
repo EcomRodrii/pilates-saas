@@ -2092,3 +2092,16 @@ body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; poin
   .panel-app[data-shell-nuevo] [data-slot='dialog-content'] { max-height: 90dvh; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
   .panel-app[data-shell-nuevo] h1 { font-size: 20px; }
 }
+
+/* Calendario con el marco a sangre (19-nov-2026, fase 1): sin tarjeta dentro de la tarjeta, la barra de vistas y de filtros en los
+   neutros de Shopify (no el crema de marca), la columna de mes y filtros sin su borde propio, y la semana que entra al cambiar. */
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] { background: transparent; padding: 0; gap: 2px; }
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] button { border-radius: 8px; min-height: 28px; height: 28px; font-size: 13px; font-weight: 500; color: #4a4a4a; background: transparent; box-shadow: none; }
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] button:hover { background: #f7f7f7; color: #101010; }
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] button[aria-pressed='true'] { background: #ebebeb; color: #101010; font-weight: 600; }
+.panel-app[data-shell-nuevo] [data-calendario-marco] aside[aria-label='Mes y filtros'] { border-right: 0; padding-top: 4px; width: 192px; padding-inline: 12px; }
+.panel-app[data-shell-nuevo] [data-calendario-marco] [data-testid='semana-franjas'] { scrollbar-gutter: stable; }
+@keyframes calendario-semana-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .panel-app[data-shell-nuevo] .calendario-semana-entra { animation: calendario-semana-entra 0.28s cubic-bezier(0.2, 0.8, 0, 1) backwards; }
+}

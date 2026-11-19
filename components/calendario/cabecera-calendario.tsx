@@ -142,7 +142,7 @@ export function CabeceraCalendario(p: CabeceraCalendarioProps) {
     ...(p.seleccion && !p.seleccion.activa ? [{ texto: 'Seleccionar varias', icono: CheckSquare, nota: 'Para cambiarles la instructora de una vez', onClick: p.seleccion.onAlternar }] : []),
   ];
   return (
-    <div className="relative space-y-2.5 escritorio-bajo:space-y-2">
+    <div data-calendario-cabecera className="relative space-y-2.5 escritorio-bajo:space-y-2">
       <PageHeader
         title="Calendario"
         badge={p.ventana}
