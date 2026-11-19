@@ -115,7 +115,7 @@ function LienzoDelPanel({ shellNuevo, children }: { shellNuevo: boolean; childre
       className={cn(
         // Móvil y tablet incluidos: lienzo blanco redondeado a 4 px del marco oscuro (en escritorio, además, cede el hueco al asistente).
         shellNuevo && 'mx-1 min-h-[calc(100dvh-0.5rem)] rounded-2xl bg-background md:ml-0 md:mr-1 lg:transition-[margin] lg:duration-300 lg:ease-[cubic-bezier(0.2,0.8,0,1)]',
-        shellNuevo && (abierta ? 'xl:mr-[356px]' : 'lg:mr-1'),
+        shellNuevo && (abierta ? 'lg:mr-[360px]' : 'lg:mr-1'),
       )}
     >
       {children}
@@ -558,7 +558,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               (components/guia/flotantes-del-panel.tsx). */}
           <FlotantesDelPanel />
           {/* Marco a sangre: el asistente como columna a la derecha y su píldora abajo al centro. */}
-          {shellNuevo && <><ColumnaAsistente /><PildoraAsistente /></>}
+          {shellNuevo && <><div aria-hidden data-marco-vivo /><div aria-hidden data-marco-brillo /><ColumnaAsistente /><PildoraAsistente /></>}
           {/* «Primeros pasos» ya no flota aquí: es una píldora de la barra de arriba (topbar.tsx). */}
           </ColumnaAsistenteProvider>
           </AsistenteProvider>

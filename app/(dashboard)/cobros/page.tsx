@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { VistaDeLaUrl, useUrlSigueALaVista } from '@/components/layout/vista-de-la-url';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { CreditCard, Landmark, Plus } from 'lucide-react';
 import { cn, formatEuro } from '@/lib/utils';
 import { useStudio } from '@/lib/studio-context';
@@ -44,6 +45,7 @@ function tabDeLaUrl(v: string | null): TabId | null {
 
 export default function Cobros() {
   const [tab, setTab] = useState<TabId>('deudas');
+  useUrlSigueALaVista('tab', tab, 'deudas');
   const [nuevoCobro, setNuevoCobro] = useState(false);
   const [remesa, setRemesa] = useState(false);
   const toast = useToast();
@@ -129,6 +131,7 @@ export default function Cobros() {
     // `pb-24`: lo último de la pantalla (el ⋯ de «En el banco») puede subir por encima de
     // la burbuja de ayuda del panel, que vive en la esquina de abajo.
     <div data-tour="cobros-vista" className="space-y-5 pb-24">
+      <Suspense fallback={null}><VistaDeLaUrl nombre="tab" onValor={v => { const t = tabDeLaUrl(v) ?? 'deudas'; if (t !== 'historial' || verHistorial) setTab(t); }} /></Suspense>
       <PageHeader
         title="Cobros"
         description={panelNuevo ? 'Quién te debe, lo que has cobrado y lo que viene' : <LineaResumen datos={datos} />}

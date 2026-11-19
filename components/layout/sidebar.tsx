@@ -4,9 +4,9 @@ import Link from 'next/link';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, Search, Bell,
+  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell,
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
@@ -14,6 +14,8 @@ import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { NavItemConHijos } from './nav-item-con-hijos';
+import { SubListaMenu } from './nav-sublista';
+import { SUBMENUS, submenuDe } from '@/lib/nav-submenus';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { EVENTO_ABRIR_BUSCADOR } from '@/lib/buscador-evento';
@@ -154,6 +156,57 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
       {!collapsed && label}
       {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} etiqueta={contadorEtiqueta} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
+  );
+}
+
+/**
+ * Un módulo del menú a sangre con vistas (`lib/nav-submenus.ts`): su fila de siempre, un chevron que gira y debajo la lista
+ * de sus vistas desplegada en línea, como Shopify. Pulsar el nombre navega a la vista principal Y abre la lista; el chevron
+ * solo la abre o la cierra. Se abre sola al entrar en el módulo (por el menú, un enlace o el ⌘K) y se queda como la deje
+ * quien la cierra a mano.
+ */
+function NavItemAcordeon({ item, rol, puedeVer, nuevo, contador, contadorEtiqueta, onNavegar }: {
+  item: { href: string; label: string; icon: React.ElementType };
+  rol: Parameters<typeof submenuDe>[1];
+  puedeVer: (ruta: string) => boolean;
+  nuevo?: boolean;
+  contador?: number;
+  contadorEtiqueta?: string;
+  onNavegar?: () => void;
+}) {
+  const pathname = usePathname();
+  const hijos = submenuDe(item.href, rol, puedeVer);
+  const dentro = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const [abierto, setAbierto] = useState(dentro);
+  // Al ENTRAR en el módulo se abre (se ajusta durante el render, no en un efecto: sin un fotograma cerrado).
+  const [estabaDentro, setEstabaDentro] = useState(dentro);
+  if (dentro !== estabaDentro) { setEstabaDentro(dentro); if (dentro) setAbierto(true); }
+  if (hijos.length < 2) {
+    return <NavItem href={item.href} label={item.label} Icon={item.icon} nuevo={nuevo} contador={contador} contadorEtiqueta={contadorEtiqueta} onClick={onNavegar} />;
+  }
+  const idLista = `sub-${item.href.replace(/\W/g, '')}`;
+  return (
+    <div className="relative" data-acordeon={item.href}>
+      <NavItem
+        href={item.href} label={item.label} Icon={item.icon} nuevo={nuevo} contador={contador} contadorEtiqueta={contadorEtiqueta}
+        onClick={() => { setAbierto(true); onNavegar?.(); }}
+      />
+      <button
+        type="button"
+        onClick={() => setAbierto(a => !a)}
+        aria-expanded={abierto}
+        aria-controls={idLista}
+        aria-label={abierto ? `Cerrar ${item.label}` : `Abrir ${item.label}`}
+        className="absolute right-1 top-[3px] flex size-6 items-center justify-center rounded-lg text-[#a6a6a6] transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-2 focus-visible:outline-[#4f8ff7]"
+      >
+        <ChevronRight size={14} aria-hidden="true" className={cn('transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto && 'rotate-90')} />
+      </button>
+      <div id={idLista}>
+        <Suspense fallback={null}>
+          <SubListaMenu abierta={abierto} hijos={hijos} etiqueta={item.label} onNavegar={onNavegar} />
+        </Suspense>
+      </div>
+    </div>
   );
 }
 
@@ -723,7 +776,13 @@ export function Sidebar() {
             <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
           )}
           {section.items.map(item => {
-            const fila = item.hijos ? (
+            const fila = sangre && !collapsed && !horizontal && Boolean(SUBMENUS[item.href]) ? (
+              <NavItemAcordeon
+                key={item.href} item={item} rol={rol} puedeVer={puedeVer}
+                nuevo={conNovedad.has(item.href)}
+                contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
+              />
+            ) : item.hijos ? (
               <NavItemConHijos
                 key={item.href} href={item.href} label={item.label} Icon={item.icon} hijos={item.hijos}
                 horizontal={horizontal} collapsed={horizontal ? false : collapsed}

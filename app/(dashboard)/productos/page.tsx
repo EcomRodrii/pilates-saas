@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useId, useEffect, useRef, useMemo } from 'react';
+import { Suspense, useState, useId, useEffect, useRef, useMemo } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
 import { useTutorial } from '@/lib/tutorial-context';
 import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
@@ -18,6 +18,7 @@ import { subirFotoProducto, eliminarFotoProducto } from '@/lib/portal-storage';
 import { FOTO_PRODUCTO_TIPOS as FOTO_TIPOS, FOTO_PRODUCTO_MAX_BYTES as FOTO_MAX_BYTES } from '@/lib/portal-storage';
 import { PageHeader } from '@/components/ui/page-header';
 import { PanelRegalo } from '@/components/regalo/panel-regalo';
+import { VistaDeLaUrl, useUrlSigueALaVista } from '@/components/layout/vista-de-la-url';
 import { EmptyState } from '@/components/ui/empty-state';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -1133,6 +1134,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
 export default function Productos() {
   const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS, dataLoaded } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
+  useUrlSigueALaVista('tab', tab, 'planes');
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
   const [busqueda, setBusqueda] = useState('');
   const [planModal, setPlanModal] = useState<PlanTarifa | null | 'new'>(null);
@@ -1300,6 +1302,7 @@ export default function Productos() {
 
   return (
     <div data-tour="paquetes-vista" className="space-y-6">
+      <Suspense fallback={null}><VistaDeLaUrl nombre="tab" onValor={v => { const t = v ?? 'planes'; if (TABS.some(([x]) => x === t)) setTab(t as Tab); }} /></Suspense>
       <PageHeader
         title="Paquetes"
         description={posCongelado ? 'Cuotas, bonos y clases sueltas' : 'Cuotas, bonos, clases sueltas y productos de la caja'}
