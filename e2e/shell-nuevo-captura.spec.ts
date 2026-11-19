@@ -280,3 +280,38 @@ for (const ruta of ['calendario', 'cobros', 'equipo', 'productos', 'informes', '
     await page.screenshot({ path: `test-results/shell-modulo-${ruta}.png` });
   });
 }
+
+test('a sangre — Mensajería: las cuatro tarjetas y el cajón de notificaciones', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'mensajeria');
+  await listo(page);
+  const tabs = page.getByRole('tab');
+  await expect(tabs.first()).toBeVisible({ timeout: 120_000 });
+  const alto = (await tabs.first().boundingBox())?.height ?? 0;
+  expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
+  await page.screenshot({ path: 'test-results/shell-sangre-mensajeria.png' });
+  await page.getByRole('button', { name: /notificaciones/i }).first().click().catch(() => {});
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'test-results/shell-sangre-notificaciones.png' });
+});
+
+for (const ancho of [768, 900, 1024, 1180]) {
+  test(`a sangre — la columna del asistente a ${ancho} px no tapa ni aprieta el lienzo`, async ({ page }) => {
+    await conAsistente(page);
+    await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => r.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify({ panelNuevo: true, shellNuevo: true }),
+    }));
+    await page.setViewportSize({ width: ancho, height: 900 });
+    await ir(page, 'dashboard');
+    await listo(page);
+    await page.locator('[data-pildora-asistente]').click();
+    await expect(page.locator('[data-columna-asistente]')).toBeVisible();
+    await page.waitForTimeout(700);
+    const col = await page.locator('[data-columna-asistente]').boundingBox();
+    expect((col?.x ?? 0) + (col?.width ?? 0), 'la columna cabe en la ventana').toBeLessThanOrEqual(ancho);
+    const lienzo = await page.locator('main > div').first().boundingBox();
+    console.log(`ANCHO ${ancho}: columna x=${col?.x} w=${col?.width}, lienzo x=${lienzo?.x} w=${lienzo?.width}`);
+    await page.screenshot({ path: `test-results/shell-columna-${ancho}.png` });
+  });
+}

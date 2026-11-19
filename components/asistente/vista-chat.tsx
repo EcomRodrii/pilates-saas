@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KeyboardEventReact, type ReactNode } from 'react';
-import { ArrowUp, Check, Copy, MessagesSquare, RotateCcw, Square, SquarePen } from 'lucide-react';
+import { ArrowUp, Check, Copy, MessagesSquare, RotateCcw, Sparkles, Square, SquarePen } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { TentiAsistente, TentiAsistenteQuieto } from '@/components/tenti/tenti-asistente';
 import { MS_HECHO } from '@/lib/tenti/asistente';
@@ -52,6 +52,15 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotant
 }) {
   const { estado, saldo, conversaciones } = useAlmacenAsistente();
   const [listaMovil, setListaMovil] = useState(false);
+  // En la columna del marco a sangre el chat es el de Shopify: plano, compacto y con la cabecera en la columna.
+  const col = useShellNuevo() && flotante;
+  // «Nueva conversación» desde la cabecera de la columna, que vive fuera de este chunk: llega por evento.
+  useEffect(() => {
+    if (!flotante) return;
+    const f = () => nuevaConversacion();
+    window.addEventListener('asistente:nueva', f);
+    return () => window.removeEventListener('asistente:nueva', f);
+  }, [flotante]);
 
   // Al entrar: el estudio, el saldo y la lista (tres peticiones, ninguna repetida
   // mientras no se salga). La pregunta de la puerta, una vez.
@@ -105,7 +114,7 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotant
         </aside>
         )}
 
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main data-chat-main className="relative flex min-w-0 flex-1 flex-col">
           {!flotante && (
           <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/60 px-1.5 lg:hidden">
             <button type="button" onClick={() => setListaMovil(true)} aria-label="Tus conversaciones" className="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
@@ -119,8 +128,8 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotant
           )}
 
           {vacio
-            ? <Bienvenida nombre={nombre} veDinero={veDinero} estado={estado} saldo={saldo} />
-            : <Conversacion estado={estado} saldo={saldo} />}
+            ? <Bienvenida nombre={nombre} veDinero={veDinero} estado={estado} saldo={saldo} col={col} />
+            : <Conversacion estado={estado} saldo={saldo} col={col} />}
         </main>
 
         {!flotante && (
@@ -256,8 +265,35 @@ function ListaConversaciones({ conversaciones, activa, onElegir, onNueva }: {
 
 // ── Vacío: el saludo, Tenti grande, el campo en el centro y las sugerencias ─
 
-function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null; veDinero: boolean; estado: EstadoAsistente; saldo: SaldoAsistente | null }) {
+function Bienvenida({ nombre, veDinero, estado, saldo, col = false }: { nombre: string | null; veDinero: boolean; estado: EstadoAsistente; saldo: SaldoAsistente | null; col?: boolean }) {
   const sugerencias = sugerenciasPara(veDinero, 4);
+  const tenti = <TentiAsistente momento={estado.momento} tamano={96} />;
+  if (col) {
+    // La columna: avatar y pregunta centrados arriba, las ideas como filas y el campo abajo (Sidekick).
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-2">
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 py-6 text-center">
+          <div className="flex flex-col items-center">
+            {tenti}
+            <h1 className="mt-3 text-[20px] font-normal leading-tight tracking-[-0.01em] text-foreground text-balance">
+              ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
+            </h1>
+          </div>
+          {estado.disponibles === 0 && <TarjetaSinConsultas puedeComprar={!!saldo?.puedeComprar} />}
+          <ul className="flex w-full flex-col gap-1" aria-label="Preguntas de ejemplo">
+            {sugerencias.map(s => (
+              <li key={s}>
+                <button type="button" onClick={() => void preguntar(s)} className="flex w-full items-center rounded-full bg-[#f7f7f7] px-4 py-2 text-left text-[13px] text-foreground transition-colors hover:bg-[#ebebeb]">
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <Compositor estado={estado} saldo={saldo} col />
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-4 pt-4 pb-8">
       {/* `my-auto` y no `justify-center` en el padre: centrado mientras cabe, y si no
@@ -265,7 +301,7 @@ function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null
           lo que sobraba se cortaba por ARRIBA y no había forma de llegar a ello. */}
       <div className="my-auto w-full max-w-[720px]">
         <div className="flex flex-col items-center text-center">
-          <TentiAsistente momento={estado.momento} tamano={96} />
+          {tenti}
           <h1 className="mt-3 font-heading text-[26px] font-semibold leading-tight tracking-tight text-foreground text-balance sm:text-[30px]">
             ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
           </h1>
@@ -296,7 +332,7 @@ function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null
 
 // ── La conversación ──────────────────────────────────────────────────────────
 
-function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: SaldoAsistente | null }) {
+function Conversacion({ estado, saldo, col = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; col?: boolean }) {
   const lista = useRef<HTMLDivElement>(null);
   const pegado = useRef(true);
   const nTurnos = estado.turnos.length;
@@ -321,9 +357,9 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
   return (
     <>
       <div ref={lista} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="chat-mensajes">
-        <div className="mx-auto w-full max-w-[760px] px-4 pt-6 pb-10 sm:px-6">
+        <div className={cn('mx-auto w-full max-w-[760px]', col ? 'px-3 pt-2 pb-6' : 'px-4 pt-6 pb-10 sm:px-6')}>
           {estado.turnos.map((t, i) => (
-            <Turno key={t.id} t={t} ultimo={i === nTurnos - 1} momento={estado.momento} referencias={estado.referencias} puedeComprar={!!saldo?.puedeComprar} />
+            <Turno key={t.id} t={t} ultimo={i === nTurnos - 1} momento={estado.momento} referencias={estado.referencias} puedeComprar={!!saldo?.puedeComprar} col={col} />
           ))}
           {/* Se acaban con esta respuesta: la tarjeta aparece ya, antes de que la siguiente pregunta choque con el «sin saldo». */}
           {estado.disponibles === 0 && ultimo?.fase === 'hecho' && (
@@ -331,24 +367,24 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
           )}
         </div>
       </div>
-      <div className="shrink-0 bg-background px-3 pt-2 pb-2 sm:px-6 sm:pb-3">
+      <div className={cn('shrink-0 px-3 pt-2 pb-2', col ? 'bg-card' : 'bg-background sm:px-6 sm:pb-3')}>
         <div className="mx-auto w-full max-w-[760px]">
-          <Compositor estado={estado} saldo={saldo} />
+          <Compositor estado={estado} saldo={saldo} col={col} />
         </div>
       </div>
     </>
   );
 }
 
-function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
-  t: TurnoUI; ultimo: boolean; momento: EstadoAsistente['momento']; referencias: EstadoAsistente['referencias']; puedeComprar: boolean;
+function Turno({ t, ultimo, momento, referencias, puedeComprar, col = false }: {
+  t: TurnoUI; ultimo: boolean; momento: EstadoAsistente['momento']; referencias: EstadoAsistente['referencias']; puedeComprar: boolean; col?: boolean;
 }) {
   const trabajando = t.fase === 'enviando' || t.fase === 'recibiendo';
   return (
-    <section data-turno="" className="mt-8 first:mt-0">
+    <section data-turno="" className={cn(col ? 'mt-5 first:mt-0' : 'mt-8 first:mt-0')}>
       {/* Su pregunta, a la derecha, en burbuja. */}
       <div className="flex justify-end">
-        <p className="max-w-[85%] whitespace-pre-wrap rounded-3xl rounded-br-lg bg-muted px-4 py-2.5 text-[15px] leading-relaxed text-foreground sm:max-w-[75%]" data-testid="chat-pregunta">
+        <p className={cn('whitespace-pre-wrap text-foreground', col ? 'max-w-[85%] rounded-xl bg-[#ebebeb] px-3 py-2 text-[13px] leading-[1.45]' : 'max-w-[85%] rounded-3xl rounded-br-lg bg-muted px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[75%]')} data-testid="chat-pregunta">
           {t.pregunta}
         </p>
       </div>
@@ -356,8 +392,8 @@ function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
       {/* La respuesta, a la izquierda: Tenti de avatar en la que está en curso. */}
       {/* En el móvil, a todo el ancho (las tarjetas no caben con una columna de
           avatar al lado): Tenti va encima, y solo en la respuesta en curso. */}
-      <div className="mt-5 flex flex-col gap-1 sm:flex-row sm:gap-4">
-        <div className={cn('shrink-0 sm:block sm:w-10', ultimo ? 'block h-10' : 'hidden')}>
+      <div className={cn('flex flex-col gap-1 sm:flex-row sm:gap-4', col ? 'mt-4 sm:flex-col sm:gap-1' : 'mt-5')}>
+        <div className={cn('shrink-0 sm:block sm:w-10', col ? 'hidden' : ultimo ? 'block h-10' : 'hidden')}>
           {ultimo ? <TentiAsistente momento={momento} tamano={40} className="-mt-1.5" /> : <TentiAsistenteQuieto className="-mt-1.5" />}
         </div>
         <div className="min-w-0 flex-1">
@@ -367,7 +403,7 @@ function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
             </p>
           )}
           {t.texto && (
-            <div className="text-[15.5px] leading-[1.7] text-foreground text-pretty" aria-busy={trabajando || undefined} data-testid="chat-respuesta">
+            <div className={cn('text-foreground text-pretty', col ? 'text-[13.5px] leading-[1.55]' : 'text-[15.5px] leading-[1.7]')} aria-busy={trabajando || undefined} data-testid="chat-respuesta">
               <TextoConReferencias texto={t.texto} cursor={trabajando} />
             </div>
           )}
@@ -432,7 +468,7 @@ function Acciones({ texto }: { texto: string }) {
 
 // ── El campo de escribir ─────────────────────────────────────────────────────
 
-function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; grande?: boolean }) {
+function Compositor({ estado, saldo, grande = false, col = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; grande?: boolean; col?: boolean }) {
   const shell = useShellNuevo();
   const [texto, setTexto] = useState('');
   const campo = useRef<HTMLTextAreaElement>(null);
@@ -461,6 +497,41 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
   const saldoTexto = textoQuedan(estado.disponibles, saldo);
   // Quedan menos del 10 % de la cuota del mes: un aviso discreto en la misma línea.
   const bajo = saldoBajo(estado.disponibles, saldo?.cuota);
+
+  if (col) {
+    // La columna (Sidekick): una tarjeta con el campo arriba y, debajo, la fila de abajo con el distintivo a la
+    // izquierda y el botón a la derecha; el saldo, en una línea pequeña fuera de la tarjeta.
+    return (
+      <form onSubmit={e => { e.preventDefault(); enviar(); }}>
+        <div className="rounded-[20px] bg-card p-3 shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_2px_2px_-1px_#00000005,0_1px_1px_-0.5px_#00000008,0_0.5px_0.5px_0_#0000000a,0_0_0_1px_#0000000f] transition-shadow focus-within:shadow-[0_0_0_1px_#0000004d,0_5px_16px_#0000000f]">
+          <label htmlFor="asistente-pregunta" className="sr-only">Pregunta sobre tu estudio</label>
+          <span className="relative block">
+            <TextoRotatorio visible={texto === ''} />
+            <textarea
+              id="asistente-pregunta" ref={campo} rows={2} value={texto}
+              onChange={e => setTexto(e.target.value)} onKeyDown={onKeyDown} maxLength={500} enterKeyHint="send"
+              placeholder="Pregúntale a Tentare…"
+              className="block max-h-[200px] min-h-[44px] w-full resize-none bg-transparent px-0.5 py-1 text-[13px] leading-5 text-foreground placeholder:text-transparent focus:outline-none"
+            />
+          </span>
+          <div className="mt-1 flex items-center justify-between">
+            <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--t-blue-500)_12%,white)] text-[var(--t-blue-500)]"><Sparkles size={13} /></span>
+            {ocupado ? (
+              <BotonRedondo etiqueta="Parar la respuesta" onClick={parar} ocupado><Square size={11} aria-hidden="true" className="fill-current" /></BotonRedondo>
+            ) : (
+              <BotonRedondo etiqueta="Preguntar" tipo="submit" desactivado={!texto.trim()}><ArrowUp size={15} aria-hidden="true" /></BotonRedondo>
+            )}
+          </div>
+        </div>
+        <p className="px-2 pt-2 text-center text-[11.5px] leading-snug text-muted-foreground" data-testid="asistente-saldo">
+          {saldoTexto}
+          {bajo && (<> · {saldo?.puedeComprar
+            ? <Link href="/suscripcion#consultas" className="font-medium text-foreground underline underline-offset-2" data-testid="saldo-bajo">Comprar más</Link>
+            : <span className="font-medium text-foreground" data-testid="saldo-bajo">Pídele más a la propietaria</span>}</>)}
+        </p>
+      </form>
+    );
+  }
 
   return (
     // Marco a sangre: el campo es una tarjeta de radio 26 sobre una pestaña gris (`#f7f7f7`, radio 26 26 0 0) que
@@ -523,7 +594,7 @@ function BotonRedondo({ etiqueta, onClick, tipo = 'button', desactivado, ocupado
   return (
     <button
       type={tipo} onClick={onClick} aria-label={etiqueta} disabled={desactivado} aria-busy={ocupado || undefined}
-      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-30"
+      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-30 [[data-columna-asistente]_&]:size-8"
     >
       {children}
     </button>

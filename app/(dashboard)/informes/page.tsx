@@ -45,7 +45,8 @@ import type { SnapshotEstudio } from '@/lib/decision/tipos';
 import { esVentaSinRecibo, resumenVentasSinRecibo } from '@/lib/pos/ventas-sin-recibo';
 import { csvDeFilas, filasCsvPorOrigen, resumenPorPlataforma } from '@/lib/plataformas/informe-origen';
 import { PageHeader } from '@/components/ui/page-header';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { ResumenCobrado } from '@/components/informes/resumen-cobrado';
 import { TarjetaCifra, TarjetaOcupacion } from '@/components/dashboard/vivo';
 import { CalendarCheck, CalendarX, Euro, Ticket, UserPlus, UserX, Users } from 'lucide-react';
 import { MenuAcciones } from '@/components/ui/menu-acciones';
@@ -96,6 +97,7 @@ export default function Informes() {
   const { listo: estadosListos, conteos, porSocio, hechos, ahora: ahoraEstados } = useEstadosClientas();
   const toast = useToast();
   const panelNuevo = usePanelNuevo();
+  const shell = useShellNuevo();
   const avisos: AvisosCobros = useMemo(() => ({ ok: toast.show, error: toast.showError }), [toast.show, toast.showError]);
   const descargas = useDescargaCobrado(avisos);
 
@@ -522,6 +524,7 @@ export default function Informes() {
         <ReanimarAlCambiar clave={pestana} animClassName="tab-content-in" className="space-y-5">
           <PanelInforme id="resumen" visible={pestana}>
             {titular}
+            {shell && dinero && <ResumenCobrado periodo={periodo} puntos={dinero.puntos} actual={dinero.actual} comparacion={comparacion} onIrADinero={() => setPestana('dinero')} />}
             <HoyEnElEstudio riesgo={riesgo} bonos={bonos} onIr={setPestana} />
           </PanelInforme>
           <PanelInforme id="dinero" visible={pestana}>

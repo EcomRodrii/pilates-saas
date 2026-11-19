@@ -521,7 +521,7 @@ export default function Mensajeria() {
 
       {/* Tabs */}
       {panelNuevo ? (
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" role="tablist" aria-label="Mensajería">
+        <div data-sin-estilo-shell className="grid grid-cols-2 gap-3 xl:grid-cols-4" role="tablist" aria-label="Mensajería">
           {TABS.map(t => {
             const activa = tab === t.id;
             const que = QUE_HAY[t.id];
