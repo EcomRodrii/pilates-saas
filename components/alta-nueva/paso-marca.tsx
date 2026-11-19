@@ -20,8 +20,8 @@
 // que nace el portal (lib/apariencia/paletas.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Check, ImageIcon, Loader2, Upload } from 'lucide-react';
+import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, ImageIcon, Loader2, Upload } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
 import type { ThemeConfig } from '@/lib/theme-schema';
@@ -35,11 +35,18 @@ import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
 import { cn } from '@/lib/utils';
 import { AppEnVivo } from './app-en-vivo';
-import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ERROR, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos, NavPaso } from './piezas';
+import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ERROR, CLASE_ETIQUETA, BarrasFoco, CabeceraPaso, ErrorGuardado, FocoContext, LineaDePasos, NavPaso } from './piezas';
 
 function inicial(nombre: string): string {
   return (nombre.trim().charAt(0) || 'T').toUpperCase();
 }
+
+/** El modo foco: una cosa por pantalla. */
+const PANTALLAS_MARCA = [
+  { titulo: 'Sube tu logo', sub: 'Es lo primero que ve un cliente al abrir tu app. Puedes cambiarlo cuando quieras.' },
+  { titulo: 'Elige tu color', sub: 'Lo llevan los botones de tu app y de tu página de reservas.' },
+  { titulo: '¿Cómo te llamas para tus clientes?', sub: 'Así sale tu estudio en la app.' },
+] as const;
 
 export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
   studio: Studio;
@@ -64,6 +71,9 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
   const [escalaVer, setEscalaVer] = useState(0.7);
   const archivo = useRef<HTMLInputElement>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
+  const { foco } = useContext(FocoContext);
+  // Modo foco: una cosa por pantalla (logo · color · nombre).
+  const [sub, setSub] = useState(0);
   const id = useId();
   const escala = useEscalaIphone(0.62, 300);
   const escalaGrande = useEscalaIphone(0.8, 140);
@@ -181,16 +191,32 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
   return (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14">
       <form noValidate onSubmit={siguiente} className="min-w-0">
-        <LineaDePasos actual={5} />
-        <CabeceraPaso
-          etiqueta="Paso 5 de 5 · opcional · unos 2 minutos"
-          titulo="Que se vea tu estudio"
-          masTarde={{ onClick: onListo, disabled: ocupado }}
-          tituloRef={titulo}
-        />
-        <p className="mt-2.5 max-w-[48ch] text-[16px] leading-[25px] text-muted-foreground">
-          Tu logo y tu color en la app de tus clientes, y también en tu página de reservas. Lo cambias cuando quieras en Configuración › Marca.
-        </p>
+        {foco ? (
+          <>
+            <BarrasFoco total={3} actual={sub + 1} />
+            <CabeceraPaso
+              key={sub}
+              etiqueta={`Que se vea tu estudio · ${sub + 1} de 3`}
+              titulo={PANTALLAS_MARCA[sub].titulo}
+              sub={PANTALLAS_MARCA[sub].sub}
+              masTarde={{ onClick: onListo, disabled: ocupado }}
+              tituloRef={titulo}
+            />
+          </>
+        ) : (
+          <>
+            <LineaDePasos actual={5} />
+            <CabeceraPaso
+              etiqueta="Paso 5 de 5 · opcional · unos 2 minutos"
+              titulo="Que se vea tu estudio"
+              masTarde={{ onClick: onListo, disabled: ocupado }}
+              tituloRef={titulo}
+            />
+            <p className="mt-2.5 max-w-[48ch] text-[16px] leading-[25px] text-muted-foreground">
+              Tu logo y tu color en la app de tus clientes, y también en tu página de reservas. Lo cambias cuando quieras en Configuración › Marca.
+            </p>
+          </>
+        )}
 
         {/* Móvil: la franja fija con su marca y «Ver en grande». */}
         <div className="sticky top-0 z-10 -mx-5 mt-4 flex items-center gap-3 border-y border-border bg-background/95 px-5 py-2.5 backdrop-blur lg:hidden" data-testid="franja-marca">
@@ -209,7 +235,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
         </div>
 
         <div className="mt-6 flex flex-col gap-6">
-          <div>
+          <div hidden={foco && sub !== 0}>
             <p className={CLASE_ETIQUETA}>Tu logo</p>
             <div className="mt-2 flex items-center gap-4">
               <div className={cn(
@@ -242,7 +268,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
             </div>
           </div>
 
-          <div>
+          <div hidden={foco && sub !== 1}>
             <p id={`${id}-pal`} className={CLASE_ETIQUETA}>Tu color</p>
             <div role="radiogroup" aria-labelledby={`${id}-pal`} className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {PALETAS_CON_DE_SERIE.map(p => {
@@ -296,7 +322,7 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
             </p>
           </div>
 
-          <div>
+          <div hidden={foco && sub !== 2}>
             <label htmlFor={`${id}-nombre`} className={CLASE_ETIQUETA}>Nombre que verán tus clientes</label>
             <input
               id={`${id}-nombre`}
@@ -312,7 +338,20 @@ export function PasoMarca({ studio, onAtras, onListo, saliendo }: {
         </div>
 
         <ErrorGuardado mensaje={error} />
-        <NavPaso onAtras={onAtras} trabajando={ocupado} />
+        {foco && sub < 2 ? (
+          <div className="ob-nav">
+            <button type="button" onClick={() => (sub > 0 ? setSub(n => n - 1) : onAtras?.())} disabled={ocupado} className="ob-atras ob-pulsable">
+              <ArrowLeft size={16} aria-hidden /> Atrás
+            </button>
+            <div className="ob-nav-der">
+              <button type="button" onClick={() => setSub(n => n + 1)} disabled={ocupado} className="ob-principal ob-pulsable">
+                Siguiente <ArrowRight size={16} aria-hidden />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <NavPaso onAtras={foco ? () => setSub(1) : onAtras} trabajando={ocupado} textoSiguiente={foco ? 'Terminar' : 'Siguiente'} />
+        )}
       </form>
 
       <aside aria-label="Así lo verá tu cliente" className="hidden min-w-0 flex-col items-center gap-4 self-start rounded-3xl bg-muted/70 p-8 text-center lg:flex">

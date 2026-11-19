@@ -136,9 +136,12 @@ const PANTALLAS_FOCO = [
   { titulo: '¿Cuándo es?', sub: 'El día y la hora de la primera. Si se repite, lo dejamos listo.' },
   { titulo: '¿Quién la da y dónde?', sub: 'Tú, una sala y cuántas plazas tiene.' },
   { titulo: '¿Cuánto cuesta?', sub: 'Es lo único que no ponemos por ti.' },
+  { titulo: '¿Cómo te pagan?', sub: 'Al llegar al estudio o por la app, con tarjeta.' },
   { titulo: 'Revisa y publica', sub: 'Esto es lo que se crea. Tus clientes ya podrán reservar.' },
 ] as const;
 const PANTALLA_DE_CAMPO: Record<string, number> = { nombre: 0, fecha: 1, hora: 1, otraPersona: 2, nombrePropio: 2, sala: 2, plazas: 2, precio: 3, bonoClases: 3 };
+/** El camino siguiente/anterior: una clase gratis se salta «¿Cómo te pagan?» (no hay nada que cobrar). */
+const PANTALLA_COBRO = 4;
 
 export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, enCalendario = false }: {
   studio: Studio;
@@ -229,7 +232,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
       enfocar(mios[0] ?? 'nombrePropio');
       return;
     }
-    setSub(n => Math.min(n + 1, PANTALLAS_FOCO.length - 1));
+    setSub(n => { const sig = n + 1; return Math.min(form.gratis && sig === PANTALLA_COBRO ? sig + 1 : sig, PANTALLAS_FOCO.length - 1); });
     window.scrollTo({ top: 0 });
   }
 
@@ -516,8 +519,8 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
             </div>
           </Bloque>
 
-          <Bloque num="04" titulo="Precio" plano={foco} oculto={foco && sub !== 3}>
-            <label className="flex items-start gap-3 text-left">
+          <Bloque num="04" titulo="Precio" plano={foco} oculto={foco && sub !== 3 && sub !== PANTALLA_COBRO}>
+            <label hidden={foco && sub === PANTALLA_COBRO} className="flex items-start gap-3 text-left">
               <input
                 type="checkbox"
                 checked={form.gratis}
@@ -533,7 +536,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
               <p className={CLASE_AYUDA} data-testid="mensaje-precio">{precio.texto}</p>
             ) : (
               <>
-                <div>
+                <div hidden={foco && sub === PANTALLA_COBRO}>
                   <span className="flex items-center gap-1.5">
                     <span className={CLASE_ETIQUETA}>Cómo la vendes</span>
                     <InfoTip label="Cómo se vende una clase">Clase suelta: paga una clase. Bono: varias clases por adelantado. Cuota: un precio al mes.</InfoTip>
@@ -545,7 +548,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                     onCambio={v => cambiar({ venta: v })}
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div hidden={foco && sub === PANTALLA_COBRO} className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor={`${id}-precio`} className={CLASE_ETIQUETA}>{etiquetaPrecio}</label>
                     <div className="relative mt-1.5">
@@ -582,12 +585,12 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                     </div>
                   )}
                 </div>
-                <p id={`${id}-precio-m`} className={textoPrecio.clase} aria-live="polite" data-testid="mensaje-precio" data-estado={precio.estado}>
+                <p hidden={foco && sub === PANTALLA_COBRO} id={`${id}-precio-m`} className={textoPrecio.clase} aria-live="polite" data-testid="mensaje-precio" data-estado={precio.estado}>
                   {'aviso' in textoPrecio && <AlertTriangle size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />}
                   {textoPrecio.texto}
                 </p>
 
-                <div>
+                <div hidden={foco && sub === 3}>
                   <p className={CLASE_ETIQUETA} id={`${id}-cobro`}>¿Cómo te pagan?</p>
                   <div role="radiogroup" aria-labelledby={`${id}-cobro`} className="mt-2 grid gap-2 sm:grid-cols-2">
                     {([
@@ -645,7 +648,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
             {(sub > 0 || onAtras) && (
               <button
                 type="button"
-                onClick={() => (sub > 0 ? setSub(n => n - 1) : onAtras?.())}
+                onClick={() => (sub > 0 ? setSub(n => { const ant = n - 1; return form.gratis && ant === PANTALLA_COBRO ? ant - 1 : ant; }) : onAtras?.())}
                 disabled={ocupado}
                 className="ob-atras ob-pulsable"
               >

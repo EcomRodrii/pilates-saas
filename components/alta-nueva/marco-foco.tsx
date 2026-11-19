@@ -41,6 +41,7 @@ export function EstilosFoco() {
 .ob-hoja aside { display: none !important; }
 /* La cabecera ya no está dentro de la tarjeta: lo primero del formulario no necesita el aire que le dejaba. */
 .ob-hoja form > :first-child { margin-top: 0 !important; }
+.ob-hoja [data-testid="zona-horaria-fija"], .ob-hoja [data-testid="provincia"], .ob-hoja [data-testid="franja-marca"], .ob-hoja [data-foco-oculto] { display: none !important; }
 .ob-hoja [data-testid="vias"] { grid-template-columns: minmax(0, 1fr) !important; }
 .ob-nav { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
 .ob-nav-der { margin-left: auto; display: flex; align-items: center; gap: 10px; }

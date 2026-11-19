@@ -173,7 +173,7 @@ export function PasoDonde({ studio, sedes, onSedes, onListo, saliendo }: {
 
           <PreguntaSedes sedes={sedes} onSedes={onSedes} />
 
-          <p className="flex items-center gap-2 text-[13px] leading-[18px] text-muted-foreground">
+          <p data-foco-oculto className="flex items-center gap-2 text-[13px] leading-[18px] text-muted-foreground">
             <FileText size={14} aria-hidden /> Razón social y NIF, más tarde: no hacen falta para recibir reservas.
           </p>
         </div>
