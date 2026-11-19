@@ -109,8 +109,19 @@ const PASOS: { id: PasoAsistente; corto: string; titulo: string; sub: string }[]
 
 function LineaDePasos({ pasos, paso, onPaso }: { pasos: typeof PASOS; paso: PasoAsistente; onPaso: (p: PasoAsistente) => void }) {
   const actual = pasos.findIndex(p => p.id === paso);
+  const lista = useRef<HTMLOListElement>(null);
+  // En móvil la línea no cabe y se desplaza: al avanzar con «Siguiente», el paso actual se
+  // queda fuera de pantalla. Se centra moviendo SOLO el scroll de la línea (nada de
+  // `scrollIntoView`, que también movería la página hasta ella desde la barra de abajo).
+  useEffect(() => {
+    const ol = lista.current;
+    const boton = ol?.querySelector<HTMLElement>('[aria-current="step"]');
+    if (!ol || !boton || ol.scrollWidth <= ol.clientWidth) return;
+    const destino = boton.offsetLeft - (ol.clientWidth - boton.offsetWidth) / 2;
+    ol.scrollTo({ left: Math.max(0, destino), behavior: 'smooth' });
+  }, [paso]);
   return (
-    <ol className="flex items-center overflow-x-auto py-1 lg:justify-center" aria-label="Pasos">
+    <ol ref={lista} className="relative flex items-center overflow-x-auto py-1 lg:justify-center" aria-label="Pasos">
       {pasos.map((p, i) => {
         const hecho = i < actual;
         const esActual = i === actual;

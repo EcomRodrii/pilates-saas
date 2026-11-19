@@ -7,6 +7,7 @@ import { useEstudio } from '@/components/student/contexto';
 import { ProfileSection } from '@/components/student/domain/ProfileSection';
 import { Icono } from '@/components/student/ui/Icono';
 import { NormasYContacto } from '@/components/student/domain/NormasComunidad';
+import { enlaceWhatsAppEstudio } from '@/lib/student/whatsapp-estudio';
 
 // Ayuda (§A.20): contacto del estudio y las preguntas que de verdad hacen.
 //
@@ -16,7 +17,12 @@ import { NormasYContacto } from '@/components/student/domain/NormasComunidad';
 export default function AyudaPage() {
   const { estudio } = useEstudio();
 
+  // Para quien no quiere usar la app: un chat con el estudio, que reserva o cancela por ella.
+  // Solo si el teléfono del estudio es un móvil (a un fijo wa.me no lleva a ningún chat).
+  const whatsapp = enlaceWhatsAppEstudio(estudio.telefono);
+
   const contacto = [
+    whatsapp && { label: 'Reservar o cancelar por WhatsApp', href: whatsapp },
     estudio.telefono && {
       label: 'Llamar al estudio',
       href: `tel:${estudio.telefono.replace(/\s/g, '')}`,
@@ -28,13 +34,13 @@ export default function AyudaPage() {
       href: `https://maps.google.com/?q=${encodeURIComponent(`${estudio.direccion} ${estudio.ciudad}`)}`,
       valor: estudio.direccion,
     },
-  ].filter(Boolean) as { label: string; href: string; valor: string }[];
+  ].filter(Boolean) as { label: string; href: string; valor?: string }[];
 
   // Una norma por línea; las líneas en blanco no cuentan. Sin texto, no se pinta la sección.
   const normas = (estudio.normasTexto ?? '').split('\n').map(l => l.trim()).filter(Boolean);
 
   const faq: Array<[string, string]> = [
-    ['¿Cómo cancelo una clase?', `Desde Actividad → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.`],
+    ['¿Cómo cancelo una clase?', `Desde Actividad → Cancelar. Si faltan más de ${estudio.politicaCancelacionHoras} h, normalmente recuperas la sesión de tu bono; el estudio puede tener una regla distinta para algún tipo de clase.${whatsapp ? ' Si prefieres no usar la app, puedes escribir a tu estudio por WhatsApp (en Contacto, arriba).' : ''}`],
     ['¿Qué pasa si la clase está llena?', 'Puedes apuntarte a la lista de espera. Si se libera una plaza, pasa a ser tuya y te avisamos al momento (algunos estudios te dan un plazo para aceptarla).'],
     ['¿Qué es una clase fija y cómo la pido?', 'Tu sitio reservado cada semana en una clase, sin tener que volver a reservarla. Abre la clase en el horario y activa «Clase fija»; tu estudio revisa la petición (algunos la aprueban al momento). Si vienes dos días, actívala en las dos clases. Las que ya tienes las ves en Actividad → «Fija»: si un día no vas, tócalo en «Próximas semanas» y se cancela solo ese día. Hace falta una cuota activa que cubra esa clase; con bono, puedes reservar varias semanas de una vez desde la misma ficha.'],
     ['¿Qué pasa si mi clase fija tiene fecha de fin?', 'Te avisamos unos días antes. Si quieres seguir, vuelve a activar «Clase fija» en esa clase cuando termine.'],
