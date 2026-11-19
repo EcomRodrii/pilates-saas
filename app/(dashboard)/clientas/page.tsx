@@ -1853,7 +1853,8 @@ export default function Socios() {
           <>
           {/* Con columnas extra la tabla no aprieta las de siempre (el plan se partía
               en cinco líneas): pide su ancho y el contenedor hace scroll lateral. */}
-          <table className="hidden w-full md:table" style={columnasExtra.length > 0 ? { minWidth: ANCHO_TABLA_BASE + ANCHO_COLUMNA_EXTRA * columnasExtra.length } : undefined}>
+          <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[640px]" style={columnasExtra.length > 0 ? { minWidth: ANCHO_TABLA_BASE + ANCHO_COLUMNA_EXTRA * columnasExtra.length } : undefined}>
             <thead>
               <tr className="border-b border-border text-left text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {gestionaClientas && (
@@ -1999,6 +2000,7 @@ export default function Socios() {
               })}
             </tbody>
           </table>
+          </div>
 
           {/* Móvil: una fila por clienta, con su plan y su estado o su aviso. */}
           <ul aria-label="Clientes" className="divide-y divide-border md:hidden">
