@@ -55,7 +55,7 @@ test.describe('Invitación: alta de la persona invitada', () => {
     // la segunda vía, no solo sessionStorage.
     await expect(page).toHaveURL(new RegExp(`token=${encodeURIComponent(TOKEN)}`));
     // Y el formulario que se ve es el de CREAR, no el de entrar.
-    await expect(page.getByRole('heading', { name: 'Crear cuenta de equipo' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Crea(r|r tu)? cuenta de equipo$/ })).toBeVisible();
   });
 
   test('regresión: si sessionStorage se pierde en el salto, la URL rescata el token igual', async ({ page }) => {
@@ -65,7 +65,7 @@ test.describe('Invitación: alta de la persona invitada', () => {
     await page.route('**/api/**', route => json(route, {}));
     await page.goto(`/login?destino=/dashboard&alta=1&token=${encodeURIComponent(TOKEN)}`);
 
-    await expect(page.getByRole('heading', { name: 'Crear cuenta de equipo' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /^Crea(r|r tu)? cuenta de equipo$/ })).toBeVisible({ timeout: 30_000 });
     // La URL, no sessionStorage, es la única fuente aquí — y aun así queda
     // guardado, listo para viajar en la metadata del alta (en cuanto se sabe
     // que no había sesión abierta).
@@ -85,7 +85,7 @@ test.describe('Invitación: alta de la persona invitada', () => {
 
     await expect(page).toHaveURL(/\/login\?/, { timeout: 30_000 });
     await expect(page).not.toHaveURL(/alta=1/);
-    await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Inicia(r)? sesión$/ })).toBeVisible();
     expect(await page.evaluate(() => sessionStorage.getItem('pending_invitacion'))).toBe(TOKEN);
   });
 
@@ -109,7 +109,7 @@ test.describe('Invitación: alta de la persona invitada', () => {
   test('sin ?alta=1 el login sigue abriendo en "iniciar sesión"', async ({ page }) => {
     await page.route('**/api/**', route => json(route, {}));
     await page.goto('/login');
-    await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('heading', { name: /^Inicia(r)? sesión$/ })).toBeVisible({ timeout: 30_000 });
   });
 });
 
@@ -204,7 +204,7 @@ test.describe('Invitación: una sesión ya abierta no se une sola', () => {
     // Un «no» definitivo no se queda en la pestaña: volver a entrar no choca con él otra vez.
     expect(await page.evaluate(() => sessionStorage.getItem('pending_invitacion'))).toBeNull();
     await aviso.getByRole('button', { name: 'Volver a iniciar sesión' }).click();
-    await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Inicia(r)? sesión$/ })).toBeVisible();
   });
 });
 
