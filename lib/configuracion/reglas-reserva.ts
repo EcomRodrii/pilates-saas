@@ -537,7 +537,6 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
   'Una clase fija es una plaza que tu cliente deja reservada cada semana. De serie, tus clientes pueden hacer suya una clase que se repite desde su app: en la ficha de la clase activan «Clase fija» y eligen cuánto tiempo. Solo la piden las que tienen una cuota que incluya esa clase (con bono se reserva clase a clase). Si lo apagas, las clases fijas las das tú en recepción.';
-  'De serie, tus clientes pueden hacer suya una clase que se repite desde su app: en la ficha de la clase activan «Clase fija», eligen cuánto tiempo y su plaza queda reservada cada semana. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
 
 export const OPCIONES_APROBACION_PLAZA_FIJA: readonly { valor: ReglasReserva['plazaFijaAprobacion']; titulo: string; detalle: string }[] = [
   { valor: 'MANUAL', titulo: 'La apruebo yo', detalle: 'Recibes un aviso y decides tú en Resumen. Hasta entonces, su plaza no cambia. Es lo más seguro.' },
