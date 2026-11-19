@@ -35,7 +35,7 @@
   radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--t-blue-500, #3B82F6) 16%, transparent), transparent 70%),
   radial-gradient(40% 35% at 88% 100%, color-mix(in srgb, var(--t-magenta-500, #C0407A) 10%, transparent), transparent 70%); }
 .mt-raiz[data-tono='oscuro'] .mt-fondo::before, .mt-raiz[data-tono='oscuro'] .mt-fondo::after { display: none; }
-.mt-raiz[data-tono='oscuro'] .mt-encima { margin-bottom: 24px; animation: mt-fundido .35s cubic-bezier(.25,.1,.25,1) both; }
+.mt-raiz[data-tono='oscuro'] .mt-encima { margin-bottom: 12px; animation: mt-fundido .35s cubic-bezier(.25,.1,.25,1) both; }
 .mt-raiz[data-tono='oscuro'] .mt-tarjeta { border: 0; box-shadow: 0 0 0 1px rgb(255 255 255 / .06), 0 30px 70px -24px rgb(0 0 0 / .7);
   animation: mt-entra .4s cubic-bezier(.22,.8,.3,1) .03s both; }
 @keyframes mt-fundido { from { opacity: 0; } to { opacity: 1; } }

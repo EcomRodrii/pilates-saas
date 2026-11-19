@@ -734,7 +734,7 @@ function Marco({ children, whatsapp, ancho = 'normal' }: { children: React.React
       tono="oscuro"
       encima={
         <Link href="/" aria-label="Volver a la portada de Tentare" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
-          <LogoTentare alto={36} tinta="blanco" decorativo />
+          <LogoTentare alto={28} tinta="blanco" decorativo />
         </Link>
       }
     >
