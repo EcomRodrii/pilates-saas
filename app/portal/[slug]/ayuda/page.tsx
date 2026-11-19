@@ -22,7 +22,7 @@ export default function AyudaPage() {
   const whatsapp = enlaceWhatsAppEstudio(estudio.telefono);
 
   const contacto = [
-    whatsapp && { label: 'Reservar o cancelar por WhatsApp', href: whatsapp, valor: 'Escríbenos' },
+    whatsapp && { label: 'Reservar o cancelar por WhatsApp', href: whatsapp },
     estudio.telefono && {
       label: 'Llamar al estudio',
       href: `tel:${estudio.telefono.replace(/\s/g, '')}`,
@@ -34,7 +34,7 @@ export default function AyudaPage() {
       href: `https://maps.google.com/?q=${encodeURIComponent(`${estudio.direccion} ${estudio.ciudad}`)}`,
       valor: estudio.direccion,
     },
-  ].filter(Boolean) as { label: string; href: string; valor: string }[];
+  ].filter(Boolean) as { label: string; href: string; valor?: string }[];
 
   // Una norma por línea; las líneas en blanco no cuentan. Sin texto, no se pinta la sección.
   const normas = (estudio.normasTexto ?? '').split('\n').map(l => l.trim()).filter(Boolean);
