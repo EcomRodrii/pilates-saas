@@ -191,7 +191,7 @@ test('a sangre — tablet (768): el mismo menú a sangre que en escritorio (Shop
   await page.waitForTimeout(1500);
   const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
   if (ancho.doc > ancho.ventana + 1) {
-    const culpables = await page.evaluate(() => [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1 && !e.closest('[class*=overflow-x]')).slice(0, 12).map((e) => `${e.tagName}.${String(e.className).slice(0, 70)} → ${Math.round(e.getBoundingClientRect().right)}`));
+    const culpables = await page.evaluate(() => [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1 && (!e.parentElement || e.parentElement.getBoundingClientRect().right <= window.innerWidth + 1 || getComputedStyle(e.parentElement).overflowX !== 'visible')).slice(0, 12).map((e) => `${e.tagName}.${String(e.className).slice(0, 70)} → ${Math.round(e.getBoundingClientRect().right)}`));
     console.log('DESBORDE', JSON.stringify(culpables, null, 1));
   }
   expect(ancho.doc).toBeLessThanOrEqual(ancho.ventana + 1);
