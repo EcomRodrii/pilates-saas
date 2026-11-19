@@ -11,9 +11,8 @@ import { versionDelAlta } from '@/lib/alta/registro';
 //   · si un estudio nuevo empieza gratis (FOUNDING_GRATIS encendido para todos,
 //     lib/alta/founding-gratis-alta.ts);
 //   · qué alta ve esta visita (ALTA_NUEVA_REGISTRO, lib/alta/registro.ts): con
-//     `on`, la nueva («registro en una pantalla», alta-nueva.tsx) para todos;
-//     con `prueba`, solo con `?alta=nueva`; si no, la de siempre
-//     (alta-estudio.tsx), idéntica, también con `?alta=nueva`.
+//     la nueva («registro en una pantalla», alta-nueva.tsx) para todos, salvo con
+//     `off` (la de siempre, alta-estudio.tsx) o `parametro` (solo con `?alta=nueva`).
 //
 // `searchParams` es una promesa (Next 16) y la hace dinámica: el interruptor se
 // lee en cada petición, no al compilar.

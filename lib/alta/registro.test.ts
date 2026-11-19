@@ -22,25 +22,25 @@ const BIEN: DatosRegistro = { nombre: 'Estudio Alba Pilates', email: 'prueba-ten
 
 // ── El interruptor ───────────────────────────────────────────────────────────
 
-test('ALTA_NUEVA_REGISTRO=on: todo el mundo ve el alta nueva, con o sin parámetro', () => {
-  assert.equal(versionDelAlta('on', undefined), 'v2');
-  assert.equal(versionDelAlta(' on ', 'nueva'), 'v2');
-  assert.equal(versionDelAlta('on', 'otra'), 'v2');
-});
-
-test('ALTA_NUEVA_REGISTRO=prueba: solo con ?alta=nueva, y marcada como prueba', () => {
-  assert.equal(versionDelAlta('prueba', 'nueva'), 'v2_prueba');
-  assert.equal(versionDelAlta('prueba', ['nueva', 'x']), 'v2_prueba');
-  // Sin el parámetro (o con otro valor), el alta de siempre, idéntica.
-  assert.equal(versionDelAlta('prueba', undefined), null);
-  assert.equal(versionDelAlta('prueba', ''), null);
-  assert.equal(versionDelAlta('prueba', 'NUEVA'), null);
-});
-
-test('apagado (o cualquier otra cosa): el alta de siempre, también con ?alta=nueva', () => {
-  for (const valor of [undefined, '', 'off', 'ON', 'true', '1', 'estudios:st-1', 'prueba,on']) {
-    assert.equal(versionDelAlta(valor, 'nueva'), null, String(valor));
+test('abierta a todos: sin variable, «on» o «prueba» (el modo de antes) ven el alta nueva, con o sin parámetro', () => {
+  for (const valor of [undefined, '', 'on', ' ON ', 'prueba', 'true']) {
+    assert.equal(versionDelAlta(valor, undefined), 'v2', String(valor));
+    assert.equal(versionDelAlta(valor, 'nueva'), 'v2', String(valor));
   }
+});
+
+test('ALTA_NUEVA_REGISTRO=parametro: solo con ?alta=nueva, y marcada como prueba', () => {
+  assert.equal(versionDelAlta('parametro', 'nueva'), 'v2_prueba');
+  assert.equal(versionDelAlta('parametro', ['nueva', 'x']), 'v2_prueba');
+  // Sin el parámetro (o con otro valor), el alta de siempre, idéntica.
+  assert.equal(versionDelAlta('parametro', undefined), null);
+  assert.equal(versionDelAlta('parametro', ''), null);
+  assert.equal(versionDelAlta('parametro', 'NUEVA'), null);
+});
+
+test('«off»: el alta de siempre, también con ?alta=nueva', () => {
+  assert.equal(versionDelAlta('off', 'nueva'), null);
+  assert.equal(versionDelAlta(' OFF ', undefined), null);
 });
 
 // ── Validación campo a campo ────────────────────────────────────────────────
