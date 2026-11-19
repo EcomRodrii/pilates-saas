@@ -32,6 +32,8 @@ import { anfitrionPortal } from '@/lib/panel-portal';
 import { recargarEstadoAlta } from '@/lib/alta/estado-cliente';
 import { PrimeraClase, type PrimeraClasePublicada } from './primera-clase';
 import { WhatsAppPersona } from './piezas';
+import { MarcoFoco } from './marco-foco';
+import { useOnboardingNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 export function PrimeraClaseEnCalendario({ onCerrar, onCreada }: {
   onCerrar: () => void;
@@ -41,6 +43,8 @@ export function PrimeraClaseEnCalendario({ onCerrar, onCreada }: {
   const { studio } = useStudio();
   const router = useRouter();
   const [publicada, setPublicada] = useState<PrimeraClasePublicada | null>(null);
+  // Onboarding al estilo Shopify (`ONBOARDING_NUEVO`): una pregunta por pantalla; sin él, el formulario de siempre.
+  const foco = useOnboardingNuevo();
 
   // Escape cierra el formulario (el «¡Listo!» lo hace por su cuenta).
   useEffect(() => {
@@ -65,6 +69,29 @@ export function PrimeraClaseEnCalendario({ onCerrar, onCreada }: {
         textoSeguir="Ir a mi panel"
         onSeguir={() => { onCerrar(); router.push('/dashboard'); }}
       />
+    );
+  }
+
+  if (foco) {
+    return createPortal(
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-[color:var(--t-ink-950)]" data-testid="primera-clase-en-calendario">
+        <MarcoFoco
+          etiqueta="Tu primera clase"
+          dialogo
+          claveHoja="primera-clase"
+          onSalir={onCerrar}
+          textoSalir={{ corto: 'Cerrar', largo: 'Cerrar sin crear la clase' }}
+          nombreEstudio={studio.nombre}
+        >
+          <PrimeraClase
+            studio={studio}
+            enCalendario
+            onAtras={onCerrar}
+            onPublicada={r => { setPublicada(r); onCreada(); recargarEstadoAlta(); }}
+          />
+        </MarcoFoco>
+      </div>,
+      anfitrionPortal(),
     );
   }
 

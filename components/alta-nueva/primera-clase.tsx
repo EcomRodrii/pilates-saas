@@ -28,8 +28,8 @@
 //     (`ListoParaReservar`), como siempre.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Check, Eye, Loader2, Minus, Plus } from 'lucide-react';
+import { useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, Loader2, Minus, Plus } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { useStudio } from '@/lib/studio-context';
 import { supabase } from '@/lib/db/supabase';
@@ -43,7 +43,7 @@ import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { SOPORTE_WHATSAPP } from '@/lib/soporte';
 import {
   DURACIONES_PRIMERA_CLASE, MAX_PLAZAS, TIPOS_PRIMERA_CLASE,
-  conTipo, diasParaElegir, formInicial, infoPrecio, nombreDelDia, primerError, resumenPrimeraClase, validarPrimeraClase,
+  ORDEN_CAMPOS, conTipo, diasParaElegir, formInicial, infoPrecio, nombreDelDia, primerError, resumenPrimeraClase, validarPrimeraClase,
   type CampoPrimeraClase, type ContextoChoques, type FormPrimeraClase, type Venta, type YaExiste,
 } from '@/lib/alta/primera-clase';
 import { hoyEnEstudio, cn } from '@/lib/utils';
@@ -51,7 +51,7 @@ import { InfoTip } from '@/components/ui/tooltip';
 import { DashboardSheet } from '@/components/ui/dashboard-sheet';
 import { BOTON_VIVO } from '@/components/dashboard/vivo';
 import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
-import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ERROR, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos } from './piezas';
+import { CLASE_AYUDA, CLASE_CAMPO, CLASE_ERROR, CLASE_ETIQUETA, BarrasFoco, CabeceraPaso, ErrorGuardado, FocoContext, LineaDePasos } from './piezas';
 import { VistaPreviaClase } from './vista-previa-clase';
 
 export interface PrimeraClasePublicada {
@@ -113,8 +113,13 @@ function Segmento<T extends string | number>({ etiqueta, opciones, valor, onCamb
   );
 }
 
-function Bloque({ num, titulo, children }: { num: string; titulo: string; children: React.ReactNode }) {
+function Bloque({ num, titulo, children, plano, oculto }: { num: string; titulo: string; children: React.ReactNode; plano?: boolean; oculto?: boolean }) {
   const id = useId();
+  // Modo foco: sin tarjeta ni número (el titular de la pantalla ya dice qué se pregunta); los ocultos siguen montados
+  // para que no se pierda lo escrito.
+  if (plano) {
+    return <section aria-label={titulo} hidden={oculto} className="flex flex-col gap-5">{children}</section>;
+  }
   return (
     <section aria-labelledby={id} className="rounded-3xl border border-border bg-card p-4 sm:p-5">
       <h2 id={id} className="flex items-baseline gap-2.5 text-[17px] font-semibold text-foreground">
@@ -124,6 +129,19 @@ function Bloque({ num, titulo, children }: { num: string; titulo: string; childr
     </section>
   );
 }
+
+/** El modo foco: una pregunta por pantalla (y, al final, revisar). Lo que cada una pregunta y en qué pantalla vive cada campo. */
+const PANTALLAS_FOCO = [
+  { titulo: '¿Qué clase vas a dar?', sub: 'Elige el tipo y ponle nombre. Lo demás ya viene puesto.' },
+  { titulo: '¿Cuándo es?', sub: 'El día y la hora de la primera. Si se repite, lo dejamos listo.' },
+  { titulo: '¿Quién la da y dónde?', sub: 'Tú, una sala y cuántas plazas tiene.' },
+  { titulo: '¿Cuánto cuesta?', sub: 'Es lo único que no ponemos por ti.' },
+  { titulo: '¿Cómo te pagan?', sub: 'Al llegar al estudio o por la app, con tarjeta.' },
+  { titulo: 'Revisa y publica', sub: 'Esto es lo que se crea. Tus clientes ya podrán reservar.' },
+] as const;
+const PANTALLA_DE_CAMPO: Record<string, number> = { nombre: 0, fecha: 1, hora: 1, otraPersona: 2, nombrePropio: 2, sala: 2, plazas: 2, precio: 3, bonoClases: 3 };
+/** El camino siguiente/anterior: una clase gratis se salta «¿Cómo te pagan?» (no hay nada que cobrar). */
+const PANTALLA_COBRO = 4;
 
 export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, enCalendario = false }: {
   studio: Studio;
@@ -138,6 +156,8 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
   const { user } = useAuth();
   const id = useId();
   const titulo = useRef<HTMLHeadingElement>(null);
+  const { foco } = useContext(FocoContext);
+  const [sub, setSub] = useState(0);
   const hoy = useMemo(() => hoyEnEstudio(), []);
   const dias = useMemo(() => diasParaElegir(hoy), [hoy]);
   const [form, setForm] = useState<FormPrimeraClase>(() => formInicial({
@@ -160,7 +180,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
   const [verVista, setVerVista] = useState(false);
   const campos = useRef<Partial<Record<Campo, HTMLElement | null>>>({});
 
-  useEffect(() => { titulo.current?.focus(); }, []);
+  useEffect(() => { titulo.current?.focus({ preventScroll: true }); }, [sub]);
 
   // Lo que ya tiene el estudio: para decir «que ya tienes» y no «se crea», y
   // para buscar choques con sus clases antes de publicar.
@@ -203,13 +223,33 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
     el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   };
 
+  /** Modo foco: «Siguiente» comprueba SOLO lo de esta pantalla; el resto se comprueba al llegar a su turno. */
+  function avanzar() {
+    const mios = ORDEN_CAMPOS.filter(c => PANTALLA_DE_CAMPO[c] === sub && errores[c]);
+    const nombreMio = sub === 2 && errorNombrePropio;
+    if (mios.length > 0 || nombreMio) {
+      setIntentado(true);
+      enfocar(mios[0] ?? 'nombrePropio');
+      return;
+    }
+    setSub(n => { const sig = n + 1; return Math.min(form.gratis && sig === PANTALLA_COBRO ? sig + 1 : sig, PANTALLAS_FOCO.length - 1); });
+    window.scrollTo({ top: 0 });
+  }
+
   async function publicar(e: React.FormEvent) {
     e.preventDefault();
+    // Enter en un campo, en el modo foco, sigue a la pantalla siguiente (publicar solo se ofrece en la última).
+    if (foco && sub < PANTALLAS_FOCO.length - 1) { avanzar(); return; }
     // El cerrojo antes que nada: un doble toque no manda dos peticiones.
     if (enviandoRef.current || saliendo) return;
     setIntentado(true);
     const primero: Campo | null = primerError(validarPrimeraClase(form, new Date(), choques)) ?? (errorNombrePropio ? 'nombrePropio' : null);
-    if (primero) { enfocar(primero); return; }
+    if (primero) {
+      // En el modo foco el campo puede estar en otra pantalla: se vuelve a ella y se enfoca al pintarse.
+      if (foco && PANTALLA_DE_CAMPO[primero] !== undefined) { setSub(PANTALLA_DE_CAMPO[primero]); setTimeout(() => enfocar(primero), 60); return; }
+      enfocar(primero);
+      return;
+    }
     enviandoRef.current = true;
     setEnviando(true);
     setError(null);
@@ -271,21 +311,36 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
   return (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,560px)_minmax(0,1fr)] lg:gap-14">
       <form noValidate onSubmit={publicar} className="min-w-0" aria-busy={enviando}>
-        {!enCalendario && <LineaDePasos actual={6} />}
-        <CabeceraPaso
-          etiqueta={enCalendario ? 'Unos 5 minutos' : 'Paso 6 de 7 · obligatorio · unos 5 minutos'}
-          titulo="Tu primera clase"
-          sub="Con una clase y su precio, tus clientes ya pueden reservar. Todo viene puesto menos el precio: eso solo lo sabes tú."
-          tituloRef={titulo}
-        />
-        {whatsapp && (
+        {foco ? (
+          <>
+            <BarrasFoco total={PANTALLAS_FOCO.length} actual={sub + 1} />
+            <CabeceraPaso
+              key={sub}
+              etiqueta={`Tu primera clase · ${sub + 1} de ${PANTALLAS_FOCO.length}`}
+              titulo={PANTALLAS_FOCO[sub].titulo}
+              sub={PANTALLAS_FOCO[sub].sub}
+              tituloRef={titulo}
+            />
+          </>
+        ) : (
+          <>
+            {!enCalendario && <LineaDePasos actual={6} />}
+            <CabeceraPaso
+              etiqueta={enCalendario ? 'Unos 5 minutos' : 'Paso 6 de 7 · obligatorio · unos 5 minutos'}
+              titulo="Tu primera clase"
+              sub="Con una clase y su precio, tus clientes ya pueden reservar. Todo viene puesto menos el precio: eso solo lo sabes tú."
+              tituloRef={titulo}
+            />
+          </>
+        )}
+        {whatsapp && !foco && (
           <p className="mt-4 rounded-2xl bg-muted px-3.5 py-2.5 text-[13.5px] leading-5 text-muted-foreground">
             ¿Te atascas? <a href={whatsapp} target="_blank" rel="noreferrer" className="font-semibold text-foreground underline underline-offset-2">Escríbenos por WhatsApp</a> y te ayuda una persona, paso a paso.
           </p>
         )}
 
         <div className="mt-6 flex flex-col gap-4">
-          <Bloque num="01" titulo="Qué clase">
+          <Bloque num="01" titulo="Qué clase" plano={foco} oculto={foco && sub !== 0}>
             <Segmento
               etiqueta="Tipo de clase"
               opciones={TIPOS_PRIMERA_CLASE.map(t => ({ valor: t, texto: t }))}
@@ -321,7 +376,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
             </div>
           </Bloque>
 
-          <Bloque num="02" titulo="Cuándo">
+          <Bloque num="02" titulo="Cuándo" plano={foco} oculto={foco && sub !== 1}>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor={`${id}-dia`} className={CLASE_ETIQUETA}>Día</label>
@@ -372,7 +427,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
             </button>
           </Bloque>
 
-          <Bloque num="03" titulo="Quién y dónde">
+          <Bloque num="03" titulo="Quién y dónde" plano={foco} oculto={foco && sub !== 2}>
             <div>
               <p className={CLASE_ETIQUETA}>Quién la da</p>
               <Segmento
@@ -464,8 +519,8 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
             </div>
           </Bloque>
 
-          <Bloque num="04" titulo="Precio">
-            <label className="flex items-start gap-3 text-left">
+          <Bloque num="04" titulo="Precio" plano={foco} oculto={foco && sub !== 3 && sub !== PANTALLA_COBRO}>
+            <label hidden={foco && sub === PANTALLA_COBRO} className="flex items-start gap-3 text-left">
               <input
                 type="checkbox"
                 checked={form.gratis}
@@ -481,7 +536,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
               <p className={CLASE_AYUDA} data-testid="mensaje-precio">{precio.texto}</p>
             ) : (
               <>
-                <div>
+                <div hidden={foco && sub === PANTALLA_COBRO}>
                   <span className="flex items-center gap-1.5">
                     <span className={CLASE_ETIQUETA}>Cómo la vendes</span>
                     <InfoTip label="Cómo se vende una clase">Clase suelta: paga una clase. Bono: varias clases por adelantado. Cuota: un precio al mes.</InfoTip>
@@ -493,7 +548,7 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                     onCambio={v => cambiar({ venta: v })}
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div hidden={foco && sub === PANTALLA_COBRO} className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label htmlFor={`${id}-precio`} className={CLASE_ETIQUETA}>{etiquetaPrecio}</label>
                     <div className="relative mt-1.5">
@@ -530,12 +585,12 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
                     </div>
                   )}
                 </div>
-                <p id={`${id}-precio-m`} className={textoPrecio.clase} aria-live="polite" data-testid="mensaje-precio" data-estado={precio.estado}>
+                <p hidden={foco && sub === PANTALLA_COBRO} id={`${id}-precio-m`} className={textoPrecio.clase} aria-live="polite" data-testid="mensaje-precio" data-estado={precio.estado}>
                   {'aviso' in textoPrecio && <AlertTriangle size={14} className="mt-[2px] shrink-0 text-warning" aria-hidden />}
                   {textoPrecio.texto}
                 </p>
 
-                <div>
+                <div hidden={foco && sub === 3}>
                   <p className={CLASE_ETIQUETA} id={`${id}-cobro`}>¿Cómo te pagan?</p>
                   <div role="radiogroup" aria-labelledby={`${id}-cobro`} className="mt-2 grid gap-2 sm:grid-cols-2">
                     {([
@@ -570,7 +625,12 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
           </Bloque>
         </div>
 
-        <div className="mt-5 rounded-3xl bg-muted/70 p-4 sm:p-5">
+        {foco && sub === PANTALLAS_FOCO.length - 1 && (
+          <div className="mb-5" data-testid="vista-previa-foco">
+            <VistaPreviaClase studio={studio} form={form} instructora={form.quien === 'yo' ? yo : form.otraPersona} />
+          </div>
+        )}
+        <div hidden={foco && sub < PANTALLAS_FOCO.length - 1} className="mt-5 rounded-3xl bg-muted/70 p-4 sm:p-5">
           <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">Al publicar se crea, todo a la vez</p>
           <ul className="mt-2.5 grid gap-1.5" data-testid="resumen-primera-clase">
             {resumen.map(l => (
@@ -583,6 +643,30 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
 
         <ErrorGuardado mensaje={error} />
 
+        {foco ? (
+          <div className="ob-nav">
+            {(sub > 0 || onAtras) && (
+              <button
+                type="button"
+                onClick={() => (sub > 0 ? setSub(n => { const ant = n - 1; return form.gratis && ant === PANTALLA_COBRO ? ant - 1 : ant; }) : onAtras?.())}
+                disabled={ocupado}
+                className="ob-atras ob-pulsable"
+              >
+                <ArrowLeft size={16} aria-hidden /> {sub > 0 ? 'Atrás' : enCalendario ? 'Cerrar' : 'Atrás'}
+              </button>
+            )}
+            <div className="ob-nav-der">
+              {sub < PANTALLAS_FOCO.length - 1 ? (
+                <button type="button" onClick={avanzar} className="ob-principal ob-pulsable">Siguiente <ArrowRight size={16} aria-hidden /></button>
+              ) : (
+                <button type="submit" disabled={ocupado} className="ob-principal ob-pulsable">
+                  {enviando ? <><Loader2 size={16} className="animate-spin" aria-hidden /> Publicando…</> : 'Publicar mi primera clase'}
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Abajo, y fija en el móvil: Atrás · Vista previa · Publicar. */}
         <div className="sticky bottom-0 z-10 -mx-5 mt-8 flex items-center gap-2 border-t border-border bg-background/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-5 sm:backdrop-blur-none">
           {onAtras && (
@@ -602,6 +686,8 @@ export function PrimeraClase({ studio, onAtras, onPublicada, saliendo = false, e
             </button>
           </div>
         </div>
+          </>
+        )}
       </form>
 
       <aside aria-label="Así la verá tu cliente" className="hidden min-w-0 flex-col gap-4 self-start rounded-3xl bg-muted/70 p-8 lg:sticky lg:top-6 lg:flex">
