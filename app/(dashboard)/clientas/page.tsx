@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
+import { VistaDeLaUrl, useUrlSigueALaVista } from '@/components/layout/vista-de-la-url';
+import { Suspense, useState, useMemo, useEffect, useRef, useId, isValidElement, cloneElement, type ReactElement, type ReactNode, type ElementType, type MouseEvent } from 'react';
 import { useSemaforoServidor } from '@/lib/hooks/use-semaforo-servidor';
 import { useCampoAsociado } from '@/components/ui/use-campo-asociado';
 import { useRouter } from 'next/navigation';
@@ -320,6 +321,7 @@ export default function Socios() {
   const columnasExtra = filtrosNuevos ? columnasElegidas : [];
   const filtroMasEfectivo: FiltroMas = !filtrosNuevos && FILTROS_MAS_NUEVOS.some((f) => f.id === filtroMas) ? '' : filtroMas;
   const [vista, setVista] = useState<'clientas' | 'interesadas'>('clientas');
+  useUrlSigueALaVista('vista', vista, 'clientas');
   // La clienta abierta al lado de la lista (pantallas anchas). En la URL, para
   // que volver atrás o recargar la deje donde estaba.
   const [abierta, setAbierta] = useState<string | null>(null);
@@ -1371,6 +1373,7 @@ export default function Socios() {
 
   return (
     <div data-tour="clientas-lista" className="space-y-4 min-h-screen pb-24" style={{ backgroundColor: 'var(--background)' }}>
+      <Suspense fallback={null}><VistaDeLaUrl nombre="vista" onValor={v => { setVista(v === 'interesadas' ? 'interesadas' : 'clientas'); setAbierta(null); setSelected(new Set()); setSeleccionando(false); }} /></Suspense>
       {errorFila && (
         <p role="alert" className="flex items-start gap-2 p-2.5 rounded-lg bg-destructive/10 text-[12.5px] text-destructive">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
