@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { INTERRUPTORES, interruptoresDe, interruptoresPara } from './interruptores.ts';
+import { ENCENDIDOS_DE_SERIE, INTERRUPTORES, interruptoresDe, interruptoresPara } from './interruptores.ts';
 
 // El formato (`on` / `estudios:`) lo prueba lib/interruptor-por-estudio.test.ts.
 // Lo esperado sale del propio catálogo: cada interruptor nuevo no obliga a
 // reescribir estas líneas (chocaban en cada PR que añadía uno).
-const todosApagados = () => Object.fromEntries(Object.keys(INTERRUPTORES).map((k) => [k, false])) as Record<string, boolean>;
+const todosApagados = () => Object.fromEntries(Object.keys(INTERRUPTORES).map((k) => [k, (ENCENDIDOS_DE_SERIE as readonly string[]).includes(k)])) as Record<string, boolean>;
 const soloEncendido = (k: string) => ({ ...todosApagados(), [k]: true });
 
 test('apagado de serie; «estudios:» solo para esos', () => {
@@ -14,6 +14,14 @@ test('apagado de serie; «estudios:» solo para esos', () => {
   assert.deepEqual(interruptoresDe('s1', { CLIENTAS_FILTROS: 'estudios:s0' }), todosApagados());
   for (const [clave, variable] of Object.entries(INTERRUPTORES)) {
     assert.deepEqual(interruptoresDe('s1', { [variable]: 'estudios:s1' }), soloEncendido(clave), variable);
+  }
+});
+
+test('los encendidos de serie solo se apagan con «off»', () => {
+  for (const k of ENCENDIDOS_DE_SERIE) {
+    assert.equal(interruptoresDe('s1', {})[k], true, k);
+    assert.equal(interruptoresDe('s1', { [INTERRUPTORES[k]]: 'off' })[k], false, k);
+    assert.equal(interruptoresDe('s1', { [INTERRUPTORES[k]]: ' OFF ' })[k], false, k);
   }
 });
 

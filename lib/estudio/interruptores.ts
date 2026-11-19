@@ -85,9 +85,20 @@ export const INTERRUPTORES = {
 
 export type Interruptor = keyof typeof INTERRUPTORES;
 
+/**
+ * Los que ya están ENCENDIDOS DE SERIE para todos (decisión del fundador): sin la variable, o con cualquier
+ * valor, están encendidos; solo `off` los apaga (el freno de emergencia, que sí exige un despliegue).
+ * - `onboardingNuevo` (19-nov-2026): el onboarding al estilo Shopify, abierto al público.
+ */
+export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = ['onboardingNuevo'];
+
 export function interruptoresDe(studioId: string, entorno: Record<string, string | undefined>): Record<Interruptor, boolean> {
   return Object.fromEntries(
-    (Object.keys(INTERRUPTORES) as Interruptor[]).map(k => [k, encendidaPara(entorno[INTERRUPTORES[k]], studioId)]),
+    (Object.keys(INTERRUPTORES) as Interruptor[]).map(k => {
+      const valor = entorno[INTERRUPTORES[k]];
+      if (ENCENDIDOS_DE_SERIE.includes(k)) return [k, (valor ?? '').trim().toLowerCase() !== 'off'];
+      return [k, encendidaPara(valor, studioId)];
+    }),
   ) as Record<Interruptor, boolean>;
 }
 

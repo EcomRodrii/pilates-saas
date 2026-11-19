@@ -41,16 +41,16 @@ export function EstilosLoginNuevo() {
 .ln-logo { display: block; width: auto; flex: none; }
 .ln-hoja { width: 100%; border-radius: 24px; background: var(--t-paper); color: var(--t-ink-950); padding: 36px;
   box-shadow: 0 0 0 1px rgb(255 255 255 / .06), 0 30px 70px -24px rgb(0 0 0 / .7); }
-.ln-columna > .ln-logo { animation: ln-fundido .6s cubic-bezier(.25,.1,.25,1) both; }
-.ln-columna > :not(.ln-logo) { animation: ln-entra .55s cubic-bezier(.25,.1,.25,1) .08s both; }
-.ln-cajas { position: relative; margin: -4px; padding: 4px; overflow: hidden; transition: height .42s cubic-bezier(.32,.72,0,1); }
-.ln-panel { transition: transform .45s cubic-bezier(.32,.72,0,1), opacity .18s cubic-bezier(.25,.1,.25,1); }
-.ln-panel:not([inert]) { transition: transform .45s cubic-bezier(.32,.72,0,1), opacity .3s cubic-bezier(.25,.1,.25,1) .12s; }
+.ln-columna > .ln-logo { animation: ln-fundido .35s cubic-bezier(.25,.1,.25,1) both; }
+.ln-columna > :not(.ln-logo) { animation: ln-entra .4s cubic-bezier(.22,.8,.3,1) .03s both; }
+.ln-cajas { position: relative; margin: -4px; padding: 4px; overflow: hidden; contain: layout; transition: height .36s cubic-bezier(.32,.72,0,1); }
+.ln-panel { will-change: transform, opacity; transition: transform .36s cubic-bezier(.32,.72,0,1), opacity .16s cubic-bezier(.25,.1,.25,1); }
+.ln-panel:not([inert]) { transition: transform .36s cubic-bezier(.32,.72,0,1), opacity .24s cubic-bezier(.25,.1,.25,1) .08s; }
 .ln-panel[inert] { position: absolute; inset: 4px 4px auto 4px; opacity: 0; pointer-events: none; }
 .ln-panel[data-lado="izq"] { transform: translateX(-28px); }
 .ln-panel[data-lado="der"] { transform: translateX(28px); }
 .ln-aviso { animation: ln-aviso .3s cubic-bezier(.25,.1,.25,1) both; }
-.ln-pulsable { transition: transform .15s cubic-bezier(.25,.1,.25,1), background-color .15s, opacity .15s, border-color .15s, box-shadow .15s; }
+.ln-pulsable { transition: transform .12s cubic-bezier(.25,.1,.25,1), background-color .15s, opacity .15s, border-color .15s, box-shadow .15s; }
 .ln-pulsable:active:not(:disabled) { transform: scale(.985); }
 @keyframes ln-fundido { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ln-entra { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
@@ -135,7 +135,8 @@ export function LoginNuevoTarjeta(p: LoginNuevoProps) {
   useLayoutEffect(() => {
     const el = refs.current[activo];
     if (!el) return;
-    const medir = () => setAlto(el.offsetHeight + 8);
+    // Medir una vez en el layout effect (sin parpadeo) y, después, solo cuando el panel cambia de tamaño de verdad.
+    const medir = () => setAlto(h => (h === el.offsetHeight + 8 ? h : el.offsetHeight + 8));
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -145,7 +146,7 @@ export function LoginNuevoTarjeta(p: LoginNuevoProps) {
   // El foco viaja al primer campo del panel que entra (no en la carga: ahí ya lo pone autoFocus).
   useEffect(() => {
     if (primera.current) { primera.current = false; return; }
-    const t = setTimeout(() => refs.current[activo]?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true }), 120);
+    const t = setTimeout(() => refs.current[activo]?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true }), 60);
     return () => clearTimeout(t);
   }, [activo]);
 
