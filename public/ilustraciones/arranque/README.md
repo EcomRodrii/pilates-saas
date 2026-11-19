@@ -4,7 +4,7 @@ Una por tarjeta, en WebP, **1120 × 560 px** (2:1; se muestran a unos 280 × 137
 
 | Fichero | Tarjeta |
 |---|---|
-| `marca.webp` | Pon tu logo y tu color — **pendiente de aportar** |
+| `marca.webp` | Pon tu logo y tu color |
 | `stripe.webp` | Cobra online con Stripe |
 | `fiscales.webp` | Tus datos fiscales |
 | `equipo.webp` | Invita a tu equipo |
