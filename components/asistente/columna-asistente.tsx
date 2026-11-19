@@ -27,6 +27,13 @@ export function ColumnaAsistente() {
   const { user } = useAuth();
   const rol = useRol();
   const router = useRouter();
+  // La columna abierta se avisa en la raíz con un atributo: el CSS (el marco, el botón de ayuda) lo lee de ahí y no con
+  // `body:has(...)`, que obliga al navegador a revisar todo el documento con cada cambio.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.toggleAttribute('data-columna-asistente-abierta', Boolean(puerta && studio && abierta));
+    return () => raiz.removeAttribute('data-columna-asistente-abierta');
+  }, [puerta, studio, abierta]);
   if (!puerta || !studio) return null;
   const yo = instructores.find(i => i.authUserId === user?.id);
   const nombre = yo?.nombre?.trim().split(/\s+/)[0] ?? null;
