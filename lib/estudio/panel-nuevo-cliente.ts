@@ -19,6 +19,12 @@ export function useShellNuevo(): boolean {
   return useInterruptor('shellNuevo', studio?.id);
 }
 
+/** ¿Ve este estudio el onboarding al estilo Shopify (interruptor `ONBOARDING_NUEVO`, 19-nov-2026)? */
+export function useOnboardingNuevo(): boolean {
+  const { studio } = useCore();
+  return useInterruptor('onboardingNuevo', studio?.id);
+}
+
 /** ¿Ve este estudio «Tu app» y «Tu web» rehechos (interruptor `MI_WEB_NUEVA`, 16-oct-2026)? */
 export function useMiWebNueva(): boolean {
   const { studio } = useCore();

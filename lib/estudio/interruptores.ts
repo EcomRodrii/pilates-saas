@@ -74,6 +74,13 @@ export const INTERRUPTORES = {
    * del fundador, a todos cuando él dé el sí.
    */
   shellNuevo: 'SHELL_NUEVO',
+  /**
+   * El onboarding al estilo del admin de Shopify (19-nov-2026, `docs/diseno/shopify-onboarding-flujo.md`):
+   * por ahora solo el «modo foco» de la bienvenida del alta nueva (fondo oscuro, píldora de salida arriba,
+   * el paso como una tarjeta blanca de radio 20). Apagado de serie: sin él, ni un píxel cambia. Primero en
+   * el estudio de prueba del fundador, a todos cuando él dé el sí.
+   */
+  onboardingNuevo: 'ONBOARDING_NUEVO',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

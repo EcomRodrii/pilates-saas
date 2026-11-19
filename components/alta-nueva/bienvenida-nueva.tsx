@@ -36,6 +36,8 @@ import type { Studio } from '@/lib/types';
 import { capturarEvento } from '@/lib/posthog-cliente';
 import { capturarExcepcion } from '@/lib/sentry-cliente';
 import { PanelThemeProvider } from '@/lib/panel-theme';
+import { useOnboardingNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { cn } from '@/lib/utils';
 import { PanelPrivacyProvider } from '@/lib/panel-privacy';
 import { ENTRADA_PRIMERA_CLASE, LINEA_DE_PASOS, PASO_DE_PANTALLA, anteriorPantalla, siguientePantalla, type PantallaAlta } from '@/lib/alta/bienvenida-nueva';
 import { sedesDeOnbCentros, type Sedes } from '@/lib/alta/tu-estudio';
@@ -126,18 +128,29 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
   }, [router, studio.id]);
 
   const comunes = { studio, saliendo };
+  // «Modo foco» al estilo Shopify (`ONBOARDING_NUEVO`): sin él, la pantalla de siempre.
+  const foco = useOnboardingNuevo();
   return (
     <PanelPrivacyProvider>
       <PanelThemeProvider className="panel-app min-h-dvh bg-background">
-        <div className="min-h-dvh bg-background text-foreground" data-screen="bienvenida-nueva">
-          <header className="mx-auto flex w-full max-w-[1180px] items-center justify-between gap-3 px-5 pb-1 pt-4 sm:px-8 sm:pt-5">
-            <LogoTentare alto={22} tinta="auto" decorativo />
+        <div
+          className={cn('min-h-dvh text-foreground', foco ? 'bg-[color:var(--t-surface-nav)]' : 'bg-background')}
+          data-screen="bienvenida-nueva"
+          data-onboarding-nuevo={foco ? '' : undefined}
+        >
+          <header className={cn('mx-auto flex w-full max-w-[1180px] items-center justify-between gap-3 px-5 pb-1 pt-4 sm:px-8 sm:pt-5', foco && 'sm:pt-7')}>
+            <LogoTentare alto={22} tinta={foco ? 'blanco' : 'auto'} decorativo />
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-3">
               <button
                 type="button"
                 onClick={alPanel}
                 disabled={saliendo}
-                className="min-h-10 whitespace-nowrap rounded-full px-2 text-[13px] font-semibold text-muted-foreground hover:text-foreground disabled:opacity-60 sm:px-2.5"
+                className={cn(
+                  'whitespace-nowrap rounded-full text-[13px] font-semibold disabled:opacity-60',
+                  foco
+                    ? 'min-h-11 bg-[#283133] px-5 text-[15px] font-medium text-white transition-colors hover:bg-[#344043]'
+                    : 'min-h-10 px-2 text-muted-foreground hover:text-foreground sm:px-2.5',
+                )}
               >
                 <span className="sm:hidden">Ir a mi panel</span>
                 <span className="hidden sm:inline">Prefiero ir a mi panel</span>
@@ -146,7 +159,13 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-[1180px] px-5 pb-12 pt-3 sm:px-8">
+          <main
+            className={cn(
+              'mx-auto w-full max-w-[1180px] px-5 pb-12 pt-3 sm:px-8',
+              // El paso como una tarjeta blanca de radio 20 sobre el fondo oscuro (medidas del flujo de Shopify).
+              foco && 'mb-10 mt-4 rounded-[20px] bg-background pt-6 shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_0_30px_#000] sm:px-10 sm:pt-8',
+            )}
+          >
             <ErrorGuardado mensaje={errorSalir} />
             {pantalla === 'estudio' && (
               <PasoDonde {...comunes} sedes={sedes} onSedes={setSedes} onListo={() => seguir('estudio')} />
