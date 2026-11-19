@@ -1,10 +1,10 @@
 # Imágenes de las tarjetas de arranque (`ONBOARDING_NUEVO`)
 
-Una por tarjeta, en WebP, **560 × 274 px** (se muestran a 280 × 137, el doble para pantallas retina), nombre = id:
+Una por tarjeta, en WebP, **1120 × 560 px** (2:1; se muestran a unos 280 × 137, el doble para pantallas retina; `object-cover` recorta lo que sobre), nombre = id:
 
 | Fichero | Tarjeta |
 |---|---|
-| `marca.webp` | Pon tu logo y tu color |
+| `marca.webp` | Pon tu logo y tu color — **pendiente de aportar** |
 | `stripe.webp` | Cobra online con Stripe |
 | `fiscales.webp` | Tus datos fiscales |
 | `equipo.webp` | Invita a tu equipo |
