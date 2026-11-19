@@ -381,6 +381,10 @@ export function LoginCliente({ nuevo = false, apple = false }: { nuevo?: boolean
       // que le falta es montar el estudio, y /crear-estudio reconoce la sesión y
       // le ahorra la cuenta.
       if (resultado?.tipo === 'cuenta-nueva') {
+        // Se dice antes de saltar: sin aviso, entrar con Google y acabar en «Crea tu estudio» parecía que la página se recargaba sola.
+        setError('');
+        setInfo('Esta cuenta todavía no tiene un estudio en Tentare. Te llevamos a crearlo…');
+        await new Promise<void>(seguir => setTimeout(seguir, 1800));
         // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga dura a propósito: tras autenticar, la página siguiente tiene que leer la sesión recién creada desde el servidor.
         window.location.href = '/crear-estudio';
         return;
