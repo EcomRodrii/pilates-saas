@@ -2040,3 +2040,55 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
 /* Red de seguridad del marco a sangre: un elemento suelto que se pase del ancho no abre scroll horizontal en toda la página (con `clip` no crea contenedor de scroll, así que `sticky` sigue valiendo). */
 .panel-app[data-shell-nuevo] { overflow-x: clip; }
+
+/* ── Marco a sangre: scroll, movimiento, interacción y pantallas pequeñas (19-nov-2026) ─────────────────── */
+
+/* Scroll. Los cajones, hojas y menús no arrastran la página de detrás al llegar a su final; las anclas dejan
+   hueco bajo la barra pegada; y los toques no esperan 300 ms ni hacen zoom con doble toque. */
+.panel-app[data-shell-nuevo] { scroll-padding-top: 4.5rem; }
+.panel-app[data-shell-nuevo] :is(aside, [role='dialog'], [data-panel-menu], [data-slot='dialog-content'], [data-slot='sheet-content'], [data-columna-asistente]) { overscroll-behavior: contain; }
+.panel-app[data-shell-nuevo] [class*='overflow-x-auto'] { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.panel-app[data-shell-nuevo] :is(button, a, summary, label, [role='button'], [role='tab'], input, select, textarea) { touch-action: manipulation; }
+/* Lo que queda fuera de pantalla no se pinta hasta que se acerca: respuestas del chat y avisos largos. */
+.panel-app[data-shell-nuevo] [data-turno] { content-visibility: auto; contain-intrinsic-size: auto 140px; }
+
+/* Movimiento. Una sola curva (la de Shopify) para entrar, salir y reaccionar al dedo. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .panel-app[data-shell-nuevo] :is(a, button)[data-slot='card'], .panel-app[data-shell-nuevo] a:has(> [data-slot='card']) {
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0, 1);
+  }
+  .panel-app[data-shell-nuevo] :is(a, button)[data-slot='card']:hover, .panel-app[data-shell-nuevo] a:has(> [data-slot='card']):hover {
+    transform: translateY(-1px); box-shadow: 0 0 2px #0000003d, 0 6px 20px #0000000f, 0 12px 40px #0000000a;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .panel-app[data-shell-nuevo] :is(a, button, [role='tab'], [role='menuitem'], summary):not(:disabled) { transition-property: background-color, color, box-shadow, transform, opacity; transition-duration: 0.15s; transition-timing-function: cubic-bezier(0.2, 0.8, 0, 1); }
+  .panel-app[data-shell-nuevo] :is(button, [role='tab'], a[class*='rounded']):not(:disabled):active { transform: scale(0.97); }
+  .panel-app[data-shell-nuevo] :is(tbody tr, [role='row']) { transition: background-color 0.12s ease; }
+  /* Las listas largas no entran todas a la vez: solo las primeras, con un escalón corto. */
+  .panel-app[data-shell-nuevo] main ul > li:nth-child(-n + 6) { animation: shell-contenido-entra 0.28s cubic-bezier(0.2, 0.8, 0, 1) backwards; }
+  .panel-app[data-shell-nuevo] main ul > li:nth-child(2) { animation-delay: 30ms; }
+  .panel-app[data-shell-nuevo] main ul > li:nth-child(3) { animation-delay: 60ms; }
+  .panel-app[data-shell-nuevo] main ul > li:nth-child(4) { animation-delay: 90ms; }
+  .panel-app[data-shell-nuevo] main ul > li:nth-child(5) { animation-delay: 120ms; }
+  .panel-app[data-shell-nuevo] main ul > li:nth-child(6) { animation-delay: 150ms; }
+}
+.panel-app[data-shell-nuevo] :is(a, button, [role='tab'], summary):focus-visible { outline: 2px solid oklch(62.89% 0.2036 263.44); outline-offset: 2px; }
+/* Con la columna del asistente abierta, el botón de ayuda se aparta: caía encima de su campo. */
+body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; pointer-events: none; transform: scale(0.9); transition: opacity 0.2s ease, transform 0.2s ease; }
+
+/* Pantallas pequeñas (< 768 px). Campos a 16 px (iOS no hace zoom al enfocarlos), dedos de 44 px, pestañas que se
+   deslizan con imán, rejillas de dos columnas y espacio para la barra de abajo y la muesca. */
+@media (max-width: 767px) {
+  .panel-app[data-shell-nuevo] :is(input, select, textarea):not([type='checkbox'], [type='radio'], [type='range']) { font-size: 16px; }
+  .panel-app[data-shell-nuevo] main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  .panel-app[data-shell-nuevo] [role='tab'] { min-height: 40px; }
+  .panel-app[data-shell-nuevo] [data-slot='button'] { min-height: 40px; }
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) { overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; flex-wrap: nowrap; }
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell])::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) > [role='tab'] { scroll-snap-align: start; flex: none; }
+  .panel-app[data-shell-nuevo] [data-resumen-kpis], .panel-app[data-shell-nuevo] [data-testid='resumen-cobrado'] { grid-template-columns: minmax(0, 1fr); }
+  .panel-app[data-shell-nuevo] [data-slot='card'] { border-radius: 16px; }
+  .panel-app[data-shell-nuevo] [data-slot='dialog-content'] { max-height: 90dvh; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+  .panel-app[data-shell-nuevo] h1 { font-size: 20px; }
+}

@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Bell, Check, X, Inbox, PartyPopper, Volume2, VolumeX } from 'lucide-react';
 import Link from 'next/link';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { authHeader } from '@/lib/api-client';
 import { avisarAncla } from '@/lib/estado-estudio-cliente';
 import { fetchNotificaciones, accionNotificacion, type NotifItem, type AmbitoNotif } from '@/lib/notifications/client';
@@ -87,6 +87,8 @@ export function NotificationBell() {
   // Panel nuevo: la bandeja es un cajón a toda altura, como «Todas las
   // notificaciones» de Bonsai (b-86), en vez de un desplegable.
   const panelNuevo = usePanelNuevo();
+  // Marco a sangre (`SHELL_NUEVO`): el cajón es una tarjeta flotante con las medidas del admin de Shopify. El cajón va en portal, fuera del `.panel-app`, así que se decide aquí y no por CSS.
+  const sh = useShellNuevo();
   const rol = useRol();
   // «Qué te avisamos» solo a quien puede abrir esa tarjeta (hoy, la propietaria).
   const ajustesAvisos = hrefDeTarjeta('tus-avisos');
@@ -314,10 +316,12 @@ export function NotificationBell() {
           open={abierto}
           onClose={() => setAbierto(false)}
           label="Todas las notificaciones"
-          sheetClassName="relative flex h-full w-full flex-col bg-background shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] sm:w-[460px]"
+          sheetClassName={sh
+            ? 'relative my-1 mr-1 flex h-[calc(100%-0.5rem)] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_0_2px_#0000003d,0_12px_48px_#00000033] sm:w-[400px]'
+            : 'relative flex h-full w-full flex-col bg-background shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] sm:w-[460px]'}
         >
-          <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-4">
-            <h2 className="text-[18px] font-bold text-foreground">Todas las notificaciones</h2>
+          <div className={cn('flex items-center justify-between gap-3 px-5', sh ? 'py-3' : 'border-b border-border py-4')}>
+            <h2 className={cn('text-foreground', sh ? 'text-[15px] font-semibold tracking-[-0.01em]' : 'text-[18px] font-bold')}>Todas las notificaciones</h2>
             <button type="button" onClick={() => setAbierto(false)} aria-label="Cerrar" className="flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
               <X size={18} />
             </button>
@@ -335,7 +339,7 @@ export function NotificationBell() {
                 {silenciado ? <VolumeX size={15} /> : <Volume2 size={15} />}
               </button>
               {unread > 0 && (
-                <button type="button" onClick={marcarTodas} className="inline-flex items-center gap-1 font-semibold text-brand-medio hover:underline">
+                <button type="button" onClick={marcarTodas} className={cn('inline-flex items-center gap-1 font-semibold hover:underline', sh ? 'text-[color:var(--t-blue-500)]' : 'text-brand-medio')}>
                   <Check size={14} /> Marcar todas como leídas
                 </button>
               )}
@@ -354,7 +358,7 @@ export function NotificationBell() {
                 <ul className="space-y-2">
                   {g.items.map(n => (
                     <li key={n.id}>
-                      <div className={cn('group flex gap-1 rounded-[14px] border bg-card shadow-t-card transition-colors hover:bg-muted/40', n.readAt == null ? 'border-[color:color-mix(in_srgb,var(--t-blue-500)_30%,var(--border))]' : 'border-border')}>
+                      <div className={cn('group flex gap-1 transition-colors', sh ? cn('rounded-xl hover:bg-[#f7f7f7]', n.readAt == null && 'bg-[#f7f7f7]') : 'rounded-[14px] border bg-card shadow-t-card hover:bg-muted/40', sh ? '' : n.readAt == null ? 'border-[color:color-mix(in_srgb,var(--t-blue-500)_30%,var(--border))]' : 'border-border')}>
                         <button type="button" onClick={() => abrirItem(n)} className="flex min-w-0 flex-1 gap-3 rounded-[14px] p-3.5 pr-0 text-left">
                           <span aria-hidden className={cn('mt-1.5 size-2 shrink-0 rounded-full', n.readAt == null ? ACENTO[n.priority] ?? 'bg-brand' : 'bg-transparent')} />
                           <span className="min-w-0 flex-1">
@@ -365,7 +369,7 @@ export function NotificationBell() {
                               {n.studioId && nombrePorSede[n.studioId] && (
                                 <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10.5px] font-semibold">{nombrePorSede[n.studioId]}</span>
                               )}
-                              {destinoDelAviso(n) && <span className="inline-flex items-center gap-0.5 font-semibold text-brand-medio opacity-0 transition-opacity group-hover:opacity-100">Ir <ArrowRight size={11} aria-hidden /></span>}
+                              {destinoDelAviso(n) && <span className={cn('inline-flex items-center gap-0.5 font-semibold opacity-0 transition-opacity group-hover:opacity-100', sh ? 'text-[color:var(--t-blue-500)]' : 'text-brand-medio')}>Ir <ArrowRight size={11} aria-hidden /></span>}
                             </span>
                           </span>
                         </button>
@@ -385,11 +389,11 @@ export function NotificationBell() {
             ))}
           </div>
           {veAjustesAvisos && (
-            <div className="border-t border-border px-5 py-3">
+            <div className={cn('px-5 py-3', sh ? 'border-t border-black/[0.06]' : 'border-t border-border')}>
               <Link
                 href={ajustesAvisos}
                 onClick={(e) => { setAbierto(false); if (irEnConfiguracion(ajustesAvisos)) e.preventDefault(); }}
-                className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand-medio hover:underline"
+                className={cn('inline-flex items-center gap-1 text-[13px] font-semibold hover:underline', sh ? 'text-[color:var(--t-blue-500)]' : 'text-brand-medio')}
               >
                 Elegir qué te avisamos <ArrowRight size={14} aria-hidden />
               </Link>

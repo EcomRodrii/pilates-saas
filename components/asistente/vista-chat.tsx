@@ -52,6 +52,15 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotant
 }) {
   const { estado, saldo, conversaciones } = useAlmacenAsistente();
   const [listaMovil, setListaMovil] = useState(false);
+  // En la columna del marco a sangre el chat es el de Shopify: plano, compacto y con la cabecera en la columna.
+  const col = useShellNuevo() && flotante;
+  // «Nueva conversación» desde la cabecera de la columna, que vive fuera de este chunk: llega por evento.
+  useEffect(() => {
+    if (!flotante) return;
+    const f = () => nuevaConversacion();
+    window.addEventListener('asistente:nueva', f);
+    return () => window.removeEventListener('asistente:nueva', f);
+  }, [flotante]);
 
   // Al entrar: el estudio, el saldo y la lista (tres peticiones, ninguna repetida
   // mientras no se salga). La pregunta de la puerta, una vez.
@@ -119,8 +128,8 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotant
           )}
 
           {vacio
-            ? <Bienvenida nombre={nombre} veDinero={veDinero} estado={estado} saldo={saldo} />
-            : <Conversacion estado={estado} saldo={saldo} />}
+            ? <Bienvenida nombre={nombre} veDinero={veDinero} estado={estado} saldo={saldo} col={col} />
+            : <Conversacion estado={estado} saldo={saldo} col={col} />}
         </main>
 
         {!flotante && (
@@ -256,8 +265,32 @@ function ListaConversaciones({ conversaciones, activa, onElegir, onNueva }: {
 
 // ── Vacío: el saludo, Tenti grande, el campo en el centro y las sugerencias ─
 
-function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null; veDinero: boolean; estado: EstadoAsistente; saldo: SaldoAsistente | null }) {
+function Bienvenida({ nombre, veDinero, estado, saldo, col = false }: { nombre: string | null; veDinero: boolean; estado: EstadoAsistente; saldo: SaldoAsistente | null; col?: boolean }) {
   const sugerencias = sugerenciasPara(veDinero, 4);
+  if (col) {
+    // La columna: avatar y pregunta centrados arriba, las ideas como filas y el campo abajo (Sidekick).
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-2">
+        <div className="flex flex-1 flex-col items-center justify-center pb-4 pt-6 text-center">
+          <TentiAsistente momento={estado.momento} tamano={96} />
+          <h1 className="mt-3 text-[20px] font-normal leading-tight tracking-[-0.01em] text-foreground text-balance">
+            ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
+          </h1>
+        </div>
+        {estado.disponibles === 0 && <TarjetaSinConsultas puedeComprar={!!saldo?.puedeComprar} />}
+        <ul className="mb-3 flex flex-col gap-0.5" aria-label="Preguntas de ejemplo">
+          {sugerencias.map(s => (
+            <li key={s}>
+              <button type="button" onClick={() => void preguntar(s)} className="flex w-full items-center rounded-xl px-3 py-2 text-left text-[13px] text-foreground transition-colors hover:bg-[#f7f7f7]">
+                {s}
+              </button>
+            </li>
+          ))}
+        </ul>
+        <Compositor estado={estado} saldo={saldo} />
+      </div>
+    );
+  }
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto overscroll-contain px-4 pt-4 pb-8">
       {/* `my-auto` y no `justify-center` en el padre: centrado mientras cabe, y si no
@@ -296,7 +329,7 @@ function Bienvenida({ nombre, veDinero, estado, saldo }: { nombre: string | null
 
 // ── La conversación ──────────────────────────────────────────────────────────
 
-function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: SaldoAsistente | null }) {
+function Conversacion({ estado, saldo, col = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; col?: boolean }) {
   const lista = useRef<HTMLDivElement>(null);
   const pegado = useRef(true);
   const nTurnos = estado.turnos.length;
@@ -321,9 +354,9 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
   return (
     <>
       <div ref={lista} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-testid="chat-mensajes">
-        <div className="mx-auto w-full max-w-[760px] px-4 pt-6 pb-10 sm:px-6">
+        <div className={cn('mx-auto w-full max-w-[760px]', col ? 'px-3 pt-2 pb-6' : 'px-4 pt-6 pb-10 sm:px-6')}>
           {estado.turnos.map((t, i) => (
-            <Turno key={t.id} t={t} ultimo={i === nTurnos - 1} momento={estado.momento} referencias={estado.referencias} puedeComprar={!!saldo?.puedeComprar} />
+            <Turno key={t.id} t={t} ultimo={i === nTurnos - 1} momento={estado.momento} referencias={estado.referencias} puedeComprar={!!saldo?.puedeComprar} col={col} />
           ))}
           {/* Se acaban con esta respuesta: la tarjeta aparece ya, antes de que la siguiente pregunta choque con el «sin saldo». */}
           {estado.disponibles === 0 && ultimo?.fase === 'hecho' && (
@@ -331,7 +364,7 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
           )}
         </div>
       </div>
-      <div className="shrink-0 bg-background px-3 pt-2 pb-2 sm:px-6 sm:pb-3">
+      <div className={cn('shrink-0 px-3 pt-2 pb-2', col ? 'bg-card' : 'bg-background sm:px-6 sm:pb-3')}>
         <div className="mx-auto w-full max-w-[760px]">
           <Compositor estado={estado} saldo={saldo} />
         </div>
@@ -340,15 +373,15 @@ function Conversacion({ estado, saldo }: { estado: EstadoAsistente; saldo: Saldo
   );
 }
 
-function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
-  t: TurnoUI; ultimo: boolean; momento: EstadoAsistente['momento']; referencias: EstadoAsistente['referencias']; puedeComprar: boolean;
+function Turno({ t, ultimo, momento, referencias, puedeComprar, col = false }: {
+  t: TurnoUI; ultimo: boolean; momento: EstadoAsistente['momento']; referencias: EstadoAsistente['referencias']; puedeComprar: boolean; col?: boolean;
 }) {
   const trabajando = t.fase === 'enviando' || t.fase === 'recibiendo';
   return (
-    <section data-turno="" className="mt-8 first:mt-0">
+    <section data-turno="" className={cn(col ? 'mt-5 first:mt-0' : 'mt-8 first:mt-0')}>
       {/* Su pregunta, a la derecha, en burbuja. */}
       <div className="flex justify-end">
-        <p className="max-w-[85%] whitespace-pre-wrap rounded-3xl rounded-br-lg bg-muted px-4 py-2.5 text-[15px] leading-relaxed text-foreground sm:max-w-[75%]" data-testid="chat-pregunta">
+        <p className={cn('whitespace-pre-wrap text-foreground', col ? 'max-w-[85%] rounded-xl bg-[#ebebeb] px-3 py-2 text-[13px] leading-[1.45]' : 'max-w-[85%] rounded-3xl rounded-br-lg bg-muted px-4 py-2.5 text-[15px] leading-relaxed sm:max-w-[75%]')} data-testid="chat-pregunta">
           {t.pregunta}
         </p>
       </div>
@@ -356,8 +389,8 @@ function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
       {/* La respuesta, a la izquierda: Tenti de avatar en la que está en curso. */}
       {/* En el móvil, a todo el ancho (las tarjetas no caben con una columna de
           avatar al lado): Tenti va encima, y solo en la respuesta en curso. */}
-      <div className="mt-5 flex flex-col gap-1 sm:flex-row sm:gap-4">
-        <div className={cn('shrink-0 sm:block sm:w-10', ultimo ? 'block h-10' : 'hidden')}>
+      <div className={cn('flex flex-col gap-1 sm:flex-row sm:gap-4', col ? 'mt-4 sm:flex-col sm:gap-1' : 'mt-5')}>
+        <div className={cn('shrink-0 sm:block sm:w-10', col ? 'hidden' : ultimo ? 'block h-10' : 'hidden')}>
           {ultimo ? <TentiAsistente momento={momento} tamano={40} className="-mt-1.5" /> : <TentiAsistenteQuieto className="-mt-1.5" />}
         </div>
         <div className="min-w-0 flex-1">
@@ -367,7 +400,7 @@ function Turno({ t, ultimo, momento, referencias, puedeComprar }: {
             </p>
           )}
           {t.texto && (
-            <div className="text-[15.5px] leading-[1.7] text-foreground text-pretty" aria-busy={trabajando || undefined} data-testid="chat-respuesta">
+            <div className={cn('text-foreground text-pretty', col ? 'text-[13.5px] leading-[1.55]' : 'text-[15.5px] leading-[1.7]')} aria-busy={trabajando || undefined} data-testid="chat-respuesta">
               <TextoConReferencias texto={t.texto} cursor={trabajando} />
             </div>
           )}

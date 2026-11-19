@@ -280,3 +280,18 @@ for (const ruta of ['calendario', 'cobros', 'equipo', 'productos', 'informes', '
     await page.screenshot({ path: `test-results/shell-modulo-${ruta}.png` });
   });
 }
+
+test('a sangre — Mensajería: las cuatro tarjetas y el cajón de notificaciones', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'mensajeria');
+  await listo(page);
+  const tabs = page.getByRole('tab');
+  await expect(tabs.first()).toBeVisible({ timeout: 120_000 });
+  const alto = (await tabs.first().boundingBox())?.height ?? 0;
+  expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
+  await page.screenshot({ path: 'test-results/shell-sangre-mensajeria.png' });
+  await page.getByRole('button', { name: /notificaciones/i }).first().click().catch(() => {});
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'test-results/shell-sangre-notificaciones.png' });
+});
