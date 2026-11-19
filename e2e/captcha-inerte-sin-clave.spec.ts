@@ -1,5 +1,6 @@
 import { test, expect, type Route } from '@playwright/test';
 import { rellenarPaso1 } from './alta-paso1';
+import { avisoDelLogin, esLoginNuevo } from './entrar-por-login';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El widget de Turnstile (login de equipo + alta de estudio) solo se pinta y
@@ -18,13 +19,21 @@ test('login: sin clave de Turnstile, el botón de entrar no se queda deshabilita
   await page.route('**/auth/v1/token**', route => json(route, { message: 'Invalid login credentials' }, 400));
 
   await page.goto('/login');
-  await page.getByRole('textbox', { name: 'Email' }).fill('nadie@example.com');
-  await page.getByRole('textbox', { name: 'Contraseña' }).fill('lo-que-sea');
-
-  const submit = page.getByRole('button', { name: 'Entrar' });
-  await expect(submit).toBeEnabled();
-  await submit.click();
-  await expect(page.getByText('Email o contraseña incorrectos')).toBeVisible();
+  if (await esLoginNuevo(page)) {
+    await page.locator('.ln-panel:not([inert]) input[type="email"]').fill('nadie@example.com');
+    await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+    await page.locator('.ln-panel:not([inert]) input[type="password"]').fill('lo-que-sea');
+    const entrar = page.getByRole('button', { name: 'Iniciar sesión' });
+    await expect(entrar).toBeEnabled();
+    await entrar.click();
+  } else {
+    await page.getByRole('textbox', { name: 'Email' }).fill('nadie@example.com');
+    await page.getByRole('textbox', { name: 'Contraseña' }).fill('lo-que-sea');
+    const submit = page.getByRole('button', { name: 'Entrar' });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+  }
+  await expect(await avisoDelLogin(page, 'Email o contraseña incorrectos')).toBeVisible();
 });
 
 test('crear-estudio: sin clave de Turnstile, el alta llega hasta el backend', async ({ page }) => {

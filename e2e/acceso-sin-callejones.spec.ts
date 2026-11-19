@@ -1,4 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
+import { avisoDelLogin, entrarPorLogin } from './entrar-por-login';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Los callejones sin salida que quedaban en el acceso.
@@ -45,9 +46,7 @@ test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida
       json(route, { code: 400, error_code: 'email_not_confirmed', msg: 'Email not confirmed' }, 400));
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill('nueva@ejemplo.com');
-    await page.getByLabel('Contraseña').fill('miContrasena1');
-    await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
+    await entrarPorLogin(page, 'nueva@ejemplo.com', 'miContrasena1');
 
     await expect(page.getByRole('heading', { name: 'Verifica tu correo' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText('nueva@ejemplo.com')).toBeVisible();
@@ -62,11 +61,9 @@ test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida
       json(route, { code: 400, error_code: 'invalid_credentials', msg: 'Invalid login credentials' }, 400));
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill('quien@ejemplo.com');
-    await page.getByLabel('Contraseña').fill('loQueSea1');
-    await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
+    await entrarPorLogin(page, 'quien@ejemplo.com', 'loQueSea1');
 
-    await expect(page.getByText('Email o contraseña incorrectos')).toBeVisible();
+    await expect(await avisoDelLogin(page, 'Email o contraseña incorrectos')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Verifica tu correo' })).toHaveCount(0);
   });
 
@@ -78,9 +75,7 @@ test.describe('Entrar sin confirmar el email deja de ser un callejón sin salida
     await page.route('**/auth/v1/resend**', route => { pedido = true; return json(route, {}); });
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill('nueva@ejemplo.com');
-    await page.getByLabel('Contraseña').fill('miContrasena1');
-    await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
+    await entrarPorLogin(page, 'nueva@ejemplo.com', 'miContrasena1');
     await expect(page.getByRole('heading', { name: 'Verifica tu correo' })).toBeVisible({ timeout: 30_000 });
 
     await page.getByRole('button', { name: /Reenviar código/ }).click();

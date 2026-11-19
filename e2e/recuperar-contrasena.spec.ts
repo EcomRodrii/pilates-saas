@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { fragmentoDeRecuperacion, tokenDeSesion } from './enlace-de-correo';
+import { avisoDelLogin, esLoginNuevo, pulsarOlvideMiClave } from './entrar-por-login';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // No se podía cambiar la contraseña. Dos agujeros distintos, los dos reales.
@@ -77,6 +78,13 @@ test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
     await page.route('**/rest/v1/**', route => json(route, []));
     await page.goto('/login');
 
+    if (await esLoginNuevo(page)) {
+      // En dos pasos el botón vive en el de la contraseña: se llega con un correo escrito.
+      await page.locator('.ln-panel:not([inert]) input[type="email"]').fill('quien.sea@ejemplo.com');
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByRole('button', { name: '¿Olvidaste tu contraseña?' })).toBeVisible({ timeout: 30_000 });
+      return;
+    }
     await expect(page.getByRole('button', { name: 'He olvidado mi contraseña' }))
       .toBeVisible({ timeout: 30_000 });
   });
@@ -85,6 +93,13 @@ test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
     await page.route('**/rest/v1/**', route => json(route, []));
     await page.goto('/login');
 
+    if (await esLoginNuevo(page)) {
+      // La piel nueva no deja llegar al paso de la contraseña sin correo: «Continuar» vacío se queda donde está.
+      await page.getByRole('button', { name: 'Continuar', exact: true }).click();
+      await expect(page.getByRole('button', { name: '¿Olvidaste tu contraseña?' })).toHaveCount(0);
+      await expect(page.locator('.ln-panel:not([inert]) input[type="email"]')).toBeVisible();
+      return;
+    }
     await page.getByRole('button', { name: 'He olvidado mi contraseña' }).click({ timeout: 30_000 });
     await expect(page.getByText('Escribe tu email arriba y vuelve a pulsar.')).toBeVisible();
   });
@@ -100,11 +115,10 @@ test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
     });
     await page.goto('/login');
 
-    await page.getByLabel('Email').fill('quien.sea@ejemplo.com');
-    await page.getByRole('button', { name: 'He olvidado mi contraseña' }).click({ timeout: 30_000 });
+    await pulsarOlvideMiClave(page, 'quien.sea@ejemplo.com');
 
-    await expect(page.getByText(/Si hay una cuenta con quien\.sea@ejemplo\.com/)).toBeVisible();
-    await expect(page.getByText(/un solo uso y caduca/)).toBeVisible();
+    await expect(await avisoDelLogin(page, /Si hay una cuenta con quien\.sea@ejemplo\.com/)).toBeVisible();
+    await expect(await avisoDelLogin(page, /un solo uso y caduca/)).toBeVisible();
     // Ni "no existe", ni "te hemos enviado" en firme.
     await expect(page.getByText(/no existe|no está registrad/i)).toHaveCount(0);
     expect(pedido, 'la petición de recuperación tiene que salir').not.toBeNull();
@@ -119,9 +133,8 @@ test.describe('Se puede recuperar la contraseña sin poder entrar', () => {
     });
     await page.goto('/login');
 
-    await page.getByLabel('Email').fill('cloe@example.com');
-    await page.getByRole('button', { name: 'He olvidado mi contraseña' }).click({ timeout: 30_000 });
-    await expect(page.getByText(/Si hay una cuenta/)).toBeVisible();
+    await pulsarOlvideMiClave(page, 'cloe@example.com');
+    await expect(await avisoDelLogin(page, /Si hay una cuenta/)).toBeVisible();
 
     expect(redirect, 'sin redirect_to el enlace deja a la persona en la raíz sin dónde escribir')
       .toContain('/clave-nueva');

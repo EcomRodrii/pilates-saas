@@ -1,6 +1,7 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 import { fragmentoDeRecuperacion, tokenDeSesion } from './enlace-de-correo';
 import { ACCESO_NETWORK_EN_MANTENIMIENTO } from '../lib/network/mantenimiento';
+import { entrarPorLogin } from './entrar-por-login';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tentare Software y Tentare Network como dos productos independientes
@@ -66,9 +67,7 @@ test.describe('Bloqueo cruzado al iniciar sesión (TEST 5 / TEST 6 del encargo)'
     });
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill('instructora@example.com');
-    await page.getByLabel('Contraseña').fill('unaClaveLarga1');
-    await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
+    await entrarPorLogin(page, 'instructora@example.com', 'unaClaveLarga1');
 
     await expect(page.getByRole('heading', { name: 'Esta cuenta es de Tentare Network' })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole('link', { name: 'Ir a Tentare Network' })).toHaveAttribute('href', '/network/acceso');
@@ -104,9 +103,7 @@ test.describe('Identidad dual (self-claim): cada puerta respeta lo suyo', () => 
     await page.route('**/api/auth/destino-post-login**', route => json(route, { tipo: 'entra', destino: '/dashboard' }));
 
     await page.goto('/login');
-    await page.getByLabel('Email').fill('dual@example.com');
-    await page.getByLabel('Contraseña').fill('unaClaveLarga1');
-    await page.getByRole('button', { name: 'Entrar' }).click({ timeout: 30_000 });
+    await entrarPorLogin(page, 'dual@example.com', 'unaClaveLarga1');
 
     await page.waitForURL(/\/dashboard/, { timeout: 30_000, waitUntil: 'commit' });
   });
