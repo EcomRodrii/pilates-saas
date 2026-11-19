@@ -1447,6 +1447,7 @@ export default function Productos() {
             <div data-tour="paquetes-lista">
             <EmptyState
               icono={Package}
+              escena="productos"
               titulo={`Aún no tienes ${TIPO_TABS.find(t => t.v === tipoTab)?.label.toLowerCase()}`}
               descripcion={mueveDinero
                 ? 'Crea uno nuevo o cambia de pestaña para ver otro tipo.'

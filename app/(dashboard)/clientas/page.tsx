@@ -1603,7 +1603,7 @@ export default function Socios() {
       {/* En el móvil, lo primero es buscar: los filtros van plegados detrás de un
           botón que dice cuántos hay puestos. En pantallas grandes, en la misma
           fila; ordenar ahí es pinchar en la cabecera de la columna. */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-barra-filtros className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none lg:w-80">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input
@@ -1853,7 +1853,8 @@ export default function Socios() {
           <>
           {/* Con columnas extra la tabla no aprieta las de siempre (el plan se partía
               en cinco líneas): pide su ancho y el contenedor hace scroll lateral. */}
-          <table className="hidden w-full md:table" style={columnasExtra.length > 0 ? { minWidth: ANCHO_TABLA_BASE + ANCHO_COLUMNA_EXTRA * columnasExtra.length } : undefined}>
+          <div className="relative hidden max-w-full min-w-0 overflow-x-auto md:block">
+          <table className="w-full min-w-[640px]" style={columnasExtra.length > 0 ? { minWidth: ANCHO_TABLA_BASE + ANCHO_COLUMNA_EXTRA * columnasExtra.length } : undefined}>
             <thead>
               <tr className="border-b border-border text-left text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {gestionaClientas && (
@@ -1999,6 +2000,7 @@ export default function Socios() {
               })}
             </tbody>
           </table>
+          </div>
 
           {/* Móvil: una fila por clienta, con su plan y su estado o su aviso. */}
           <ul aria-label="Clientes" className="divide-y divide-border md:hidden">

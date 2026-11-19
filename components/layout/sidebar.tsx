@@ -763,6 +763,7 @@ export function Sidebar() {
           con ellas el logo, que en tinta `auto` pinta ahí su versión NEGATIVA
           y desaparecía sobre el blanco. */}
       <div
+        data-movil-superior
         className="lg:hidden fixed top-0 z-30 flex items-center px-5 h-12 border-b"
         style={{ width: '100%', backgroundColor: 'var(--card)', borderColor: 'var(--border)' }}
       >
@@ -781,6 +782,7 @@ export function Sidebar() {
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
       <nav
         data-tour="menu-principal"
+        data-movil-inferior
         className="lg:hidden fixed bottom-0 z-30 flex items-center justify-around px-2 border-t"
         style={{ width: '100%', backgroundColor: 'var(--card)', borderColor: 'var(--border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
       >
@@ -802,6 +804,20 @@ export function Sidebar() {
           <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
         </button>
       </nav>
+
+      {/* Marco a sangre en móvil y tablet: sin barras; el menú es un botón redondo abajo a la izquierda (como el de Shopify)
+          y el asistente/ayuda es el de abajo a la derecha. Las barras de arriba y de abajo se esconden por CSS. */}
+      {shellNuevo && (
+        <button
+          type="button"
+          data-movil-menu
+          onClick={() => setMasOpen(true)}
+          aria-label="Abrir el menú"
+          className="fixed bottom-4 left-4 z-40 hidden size-12 items-center justify-center rounded-full bg-[#1b1b1b] text-white shadow-[0_8px_24px_-8px_#00000066,0_0_0_1px_#ffffff1a]"
+        >
+          <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      )}
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />

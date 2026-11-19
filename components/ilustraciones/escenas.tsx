@@ -156,6 +156,17 @@ export const ESCENAS = {
   cobros: Cobros,
   /** Imagen de relleno: foto, logo o portada sin subir. */
   relleno: Relleno,
+  /** Las siguientes llevan su ilustración subida (`vacio-<nombre>.webp`); sin ella, caen en el dibujo más cercano. */
+  notificaciones: SinDatos,
+  automatizaciones: SinDatos,
+  festivos: Agenda,
+  comunidad: Personas,
+  error: SinDatos,
+  conexion: SinDatos,
+  permisos: SinDatos,
+  resenas: SinDatos,
+  productos: SinDatos,
+  integraciones: SinDatos,
 } as const satisfies Record<string, () => ReactNode>;
 
 export type NombreEscena = keyof typeof ESCENAS;
