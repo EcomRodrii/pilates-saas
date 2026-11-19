@@ -2037,3 +2037,6 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 .panel-app[data-shell-nuevo] [data-barra-filtros] button:not([aria-label='Borrar búsqueda']) {
   height: 28px; min-height: 28px; border: 0 !important; border-radius: 9999px; background: #ebebeb !important; font-size: 12px; font-weight: 500; padding-inline: 10px; box-shadow: none;
 }
+
+/* Red de seguridad del marco a sangre: un elemento suelto que se pase del ancho no abre scroll horizontal en toda la página (con `clip` no crea contenedor de scroll, así que `sticky` sigue valiendo). */
+.panel-app[data-shell-nuevo] { overflow-x: clip; }

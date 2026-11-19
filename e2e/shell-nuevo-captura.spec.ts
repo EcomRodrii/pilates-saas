@@ -190,6 +190,10 @@ test('a sangre — tablet (768): el mismo menú a sangre que en escritorio (Shop
   await ir(page, 'clientas');
   await page.waitForTimeout(1500);
   const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
+  if (ancho.doc > ancho.ventana + 1) {
+    const culpables = await page.evaluate(() => [...document.querySelectorAll('body *')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1 && !e.closest('[class*=overflow-x]')).slice(0, 12).map((e) => `${e.tagName}.${String(e.className).slice(0, 70)} → ${Math.round(e.getBoundingClientRect().right)}`));
+    console.log('DESBORDE', JSON.stringify(culpables, null, 1));
+  }
   expect(ancho.doc).toBeLessThanOrEqual(ancho.ventana + 1);
   await expect(page.locator('aside[data-panel-menu]'), 'el menú a sangre ya sale a 768').toBeVisible({ timeout: 120_000 });
   await expect(page.locator('[data-movil-menu]'), 'y no hay botón flotante').toBeHidden();
