@@ -107,7 +107,7 @@ export function BarrasFoco({ total, actual }: { total: number; actual: number })
   const { foco, hueco } = useContext(FocoContext);
   if (!foco || !hueco) return null;
   return createPortal(
-    <div className="ob-barras" role="list" aria-label="Pasos de tu primera clase">
+    <div className="ob-barras" role="list" aria-label="Tu progreso">
       {Array.from({ length: total }, (_, i) => {
         const n = i + 1;
         const estado = n < actual ? 'hecho' : n === actual ? 'ahora' : 'pendiente';

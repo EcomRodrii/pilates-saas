@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Eye, EyeOff, Info, Loader2, Mail, MessageCircle, RotateCcw } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/db/supabase';
@@ -26,6 +27,8 @@ import { cn } from '@/lib/utils';
 import { useEscalaIphone } from '@/components/ui/marco-iphone';
 import { AppDeMuestra } from '@/components/alta-nueva/app-de-muestra';
 import { useDireccion } from '@/components/alta-nueva/use-direccion';
+import { MarcoFoco } from '@/components/alta-nueva/marco-foco';
+import { BarrasFoco, CabeceraPaso } from '@/components/alta-nueva/piezas';
 import { alternativasDireccion, direccionElegidaVale } from '@/lib/alta/direccion';
 import {
   errorDeCampo,
@@ -99,8 +102,11 @@ const RUTA_SIGUIENTE: readonly { que: string; cuanto: string; opcional?: boolean
 
 const ERROR_RED = 'No hemos podido crear tu estudio. Revisa tu conexión e inténtalo otra vez.';
 
-export function AltaNueva({ version, foundingGratis }: { version: Version; foundingGratis: boolean }) {
+export function AltaNueva({ version, foundingGratis, piel = false }: { version: Version; foundingGratis: boolean; piel?: boolean }) {
   const uid = useId();
+  const router = useRouter();
+  // La piel nueva (marco oscuro, logo, una tarjeta; `LOGIN_NUEVO`, como el login): solo cambia cómo se pinta.
+  const foco = piel;
   const { signUp, verificarOtpSignup, reenviarConfirmacion, session, user, loading: cargandoSesion, signOut } = useAuth();
   const { widget: captcha, pedirToken } = useCaptcha();
 
@@ -350,6 +356,43 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
 
   // ── Pantallas ────────────────────────────────────────────────────────────
 
+  if (fase === 'listo' && foco) {
+    return (
+      <MarcoFoco
+        etiqueta="crear-estudio" claveHoja="listo" onSalir={() => router.push('/dashboard')}
+        textoSalir={{ corto: 'Ir a mi panel', largo: 'Prefiero ir a mi panel' }} nombreEstudio={estudioCreado ?? nombreVisible}
+      >
+        <BarrasFoco total={5} actual={3} />
+        <CabeceraPaso
+          etiqueta={conSesion ? 'Tu estudio' : 'Código correcto'}
+          titulo={`${estudioCreado ?? nombreVisible} ya existe`}
+          sub="Hemos creado tu estudio y la app de tus clientes. Ahora, lo esencial: dos pantallas con casi todo puesto y, después, tu primera clase."
+          tituloRef={tituloRef}
+        />
+        <ul className="relative grid">
+          {RUTA_SIGUIENTE.map((r, i) => (
+            <li key={r.que} className="relative flex items-baseline justify-between gap-3 py-2.5 pl-6 text-[14px]">
+              <span
+                aria-hidden="true"
+                className={cn('absolute left-0 top-[15px] h-[9px] w-[9px] rounded-full', r.opcional ? 'bg-t-canvas shadow-[inset_0_0_0_1.5px_var(--t-text-tertiary)]' : 'bg-t-primary')}
+              />
+              {i < RUTA_SIGUIENTE.length - 1 && (
+                <span aria-hidden="true" className="absolute bottom-[-14px] left-[4px] top-[26px] border-l-[1.5px] border-dashed border-[color:var(--t-text-disabled)]" />
+              )}
+              <b className="font-semibold">{r.que}</b>
+              <span className="font-t-mono text-[12px] text-t-tertiary">{r.cuanto}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="ob-nav">
+          <div className="ob-nav-der">
+            <a href="/dashboard" className="ob-principal ob-pulsable">Configurar mi estudio <ArrowRight className="h-4 w-4" aria-hidden="true" /></a>
+          </div>
+        </div>
+      </MarcoFoco>
+    );
+  }
+
   if (fase === 'listo') {
     return (
       <Marco whatsapp={whatsapp}>
@@ -390,6 +433,61 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
           </div>
         </Columna>
       </Marco>
+    );
+  }
+
+  if (fase === 'codigo' && emailOtp && foco) {
+    return (
+      <MarcoFoco
+        etiqueta="crear-estudio" claveHoja="codigo" onSalir={() => router.push('/login')}
+        textoSalir={{ corto: 'Entrar', largo: 'Ya tengo cuenta' }} nombreEstudio={nombreVisible}
+      >
+        <BarrasFoco total={5} actual={2} />
+        <CabeceraPaso
+          etiqueta="Paso 2 de 5 · menos de 1 minuto"
+          titulo="Revisa tu correo"
+          sub={<>Te hemos enviado un código de 6 cifras a <b className="font-semibold text-white [overflow-wrap:anywhere]">{emailOtp}</b>. Escríbelo aquí y abrimos <b className="font-semibold text-white">{nombreVisible}</b>.</>}
+          tituloRef={tituloRef}
+        />
+        {/* El MISMO componente que /login y Network: el código, el reenvío, el cambio de email y el bloqueo. */}
+        <OtpVerificacion
+          email={emailOtp}
+          onVerificar={(codigo) => verificarOtpSignup(emailOtp, codigo)}
+          onReenviar={async () => {
+            const token = await pedirToken();
+            if (token === null) return { error: ERROR_CAPTCHA };
+            return reenviarConfirmacion(emailOtp, token || undefined);
+          }}
+          onCambiarEmail={() => {
+            olvidarEmailOtpPendiente();
+            setEmailOtp(null);
+            setError('');
+            setFase('formulario');
+          }}
+          onVerificado={() => {
+            capturarEvento('alta_estudio_email_confirmado');
+            void montarEstudio();
+          }}
+          sinTarjeta
+          sinCabecera
+          verificarAlCompletar
+        />
+        <div aria-live="polite">
+          {error && (
+            <div className="mt-4">
+              <p className="rounded-[12px] bg-t-error-bg px-3.5 py-2.5 text-[13px] font-medium text-t-error">{error}</p>
+              {/* El email ya está verificado: reintentar es repetir `dbCreateStudio` (idempotente), nunca pedir otro código. */}
+              <button type="button" onClick={() => void montarEstudio()} disabled={montando} className="ob-principal ob-pulsable mt-2.5 w-full">
+                {montando
+                  ? <><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Reintentando…</>
+                  : <><RotateCcw className="h-[15px] w-[15px]" aria-hidden="true" /> Reintentar ahora</>}
+              </button>
+            </div>
+          )}
+        </div>
+        <p className="mt-5 text-[13px] leading-5 text-t-secondary">¿No lo ves? Mira en Promociones o en Spam. El código caduca en 10 minutos.</p>
+        {captcha}
+      </MarcoFoco>
     );
   }
 
@@ -466,15 +564,8 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
   const mostrarError = (c: CampoRegistro) => tocado[c] && errores[c] !== '';
   const bien = (c: CampoRegistro) => tocado[c] && errores[c] === '';
 
-  return (
-    <Marco whatsapp={whatsapp} ancho="amplio">
-      <main className="grid flex-1 gap-6 px-[18px] pb-7 pt-1 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-7 lg:pt-1">
-        <div className="min-w-0 lg:pt-2">
-          <LineaDePasos actual={1} />
-          <p className="t-label mt-5 text-t-tertiary sm:mt-7">Paso 1 de 5 · unos 2 minutos</p>
-          <h1 className={TITULO}>Crea tu estudio en Tentare</h1>
-          <p className={SUBTITULO}>Crea tu cuenta y, en unos 10 minutos, tendrás tu primera clase abierta a reservas.</p>
-
+  const cuerpo = (
+    <>
           {conSesion && (
             <p className="mt-4 rounded-[12px] bg-t-info-bg px-3.5 py-2.5 text-[13px] leading-[19px] text-t-primary">
               Ya tienes cuenta{user?.email ? <> como <strong className="[overflow-wrap:anywhere]">{user.email}</strong></> : null}: solo falta montar tu estudio.{' '}
@@ -494,7 +585,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
             </p>
           )}
 
-          <form noValidate onSubmit={(e) => void crear(e)} className="mt-6">
+          <form noValidate onSubmit={(e) => void crear(e)} className={foco ? 'mt-0' : 'mt-6'}>
             {/* ── Nombre del estudio ── */}
             <div className="min-w-0">
               <label htmlFor={id('nombre')} className={ETIQUETA}>Nombre de tu estudio</label>
@@ -510,7 +601,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                   maxLength={MAX_NOMBRE}
                   aria-invalid={mostrarError('nombre')}
                   aria-describedby={`${id('nombre')}-a ${id('nombre')}-e`}
-                  className={INPUT}
+                  className={foco ? INPUT_FOCO : INPUT}
                 />
                 <IconoBien visible={bien('nombre')} />
               </div>
@@ -576,7 +667,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                       placeholder="tu@email.com"
                       aria-invalid={mostrarError('email')}
                       aria-describedby={`${id('email')}-a ${id('email')}-s ${id('email')}-e`}
-                      className={INPUT}
+                      className={foco ? INPUT_FOCO : INPUT}
                     />
                     <IconoBien visible={bien('email') && !sugerencia} />
                   </div>
@@ -615,7 +706,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                       placeholder="8 caracteres o más"
                       aria-invalid={mostrarError('contrasena')}
                       aria-describedby={`${id('contrasena')}-r ${id('contrasena')}-e`}
-                      className={INPUT}
+                      className={foco ? INPUT_FOCO : INPUT}
                     />
                     <button
                       type="button"
@@ -652,7 +743,7 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
                 clic caería fuera (medido: el primer «Crear mi estudio» tras una
                 contraseña corta no hacía nada). Pulsar ya valida todo y lleva el
                 foco al primer campo con algo que arreglar. */}
-            <button type="submit" onMouseDown={(e) => e.preventDefault()} disabled={enviando || montando} className={cn(BOTON_ALTA, 'mt-[18px]')}>
+            <button type="submit" onMouseDown={(e) => e.preventDefault()} disabled={enviando || montando} className={cn(foco ? 'ob-principal ob-pulsable w-full' : BOTON_ALTA, 'mt-[18px]')}>
               {enviando || montando ? (
                 <><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Creando tu estudio…</>
               ) : (
@@ -674,6 +765,37 @@ export function AltaNueva({ version, foundingGratis }: { version: Version; found
               ¿Ya tienes cuenta? <Link href="/login" className="text-t-link underline underline-offset-2">Entrar</Link>
             </p>
           )}
+    </>
+  );
+
+  if (foco) {
+    return (
+      <MarcoFoco
+        etiqueta="crear-estudio" claveHoja="formulario" onSalir={() => router.push('/login')}
+        textoSalir={{ corto: 'Entrar', largo: 'Ya tengo cuenta' }} nombreEstudio={nombreVisible}
+      >
+        <BarrasFoco total={5} actual={1} />
+        <CabeceraPaso
+          etiqueta="Paso 1 de 5 · unos 2 minutos"
+          titulo="Crea tu estudio en Tentare"
+          sub="Crea tu cuenta y, en unos 10 minutos, tendrás tu primera clase abierta a reservas."
+          tituloRef={tituloRef}
+        />
+        {cuerpo}
+      </MarcoFoco>
+    );
+  }
+
+  return (
+    <Marco whatsapp={whatsapp} ancho="amplio">
+      <main className="grid flex-1 gap-6 px-[18px] pb-7 pt-1 lg:grid-cols-[minmax(0,500px)_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-7 lg:pt-1">
+        <div className="min-w-0 lg:pt-2">
+          <LineaDePasos actual={1} />
+          <p className="t-label mt-5 text-t-tertiary sm:mt-7">Paso 1 de 5 · unos 2 minutos</p>
+          <h1 className={TITULO}>Crea tu estudio en Tentare</h1>
+          <p className={SUBTITULO}>Crea tu cuenta y, en unos 10 minutos, tendrás tu primera clase abierta a reservas.</p>
+
+          {cuerpo}
         </div>
 
         <VistaPrevia nombre={nombreVisible} slug={slug} />
@@ -719,6 +841,14 @@ const INPUT = [
   'hover:border-[color:var(--t-border-default)]',
   'focus:border-[color:var(--t-border-focus)] focus:bg-t-raised focus:outline-none',
   'focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--t-border-focus)_22%,transparent)]',
+  'aria-[invalid=true]:border-[color:var(--t-error-fg)]',
+].join(' ');
+// Los campos de la piel nueva: los mismos que el login (blancos, borde gris, radio 12, 48 px; 54 en móvil).
+const INPUT_FOCO = [
+  'h-12 w-full appearance-none rounded-xl border border-[color:color-mix(in_srgb,var(--t-ink-900)_16%,white)] bg-white pl-3.5 pr-11 max-sm:h-[54px] max-sm:rounded-[14px] max-sm:pl-4',
+  'text-[16px] text-t-primary placeholder:text-t-tertiary sm:text-[15px] max-sm:text-[16px]',
+  'transition-[border-color,box-shadow] duration-150 motion-reduce:transition-none',
+  'focus:border-[color:var(--t-ink-950)] focus:outline-none focus:ring-[3px] focus:ring-[color:var(--t-ink-950)]/10',
   'aria-[invalid=true]:border-[color:var(--t-error-fg)]',
 ].join(' ');
 const ENLACE = 'inline-flex items-center gap-1 font-medium text-t-link underline decoration-1 underline-offset-[3px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--t-border-focus)]';
