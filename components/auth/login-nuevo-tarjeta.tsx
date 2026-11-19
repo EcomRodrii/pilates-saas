@@ -1,18 +1,22 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La tarjeta del login nuevo (`LOGIN_NUEVO`, 19-nov-2026): la piel del onboarding al estilo del
-// admin de Shopify (docs/diseno/shopify-onboarding-flujo.md). SOLO pinta: toda la lógica (captcha,
+// El login nuevo (`LOGIN_NUEVO`, 19-nov-2026): marco oscuro con el logo, una tarjeta en escritorio y una
+// HOJA a pantalla completa en móvil. Maqueta aprobada por el fundador. SOLO pinta: toda la lógica (captcha,
 // doble verificación, invitaciones, recuperar contraseña) sigue en app/login/login-cliente.tsx.
 //
-//   paso «correo»: correo + «Continuar con correo electrónico» · o · Google y Apple · «Empezar».
-//   paso «clave» : el correo en una caja con «Cambiar correo electrónico» + contraseña con ojo.
+// Tres paneles —«correo», «clave» (entrar) y «crear» (cuenta de equipo)— apilados: el activo es el que se
+// ve, los demás están `inert` (ni foco, ni lector de pantalla, ni validación) y se deslizan fuera. La caja
+// anima su ALTO al del panel activo (ResizeObserver), así que nunca sobra hueco blanco.
 //
+// Cada panel lleva su propio <form>: un campo `required` de un panel oculto bloquearía el envío del activo.
+// El captcha (un solo widget) va FUERA de los paneles.
+//
+// Movimiento: solo transform, opacity y el alto; quieto con «reducir movimiento».
 // Facebook y WhatsApp NO se pintan hasta que existan sus proveedores en Supabase.
-// Movimiento: la tarjeta entra con un fundido y los pasos cambian con otro, quieto con «reducir movimiento».
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useId, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { GoogleIcon } from '@/components/icons/brand-icons';
@@ -25,17 +29,75 @@ function AppleIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-const ESTILOS = `
+/** Las reglas del marco, la hoja y los paneles. Va una vez, dentro del marco de /login. */
+export function EstilosLoginNuevo() {
+  return (
+    <style>{`
+.ln-marco { position: relative; display: flex; justify-content: center; min-height: 100dvh; overflow: hidden; background: var(--t-ink-950); }
+.ln-marco::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--t-blue-500) 16%, transparent), transparent 70%),
+              radial-gradient(40% 35% at 88% 100%, color-mix(in srgb, var(--t-magenta-500) 10%, transparent), transparent 70%); }
+.ln-columna { position: relative; display: flex; width: 100%; max-width: 420px; flex-direction: column; align-items: center; gap: 28px; margin: auto 0; padding: 48px 24px; }
+.ln-logo { display: block; width: auto; flex: none; }
+.ln-hoja { width: 100%; border-radius: 24px; background: var(--t-paper); color: var(--t-ink-950); padding: 36px;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / .06), 0 30px 70px -24px rgb(0 0 0 / .7); }
+.ln-columna > .ln-logo { animation: ln-fundido .6s cubic-bezier(.25,.1,.25,1) both; }
+.ln-columna > :not(.ln-logo) { animation: ln-entra .55s cubic-bezier(.25,.1,.25,1) .08s both; }
+.ln-cajas { position: relative; margin: -4px; padding: 4px; overflow: hidden; transition: height .42s cubic-bezier(.32,.72,0,1); }
+.ln-panel { transition: transform .45s cubic-bezier(.32,.72,0,1), opacity .18s cubic-bezier(.25,.1,.25,1); }
+.ln-panel:not([inert]) { transition: transform .45s cubic-bezier(.32,.72,0,1), opacity .3s cubic-bezier(.25,.1,.25,1) .12s; }
+.ln-panel[inert] { position: absolute; inset: 4px 4px auto 4px; opacity: 0; pointer-events: none; }
+.ln-panel[data-lado="izq"] { transform: translateX(-28px); }
+.ln-panel[data-lado="der"] { transform: translateX(28px); }
+.ln-aviso { animation: ln-aviso .3s cubic-bezier(.25,.1,.25,1) both; }
+.ln-pulsable { transition: transform .15s cubic-bezier(.25,.1,.25,1), background-color .15s, opacity .15s, border-color .15s, box-shadow .15s; }
+.ln-pulsable:active:not(:disabled) { transform: scale(.985); }
+@keyframes ln-fundido { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ln-entra { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
-@keyframes ln-paso { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
-.ln-tarjeta { animation: ln-entra .5s cubic-bezier(.25,.1,.25,1) both; }
-.ln-paso { animation: ln-paso .35s cubic-bezier(.32,.72,0,1) both; }
-@media (prefers-reduced-motion: reduce) { .ln-tarjeta, .ln-paso { animation: none; } }
-`;
+@keyframes ln-sube { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes ln-aviso { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  .ln-marco { display: block; }
+  .ln-columna { max-width: none; min-height: 100dvh; margin: 0; padding: 0; gap: 0; align-items: stretch; }
+  .ln-columna > .ln-logo { margin: auto; padding: max(48px, env(safe-area-inset-top)) 0 40px; box-sizing: content-box; }
+  .ln-hoja { flex: none; border-radius: 28px 28px 0 0; padding: 32px 24px calc(24px + env(safe-area-inset-bottom)); box-shadow: 0 -1px 0 rgb(255 255 255 / .08); }
+  .ln-columna > :not(.ln-logo) { animation-name: ln-sube; }
+  .ln-columna > :not(.ln-logo):not(.ln-hoja) { margin: 0 16px 24px; width: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ln-columna > *, .ln-aviso { animation: none !important; }
+  .ln-cajas, .ln-panel, .ln-pulsable { transition: none; }
+}
+`}</style>
+  );
+}
 
-const CAMPO = 'h-[52px] w-full rounded-xl border border-border bg-card px-3.5 text-[16px] text-foreground placeholder:text-muted-foreground transition-[border-color,box-shadow] duration-150 focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/15';
-const BOTON_OSCURO = 'flex h-[52px] w-full items-center justify-center rounded-xl bg-[color:var(--t-surface-nav)] text-[16px] font-medium text-white shadow-[inset_0_0_12px_-6px_#ffffffbf,inset_0_0_4px_2px_#ffffff1a] transition-[transform,opacity] duration-150 hover:opacity-90 active:scale-[.99] disabled:opacity-60';
-const BOTON_SOCIAL = 'flex h-[52px] items-center justify-center rounded-xl bg-muted text-foreground transition-colors duration-150 hover:bg-muted/70 disabled:opacity-60';
+const CAMPO = 'ln-pulsable h-12 w-full rounded-xl border border-[color:color-mix(in_srgb,var(--t-ink-900)_16%,white)] bg-white px-3.5 text-[15px] text-[color:var(--t-ink-950)] placeholder:text-[color:var(--t-ink-400)] focus-visible:border-[color:var(--t-ink-950)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[color:var(--t-ink-950)]/10 max-sm:h-[54px] max-sm:rounded-[14px] max-sm:px-4 max-sm:text-[16px]';
+const BOTON_OSCURO = 'ln-pulsable mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-gradient-to-b from-[color:var(--t-ink-900)] to-[color:var(--t-ink-950)] text-[15px] font-medium text-white shadow-[0_1px_2px_rgb(18_22_27/.3),inset_0_1px_0_rgb(255_255_255/.14)] hover:opacity-90 disabled:opacity-60 max-sm:h-[54px] max-sm:rounded-[14px] max-sm:text-[16px]';
+const BOTON_SOCIAL = 'ln-pulsable flex h-12 w-full items-center justify-center gap-2.5 rounded-xl border border-[color:color-mix(in_srgb,var(--t-ink-900)_16%,white)] bg-white text-[15px] font-medium text-[color:var(--t-ink-950)] hover:bg-[color:var(--t-ink-950)]/[.03] disabled:opacity-60 max-sm:h-[54px] max-sm:rounded-[14px] max-sm:text-[16px]';
+const ENLACE = 'font-medium text-[color:var(--t-blue-700)] hover:underline';
+const ETIQUETA = 'mb-2 block text-[14px] font-medium max-sm:text-[15px]';
+
+type Panel = 'correo' | 'clave' | 'crear';
+const ORDEN: Panel[] = ['correo', 'clave', 'crear'];
+
+/** Un panel del login: el activo se ve; los demás están `inert` y se deslizan hacia su lado. */
+function PanelAnimado({ panel, activo, registrar, children }: {
+  panel: Panel; activo: Panel; registrar: (panel: Panel, el: HTMLDivElement | null) => void; children: React.ReactNode;
+}) {
+  const lado = panel === activo ? undefined : ORDEN.indexOf(panel) < ORDEN.indexOf(activo) ? 'izq' : 'der';
+  return (
+    <div
+      ref={el => registrar(panel, el)}
+      className="ln-panel"
+      inert={panel !== activo}
+      data-lado={lado}
+      aria-hidden={panel !== activo || undefined}
+    >
+      {children}
+    </div>
+  );
+}
 
 export interface LoginNuevoProps {
   modo: 'entrar' | 'crear';
@@ -63,135 +125,152 @@ export interface LoginNuevoProps {
 
 export function LoginNuevoTarjeta(p: LoginNuevoProps) {
   const id = useId();
+  const activo: Panel = p.modo === 'crear' ? 'crear' : p.paso;
   const [verClave, setVerClave] = useState(false);
-  const enClave = p.modo === 'crear' || p.paso === 'clave';
-  const titulo = p.modo === 'crear' ? 'Crear cuenta de equipo' : 'Iniciar sesión';
+  const [alto, setAlto] = useState<number | undefined>(undefined);
+  const refs = useRef<Record<Panel, HTMLDivElement | null>>({ correo: null, clave: null, crear: null });
+  const primera = useRef(true);
 
-  function alEnviar(e: React.FormEvent) {
-    // Primer paso: solo avanza (nada va al servidor hasta la contraseña).
-    if (p.modo === 'entrar' && p.paso === 'correo') {
-      e.preventDefault();
-      if (p.email.trim()) p.onContinuarCorreo();
-      return;
-    }
-    p.onSubmit(e);
-  }
+  // El alto de la caja sigue al del panel activo (también si crece un aviso o el captcha).
+  useLayoutEffect(() => {
+    const el = refs.current[activo];
+    if (!el) return;
+    const medir = () => setAlto(el.offsetHeight + 8);
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [activo]);
+
+  // El foco viaja al primer campo del panel que entra (no en la carga: ahí ya lo pone autoFocus).
+  useEffect(() => {
+    if (primera.current) { primera.current = false; return; }
+    const t = setTimeout(() => refs.current[activo]?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true }), 120);
+    return () => clearTimeout(t);
+  }, [activo]);
+
+  const registrar = useCallback((panel: Panel, el: HTMLDivElement | null) => { refs.current[panel] = el; }, []);
+  const panelDe = (panel: Panel) => ({ panel, activo, registrar });
+
+  const avisos = (
+    <>
+      {p.error && <p role="alert" className="ln-aviso mt-4 rounded-lg bg-[color:var(--t-error-100)] px-3 py-2 text-[13px] text-[color:var(--t-error-700)]">{p.error}</p>}
+      {p.info && <p role="status" className="ln-aviso mt-4 rounded-lg bg-[color:var(--t-blue-100)] px-3 py-2 text-[13px] text-[color:var(--t-ink-900)]">{p.info}</p>}
+    </>
+  );
+  const ayuda = (
+    <p className="mt-6 text-center text-[14px] text-[color:var(--t-ink-500)]">
+      ¿Necesitas ayuda? <Link href="/ayuda" className={ENLACE}>Escríbenos</Link>
+    </p>
+  );
+  const cabecera = (titulo: string, sub: string) => (
+    <>
+      <h1 className="text-[26px] font-semibold leading-8 tracking-[-0.025em] max-sm:text-[28px] max-sm:leading-[34px]">{titulo}</h1>
+      <p className="mt-1.5 text-[15px] text-[color:var(--t-ink-500)] max-sm:text-[16px]">{sub}</p>
+    </>
+  );
+  const campoClave = (n: string) => (
+    <>
+      <label htmlFor={`${id}-${n}`} className={`${ETIQUETA} mt-5`}>Contraseña</label>
+      <div className="relative">
+        <input
+          id={`${id}-${n}`}
+          type={verClave ? 'text' : 'password'}
+          required
+          autoComplete={p.modo === 'crear' ? 'new-password' : 'current-password'}
+          // Solo al CREAR importa el mínimo: al entrar, el servidor decide si la contraseña vale.
+          minLength={p.modo === 'crear' ? p.minimoPassword : undefined}
+          value={p.password}
+          onChange={e => p.onPassword(e.target.value)}
+          className={`${CAMPO} pr-12`}
+        />
+        <button
+          type="button"
+          onClick={() => setVerClave(v => !v)}
+          aria-label={verClave ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
+          className="absolute right-1.5 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-lg text-[color:var(--t-ink-500)] hover:text-[color:var(--t-ink-950)]"
+        >
+          {verClave ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
+        </button>
+      </div>
+    </>
+  );
 
   return (
-    <div className="ln-tarjeta">
-      <style>{ESTILOS}</style>
-      <div className="rounded-[28px] bg-card p-8 shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_0_30px_#000] sm:p-10">
-        <h1 className="text-[28px] font-semibold leading-8 tracking-[-0.03em] text-foreground">{titulo}</h1>
-        <p className="mt-1 text-[16px] text-muted-foreground">Continuar a Tentare</p>
-
-        {p.modo === 'crear' && (
-          <p className="mt-4 text-[13px] leading-[18px] text-muted-foreground">
-            Tu acceso se activa con el enlace que te haya enviado tu estudio. Si tu correo no está en ningún equipo, te llevamos a crear tu estudio.
-          </p>
-        )}
-
-        <form onSubmit={alEnviar} className="mt-8">
-          {!enClave ? (
-            <div key="correo" className="ln-paso">
-              <label htmlFor={`${id}-e`} className="mb-1.5 block text-[15px] text-foreground">Correo electrónico</label>
-              <input id={`${id}-e`} type="email" required autoComplete="email" autoFocus value={p.email} onChange={e => p.onEmail(e.target.value)} className={CAMPO} />
-            </div>
-          ) : (
-            <div key="clave" className="ln-paso">
-              {p.modo === 'entrar' ? (
-                <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/50 px-4 py-3">
-                  <span className="min-w-0 break-all text-[15px] text-foreground">{p.email}</span>
-                  <button type="button" onClick={p.onCambiarCorreo} className="shrink-0 text-[14px] font-medium text-[color:var(--t-text-link)] hover:underline">
-                    Cambiar correo electrónico
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  <label htmlFor={`${id}-e`} className="mb-1.5 block text-[15px] text-foreground">Correo electrónico</label>
-                  <input id={`${id}-e`} type="email" required autoComplete="email" value={p.email} onChange={e => p.onEmail(e.target.value)} className={CAMPO} />
-                </div>
-              )}
-              <label htmlFor={`${id}-c`} className="mb-1.5 mt-5 block text-[15px] text-foreground">Contraseña</label>
-              <div className="relative">
-                <input
-                  id={`${id}-c`}
-                  type={verClave ? 'text' : 'password'}
-                  required
-                  autoFocus={p.modo === 'entrar'}
-                  autoComplete={p.modo === 'crear' ? 'new-password' : 'current-password'}
-                  // Solo al CREAR importa el mínimo: al entrar, el servidor decide si la contraseña vale.
-                  minLength={p.modo === 'crear' ? p.minimoPassword : undefined}
-                  value={p.password}
-                  onChange={e => p.onPassword(e.target.value)}
-                  className={`${CAMPO} pr-12`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setVerClave(v => !v)}
-                  aria-label={verClave ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}
-                  className="absolute right-1.5 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground"
-                >
-                  {verClave ? <EyeOff size={20} aria-hidden /> : <Eye size={20} aria-hidden />}
-                </button>
-              </div>
-              {p.modo === 'crear' ? (
-                <p className="mt-1.5 text-[13px] text-muted-foreground">Al menos {p.minimoPassword} caracteres.</p>
-              ) : (
-                <button type="button" disabled={p.recuperando} onClick={p.onRecuperar} className="mt-2 text-[14px] font-medium text-[color:var(--t-text-link)] hover:underline disabled:opacity-60">
-                  {p.recuperando ? 'Enviando…' : '¿Olvidaste tu contraseña?'}
-                </button>
-              )}
-            </div>
-          )}
-
-          {p.error && <p role="alert" className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-[13px] text-destructive">{p.error}</p>}
-          {p.info && <p role="status" className="mt-4 rounded-lg bg-muted px-3 py-2 text-[13px] text-foreground">{p.info}</p>}
-
-          {p.captcha}
-
-          <button type="submit" disabled={p.submitting} className={`${BOTON_OSCURO} mt-6`}>
-            {p.submitting
-              ? 'Un momento…'
-              : p.modo === 'crear' ? 'Crear cuenta' : p.paso === 'correo' ? 'Continuar con correo electrónico' : 'Iniciar sesión'}
+    <div className="ln-hoja">
+      <div className="ln-cajas" style={alto === undefined ? undefined : { height: alto }}>
+        {/* 1 · Correo */}
+        <PanelAnimado {...panelDe('correo')}>
+          {cabecera('Inicia sesión', 'Continúa a tu estudio en Tentare')}
+          <form
+            className="mt-7"
+            onSubmit={e => { e.preventDefault(); if (p.email.trim()) p.onContinuarCorreo(); }}
+          >
+            <label htmlFor={`${id}-e1`} className={ETIQUETA}>Correo electrónico</label>
+            <input id={`${id}-e1`} type="email" required autoComplete="email" autoFocus value={p.email} onChange={e => p.onEmail(e.target.value)} className={CAMPO} />
+            {avisos}
+            <button type="submit" className={BOTON_OSCURO}>Continuar</button>
+          </form>
+          <div className="my-5 flex items-center gap-3.5 text-[13px] text-[color:var(--t-ink-400)]" aria-hidden>
+            <span className="h-px flex-1 bg-[color:color-mix(in_srgb,var(--t-ink-900)_10%,white)]" /> o <span className="h-px flex-1 bg-[color:color-mix(in_srgb,var(--t-ink-900)_10%,white)]" />
+          </div>
+          <button type="button" onClick={p.onGoogle} disabled={p.conectandoGoogle} className={BOTON_SOCIAL}>
+            <GoogleIcon size={20} /> {p.conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
           </button>
-        </form>
+          <button type="button" onClick={p.onApple} disabled={p.conectandoApple} className={`${BOTON_SOCIAL} mt-2.5`}>
+            <AppleIcon size={20} /> {p.conectandoApple ? 'Conectando…' : 'Continuar con Apple'}
+          </button>
+          <p className="mt-6 text-center text-[14px] text-[color:var(--t-ink-500)] max-sm:text-[15px]">
+            ¿Primera vez en Tentare? <Link href="/crear-estudio" className={ENLACE}>Crea tu estudio</Link>
+          </p>
+          <p className="mt-2 text-center text-[13px] text-[color:var(--t-ink-500)]">
+            ¿Eres del equipo y aún no tienes cuenta?{' '}
+            <button type="button" onClick={() => p.onCambiarModo('crear')} className="font-medium text-[color:var(--t-ink-950)] hover:underline">Crear cuenta</button>
+          </p>
+          {ayuda}
+        </PanelAnimado>
 
-        {!enClave && (
-          <>
-            <div className="my-6 flex items-center gap-3" aria-hidden>
-              <span className="h-px flex-1 bg-border" />
-              <span className="text-[14px] text-muted-foreground">o</span>
-              <span className="h-px flex-1 bg-border" />
+        {/* 2 · Contraseña */}
+        <PanelAnimado {...panelDe('clave')}>
+          {cabecera('Inicia sesión', 'Continúa a tu estudio en Tentare')}
+          <form className="mt-7" onSubmit={p.onSubmit}>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[color:color-mix(in_srgb,var(--t-ink-900)_10%,white)] bg-[color:var(--t-ink-950)]/[.03] px-3.5 py-2.5 max-sm:rounded-[14px] max-sm:py-3.5">
+              <span className="min-w-0 break-all text-[15px]">{p.email}</span>
+              <button type="button" onClick={p.onCambiarCorreo} className={`${ENLACE} shrink-0 whitespace-nowrap text-[13.5px]`}>Cambiar</button>
             </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button type="button" onClick={p.onGoogle} disabled={p.conectandoGoogle} aria-label="Continuar con Google" className={BOTON_SOCIAL}>
-                <GoogleIcon size={22} />
-              </button>
-              <button type="button" onClick={p.onApple} disabled={p.conectandoApple} aria-label="Continuar con Apple" className={BOTON_SOCIAL}>
-                <AppleIcon size={22} />
-              </button>
-            </div>
-          </>
-        )}
+            {campoClave('c2')}
+            <button type="button" disabled={p.recuperando} onClick={p.onRecuperar} className={`${ENLACE} mt-2.5 text-[14px] disabled:opacity-60`}>
+              {p.recuperando ? 'Enviando…' : '¿Olvidaste tu contraseña?'}
+            </button>
+            {avisos}
+            <button type="submit" disabled={p.submitting} className={BOTON_OSCURO}>{p.submitting ? 'Un momento…' : 'Iniciar sesión'}</button>
+          </form>
+          {ayuda}
+        </PanelAnimado>
 
-        <p className="mt-8 text-[15px] text-muted-foreground">
-          {p.modo === 'entrar' ? (
-            <>
-              ¿Primera vez en Tentare?{' '}
-              <Link href="/crear-estudio" className="font-medium text-[color:var(--t-text-link)] hover:underline">Empezar →</Link>
-              <span className="mt-2 block text-[13px]">
-                ¿Eres del equipo y aún no tienes cuenta?{' '}
-                <button type="button" onClick={() => p.onCambiarModo('crear')} className="font-medium text-foreground hover:underline">Crear cuenta</button>
-              </span>
-            </>
-          ) : (
-            <>
-              ¿Ya tienes cuenta?{' '}
-              <button type="button" onClick={() => p.onCambiarModo('entrar')} className="font-medium text-[color:var(--t-text-link)] hover:underline">Iniciar sesión</button>
-            </>
-          )}
-        </p>
+        {/* 3 · Crear cuenta de equipo */}
+        <PanelAnimado {...panelDe('crear')}>
+          {cabecera('Crea tu cuenta de equipo', 'Tu acceso se activa con el enlace de tu estudio.')}
+          <p className="mt-3 text-[13px] leading-[18px] text-[color:var(--t-ink-500)]">
+            Si tu correo no está en ningún equipo, te llevamos a crear tu estudio.
+          </p>
+          <form className="mt-6" onSubmit={p.onSubmit}>
+            <label htmlFor={`${id}-e3`} className={ETIQUETA}>Correo electrónico</label>
+            <input id={`${id}-e3`} type="email" required autoComplete="email" value={p.email} onChange={e => p.onEmail(e.target.value)} className={CAMPO} />
+            {campoClave('c3')}
+            <p className="mt-1.5 text-[13px] text-[color:var(--t-ink-500)]">Al menos {p.minimoPassword} caracteres.</p>
+            {avisos}
+            <button type="submit" disabled={p.submitting} className={BOTON_OSCURO}>{p.submitting ? 'Un momento…' : 'Crear cuenta'}</button>
+          </form>
+          <p className="mt-6 text-center text-[14px] text-[color:var(--t-ink-500)]">
+            ¿Ya tienes cuenta?{' '}
+            <button type="button" onClick={() => p.onCambiarModo('entrar')} className={ENLACE}>Inicia sesión</button>
+          </p>
+          {ayuda}
+        </PanelAnimado>
       </div>
+      {/* Un solo widget de captcha, fuera de los paneles: sin altura, no cambia el diseño. */}
+      {p.captcha}
     </div>
   );
 }

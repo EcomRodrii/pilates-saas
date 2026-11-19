@@ -12,7 +12,7 @@ import { uid as generarId } from '@/lib/utils';
 import { CLAVE_INVITACION, leerTokenInvitacion, olvidarTokenInvitacion, recordarTokenInvitacion } from '@/lib/equipo/invitacion-pendiente';
 import { useCaptcha, ERROR_CAPTCHA } from '@/components/auth/turnstile-widget';
 import { GoogleIcon } from '@/components/icons/brand-icons';
-import { LoginNuevoTarjeta } from '@/components/auth/login-nuevo-tarjeta';
+import { EstilosLoginNuevo, LoginNuevoTarjeta } from '@/components/auth/login-nuevo-tarjeta';
 import { OtpVerificacion } from '@/components/auth/otp-verificacion';
 import { avisarProgresoAlta } from '@/lib/alta/progreso-cliente';
 import { recordarEmailOtpPendiente, leerEmailOtpPendiente, olvidarEmailOtpPendiente } from '@/lib/auth/otp-pendiente';
@@ -472,16 +472,16 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
 
   return (
     <div
-      className="min-h-dvh flex items-center justify-center px-4"
-      style={nuevo
-        ? { backgroundColor: 'var(--t-surface-nav)', backgroundImage: 'radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--t-ink-800) 80%, transparent), transparent 70%)' }
-        : { background: '#EEEEE8' }}
+      className={nuevo ? 'ln-marco' : 'min-h-dvh flex items-center justify-center px-4'}
+      style={nuevo ? undefined : { background: '#EEEEE8' }}
       data-login-nuevo={nuevo ? '' : undefined}
     >
-      {nuevo && <div className="absolute left-6 top-6 sm:left-10 sm:top-8"><LogoTentare alto={26} tinta="blanco" decorativo /></div>}
-      <div className={nuevo ? 'w-full max-w-[400px]' : 'w-full max-w-sm'}>
+      {nuevo && <EstilosLoginNuevo />}
+      <div className={nuevo ? 'ln-columna' : 'w-full max-w-sm'}>
         {/* Logo */}
-        {!nuevo && (
+        {nuevo ? (
+          <LogoTentare formato="horizontal" tinta="blanco" alto={42} className="ln-logo" />
+        ) : (
         <div className="flex flex-col items-center mb-8">
           <LogoTentare formato="vertical" alto={76} className="mb-2" />
           <p className="text-[14px] font-semibold text-[#8E8E86] mt-1">Tentare Software</p>
