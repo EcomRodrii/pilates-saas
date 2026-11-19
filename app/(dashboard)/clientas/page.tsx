@@ -1603,7 +1603,7 @@ export default function Socios() {
       {/* En el móvil, lo primero es buscar: los filtros van plegados detrás de un
           botón que dice cuántos hay puestos. En pantallas grandes, en la misma
           fila; ordenar ahí es pinchar en la cabecera de la columna. */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div data-barra-filtros className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 sm:w-72 sm:flex-none lg:w-80">
           <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input

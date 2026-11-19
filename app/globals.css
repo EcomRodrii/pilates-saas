@@ -2022,3 +2022,18 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   border-radius: 20px; border-color: transparent;
   box-shadow: 0 0 2px 0 #0000003d, 0 2px 12px 0 #00000005, 0 4px 16px 0 #00000005, 0 4px 48px 0 #00000005;
 }
+
+/* Barra «Buscar y filtrar» de los listados (Clientes): una sola barra con borde, búsqueda sin marco propio y filtros en píldora gris, como el admin de Shopify. */
+.panel-app[data-shell-nuevo] [data-barra-filtros] {
+  gap: 4px; padding: 3px 4px; border-radius: 12px; background: #fff; align-items: center;
+  box-shadow: 0 0 2px 0 #0000003d, 0 2px 12px 0 #00000005, 0 4px 16px 0 #00000005;
+}
+.panel-app[data-shell-nuevo] [data-barra-filtros] > div:first-child { flex: 1 1 auto; }
+.panel-app[data-shell-nuevo] [data-barra-filtros] > div:first-child input { border: 0; box-shadow: none; background: transparent; min-height: 28px; height: 28px; }
+.panel-app[data-shell-nuevo] [data-barra-filtros] > :is(button, div:not(:first-child)) > :is(button), .panel-app[data-shell-nuevo] [data-barra-filtros] > button {
+  height: 28px; min-height: 28px; border: 0; border-radius: 9999px; background: #ebebeb; font-size: 12px; font-weight: 500; padding-inline: 10px;
+}
+@media (max-width: 767px) { .panel-app[data-shell-nuevo] [data-barra-filtros] { padding: 4px; } }
+.panel-app[data-shell-nuevo] [data-barra-filtros] button:not([aria-label='Borrar búsqueda']) {
+  height: 28px; min-height: 28px; border: 0 !important; border-radius: 9999px; background: #ebebeb !important; font-size: 12px; font-weight: 500; padding-inline: 10px; box-shadow: none;
+}
