@@ -89,8 +89,10 @@ export type Interruptor = keyof typeof INTERRUPTORES;
  * Los que ya están ENCENDIDOS DE SERIE para todos (decisión del fundador): sin la variable, o con cualquier
  * valor, están encendidos; solo `off` los apaga (el freno de emergencia, que sí exige un despliegue).
  * - `onboardingNuevo` (19-nov-2026): el onboarding al estilo Shopify, abierto al público.
+ * - `altaNueva` (19-nov-2026): la bienvenida de los pasos 3 a 5 del alta nueva para todos los estudios (antes solo los nacidos del
+ *   alta nueva o con `ALTA_NUEVA`), ahora que `/crear-estudio` es la nueva para todo el mundo.
  */
-export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = ['onboardingNuevo'];
+export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = ['onboardingNuevo', 'altaNueva'];
 
 export function interruptoresDe(studioId: string, entorno: Record<string, string | undefined>): Record<Interruptor, boolean> {
   return Object.fromEntries(

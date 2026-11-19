@@ -21,7 +21,7 @@ import { capturarAlLlegar } from '@/lib/posthog-cliente';
 import { MINIMO_PASSWORD } from '@/lib/student/password-regla';
 import { confiarAntesDeEntrar } from '@/lib/auth/doble-factor-cliente';
 
-export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
+export function LoginCliente({ nuevo = false, apple = false }: { nuevo?: boolean; apple?: boolean }) {
   const uid = useId();
   const {
     signIn, signUp, session, user, loading, recuperarPassword, reenviarConfirmacion, signInWithGoogle, signInWithApple, verificarOtpSignup,
@@ -65,6 +65,23 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
   // Sin NEXT_PUBLIC_TURNSTILE_SITE_KEY configurada, el widget no se pinta y
   // esto nunca bloquea el envío — mismo comportamiento que hoy.
   const { widget: captcha, pedirToken } = useCaptcha();
+  // El captcha invisible tarda de 3 a 7 s en dar token, y se pedía justo al pulsar «Iniciar sesión». En el login nuevo se arranca al pasar
+  // a la contraseña, mientras la persona la escribe, y al enviar solo se recoge. Un token vale UN uso y caduca (5 min en Cloudflare): se gasta
+  // una vez y, si es viejo, se pide otro. Si el anticipado falla, se pide como siempre.
+  const tokenAnticipado = useRef<{ promesa: Promise<string | null>; en: number } | null>(null);
+  function anticiparCaptcha() {
+    if (tokenAnticipado.current) return;
+    tokenAnticipado.current = { promesa: pedirToken().catch(() => null), en: Date.now() };
+  }
+  async function tokenParaEnviar(): Promise<string | null> {
+    const previo = tokenAnticipado.current;
+    tokenAnticipado.current = null;
+    if (previo && Date.now() - previo.en < 4 * 60_000) {
+      const t = await previo.promesa;
+      if (t !== null) return t;
+    }
+    return pedirToken();
+  }
   // Recuperar la contraseña no existía en esta pantalla. Quien la olvidaba se
   // quedaba fuera de su propio negocio: la clienta sí tenía cómo
   // (/portal/[slug]/acceso), la propietaria no, y la única salida era que
@@ -158,7 +175,13 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
     setError(''); setInfo('');
     setConectandoApple(true);
     const { error } = await signInWithApple();
-    if (error) { setError(error); setConectandoApple(false); }
+    if (error) {
+      // Proveedor sin configurar en Supabase: se dice en cristiano, sin el JSON de gotrue.
+      setError(/missing OAuth secret|Unsupported provider|provider is not enabled/i.test(error)
+        ? 'Iniciar sesión con Apple aún no está disponible. Entra con tu correo o con Google.'
+        : error);
+      setConectandoApple(false);
+    }
   }
 
   useEffect(() => {
@@ -336,10 +359,14 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
       // nada aquí, que antes se colaba igual.
       // Verificación en dos pasos con este navegador recordado: que la sesión
       // cuente ya como verificada, antes de que el panel pida nada.
-      if (session?.access_token) await confiarAntesDeEntrar(session.access_token);
-      const resultado = await fetch('/api/auth/destino-post-login?producto=software', { headers: await authHeader() })
-        .then(r => (r.ok ? r.json() : null))
-        .catch(() => null);
+      // En paralelo: la confianza del dispositivo y el destino no dependen una de otra (el destino no exige el segundo paso), y juntas
+      // eran dos viajes al servidor uno detrás de otro justo antes de entrar.
+      const [, resultado] = await Promise.all([
+        session?.access_token ? confiarAntesDeEntrar(session.access_token) : Promise.resolve(),
+        authHeader().then(headers => fetch('/api/auth/destino-post-login?producto=software', { headers }))
+          .then(r => (r.ok ? r.json() : null))
+          .catch(() => null),
+      ]);
 
       if (resultado?.tipo === 'cuenta-de-otro-producto') {
         // No se deja una sesión válida abierta mostrando un mensaje de
@@ -412,7 +439,7 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
 
     // Un solo token para los dos modos: se pide antes de bifurcar para no
     // duplicar la llamada ni el manejo del fallo.
-    const token = await pedirToken();
+    const token = await tokenParaEnviar();
     if (token === null) { setSubmitting(false); setError(ERROR_CAPTCHA); return; }
 
     if (modo === 'entrar') {
@@ -562,11 +589,12 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
           submitting={submitting}
           conectandoGoogle={conectandoGoogle}
           conectandoApple={conectandoApple}
+          apple={apple}
           recuperando={recuperando}
           minimoPassword={MINIMO_PASSWORD}
           onEmail={setEmail}
           onPassword={setPassword}
-          onContinuarCorreo={() => { setError(''); setInfo(''); setPaso('clave'); }}
+          onContinuarCorreo={() => { setError(''); setInfo(''); setPaso('clave'); anticiparCaptcha(); }}
           onCambiarCorreo={() => { setError(''); setInfo(''); setPassword(''); setPaso('correo'); }}
           onSubmit={handleSubmit}
           onGoogle={() => void conectarConGoogle()}

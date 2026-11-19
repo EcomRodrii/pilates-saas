@@ -110,6 +110,8 @@ export interface LoginNuevoProps {
   submitting: boolean;
   conectandoGoogle: boolean;
   conectandoApple: boolean;
+  /** Si el proveedor de Apple está configurado (`LOGIN_APPLE=on`): sin él no se pinta el botón. */
+  apple?: boolean;
   recuperando: boolean;
   minimoPassword: number;
   onEmail: (v: string) => void;
@@ -218,9 +220,11 @@ export function LoginNuevoTarjeta(p: LoginNuevoProps) {
           <button type="button" onClick={p.onGoogle} disabled={p.conectandoGoogle} className={BOTON_SOCIAL}>
             <GoogleIcon size={20} /> {p.conectandoGoogle ? 'Conectando…' : 'Continuar con Google'}
           </button>
-          <button type="button" onClick={p.onApple} disabled={p.conectandoApple} className={`${BOTON_SOCIAL} mt-2.5`}>
-            <AppleIcon size={20} /> {p.conectandoApple ? 'Conectando…' : 'Continuar con Apple'}
-          </button>
+          {p.apple && (
+            <button type="button" onClick={p.onApple} disabled={p.conectandoApple} className={`${BOTON_SOCIAL} mt-2.5`}>
+              <AppleIcon size={20} /> {p.conectandoApple ? 'Conectando…' : 'Continuar con Apple'}
+            </button>
+          )}
           <p className="mt-6 text-center text-[14px] text-[color:var(--t-ink-500)] max-sm:text-[15px]">
             ¿Primera vez en Tentare? <Link href="/crear-estudio" className={ENLACE}>Crea tu estudio</Link>
           </p>
