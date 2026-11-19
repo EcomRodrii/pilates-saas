@@ -10,6 +10,7 @@ import type { Reserva, EstadoReserva, Socio, RewardAction, Sesion, Suscripcion, 
 import { ratioOcupacion } from './ocupacion.ts';
 import { tieneEntitlementActivo } from './bono-logic.ts';
 import { diaEnEstudio } from './calendario-hora-estudio.ts';
+import { esReservaPlazaFija } from './reservas/plaza-fija-id.ts';
 import { fechaLargaEstudio, franjaLocalDe, instanteEnEstudio, masDias } from './utils.ts';
 
 // ─── Política de cancelación (C-2) y de reservas (C-4) ────────────────────────
@@ -158,8 +159,13 @@ export function contarReservasActivasFuturas(
   const futuras = new Set(
     sesiones.filter(s => !s.cancelada && new Date(s.inicio).getTime() > t).map(s => s.id),
   );
+  // Las reservas de clase fija (`res-pf-…`, ver `plaza-fija-id.ts`) no gastan cupo: la plaza fija es un
+  // derecho preaprobado que el cron materializa semanas por delante, así que con
+  // un tope de 1 la alumna que cancelaba UNA de sus clases fijas (y recibía su
+  // crédito) seguía «al máximo» por las demás semanas y no podía reservar otra
+  // clase. El tope cuenta lo que ELLA reserva, no lo que el estudio le da.
   return reservas.filter(
-    r => r.socioId === socioId &&
+    r => r.socioId === socioId && !esReservaPlazaFija(r.id) &&
       (r.estado === 'CONFIRMADA' || r.estado === 'LISTA_ESPERA' || (opciones.pendientesCuentan === true && r.estado === 'PENDIENTE_APROBACION')) &&
       futuras.has(r.sesionId),
   ).length;
