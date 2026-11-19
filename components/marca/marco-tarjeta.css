@@ -23,3 +23,30 @@
 /* En oscuro la tarjeta sigue el lienzo de la pantalla: texto claro sobre blanco no se lee. */
 :is(.dark) .mt-tarjeta { background: var(--t-canvas, #1b1d19); }
 :is(.dark) .mt-raiz { background: #11130f; }
+
+/* Una columna que lleva lo de encima (el logo) y la tarjeta. En el tono claro no cambia nada: la tarjeta sigue centrada. */
+.mt-col { position: relative; display: flex; width: 100%; flex-direction: column; align-items: center; }
+.mt-col > .mt-tarjeta { flex: none; }
+
+/* El tono oscuro (el alta nueva, con el estilo del login nuevo): fondo ink con las dos manchas de marca, logo blanco encima y la
+   tarjeta blanca debajo. Solo transform y opacity se mueven; quieto con «reducir movimiento». */
+.mt-raiz[data-tono='oscuro'] { background: var(--t-ink-950, #12161B); }
+.mt-raiz[data-tono='oscuro'] .mt-fondo { background:
+  radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--t-blue-500, #3B82F6) 16%, transparent), transparent 70%),
+  radial-gradient(40% 35% at 88% 100%, color-mix(in srgb, var(--t-magenta-500, #C0407A) 10%, transparent), transparent 70%); }
+.mt-raiz[data-tono='oscuro'] .mt-fondo::before, .mt-raiz[data-tono='oscuro'] .mt-fondo::after { display: none; }
+.mt-raiz[data-tono='oscuro'] .mt-encima { margin-bottom: 24px; animation: mt-fundido .35s cubic-bezier(.25,.1,.25,1) both; }
+.mt-raiz[data-tono='oscuro'] .mt-tarjeta { border: 0; box-shadow: 0 0 0 1px rgb(255 255 255 / .06), 0 30px 70px -24px rgb(0 0 0 / .7);
+  animation: mt-entra .4s cubic-bezier(.22,.8,.3,1) .03s both; }
+@keyframes mt-fundido { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mt-entra { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes mt-sube { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  /* Como el login nuevo en el móvil: el logo sobre el fondo oscuro y la tarjeta como una hoja que sube desde abajo. */
+  .mt-raiz[data-tono='oscuro'] .mt-col { min-height: 100dvh; align-items: stretch; }
+  .mt-raiz[data-tono='oscuro'] .mt-encima { margin: auto; padding: max(40px, env(safe-area-inset-top)) 0 32px; display: flex; justify-content: center; }
+  .mt-raiz[data-tono='oscuro'] .mt-tarjeta { min-height: 0; border-radius: 28px 28px 0 0; animation-name: mt-sube; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mt-raiz[data-tono='oscuro'] .mt-encima, .mt-raiz[data-tono='oscuro'] .mt-tarjeta { animation: none; }
+}

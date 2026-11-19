@@ -14,9 +14,16 @@ import './marco-tarjeta.css';
 const ESCALA_MINIMA = 0.62;
 const ANCHO_MINIMO_PARA_AJUSTAR = 640; // por debajo es el móvil: la tarjeta ocupa toda la pantalla y se desliza
 
-export function MarcoTarjeta({ children, ancho = 'normal' }: { children: React.ReactNode; ancho?: 'estrecho' | 'normal' | 'amplio' }) {
+export function MarcoTarjeta({ children, ancho = 'normal', tono = 'claro', encima }: {
+  children: React.ReactNode;
+  ancho?: 'estrecho' | 'normal' | 'amplio';
+  /** `oscuro`: el fondo del login nuevo (ink con dos manchas de marca) y la tarjeta blanca debajo; `encima` va sobre la tarjeta (el logo). */
+  tono?: 'claro' | 'oscuro';
+  encima?: React.ReactNode;
+}) {
   const raiz = useRef<HTMLDivElement>(null);
   const tarjeta = useRef<HTMLDivElement>(null);
+  const arriba = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     const r = raiz.current, t = tarjeta.current;
@@ -24,7 +31,9 @@ export function MarcoTarjeta({ children, ancho = 'normal' }: { children: React.R
     let actual = 1;
     let pendiente = 0;
     const ajustar = () => {
-      const margen = parseFloat(getComputedStyle(r).paddingTop) * 2;
+      // Lo que ocupa lo de encima (el logo) y su separación no se encoge: la tarjeta se ajusta al resto.
+      const sobre = arriba.current ? arriba.current.offsetHeight + parseFloat(getComputedStyle(arriba.current).marginBottom || '0') : 0;
+      const margen = parseFloat(getComputedStyle(r).paddingTop) * 2 + sobre;
       const hueco = window.innerHeight - margen;
       const natural = t.offsetHeight;
       const z = window.innerWidth < ANCHO_MINIMO_PARA_AJUSTAR || natural <= hueco ? 1 : Math.max(ESCALA_MINIMA, hueco / natural);
@@ -42,9 +51,12 @@ export function MarcoTarjeta({ children, ancho = 'normal' }: { children: React.R
   }, []);
 
   return (
-    <div className="mt-raiz" ref={raiz}>
+    <div className="mt-raiz" data-tono={tono} ref={raiz}>
       <div className="mt-fondo" aria-hidden="true" />
-      <div className="mt-tarjeta" data-ancho={ancho} ref={tarjeta}>{children}</div>
+      <div className="mt-col">
+        {encima && <div className="mt-encima" ref={arriba}>{encima}</div>}
+        <div className="mt-tarjeta" data-ancho={ancho} ref={tarjeta}>{children}</div>
+      </div>
     </div>
   );
 }

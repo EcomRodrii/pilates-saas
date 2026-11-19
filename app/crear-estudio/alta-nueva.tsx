@@ -729,12 +729,17 @@ const BOTON_PRINCIPAL = `${BOTON_BASE} bg-t-inverse text-t-on-inverse hover:brig
 
 function Marco({ children, whatsapp, ancho = 'normal' }: { children: React.ReactNode; whatsapp?: string; ancho?: 'normal' | 'amplio' }) {
   return (
-    <MarcoTarjeta ancho={ancho}>
-      <div className="flex flex-1 flex-col text-t-primary">
-      <header className="flex items-center justify-between gap-3 px-[18px] py-2.5 sm:px-8 sm:py-3">
-        <Link href="/" aria-label="Volver a la portada de Tentare" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[color:var(--t-border-focus)]">
-          <LogoTentare alto={20} tinta="auto" />
+    <MarcoTarjeta
+      ancho={ancho}
+      tono="oscuro"
+      encima={
+        <Link href="/" aria-label="Volver a la portada de Tentare" className="rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">
+          <LogoTentare alto={36} tinta="blanco" decorativo />
         </Link>
+      }
+    >
+      <div className="flex flex-1 flex-col text-t-primary">
+      <header className="flex items-center justify-end gap-3 px-[18px] py-2.5 sm:px-8 sm:py-3">
         {/* Una persona por WhatsApp, a la vista en todo el alta (decisión 5). */}
         <a
           href={whatsapp}
