@@ -134,7 +134,7 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
     <PanelPrivacyProvider>
       <PanelThemeProvider className="panel-app min-h-dvh bg-background">
         <div
-          className={cn('min-h-dvh text-foreground', foco ? 'bg-[#1a1a1a]' : 'bg-background')}
+          className={cn('min-h-dvh text-foreground', foco ? 'bg-[color:var(--t-surface-nav)]' : 'bg-background')}
           data-screen="bienvenida-nueva"
           data-onboarding-nuevo={foco ? '' : undefined}
         >

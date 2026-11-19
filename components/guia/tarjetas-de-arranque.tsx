@@ -21,7 +21,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { OpcionalAlta, PrimerosPasosAltaNueva, TareaAltaConEstado } from '@/lib/guia/primeros-pasos';
 
