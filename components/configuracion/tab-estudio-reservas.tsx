@@ -904,13 +904,13 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
         <p className="text-sm text-muted-foreground text-pretty">{EXPLICACION_PLAZA_FIJA_DESDE_APP}</p>
         <InterruptorCampo
           titulo="Pueden pedir clase fija"
-          detalle="Desde una clase que se repite cada semana, en su app. Solo con cuota."
+          detalle="Desde su app, en una clase que se repite cada semana. Solo con cuota."
           on={form.plazaFijaSolicitarDesdeApp}
           onChange={v => cambiar('plazaFijaSolicitarDesdeApp', v)}
         />
         {form.plazaFijaSolicitarDesdeApp && (
           <fieldset className="space-y-2" data-testid="aprobacion-plaza-fija">
-            <legend className="mb-2 text-sm font-medium text-foreground">Cuando la piden</legend>
+            <legend className="mb-2 text-sm font-medium text-foreground">Cuando una cliente pide su clase fija, ¿qué quieres que pase?</legend>
             {OPCIONES_APROBACION_PLAZA_FIJA.map(o => {
               const elegida = form.plazaFijaAprobacion === o.valor;
               return (
@@ -937,9 +937,9 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
             })}
             {form.plazaFijaAprobacion === 'AUTOMATICA' && (
               <div className="rounded-lg border border-border p-3" data-testid="tope-plaza-fija">
-                <p className="text-sm font-medium text-foreground">Cuántos clientes con clase fija puede tener una clase</p>
+                <p className="text-sm font-medium text-foreground">Cuántas plazas de una clase pueden ser fijas</p>
                 <p className="mb-2 text-sm text-muted-foreground text-pretty">
-                  Hasta este porcentaje de su aforo se dan solas; a partir de ahí, las apruebas tú. Así una clase no se llena de fijas sin que lo decidas.
+                  Hasta este porcentaje del aforo se dan solas; a partir de ahí las apruebas tú. Así queda siempre sitio para reservas sueltas.
                 </p>
                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Porcentaje del aforo">
                   {OPCIONES_TOPE_AUTOMATICO_PCT.map(pct => (

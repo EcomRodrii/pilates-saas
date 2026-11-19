@@ -747,7 +747,7 @@ export function Sidebar() {
             // 10-nov-2026; OPEN DECISION 18). Fondo opaco para tapar lo que pasa por
             // debajo al desplazar. Tumbado (horizontal) la fila envuelve y no hace falta.
             return item.href === ANCLADO && !horizontal
-              ? <div key={item.href} className={cn('sticky bottom-0 z-10 pt-1', !sangre && 'bg-[#0A0A0A]')}>{fila}</div>
+              ? <div key={item.href} className={cn('sticky bottom-0 z-10 pt-1', sangre ? 'bg-[var(--shell-marco)]' : 'bg-[#0A0A0A]')}>{fila}</div>
               : fila;
           })}
         </div>

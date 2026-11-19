@@ -24,6 +24,10 @@ function enLinea(texto: string, clave: string): ReactNode[] {
   });
 }
 
+const VINETA = /^\s*[-•*]\s+/;
+const NUMERO = /^\s*\d+[.)]\s+/;
+const TITULO = /^\s*#{1,4}\s+/;
+
 export function TextoConReferencias({ texto, cursor = false }: { texto: string; cursor?: boolean }) {
   const bloques = texto.split(/\n{2,}/).filter(b => b.trim());
   const caret = cursor ? <span key="cursor" aria-hidden="true" className="asistente-cursor ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[3px] rounded-full bg-foreground/70" /> : null;
@@ -32,20 +36,34 @@ export function TextoConReferencias({ texto, cursor = false }: { texto: string; 
     <>
       {bloques.map((b, i) => {
         const ultimo = i === bloques.length - 1;
-        const lineas = b.split('\n');
-        if (lineas.every(l => /^\s*[-•]\s+/.test(l))) {
-          return (
-            <ul key={i} className="my-2 list-disc space-y-1 pl-5 marker:text-muted-foreground">
-              {lineas.map((l, j) => <li key={j}>{enLinea(l.replace(/^\s*[-•]\s+/, ''), `${i}-${j}`)}{ultimo && j === lineas.length - 1 && caret}</li>)}
-            </ul>
-          );
+        // Un bloque puede mezclar una frase de entrada y una lista: se parte en tramos del mismo tipo.
+        const tramos: { tipo: 'p' | 'ul' | 'ol' | 'h'; lineas: string[] }[] = [];
+        for (const l of b.split('\n')) {
+          const tipo = TITULO.test(l) ? 'h' : VINETA.test(l) ? 'ul' : NUMERO.test(l) ? 'ol' : 'p';
+          const ult = tramos[tramos.length - 1];
+          if (ult && ult.tipo === tipo && tipo !== 'h') ult.lineas.push(l); else tramos.push({ tipo, lineas: [l] });
         }
-        return (
-          <p key={i} className="[&:not(:first-child)]:mt-3">
-            {lineas.flatMap((l, j) => (j ? [<br key={`br-${j}`} />, ...enLinea(l, `${i}-${j}`)] : enLinea(l, `${i}-${j}`)))}
-            {ultimo && caret}
-          </p>
-        );
+        return tramos.map((t, k) => {
+          const ultTramo = ultimo && k === tramos.length - 1;
+          const clave = `${i}-${k}`;
+          if (t.tipo === 'ul' || t.tipo === 'ol') {
+            const Lista = t.tipo;
+            return (
+              <Lista key={clave} className={`my-2 space-y-1 pl-5 marker:text-muted-foreground ${t.tipo === 'ul' ? 'list-disc' : 'list-decimal'}`}>
+                {t.lineas.map((l, j) => <li key={j}>{enLinea(l.replace(t.tipo === 'ul' ? VINETA : NUMERO, ''), `${clave}-${j}`)}{ultTramo && j === t.lineas.length - 1 && caret}</li>)}
+              </Lista>
+            );
+          }
+          if (t.tipo === 'h') {
+            return <p key={clave} className="mt-3 font-semibold">{enLinea(t.lineas[0].replace(TITULO, ''), clave)}{ultTramo && caret}</p>;
+          }
+          return (
+            <p key={clave} className="[&:not(:first-child)]:mt-3">
+              {t.lineas.flatMap((l, j) => (j ? [<br key={`br-${j}`} />, ...enLinea(l, `${clave}-${j}`)] : enLinea(l, `${clave}-${j}`)))}
+              {ultTramo && caret}
+            </p>
+          );
+        });
       })}
     </>
   );

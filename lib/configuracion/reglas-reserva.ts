@@ -536,11 +536,11 @@ export const OPCIONES_PLAZA_FIJA_SIN_CUOTA: readonly { valor: PoliticaPlazaFijaS
 // apagada.
 
 export const EXPLICACION_PLAZA_FIJA_DESDE_APP =
-  'De serie, tus clientes pueden hacer suya una clase que se repite desde su app: en la ficha de la clase activan «Clase fija», eligen cuánto tiempo y su plaza queda reservada cada semana. Solo las que tienen una cuota que incluya esa clase: con bono se reserva clase a clase. Por defecto te llega un aviso y lo decides en Resumen (hasta que lo apruebas no cambia nada); si lo prefieres, se dan solas las que cumplen tus reglas. Si prefieres seguir dándolas tú a mano en recepción, apágalo.';
+  'Una clase fija es una plaza que tu cliente deja reservada cada semana. De serie, tus clientes pueden hacer suya una clase que se repite desde su app: en la ficha de la clase activan «Clase fija» y eligen cuánto tiempo. Solo la piden las que tienen una cuota que incluya esa clase (con bono se reserva clase a clase). Si lo apagas, las clases fijas las das tú en recepción.';
 
 export const OPCIONES_APROBACION_PLAZA_FIJA: readonly { valor: ReglasReserva['plazaFijaAprobacion']; titulo: string; detalle: string }[] = [
-  { valor: 'MANUAL', titulo: 'La apruebo yo', detalle: 'Te llega un aviso y la decides en Resumen. Hasta entonces no cambia nada.' },
-  { valor: 'AUTOMATICA', titulo: 'Se da sola si cumple mis reglas', detalle: 'Si tiene cuota, nivel, no pasa de su límite semanal y la clase tiene sitio, se le da al momento. Si algo falla, te llega a ti.' },
+  { valor: 'MANUAL', titulo: 'La apruebo yo', detalle: 'Recibes un aviso y decides tú en Resumen. Hasta entonces, su plaza no cambia. Es lo más seguro.' },
+  { valor: 'AUTOMATICA', titulo: 'Se da sola si cumple mis reglas', detalle: 'Si tiene cuota, nivel y hueco en la clase, se le da al momento sin que hagas nada. Si algo no cuadra, te llega a ti para decidir.' },
 ];
 
 export const EXPLICACION_PAUSA_PLAZA_FIJA =

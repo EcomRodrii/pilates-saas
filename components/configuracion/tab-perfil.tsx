@@ -13,6 +13,7 @@ import { inputCls, labelCls, cardCls } from '@/components/configuracion/estilos'
 import { useCuenta } from '@/components/auth/use-cuenta';
 import { ETIQUETA_ROL } from '@/lib/permisos-reglas';
 import { BloqueDobleFactor } from '@/components/auth/bloque-doble-factor';
+import { BloqueSuscripcion } from '@/components/configuracion/bloque-suscripcion';
 import type { MostrarToast } from '@/components/ui/toast';
 
 export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
@@ -392,6 +393,8 @@ export function TabPerfil({ showToast }: { showToast: MostrarToast }) {
           <p className={cn('text-[11px] mt-3', accesoMsg.error ? 'text-destructive' : 'text-success')}>{accesoMsg.texto}</p>
         )}
       </div>
+
+      <BloqueSuscripcion />
 
       <BloqueDobleFactor />
     </div>
