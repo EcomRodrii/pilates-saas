@@ -558,7 +558,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               (components/guia/flotantes-del-panel.tsx). */}
           <FlotantesDelPanel />
           {/* Marco a sangre: el asistente como columna a la derecha y su píldora abajo al centro. */}
-          {shellNuevo && <><div aria-hidden data-marco-vivo /><div aria-hidden data-marco-brillo /><ColumnaAsistente /><PildoraAsistente /></>}
+          {shellNuevo && <><div aria-hidden data-marco-vivo /><div aria-hidden data-marco-brillo><div className="shell-brillo-base" /><div className="shell-brillo-haz shell-brillo-haz-azul" /><div className="shell-brillo-haz shell-brillo-haz-magenta" /></div><ColumnaAsistente /><PildoraAsistente /></>}
           {/* «Primeros pasos» ya no flota aquí: es una píldora de la barra de arriba (topbar.tsx). */}
           </ColumnaAsistenteProvider>
           </AsistenteProvider>
