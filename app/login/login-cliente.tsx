@@ -468,7 +468,8 @@ export function LoginCliente({ nuevo = false }: { nuevo?: boolean }) {
     }
   }
 
-  if (loading) return null;
+  // Login nuevo: mientras se lee la sesión ya está el fondo oscuro (sin destello blanco); el logo y la tarjeta entran después.
+  if (loading) return nuevo ? <div className="ln-marco"><EstilosLoginNuevo /></div> : null;
 
   return (
     <div
