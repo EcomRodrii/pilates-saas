@@ -11,13 +11,13 @@ const leer = (p: string) => readFileSync(new URL(`../../${p}`, import.meta.url),
 // atributo HTML de un componente de cliente.
 
 test('/login importa MINIMO_PASSWORD, no repite el número a mano', () => {
-  const src = leer('app/login/page.tsx');
+  const src = leer('app/login/login-cliente.tsx');
   assert.match(src, /import \{ MINIMO_PASSWORD \} from '@\/lib\/student\/password-regla'/);
   assert.doesNotMatch(src, /minLength=\{6\}/, 'volvió el mínimo suelto de 6, por debajo del real del proyecto');
 });
 
 test('/login solo exige el mínimo al CREAR cuenta, nunca al entrar', () => {
-  const src = leer('app/login/page.tsx');
+  const src = leer('app/login/login-cliente.tsx');
   assert.match(
     src, /minLength=\{modo === 'crear' \? MINIMO_PASSWORD : undefined\}/,
     'una contraseña ya correcta pero corta no puede quedar bloqueada por el navegador al iniciar sesión',
