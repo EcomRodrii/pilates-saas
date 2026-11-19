@@ -267,12 +267,13 @@ function ListaConversaciones({ conversaciones, activa, onElegir, onNueva }: {
 
 function Bienvenida({ nombre, veDinero, estado, saldo, col = false }: { nombre: string | null; veDinero: boolean; estado: EstadoAsistente; saldo: SaldoAsistente | null; col?: boolean }) {
   const sugerencias = sugerenciasPara(veDinero, 4);
+  const tenti = <TentiAsistente momento={estado.momento} tamano={96} />;
   if (col) {
     // La columna: avatar y pregunta centrados arriba, las ideas como filas y el campo abajo (Sidekick).
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-2">
         <div className="flex flex-1 flex-col items-center justify-center pb-4 pt-6 text-center">
-          <TentiAsistente momento={estado.momento} tamano={96} />
+          {tenti}
           <h1 className="mt-3 text-[20px] font-normal leading-tight tracking-[-0.01em] text-foreground text-balance">
             ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
           </h1>
@@ -298,7 +299,7 @@ function Bienvenida({ nombre, veDinero, estado, saldo, col = false }: { nombre: 
           lo que sobraba se cortaba por ARRIBA y no había forma de llegar a ello. */}
       <div className="my-auto w-full max-w-[720px]">
         <div className="flex flex-col items-center text-center">
-          <TentiAsistente momento={estado.momento} tamano={96} />
+          {tenti}
           <h1 className="mt-3 font-heading text-[26px] font-semibold leading-tight tracking-tight text-foreground text-balance sm:text-[30px]">
             ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
           </h1>
