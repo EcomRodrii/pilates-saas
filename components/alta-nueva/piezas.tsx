@@ -7,6 +7,8 @@
 // tokens de la marca: nada de color escrito a mano.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { createContext, useContext } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowLeft, ArrowRight, Check, Loader2 } from 'lucide-react';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
@@ -15,6 +17,14 @@ import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { LINEA_DE_PASOS } from '@/lib/alta/bienvenida-nueva';
 import { cn } from '@/lib/utils';
+
+/**
+ * El «modo foco» (`ONBOARDING_NUEVO`): la cabecera del paso (barras, «Paso 3 de 5», titular) NO vive dentro de la
+ * tarjeta, sino sobre el fondo oscuro. Los pasos siguen pintándola donde siempre (dentro de su JSX), y con el
+ * foco encendido estas piezas la TELEPORTAN al hueco que el marco pone encima de la tarjeta. Sin el hueco
+ * todavía (primer pintado) no pintan nada: nunca aparecen un instante dentro de la tarjeta.
+ */
+export const FocoContext = createContext<{ foco: boolean; hueco: HTMLElement | null }>({ foco: false, hueco: null });
 
 export const CLASE_CAMPO =
   'h-11 w-full rounded-xl border border-input bg-card px-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:text-[15px]';
@@ -28,6 +38,24 @@ export const CLASE_ERROR = 'mt-1 text-[13px] font-medium leading-[18px] text-des
  * dicen. En el móvil quedan los números (los nombres no caben en siete columnas).
  */
 export function LineaDePasos({ actual }: { actual: number }) {
+  const { foco, hueco } = useContext(FocoContext);
+  if (foco) {
+    // Cinco barras: lo hecho en blanco, el paso de ahora con el degradado del logo y lo que queda apagado.
+    return hueco ? createPortal(
+      <div className="ob-barras" role="list" aria-label="Los pasos para abrir tu estudio" data-testid="linea-de-pasos">
+        {LINEA_DE_PASOS.map((p, i) => {
+          const n = i + 1;
+          const estado = n < actual ? 'hecho' : n === actual ? 'ahora' : 'pendiente';
+          return (
+            <span key={p.num} role="listitem" data-estado={estado} className="ob-barra" aria-current={estado === 'ahora' ? 'step' : undefined}>
+              <span className="sr-only">{p.nombre}{estado === 'hecho' ? ', hecho' : estado === 'ahora' ? ', ahora' : ', pendiente'}</span>
+            </span>
+          );
+        })}
+      </div>,
+      hueco,
+    ) : null;
+  }
   const n = LINEA_DE_PASOS.length;
   const progreso = Math.max(0, Math.min(1, (actual - 1) / (n - 1)));
   return (
@@ -74,6 +102,22 @@ export function LineaDePasos({ actual }: { actual: number }) {
   );
 }
 
+/** Las barras de progreso del modo foco para un flujo de `total` pantallas (`actual` desde 1). */
+export function BarrasFoco({ total, actual }: { total: number; actual: number }) {
+  const { foco, hueco } = useContext(FocoContext);
+  if (!foco || !hueco) return null;
+  return createPortal(
+    <div className="ob-barras" role="list" aria-label="Pasos de tu primera clase">
+      {Array.from({ length: total }, (_, i) => {
+        const n = i + 1;
+        const estado = n < actual ? 'hecho' : n === actual ? 'ahora' : 'pendiente';
+        return <span key={n} role="listitem" data-estado={estado} className="ob-barra" aria-current={estado === 'ahora' ? 'step' : undefined} />;
+      })}
+    </div>,
+    hueco,
+  );
+}
+
 /** «Paso 3 de 5 · …», el titular y la frase; a la derecha, «Más tarde» si el paso es opcional. */
 export function CabeceraPaso({ etiqueta, titulo, sub, masTarde, tituloRef }: {
   etiqueta: string;
@@ -82,6 +126,20 @@ export function CabeceraPaso({ etiqueta, titulo, sub, masTarde, tituloRef }: {
   masTarde?: { onClick: () => void; disabled?: boolean };
   tituloRef?: React.Ref<HTMLHeadingElement>;
 }) {
+  const { foco, hueco } = useContext(FocoContext);
+  if (foco) {
+    return hueco ? createPortal(
+      <div className="ob-titulo">
+        <p className="ob-eyebrow" data-testid="etiqueta-paso">{etiqueta}</p>
+        <h1 ref={tituloRef} tabIndex={-1} className="ob-h1">{titulo}</h1>
+        {sub && <p className="ob-sub">{sub}</p>}
+        {masTarde && (
+          <button type="button" onClick={masTarde.onClick} disabled={masTarde.disabled} className="ob-mas-tarde ob-pulsable">Más tarde</button>
+        )}
+      </div>,
+      hueco,
+    ) : null;
+  }
   return (
     <div className="mt-7 flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -112,6 +170,28 @@ export function NavPaso({ onAtras, trabajando, textoSiguiente = 'Siguiente', mas
   textoSiguiente?: string;
   masTarde?: { onClick: () => void };
 }) {
+  const { foco } = useContext(FocoContext);
+  if (foco) {
+    return (
+      <div className="ob-nav">
+        {onAtras && (
+          <button type="button" onClick={onAtras} disabled={trabajando} className="ob-atras ob-pulsable">
+            <ArrowLeft size={16} aria-hidden /> Atrás
+          </button>
+        )}
+        <div className="ob-nav-der">
+          {masTarde && (
+            <button type="button" onClick={masTarde.onClick} disabled={trabajando} className="ob-secundario ob-pulsable">Más tarde</button>
+          )}
+          <button type="submit" disabled={trabajando} className="ob-principal ob-pulsable">
+            {trabajando
+              ? <><Loader2 size={16} className="animate-spin" aria-hidden /> Guardando…</>
+              : <>{textoSiguiente} <ArrowRight size={16} aria-hidden /></>}
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="sticky bottom-0 z-10 -mx-5 mt-8 flex items-center gap-3 border-t border-border bg-background/95 px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:static sm:mx-0 sm:bg-transparent sm:px-0 sm:pb-0 sm:pt-5 sm:backdrop-blur-none">
       {onAtras && (
@@ -163,6 +243,17 @@ export function WhatsAppPersona({ nombreEstudio }: { nombreEstudio: string }) {
         <small className="hidden text-[12px] font-normal leading-[15px] text-muted-foreground sm:block">Te responde una persona</small>
       </span>
     </a>
+  );
+}
+
+/** Lo mismo en texto plano para el pie del modo foco: «¿Dudas? Escríbenos · Te responde una persona». */
+export function WhatsAppTexto({ nombreEstudio }: { nombreEstudio: string }) {
+  const href = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${nombreEstudio || 'mi estudio'} y estoy poniendo en marcha Tentare:`);
+  if (!href) return null;
+  return (
+    <p className="ob-ayuda">
+      ¿Dudas? <a href={href} target="_blank" rel="noreferrer">Escríbenos</a> · Te responde una persona
+    </p>
   );
 }
 
