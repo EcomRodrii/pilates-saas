@@ -36,6 +36,8 @@ import type { PrimerosPasosAltaNueva, TareaAltaConEstado } from '@/lib/guia/prim
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
 import { BOTON_DESTACADO, Baldosa, DEGRADADO_LOGO, fondoTenido } from '@/components/dashboard/vivo';
 import { usePonEnMarcha } from './use-pon-en-marcha';
+import { useOnboardingNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { TarjetasDeArranque } from './tarjetas-de-arranque';
 
 // El diálogo de compartir trae el cartel del QR: solo cuando se abre.
 const CompartirEnlace = dynamic(() => import('./compartir-enlace').then(m => m.CompartirEnlace), { ssr: false });
@@ -243,6 +245,8 @@ export function AyudaPersona({ nombreEstudio, compacta = false }: { nombreEstudi
 export function PonEnMarchaTarjeta() {
   const { studio, updateStudio } = useStudio();
   const { pasos, ocultada, creadoEn, omitir, estado } = usePonEnMarcha();
+  // Tarjetas al estilo Shopify (`ONBOARDING_NUEVO`); apagado, la lista de siempre.
+  const tarjetas = useOnboardingNuevo();
   const [compartirAbierto, setCompartirAbierto] = useState(false);
   const [ocultando, setOcultando] = useState(false);
   const [fallo, setFallo] = useState(false);
@@ -321,11 +325,19 @@ export function PonEnMarchaTarjeta() {
         </div>
         {botonOcultar}
       </div>
-      <div className="mt-4">
-        <ProgresoAlta pasos={pasos} />
-      </div>
-      <ListaTareasAlta pasos={pasos} onCompartir={() => setCompartirAbierto(true)} onOmitir={omitir} />
-      <OpcionalesAlta pasos={pasos} />
+      {tarjetas ? (
+        <div className="mt-5">
+          <TarjetasDeArranque pasos={pasos} onCompartir={() => setCompartirAbierto(true)} onOmitir={omitir} />
+        </div>
+      ) : (
+        <>
+          <div className="mt-4">
+            <ProgresoAlta pasos={pasos} />
+          </div>
+          <ListaTareasAlta pasos={pasos} onCompartir={() => setCompartirAbierto(true)} onOmitir={omitir} />
+          <OpcionalesAlta pasos={pasos} />
+        </>
+      )}
       <p className="mt-2 flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <Play size={13} aria-hidden />
         <button type="button" onClick={verRecorridoOtraVez} className="font-medium text-[color:var(--t-text-link)] hover:underline">
