@@ -3,15 +3,15 @@
 // `LOGIN_NUEVO`, leído SOLO en el servidor (app/login/page.tsx).
 //
 // Abierto a todo el mundo desde el 19-nov-2026 (decisión del fundador). Solo `off` lo apaga (el freno de
-// emergencia: exige un despliegue); `?login=viejo` enseña el de siempre solo con `LOGIN_NUEVO=prueba`.
+// emergencia: exige un despliegue).
 //
 //   off     → el de siempre
-//   prueba  → el de siempre, salvo `/login?login=nuevo`
-//   lo demás (o sin poner, o `on`) → el nuevo
+//   lo demás (sin poner, `on`, `prueba`…) → el nuevo (`?login=viejo` enseña el de siempre, salvo con `on`)
 
 export function loginNuevoVisible(valor: string | undefined, parametro: string | string[] | undefined): boolean {
   const v = (valor ?? '').trim().toLowerCase();
   if (v === 'off') return false;
-  if (v === 'prueba') return (Array.isArray(parametro) ? parametro[0] : parametro) === 'nuevo';
-  return true;
+  // `prueba` era el modo de antes de abrirlo a todos: una variable que se quedó así en Vercel ya no lo esconde.
+  // `?login=viejo` enseña el de siempre solo para comparar (sin variable que lo imponga).
+  return (Array.isArray(parametro) ? parametro[0] : parametro) !== 'viejo' || v === 'on';
 }

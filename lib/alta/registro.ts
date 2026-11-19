@@ -21,25 +21,29 @@ import { normalizarLlegada, type VersionAlta } from './embudo.ts';
 
 /**
  * ¿Qué alta ve esta visita? `ALTA_NUEVA_REGISTRO`, leído SOLO en el servidor
- * (app/crear-estudio/page.tsx):
+ * (app/crear-estudio/page.tsx). Abierta a todo el mundo desde el 19-nov-2026
+ * (decisión del fundador): sin la variable, con `on` o con `prueba` (el modo de
+ * antes, que pudo quedarse puesto en Vercel) se ve el alta nueva ('v2').
  *
- *   on      → todo el mundo ve el alta nueva ('v2').
- *   prueba  → solo `/crear-estudio?alta=nueva` ('v2_prueba': fuera de las
- *             cohortes de serie del embudo); sin el parámetro, la de siempre.
- *   lo demás (o sin poner) → la de siempre, también con `?alta=nueva`.
+ *   off       → el alta de siempre (el freno de emergencia: exige un despliegue).
+ *   parametro → solo `/crear-estudio?alta=nueva` ('v2_prueba': fuera de las cohortes
+ *               de serie del embudo); sin él, la de siempre. Es lo que usa el e2e
+ *               (playwright.config.ts) para probar las dos.
+ *   lo demás (o sin poner) → la nueva, para todos.
  *
- * `null` = el alta de siempre. Mismo criterio que el resto de interruptores de
- * entorno (`=== 'on'` tras quitar espacios, lib/interruptor-por-estudio.ts).
+ * `null` = el alta de siempre.
  */
 export function versionDelAlta(
   valor: string | undefined,
   parametroAlta: string | string[] | undefined,
 ): Extract<VersionAlta, 'v2' | 'v2_prueba'> | null {
-  const v = (valor ?? '').trim();
-  if (v === 'on') return 'v2';
-  if (v !== 'prueba') return null;
-  const alta = Array.isArray(parametroAlta) ? parametroAlta[0] : parametroAlta;
-  return alta === 'nueva' ? 'v2_prueba' : null;
+  const v = (valor ?? '').trim().toLowerCase();
+  if (v === 'off') return null;
+  if (v === 'parametro') {
+    const alta = Array.isArray(parametroAlta) ? parametroAlta[0] : parametroAlta;
+    return alta === 'nueva' ? 'v2_prueba' : null;
+  }
+  return 'v2';
 }
 
 // ── Los tres campos ─────────────────────────────────────────────────────────

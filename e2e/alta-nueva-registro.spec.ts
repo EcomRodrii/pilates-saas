@@ -3,7 +3,7 @@ import { test, expect, type Page, type Route } from '@playwright/test';
 // ─────────────────────────────────────────────────────────────────────────────
 // El alta nueva: registro en una pantalla y el código en el asunto (PR-2,
 // app/crear-estudio/alta-nueva.tsx). El servidor de e2e arranca con
-// ALTA_NUEVA_REGISTRO=prueba (playwright.config.ts): el alta nueva solo sale con
+// ALTA_NUEVA_REGISTRO=parametro (playwright.config.ts): el alta nueva solo sale con
 // `?alta=nueva`, y sin el parámetro tiene que salir la de siempre, idéntica
 // (sus specs, alta-estudio y alta-otp, siguen pasando por ahí).
 //

@@ -272,7 +272,7 @@ export default defineConfig({
       // El alta nueva solo con `/crear-estudio?alta=nueva` (lo lee el SERVIDOR,
       // app/crear-estudio/page.tsx): sin el parámetro, el alta de siempre, que es
       // la que prueban alta-estudio y alta-otp. Lo prueba alta-nueva-registro.
-      ALTA_NUEVA_REGISTRO: process.env.ALTA_NUEVA_REGISTRO ?? 'prueba',
+      ALTA_NUEVA_REGISTRO: process.env.ALTA_NUEVA_REGISTRO ?? 'parametro',
       NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://example.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'dummy-anon-key-for-ci',
       SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy-service-role-key-for-ci',
