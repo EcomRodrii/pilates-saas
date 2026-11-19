@@ -733,6 +733,7 @@ export default function EquipoPage() {
       ) : falloTarjetas ? (
         <EmptyState
           icono={Users}
+          escena="conexion"
           titulo="No hemos podido cargar tu equipo"
           descripcion="Es un problema nuestro, no que te falten instructoras. Vuelve a intentarlo."
           cta={{ label: 'Reintentar', onClick: () => { setCargandoTarjetas(true); recargarTarjetas(); } }}
