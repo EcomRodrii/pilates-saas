@@ -25,8 +25,8 @@
 // están apagados.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useId, useRef, useState } from 'react';
-import { Check, Download, FileSpreadsheet, Repeat, Wand2 } from 'lucide-react';
+import { useContext, useEffect, useId, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, Download, FileSpreadsheet, Repeat, Wand2 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import type { Studio } from '@/lib/types';
 import { serializeCsv } from '@/lib/csv';
@@ -38,7 +38,7 @@ import {
 import { Baldosa } from '@/components/dashboard/vivo';
 import { BOTON_BORDE } from '@/components/dashboard/vivo-seccion';
 import { cn } from '@/lib/utils';
-import { CLASE_CAMPO, CLASE_ETIQUETA, CabeceraPaso, ErrorGuardado, LineaDePasos, NavPaso } from './piezas';
+import { CLASE_CAMPO, CLASE_ETIQUETA, BarrasFoco, CabeceraPaso, ErrorGuardado, FocoContext, LineaDePasos, NavPaso } from './piezas';
 
 function descargarPlantilla(p: PlantillaImportar) {
   const blob = new Blob(['﻿' + serializeCsv(p.cabeceras, p.ejemplo)], { type: 'text/csv;charset=utf-8;' });
@@ -66,6 +66,9 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
+  const { foco } = useContext(FocoContext);
+  // Modo foco: primero de dónde vienen, después cómo las traen.
+  const [sub, setSub] = useState(0);
   const id = useId();
   useEffect(() => { titulo.current?.focus(); }, []);
 
@@ -190,16 +193,32 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
 
   return (
     <form noValidate onSubmit={siguiente} className="mx-auto w-full max-w-[960px]">
-      <LineaDePasos actual={4} />
-      <CabeceraPaso
-        etiqueta="Paso 4 de 5 · opcional · unos 3 minutos"
-        titulo="¿Traes clientes de otro sitio?"
-        sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Clientes."
-        masTarde={{ onClick: () => void seguirIgual(onListo), disabled: ocupado }}
-        tituloRef={titulo}
-      />
+      {foco ? (
+        <>
+          <BarrasFoco total={2} actual={sub + 1} />
+          <CabeceraPaso
+            key={sub}
+            etiqueta={`Traer tus clientes · ${sub + 1} de 2`}
+            titulo={sub === 0 ? '¿Con qué lo llevas ahora?' : '¿Cómo las traes?'}
+            sub={sub === 0 ? 'Si empiezas de cero, elige «Empiezo de cero». Podrás importar cuando quieras desde Clientes.' : 'Elige la forma que te venga mejor. Tu programa anterior puede seguir funcionando mientras tanto.'}
+            masTarde={{ onClick: () => void seguirIgual(onListo), disabled: ocupado }}
+            tituloRef={titulo}
+          />
+        </>
+      ) : (
+        <>
+          <LineaDePasos actual={4} />
+          <CabeceraPaso
+            etiqueta="Paso 4 de 5 · opcional · unos 3 minutos"
+            titulo="¿Traes clientes de otro sitio?"
+            sub="Si empiezas de cero, salta este paso. Podrás importar cuando quieras desde Clientes."
+            masTarde={{ onClick: () => void seguirIgual(onListo), disabled: ocupado }}
+            tituloRef={titulo}
+          />
+        </>
+      )}
 
-      <fieldset className="mt-6 min-w-0">
+      <fieldset hidden={foco && sub === 1} className="mt-6 min-w-0">
         <legend id={`${id}-origen`} className={CLASE_ETIQUETA}>¿Con qué lo llevas ahora?</legend>
         <div role="radiogroup" aria-labelledby={`${id}-origen`} className="mt-2 flex flex-wrap gap-2">
           {ORIGENES.map(o => (
@@ -220,6 +239,7 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
         </div>
       </fieldset>
 
+      <div hidden={foco && sub === 0}>
       {origen === 'cero' ? (
         <div role="status" className="mt-6 flex gap-2.5 rounded-2xl border border-success/30 bg-success/10 px-4 py-3.5">
           <Check size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />
@@ -232,11 +252,32 @@ export function PasoImportar({ studio, onAtras, onListo, onIrA, saliendo }: {
           {ordenDeVias(origen).map(tarjeta)}
         </div>
       )}
+      </div>
 
-      <p className="mt-3.5 text-[13px] leading-[18px] text-muted-foreground">Tu programa anterior puede seguir funcionando mientras tanto.</p>
+      <p hidden={foco} className="mt-3.5 text-[13px] leading-[18px] text-muted-foreground">Tu programa anterior puede seguir funcionando mientras tanto.</p>
 
       <ErrorGuardado mensaje={error} />
-      <NavPaso onAtras={onAtras} trabajando={ocupado} masTarde={{ onClick: () => void seguirIgual(onListo) }} />
+      {foco && sub === 0 ? (
+        <div className="ob-nav">
+          {onAtras && (
+            <button type="button" onClick={onAtras} disabled={ocupado} className="ob-atras ob-pulsable">
+              <ArrowLeft size={16} aria-hidden /> Atrás
+            </button>
+          )}
+          <div className="ob-nav-der">
+            <button
+              type="button"
+              disabled={ocupado}
+              onClick={() => { if (origen === 'cero') void seguirIgual(onListo); else { setError(null); setSub(1); } }}
+              className="ob-principal ob-pulsable"
+            >
+              Siguiente <ArrowRight size={16} aria-hidden />
+            </button>
+          </div>
+        </div>
+      ) : (
+        <NavPaso onAtras={foco ? () => setSub(0) : onAtras} trabajando={ocupado} masTarde={{ onClick: () => void seguirIgual(onListo) }} />
+      )}
     </form>
   );
 }
