@@ -36,7 +36,7 @@ export function ColumnaAsistente() {
       aria-hidden={!abierta}
       inert={!abierta}
       data-columna-asistente
-      className="fixed bottom-1 right-1 top-1 z-20 hidden flex-col overflow-hidden rounded-2xl bg-card shadow-[0_24px_56px_-12px_#0000003d,0_0_0_1px_#00000012] transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] md:flex"
+      className="fixed bottom-1 right-1 top-1 z-[45] hidden flex-col overflow-hidden rounded-2xl bg-card shadow-[0_24px_56px_-12px_#0000003d,0_0_0_1px_#00000012] transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] md:flex"
       style={{
         width: ANCHO_COLUMNA_ASISTENTE - 4,
         transform: abierta ? 'none' : 'translateX(calc(100% + 8px))',

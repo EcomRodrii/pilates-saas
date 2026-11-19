@@ -1988,8 +1988,8 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
    El panel tenía muchas líneas de 10-12,5 px (descripciones, rótulos, filas) que en el admin de Shopify son de
    13 px (cuerpo) y 12 px (detalle y botones). Dentro del contenido: 10-11,5 px → 12 px y 12-12,5 px → 13 px.
    Solo bajo `main`, para no tocar el menú, los avisos ni los diálogos. ─────────────────────────────────── */
-.panel-app[data-shell-nuevo] main :is([class*='text-[10px]'], [class*='text-[10.5px]'], [class*='text-[11px]'], [class*='text-[11.5px]']) { font-size: 12px; }
-.panel-app[data-shell-nuevo] main :is([class*='text-[12px]'], [class*='text-[12.5px]'], .text-xs) { font-size: 13px; }
+.panel-app[data-shell-nuevo] main:not([data-chat-main]) :is([class*='text-[10px]'], [class*='text-[10.5px]'], [class*='text-[11px]'], [class*='text-[11.5px]']) { font-size: 12px; }
+.panel-app[data-shell-nuevo] main:not([data-chat-main]) :is([class*='text-[12px]'], [class*='text-[12.5px]'], .text-xs) { font-size: 13px; }
 
 /* ── Tablet (768–1023 px): el MISMO marco de escritorio ───────────────────────────────────────────────
    Shopify cambia de escritorio a móvil en 48 em = 768 px (medido: `@media (min-width: 48em)` /
@@ -2005,7 +2005,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-movil-superior],
   .panel-app[data-shell-nuevo] [data-movil-inferior],
   .panel-app[data-shell-nuevo] [data-movil-menu] { display: none !important; }
-  .panel-app[data-shell-nuevo] main { padding-left: var(--sidebar-w, 224px); }
+  .panel-app[data-shell-nuevo] main:not([data-chat-main]) { padding-left: var(--sidebar-w, 224px); }
   .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-top: 0.25rem !important; padding-bottom: 1.5rem !important; }
   .panel-app[data-shell-nuevo] [data-compositor-inicio] { display: block; }
   .panel-app[data-shell-nuevo] [data-columna-asistente],
@@ -2081,7 +2081,7 @@ body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; poin
    deslizan con imán, rejillas de dos columnas y espacio para la barra de abajo y la muesca. */
 @media (max-width: 767px) {
   .panel-app[data-shell-nuevo] :is(input, select, textarea):not([type='checkbox'], [type='radio'], [type='range']) { font-size: 16px; }
-  .panel-app[data-shell-nuevo] main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  .panel-app[data-shell-nuevo] main:not([data-chat-main]) { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
   .panel-app[data-shell-nuevo] [role='tab'] { min-height: 40px; }
   .panel-app[data-shell-nuevo] [data-slot='button'] { min-height: 40px; }
   .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) { overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; flex-wrap: nowrap; }

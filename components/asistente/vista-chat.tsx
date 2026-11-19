@@ -114,7 +114,7 @@ export function VistaChat({ studioId, veDinero, nombre, preguntaInicial, flotant
         </aside>
         )}
 
-        <main className="relative flex min-w-0 flex-1 flex-col">
+        <main data-chat-main className="relative flex min-w-0 flex-1 flex-col">
           {!flotante && (
           <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/60 px-1.5 lg:hidden">
             <button type="button" onClick={() => setListaMovil(true)} aria-label="Tus conversaciones" className="inline-flex size-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground">
