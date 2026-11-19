@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KeyboardEventReact, type ReactNode } from 'react';
-import { ArrowUp, Check, Copy, MessagesSquare, RotateCcw, Square, SquarePen } from 'lucide-react';
+import { ArrowUp, Check, Copy, MessagesSquare, RotateCcw, Sparkles, Square, SquarePen } from 'lucide-react';
 import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { TentiAsistente, TentiAsistenteQuieto } from '@/components/tenti/tenti-asistente';
 import { MS_HECHO } from '@/lib/tenti/asistente';
@@ -272,23 +272,25 @@ function Bienvenida({ nombre, veDinero, estado, saldo, col = false }: { nombre: 
     // La columna: avatar y pregunta centrados arriba, las ideas como filas y el campo abajo (Sidekick).
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-3 pb-2">
-        <div className="flex flex-1 flex-col items-center justify-center pb-4 pt-6 text-center">
-          {tenti}
-          <h1 className="mt-3 text-[20px] font-normal leading-tight tracking-[-0.01em] text-foreground text-balance">
-            ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
-          </h1>
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 py-6 text-center">
+          <div className="flex flex-col items-center">
+            {tenti}
+            <h1 className="mt-3 text-[20px] font-normal leading-tight tracking-[-0.01em] text-foreground text-balance">
+              ¿En qué te ayudo hoy{nombre ? `, ${nombre}` : ''}?
+            </h1>
+          </div>
+          {estado.disponibles === 0 && <TarjetaSinConsultas puedeComprar={!!saldo?.puedeComprar} />}
+          <ul className="flex w-full flex-col gap-1" aria-label="Preguntas de ejemplo">
+            {sugerencias.map(s => (
+              <li key={s}>
+                <button type="button" onClick={() => void preguntar(s)} className="flex w-full items-center rounded-full bg-[#f7f7f7] px-4 py-2 text-left text-[13px] text-foreground transition-colors hover:bg-[#ebebeb]">
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
-        {estado.disponibles === 0 && <TarjetaSinConsultas puedeComprar={!!saldo?.puedeComprar} />}
-        <ul className="mb-3 flex flex-col gap-0.5" aria-label="Preguntas de ejemplo">
-          {sugerencias.map(s => (
-            <li key={s}>
-              <button type="button" onClick={() => void preguntar(s)} className="flex w-full items-center rounded-xl px-3 py-2 text-left text-[13px] text-foreground transition-colors hover:bg-[#f7f7f7]">
-                {s}
-              </button>
-            </li>
-          ))}
-        </ul>
-        <Compositor estado={estado} saldo={saldo} />
+        <Compositor estado={estado} saldo={saldo} col />
       </div>
     );
   }
@@ -367,7 +369,7 @@ function Conversacion({ estado, saldo, col = false }: { estado: EstadoAsistente;
       </div>
       <div className={cn('shrink-0 px-3 pt-2 pb-2', col ? 'bg-card' : 'bg-background sm:px-6 sm:pb-3')}>
         <div className="mx-auto w-full max-w-[760px]">
-          <Compositor estado={estado} saldo={saldo} />
+          <Compositor estado={estado} saldo={saldo} col={col} />
         </div>
       </div>
     </>
@@ -466,7 +468,7 @@ function Acciones({ texto }: { texto: string }) {
 
 // ── El campo de escribir ─────────────────────────────────────────────────────
 
-function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; grande?: boolean }) {
+function Compositor({ estado, saldo, grande = false, col = false }: { estado: EstadoAsistente; saldo: SaldoAsistente | null; grande?: boolean; col?: boolean }) {
   const shell = useShellNuevo();
   const [texto, setTexto] = useState('');
   const campo = useRef<HTMLTextAreaElement>(null);
@@ -495,6 +497,41 @@ function Compositor({ estado, saldo, grande = false }: { estado: EstadoAsistente
   const saldoTexto = textoQuedan(estado.disponibles, saldo);
   // Quedan menos del 10 % de la cuota del mes: un aviso discreto en la misma línea.
   const bajo = saldoBajo(estado.disponibles, saldo?.cuota);
+
+  if (col) {
+    // La columna (Sidekick): una tarjeta con el campo arriba y, debajo, la fila de abajo con el distintivo a la
+    // izquierda y el botón a la derecha; el saldo, en una línea pequeña fuera de la tarjeta.
+    return (
+      <form onSubmit={e => { e.preventDefault(); enviar(); }}>
+        <div className="rounded-[20px] bg-card p-3 shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_2px_2px_-1px_#00000005,0_1px_1px_-0.5px_#00000008,0_0.5px_0.5px_0_#0000000a,0_0_0_1px_#0000000f] transition-shadow focus-within:shadow-[0_0_0_1px_#0000004d,0_5px_16px_#0000000f]">
+          <label htmlFor="asistente-pregunta" className="sr-only">Pregunta sobre tu estudio</label>
+          <span className="relative block">
+            <TextoRotatorio visible={texto === ''} />
+            <textarea
+              id="asistente-pregunta" ref={campo} rows={2} value={texto}
+              onChange={e => setTexto(e.target.value)} onKeyDown={onKeyDown} maxLength={500} enterKeyHint="send"
+              placeholder="Pregúntale a Tentare…"
+              className="block max-h-[200px] min-h-[44px] w-full resize-none bg-transparent px-0.5 py-1 text-[13px] leading-5 text-foreground placeholder:text-transparent focus:outline-none"
+            />
+          </span>
+          <div className="mt-1 flex items-center justify-between">
+            <span aria-hidden="true" className="flex size-6 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--t-blue-500)_12%,white)] text-[var(--t-blue-500)]"><Sparkles size={13} /></span>
+            {ocupado ? (
+              <BotonRedondo etiqueta="Parar la respuesta" onClick={parar} ocupado><Square size={11} aria-hidden="true" className="fill-current" /></BotonRedondo>
+            ) : (
+              <BotonRedondo etiqueta="Preguntar" tipo="submit" desactivado={!texto.trim()}><ArrowUp size={15} aria-hidden="true" /></BotonRedondo>
+            )}
+          </div>
+        </div>
+        <p className="px-2 pt-2 text-center text-[11.5px] leading-snug text-muted-foreground" data-testid="asistente-saldo">
+          {saldoTexto}
+          {bajo && (<> · {saldo?.puedeComprar
+            ? <Link href="/suscripcion#consultas" className="font-medium text-foreground underline underline-offset-2" data-testid="saldo-bajo">Comprar más</Link>
+            : <span className="font-medium text-foreground" data-testid="saldo-bajo">Pídele más a la propietaria</span>}</>)}
+        </p>
+      </form>
+    );
+  }
 
   return (
     // Marco a sangre: el campo es una tarjeta de radio 26 sobre una pestaña gris (`#f7f7f7`, radio 26 26 0 0) que
@@ -557,7 +594,7 @@ function BotonRedondo({ etiqueta, onClick, tipo = 'button', desactivado, ocupado
   return (
     <button
       type={tipo} onClick={onClick} aria-label={etiqueta} disabled={desactivado} aria-busy={ocupado || undefined}
-      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-30"
+      className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity disabled:opacity-30 [[data-columna-asistente]_&]:size-8"
     >
       {children}
     </button>
