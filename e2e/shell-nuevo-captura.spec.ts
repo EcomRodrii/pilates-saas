@@ -166,7 +166,7 @@ test('a sangre — Resumen de un estudio nuevo: tarjetas de paso con imagen', as
 
 // ── Revisión de lo que dependía del hueco del menú y del móvil ───────────────────────────────
 
-test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y sin desbordes', async ({ page }) => {
+test('a sangre — móvil (390): marco oscuro, lienzo blanco, barra flotante y sin desbordes', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 390, height: 844 });
   await ir(page, 'dashboard');
@@ -174,13 +174,14 @@ test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y 
   await page.waitForTimeout(1200);
   const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
   expect(ancho.doc, 'ni una barra de scroll horizontal').toBeLessThanOrEqual(ancho.ventana + 1);
-  await expect(page.locator('[data-movil-menu]'), 'el botón redondo del menú').toBeVisible({ timeout: 120_000 });
-  await expect(page.locator('[data-movil-inferior]'), 'sin barra de abajo').toBeHidden();
+  // El botón redondo del menú ya no existe: el menú es el último botón de la barra flotante de abajo (móvil como una app).
+  await expect(page.locator('[data-movil-inferior]'), 'la barra flotante de abajo').toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('[data-movil-menu]'), 'sin el botón redondo de antes').toBeHidden();
   await expect(page.locator('[data-movil-superior]'), 'sin barra de arriba').toBeHidden();
   await expect(page.locator('[data-pildora-asistente]')).toBeHidden();
   await page.screenshot({ path: 'test-results/shell-sangre-movil.png' });
-  await page.locator('[data-movil-menu]').click();
-  await expect(page.getByText('Menú', { exact: true }).first()).toBeVisible();
+  await page.locator('[data-movil-inferior]').getByRole('button').last().click();
+  await expect(page.locator('[data-movil-lista]')).toBeVisible();
   await page.screenshot({ path: 'test-results/shell-sangre-movil-menu.png' });
 });
 
