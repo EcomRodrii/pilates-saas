@@ -1,5 +1,6 @@
 'use client';
 
+import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import type { MostrarToast } from '@/components/ui/toast';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -575,11 +576,12 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
         </button>
       </div>
 
+      {activos.length === 0 && <AyudaDelPaso paso="tipos" />}
       {activos.length === 0 && (
         <div data-tour="tipos-clase-lista" className={cn(cardCls, 'p-10 text-center text-[13px] text-muted-foreground')}>
           {archivados.length > 0
             ? 'Todos tus tipos de clase están archivados. Recupera uno de abajo o crea uno nuevo para volver a programar clases.'
-            : 'Aún no tienes tipos de clase. Créalos aquí (Reformer, Suelo, Embarazadas…) y luego los programarás en la agenda.'}
+            : 'Crea aquí tu primer tipo de clase (Reformer, Suelo, Embarazadas…) y luego lo programarás en la agenda.'}
         </div>
       )}
 

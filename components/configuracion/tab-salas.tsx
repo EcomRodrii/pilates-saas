@@ -1,5 +1,6 @@
 'use client';
 
+import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import { useCallback, useEffect, useState } from 'react';
 import { ColorInput, ColorSwatch, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -229,6 +230,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
         </button>
       </div>
 
+      {salas.length === 0 && <AyudaDelPaso paso="salas" />}
       <div className={cn(cardCls, 'p-0 overflow-hidden')}>
         {salas.length === 0 ? (
           // Antes: «No hay salas creadas. Haz clic en "Nueva sala" para
@@ -238,7 +240,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
           // programar nada.
           <EmptyState escena="sinDatos"
             icono={DoorOpen}
-            titulo="Todavía no tienes salas"
+            titulo="Crea tu primera sala"
             descripcion="El aforo de cada sala es el límite de plazas de las clases que se den en ella. Sin al menos una, no puedes programar clases."
             cta={{ label: 'Crear mi primera sala', onClick: openNueva, icono: Plus }}
           />
