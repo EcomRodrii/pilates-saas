@@ -20,7 +20,7 @@ export function AyudaDelPaso({ paso }: { paso: IdPaso }) {
     <aside data-testid="ayuda-del-paso" data-paso={paso} className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-t-card">
       <Baldosa tono={TONO_PASO[p.icono]} Icono={ICONOS_PASO[p.icono]} tamano="sm" />
       <div className="min-w-0 flex-1">
-        <p className="font-t-mono text-[11.5px] uppercase tracking-[0.06em] text-muted-foreground">Paso {p.numero} de {ruta?.total} · {p.titulo}</p>
+        <p className="font-t-mono text-[11.5px] uppercase tracking-[0.06em] text-muted-foreground">Paso {p.numero} de {ruta?.pasos.length} · {p.titulo}</p>
         <p className="mt-1 text-[14px] leading-[20px] text-foreground text-pretty">{p.que}</p>
         <p className="mt-1 text-[13px] leading-[19px] text-muted-foreground text-pretty">{p.porque}</p>
         <Link href={hrefPaso(p.id)} className="zona-tactil mt-2 inline-flex min-h-10 items-center gap-1 text-[13.5px] font-semibold text-[color:var(--t-text-link)] hover:underline">
