@@ -166,7 +166,7 @@ test('a sangre — Resumen de un estudio nuevo: tarjetas de paso con imagen', as
 
 // ── Revisión de lo que dependía del hueco del menú y del móvil ───────────────────────────────
 
-test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y sin desbordes', async ({ page }) => {
+test('a sangre — móvil (390): marco oscuro, lienzo blanco, barra flotante y sin desbordes', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 390, height: 844 });
   await ir(page, 'dashboard');
@@ -174,13 +174,13 @@ test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y 
   await page.waitForTimeout(1200);
   const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
   expect(ancho.doc, 'ni una barra de scroll horizontal').toBeLessThanOrEqual(ancho.ventana + 1);
-  await expect(page.locator('[data-movil-menu]'), 'el botón redondo del menú').toBeVisible({ timeout: 120_000 });
-  await expect(page.locator('[data-movil-inferior]'), 'sin barra de abajo').toBeHidden();
+  await expect(page.locator('[data-movil-pildora]'), 'la píldora de la barra').toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('[data-movil-inferior]'), 'sin la barra de abajo de siempre').toBeHidden();
   await expect(page.locator('[data-movil-superior]'), 'sin barra de arriba').toBeHidden();
   await expect(page.locator('[data-pildora-asistente]')).toBeHidden();
   await page.screenshot({ path: 'test-results/shell-sangre-movil.png' });
-  await page.locator('[data-movil-menu]').click();
-  await expect(page.getByText('Menú', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir el menú' }).click();
+  await expect(page.locator('[data-movil-lista]')).toBeVisible();
   await page.screenshot({ path: 'test-results/shell-sangre-movil-menu.png' });
 });
 
@@ -286,10 +286,8 @@ test('a sangre — Mensajería: las cuatro tarjetas y el cajón de notificacione
   await page.setViewportSize({ width: 1440, height: 900 });
   await ir(page, 'mensajeria');
   await listo(page);
-  const tabs = page.getByRole('tab');
-  await expect(tabs.first()).toBeVisible({ timeout: 120_000 });
-  const alto = (await tabs.first().boundingBox())?.height ?? 0;
-  expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
+  // Las vistas viven en el menú (#2940): ya no hay pestañas en la pantalla; basta con que cargue su título.
+  await expect(page.getByRole('heading', { name: 'Mensajería' }).first()).toBeVisible({ timeout: 120_000 });
   await page.screenshot({ path: 'test-results/shell-sangre-mensajeria.png' });
   await page.getByRole('button', { name: /notificaciones/i }).first().click().catch(() => {});
   await page.waitForTimeout(600);
@@ -383,4 +381,65 @@ test('a sangre — calendario: sin tarjeta exterior, columnas iguales y atajos �
   await page.keyboard.press('t');
   await expect.poll(async () => (await cab.innerText()).replace(/\s+/g, ' '), { timeout: 20_000, message: 'T vuelve a hoy' }).toBe(antes);
   await page.screenshot({ path: 'test-results/shell-calendario-fase1.png' });
+});
+
+test('a sangre — las vistas viven en el menú: la pantalla no repite sus pestañas', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'productos');
+  await listo(page);
+  await expect(page.locator('[data-acordeon="/productos"] [data-sublista]')).toHaveAttribute('data-abierta', '', { timeout: 120_000 });
+  await expect(page.locator('[data-vistas-en-menu]'), 'las pestañas de arriba no se ven').toBeHidden();
+  await page.screenshot({ path: 'test-results/shell-vistas-en-menu.png' });
+});
+
+test('a sangre — Resumen limpio (página entera)', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'dashboard');
+  await listo(page);
+  await expect(page.locator('[data-resumen-limpio]')).toBeVisible({ timeout: 120_000 });
+  await page.waitForTimeout(1200);
+  for (const [i, y] of [0, 800, 1600].entries()) {
+    await page.evaluate((yy) => window.scrollTo(0, yy), y);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `test-results/shell-resumen-limpio-${i}.png` });
+  }
+});
+
+test('a sangre — móvil como app: barra flotante y menú a pantalla completa con acordeón', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 402, height: 874 });
+  // Prueba gratuita con 3 días: sale la píldora negra sobre la barra.
+  await page.route('**/api/billing/status**', (r) => r.fulfill({
+    status: 200, contentType: 'application/json',
+    body: JSON.stringify({ plan: 'BASE', subscriptionStatus: 'trialing', activo: true, configurado: true, esPropietaria: true, bloqueado: false, enPrueba: true, trial: { fase: 'AVISO', diasRestantes: 3, finaliza: '2026-11-23T10:00:00+00:00' } }),
+  }));
+  await ir(page, 'dashboard');
+  await listo(page);
+  await expect(page.locator('[data-movil-prueba]')).toBeVisible({ timeout: 30_000 });
+  const barra = page.locator('[data-movil-barra] nav');
+  await expect(barra).toBeVisible({ timeout: 120_000 });
+  const pildora = await page.locator('[data-movil-pildora]').boundingBox();
+  expect(pildora?.height, 'la píldora mide 56').toBe(56);
+  expect((pildora?.y ?? 0) + (pildora?.height ?? 0), 'y flota sobre el borde de abajo').toBeLessThan(874 - 16);
+  await expect(page.locator('[data-movil-cabecera]')).toBeVisible();
+  await page.screenshot({ path: 'test-results/shell-movil-app-inicio.png' });
+  await barra.getByRole('button', { name: 'Abrir el menú' }).click();
+  await expect(page.locator('[data-movil-lista]')).toBeVisible();
+  await page.getByRole('button', { name: /^Paquetes/ }).click();
+  await expect(page.getByRole('link', { name: 'Tarjeta regalo' }).or(page.getByRole('link', { name: 'Tarifas' })).first()).toBeVisible();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'test-results/shell-movil-app-menu.png' });
+});
+
+test('a sangre — móvil como app: pantallas de lista y configuración', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 402, height: 874 });
+  for (const ruta of ['clientas', 'productos', 'mensajeria', 'configuracion']) {
+    await ir(page, ruta);
+    await listo(page);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `test-results/shell-movil-${ruta}.png` });
+  }
 });

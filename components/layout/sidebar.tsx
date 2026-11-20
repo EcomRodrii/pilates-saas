@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell,
+  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell, Plus, Settings, HelpCircle,
 } from 'lucide-react';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,8 @@ import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
+import { EVENTO_ABRIR_AYUDA } from '@/lib/ayuda/panel-ayuda';
+import { BarraInferiorMovil } from '@/components/layout/movil-app';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { NavItemConHijos } from './nav-item-con-hijos';
 import { SubListaMenu } from './nav-sublista';
@@ -342,11 +344,17 @@ function BottomNavItem({ href, label, Icon, contador, contadorEtiqueta }: { href
 
 // ─── Mobile: "Más" full-screen drawer ────────────────────────────────────────
 
-function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sections }: {
+function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sections, rol, puedeVer }: {
   open: boolean; onClose: () => void; userInitials: string; userEmail: string; handleSignOut: () => void;
   sections: typeof navSections;
+  rol: Parameters<typeof submenuDe>[1];
+  puedeVer: (ruta: string) => boolean;
 }) {
   const pathname = usePathname();
+  const shell = useShellNuevo();
+  // Marco a sangre en móvil: el menú como en la app de Shopify — pantalla completa, filas grandes, un acordeón por módulo y los tres
+  // botones flotantes de abajo (ajustes, la acción principal y cerrar). Solo un módulo abierto a la vez.
+  const [abiertoMovil, setAbiertoMovil] = useState<string | null>(null);
   const conNovedad = useMenuNovedades();
   const sinLeerMensajes = useMensajesSinLeerStaff(open);
 
@@ -374,7 +382,7 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
       onAnimationEnd={() => { if (cerrando) setRendered(false); }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-12 pb-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      <div className={cn('flex items-center justify-between px-5 pt-12 pb-4 border-b', shell && 'hidden')} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <span className="text-white font-semibold text-[16px]">Menú</span>
         <button
           onClick={onClose}
@@ -389,12 +397,12 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
       {/* En móvil no hay sidebar ni topbar, así que este menú es el único sitio
           donde cabe la sede activa. Quien opera desde el móvil suele ser
           recepción: es justo quien no debe cobrar en el centro equivocado. */}
-      <div className="px-4 pt-3">
+      <div className={cn('px-4 pt-3', shell && 'pt-[calc(env(safe-area-inset-top,0px)+12px)]')}>
         <SedeActiva variante="sidebar" />
       </div>
 
       {/* All sections */}
-      <nav className="flex-1 overflow-y-auto px-4 py-3">
+      <nav data-movil-lista className={cn('flex-1 overflow-y-auto px-4 py-3', shell && 'px-2 pb-36')}>
         {sections.map((section, si) => (
           <div key={si} className="mb-2">
             {section.label && (
@@ -404,6 +412,35 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
             )}
             {section.items.map(item => {
               const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              const sub = shell ? submenuDe(item.href, rol, puedeVer) : [];
+              if (shell && sub.length > 1) {
+                const abierto = abiertoMovil === item.href;
+                return (
+                  <div key={item.href} className="mb-1">
+                    <button
+                      type="button"
+                      onClick={() => setAbiertoMovil(a => (a === item.href ? null : item.href))}
+                      aria-expanded={abierto}
+                      className={cn('flex h-12 w-full items-center gap-5 rounded-full px-4 text-left text-[18px] font-medium text-white transition-colors active:bg-white/[0.08]', abierto && 'bg-[#1d1d1d]')}
+                    >
+                      <item.icon size={22} strokeWidth={abierto || active ? 2.2 : 1.6} className={cn('shrink-0', abierto || active ? 'text-white' : 'text-white/60')} aria-hidden="true" />
+                      <span className="flex-1 truncate">{item.label}</span>
+                      <ChevronDown size={22} aria-hidden="true" className={cn('shrink-0 text-white/70 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto && 'rotate-180')} />
+                    </button>
+                    <div className={cn('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')} inert={!abierto}>
+                      <ul className="min-h-0 overflow-hidden">
+                        {sub.map(f => (
+                          <li key={f.href}>
+                            <Link href={f.href} onClick={() => onClose()} className="flex h-12 items-center pl-[58px] pr-4 text-[18px] font-normal text-white active:text-white/70">
+                              {f.label}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                );
+              }
               // Con desplegable: el nombre como rótulo y sus páginas debajo, sin un toque extra para abrirlo.
               if (item.hijos) {
                 return (
@@ -437,11 +474,13 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                   transitionTypes={TRANSICION_SECCION}
                   onClick={e => { onClose(); alPulsarEnlaceAConfiguracion(e, item.href); }}
                   className={cn(
-                    'flex items-center gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium transition-all mb-1',
-                    active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'
+                    'flex items-center transition-all mb-1',
+                    shell
+                      ? cn('h-12 gap-5 rounded-full px-4 text-[18px] font-medium text-white active:bg-white/[0.08]', active && 'bg-[#1d1d1d]')
+                      : cn('gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium', active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'),
                   )}
                 >
-                  <item.icon size={18} strokeWidth={active ? 2.5 : 2} />
+                  <item.icon size={shell ? 22 : 18} strokeWidth={shell ? (active ? 2.2 : 1.6) : active ? 2.5 : 2} className={shell ? cn('shrink-0', active ? 'text-white' : 'text-white/60') : undefined} />
                   {item.label}
                   {item.href === '/mensajeria' && sinLeerMensajes > 0
                     ? <BadgeContador n={sinLeerMensajes} />
@@ -451,10 +490,31 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
             })}
           </div>
         ))}
+        {shell && (
+          <button type="button" onClick={() => { onClose(); window.dispatchEvent(new Event(EVENTO_ABRIR_AYUDA)); }} className="mb-1 flex h-12 w-full items-center gap-5 rounded-full px-4 text-left text-[18px] font-medium text-white active:bg-white/[0.08]">
+            <HelpCircle size={22} strokeWidth={1.6} className="shrink-0 text-white/60" aria-hidden="true" /> Ayuda
+          </button>
+        )}
       </nav>
 
+      {shell && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-[max(22px,calc(env(safe-area-inset-bottom,0px)-6px))] z-10 flex items-center justify-center gap-2 px-4">
+          <Link href="/configuracion" onClick={() => onClose()} aria-label="Configuración" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+            <Settings size={22} aria-hidden="true" />
+          </Link>
+          {puedeVer('/calendario') && (
+            <Link href="/calendario?nueva=1" onClick={() => onClose()} className="pointer-events-auto flex h-14 items-center gap-3 rounded-full bg-[#12141b] pl-4 pr-7 text-[18px] font-medium text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#2a3040] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+              <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-white text-black"><Plus size={16} strokeWidth={2.6} /></span> Crear clase
+            </Link>
+          )}
+          <button type="button" onClick={onClose} aria-label="Cerrar el menú" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+            <X size={22} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+
       {/* User */}
-      <div className="px-4 pb-8 pt-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+      <div className={cn('px-4 pb-8 pt-3 border-t', shell && 'hidden')} style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold text-white shrink-0" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
             {userInitials}
@@ -597,6 +657,14 @@ export function Sidebar() {
   // A sangre solo en columna: con el menú arriba no hay borde izquierdo al que pegarlo.
   const sangre = shellNuevo && !horizontal;
   const pathnameMenu = usePathname();
+  // El menú desplegable (columna ancha, a sangre) lleva las vistas de cada módulo: mientras se enseña, las pantallas ocultan sus
+  // pestañas propias (`data-vistas-en-menu`), que serían lo mismo dos veces. Con el menú contraído o arriba, vuelven.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const lleva = sangre && !collapsed;
+    raiz.toggleAttribute('data-menu-con-vistas', lleva);
+    return () => raiz.removeAttribute('data-menu-con-vistas');
+  }, [sangre, collapsed]);
   const enConfiguracion = sangre && (pathnameMenu ?? '').startsWith('/configuracion');
   useEffect(() => {
     let vivo = true;
@@ -839,7 +907,15 @@ export function Sidebar() {
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
-      <nav
+      {shellNuevo ? (
+        <BarraInferiorMovil
+          items={bottomNavVisibles.filter(i => i.href !== '/cobros')}
+          menuAbierto={masOpen}
+          onMenu={() => setMasOpen(o => !o)}
+          porDecidir={porDecidir}
+        />
+      ) : (
+        <nav
         data-tour="menu-principal"
         data-movil-inferior
         className="lg:hidden fixed bottom-0 z-30 flex items-center justify-around px-2 border-t"
@@ -863,23 +939,11 @@ export function Sidebar() {
           <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
         </button>
       </nav>
-
-      {/* Marco a sangre en móvil y tablet: sin barras; el menú es un botón redondo abajo a la izquierda (como el de Shopify)
-          y el asistente/ayuda es el de abajo a la derecha. Las barras de arriba y de abajo se esconden por CSS. */}
-      {shellNuevo && (
-        <button
-          type="button"
-          data-movil-menu
-          onClick={() => setMasOpen(true)}
-          aria-label="Abrir el menú"
-          className="fixed bottom-4 left-4 z-40 hidden size-12 items-center justify-center rounded-full bg-[#1b1b1b] text-white shadow-[0_8px_24px_-8px_#00000066,0_0_0_1px_#ffffff1a]"
-        >
-          <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
-        </button>
       )}
 
+
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
-      <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} />
+      <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} rol={rol} puedeVer={puedeVer} />
 
       {/* ── Desktop logo ───────────────────────────────────────────────────
           Con el menú a la izquierda va FUERA de la píldora, encima. Con el

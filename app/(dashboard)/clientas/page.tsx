@@ -1463,7 +1463,7 @@ export default function Socios() {
           pestanas={[{ id: 'clientas', label: 'Clientes', n: conteos?.TOTAL }, { id: 'interesadas', label: 'Interesadas y pruebas', n: nInteresadas }]}
         />
       ) : (
-      <div data-tour="clientas-interesadas" role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
+      <div data-tour="clientas-interesadas" data-vistas-en-menu role="tablist" aria-label="Vista" className="flex gap-1 border-b border-border">
         {([['clientas', 'Clientes', conteos?.TOTAL], ['interesadas', 'Interesadas y pruebas', nInteresadas]] as const).map(([id, nombre, n]) => (
           <button
             key={id}

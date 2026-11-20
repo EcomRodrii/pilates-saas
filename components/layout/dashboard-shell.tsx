@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { AvisoCambioDeSede } from '@/components/layout/sede-activa';
+import { CabeceraInicioMovil } from '@/components/layout/movil-app';
 import { PuertaAppInstructora } from '@/components/layout/puerta-app-instructora';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
@@ -111,8 +112,10 @@ function ReviewBoostSiToca(props: ComponentProps<typeof ReviewBoostModal>) {
  */
 function LienzoDelPanel({ shellNuevo, children }: { shellNuevo: boolean; children: React.ReactNode }) {
   const { abierta } = useColumnaAsistente();
+  const enInicio = usePathname() === '/dashboard';
   return (
     <div
+      data-movil-hoja={shellNuevo ? (enInicio ? 'inicio' : 'pantalla') : undefined}
       data-columna-abierta={shellNuevo && abierta ? '' : undefined}
       className={cn(
         // Móvil y tablet incluidos: lienzo blanco redondeado a 4 px del marco oscuro (en escritorio, además, cede el hueco al asistente).
@@ -536,6 +539,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <VentanaCalendario />
           <ControlAmpliado />
           <main className={cn('lg:pl-[var(--sidebar-w)] min-h-dvh transition-[padding] duration-200', shellNuevo && 'py-1')}>
+            {shellNuevo && <CabeceraInicioMovil />}
             <LienzoDelPanel shellNuevo={shellNuevo}>
             {/* ⚠️ El hueco de arriba lo pone el MENÚ en `--panel-top`, no este
                 armazón: aquí no se pide el layout (este proveedor envuelve
