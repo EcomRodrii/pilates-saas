@@ -1715,6 +1715,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 .shell-brillo-haz {
   position: absolute; left: -25px; bottom: -60px; width: 385px; height: 260px; opacity: 0;
   filter: blur(18px);
+  will-change: transform, opacity;
   animation: shell-brillo-ola 17.5s linear infinite;
 }
 .shell-brillo-haz-azul { background: linear-gradient(90deg, rgba(76, 156, 176, 0) 0%, rgba(76, 156, 176, 0.24) 14%, rgba(76, 156, 176, 0.42) 38%, rgba(76, 156, 176, 0.4) 62%, rgba(76, 156, 176, 0.18) 86%, rgba(76, 156, 176, 0) 100%); }
@@ -1988,8 +1989,8 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
    El panel tenía muchas líneas de 10-12,5 px (descripciones, rótulos, filas) que en el admin de Shopify son de
    13 px (cuerpo) y 12 px (detalle y botones). Dentro del contenido: 10-11,5 px → 12 px y 12-12,5 px → 13 px.
    Solo bajo `main`, para no tocar el menú, los avisos ni los diálogos. ─────────────────────────────────── */
-.panel-app[data-shell-nuevo] main:not([data-chat-main]) :is([class*='text-[10px]'], [class*='text-[10.5px]'], [class*='text-[11px]'], [class*='text-[11.5px]']) { font-size: 12px; }
-.panel-app[data-shell-nuevo] main:not([data-chat-main]) :is([class*='text-[12px]'], [class*='text-[12.5px]'], .text-xs) { font-size: 13px; }
+.panel-app[data-shell-nuevo] main:not([data-chat-main]) :is(.text-\[10px\], .text-\[10\.5px\], .text-\[11px\], .text-\[11\.5px\]) { font-size: 12px; }
+.panel-app[data-shell-nuevo] main:not([data-chat-main]) :is(.text-\[12px\], .text-\[12\.5px\], .text-xs) { font-size: 13px; }
 
 /* ── Tablet (768–1023 px): el MISMO marco de escritorio ───────────────────────────────────────────────
    Shopify cambia de escritorio a móvil en 48 em = 768 px (medido: `@media (min-width: 48em)` /
@@ -2047,35 +2048,28 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
    hueco bajo la barra pegada; y los toques no esperan 300 ms ni hacen zoom con doble toque. */
 .panel-app[data-shell-nuevo] { scroll-padding-top: 4.5rem; }
 .panel-app[data-shell-nuevo] :is(aside, [role='dialog'], [data-panel-menu], [data-slot='dialog-content'], [data-slot='sheet-content'], [data-columna-asistente]) { overscroll-behavior: contain; }
-.panel-app[data-shell-nuevo] [class*='overflow-x-auto'] { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+.panel-app[data-shell-nuevo] .overflow-x-auto { overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
 .panel-app[data-shell-nuevo] :is(button, a, summary, label, [role='button'], [role='tab'], input, select, textarea) { touch-action: manipulation; }
 /* Lo que queda fuera de pantalla no se pinta hasta que se acerca: respuestas del chat y avisos largos. */
 .panel-app[data-shell-nuevo] [data-turno] { content-visibility: auto; contain-intrinsic-size: auto 140px; }
 
 /* Movimiento. Una sola curva (la de Shopify) para entrar, salir y reaccionar al dedo. */
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .panel-app[data-shell-nuevo] :is(a, button)[data-slot='card'], .panel-app[data-shell-nuevo] a:has(> [data-slot='card']) {
+  .panel-app[data-shell-nuevo] :is(a, button)[data-slot='card'] {
     transition: transform 0.2s cubic-bezier(0.2, 0.8, 0, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0, 1);
   }
-  .panel-app[data-shell-nuevo] :is(a, button)[data-slot='card']:hover, .panel-app[data-shell-nuevo] a:has(> [data-slot='card']):hover {
+  .panel-app[data-shell-nuevo] :is(a, button)[data-slot='card']:hover {
     transform: translateY(-1px); box-shadow: 0 0 2px #0000003d, 0 6px 20px #0000000f, 0 12px 40px #0000000a;
   }
 }
 @media (prefers-reduced-motion: no-preference) {
   .panel-app[data-shell-nuevo] :is(a, button, [role='tab'], [role='menuitem'], summary):not(:disabled) { transition-property: background-color, color, box-shadow, transform, opacity; transition-duration: 0.15s; transition-timing-function: cubic-bezier(0.2, 0.8, 0, 1); }
-  .panel-app[data-shell-nuevo] :is(button, [role='tab'], a[class*='rounded']):not(:disabled):active { transform: scale(0.97); }
+  .panel-app[data-shell-nuevo] :is(button, [role='tab']):not(:disabled):active { transform: scale(0.97); }
   .panel-app[data-shell-nuevo] :is(tbody tr, [role='row']) { transition: background-color 0.12s ease; }
-  /* Las listas largas no entran todas a la vez: solo las primeras, con un escalón corto. */
-  .panel-app[data-shell-nuevo] main ul > li:nth-child(-n + 6) { animation: shell-contenido-entra 0.28s cubic-bezier(0.2, 0.8, 0, 1) backwards; }
-  .panel-app[data-shell-nuevo] main ul > li:nth-child(2) { animation-delay: 30ms; }
-  .panel-app[data-shell-nuevo] main ul > li:nth-child(3) { animation-delay: 60ms; }
-  .panel-app[data-shell-nuevo] main ul > li:nth-child(4) { animation-delay: 90ms; }
-  .panel-app[data-shell-nuevo] main ul > li:nth-child(5) { animation-delay: 120ms; }
-  .panel-app[data-shell-nuevo] main ul > li:nth-child(6) { animation-delay: 150ms; }
 }
 .panel-app[data-shell-nuevo] :is(a, button, [role='tab'], summary):focus-visible { outline: 2px solid oklch(62.89% 0.2036 263.44); outline-offset: 2px; }
 /* Con la columna del asistente abierta, el botón de ayuda se aparta: caía encima de su campo. */
-body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; pointer-events: none; transform: scale(0.9); transition: opacity 0.2s ease, transform 0.2s ease; }
+:root[data-columna-asistente-abierta] .panel-wa-fab { opacity: 0; pointer-events: none; transform: scale(0.9); transition: opacity 0.2s ease, transform 0.2s ease; }
 
 /* Pantallas pequeñas (< 768 px). Campos a 16 px (iOS no hace zoom al enfocarlos), dedos de 44 px, pestañas que se
    deslizan con imán, rejillas de dos columnas y espacio para la barra de abajo y la muesca. */
@@ -2094,47 +2088,76 @@ body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; poin
 }
 
 /* El marco vivo (19-nov-2026). En Shopify la página se desplaza DENTRO de un panel redondeado: las esquinas de abajo se ven
-   siempre. Aquí el scroll es el del documento, así que el marco negro es un panel fijo y transparente con esquinas de
-   16 px cuya sombra gigante pinta de negro todo lo de fuera: el contenido pasa por debajo, y el lienzo y la columna del
-   asistente se ven como dos paneles redondeados con 4 px de marco entre ellos. No recibe toques. */
+   siempre. Aquí el scroll es el del documento, así que el marco negro es un panel fijo y transparente que dibuja SOLO el marco:
+   cuatro tiras de 4 px y cuatro esquinas de 16 px (fondos en degradado radial), sin tocar lo de dentro. El contenido pasa por
+   debajo, y el lienzo y la columna del asistente se ven como dos paneles redondeados con 4 px de marco entre ellos.
+   Rendimiento (20-nov-2026): la primera versión era una sombra de 100vmax, una capa de ~4.300 × 3.400 px que se repintaba entera
+   al abrir la columna y pesaba en cada fotograma del scroll. Esta es del tamaño de la ventana y casi toda transparente.
+   `--marco-der` es el ancho de la tira de la derecha: 4 px, o lo que ocupa la columna del asistente cuando está abierta. No recibe toques. */
+@property --marco-der { syntax: '<length>'; inherits: false; initial-value: 4px; }
 .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; }
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-marco-vivo] {
-    display: block; position: fixed; z-index: 25; pointer-events: none;
-    top: 4px; bottom: 4px; left: var(--sidebar-w, 224px); right: 4px; border-radius: 16px;
-    box-shadow: 0 0 0 100vmax #0a0a0a;
-    /* Sin sombra a la izquierda: ahí está el menú y su resplandor. */
-    clip-path: inset(-100vmax -100vmax -100vmax 0);
-    transition: right 0.3s cubic-bezier(0.2, 0.8, 0, 1);
+    --marco-negro: #0a0a0a;
+    display: block; position: fixed; z-index: 25; pointer-events: none; contain: strict;
+    top: 0; bottom: 0; right: 0; left: var(--sidebar-w, 224px);
+    background-repeat: no-repeat;
+    background-image:
+      linear-gradient(var(--marco-negro), var(--marco-negro)),
+      linear-gradient(var(--marco-negro), var(--marco-negro)),
+      linear-gradient(var(--marco-negro), var(--marco-negro)),
+      radial-gradient(circle at 16px 16px, transparent 15.5px, var(--marco-negro) 16px),
+      radial-gradient(circle at 16px 0, transparent 15.5px, var(--marco-negro) 16px),
+      radial-gradient(circle at 0 16px, transparent 15.5px, var(--marco-negro) 16px),
+      radial-gradient(circle at 0 0, transparent 15.5px, var(--marco-negro) 16px);
+    background-size: 100% 4px, 100% 4px, var(--marco-der) 100%, 16px 16px, 16px 16px, 16px 16px, 16px 16px;
+    background-position:
+      left top, left bottom, right top,
+      left 0 top 4px, left 0 bottom 4px, right var(--marco-der) top 4px, right var(--marco-der) bottom 4px;
+    transition: --marco-der 0.3s cubic-bezier(0.2, 0.8, 0, 1);
   }
 }
 @media (min-width: 1024px) {
-  body:has([data-columna-asistente]:not([inert])) .panel-app[data-shell-nuevo] [data-marco-vivo] { right: 360px; }
+  :root[data-columna-asistente-abierta] .panel-app[data-shell-nuevo] [data-marco-vivo] { --marco-der: 360px; }
 }
+@media (prefers-reduced-motion: reduce) { .panel-app[data-shell-nuevo] [data-marco-vivo] { transition: none; } }
 @media print { .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; } }
 
 /* El resplandor del menú sigue por debajo del lienzo: por la franja de 4 px del marco y por la esquina redondeada de abajo a la
-   izquierda, desvaneciéndose hacia la derecha, como en Shopify. Es EL MISMO resplandor del menú (la base y las dos ondas, con
-   su animación), no una copia aproximada: así el tono y el contraste son continuos. Va sobre el marco negro, y la máscara deja
-   solo lo que queda FUERA del panel (la franja y el hueco de la esquina), así que no tapa el contenido. */
+   izquierda, desvaneciéndose hacia la derecha, como en Shopify. Estático y de 20 px de alto (la versión anterior clonaba el
+   resplandor ANIMADO y desenfocado del menú a 400 px de alto, que se repintaba sin parar). La máscara deja solo lo que queda
+   FUERA del panel (la franja y el hueco de la esquina), así que no tapa el contenido. */
 .panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; }
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-marco-brillo] {
-    display: block; position: fixed; z-index: 26; pointer-events: none; overflow: hidden;
-    left: 0; bottom: 0; width: calc(var(--sidebar-w, 224px) + 560px); height: 400px;
-    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(90deg, transparent var(--sidebar-w, 224px), #000 var(--sidebar-w, 224px), transparent 100%);
+    display: block; position: fixed; z-index: 26; pointer-events: none; contain: strict;
+    left: var(--sidebar-w, 224px); bottom: 0; width: 560px; height: 20px;
+    background: linear-gradient(90deg, rgba(76, 156, 176, 0.66) 0%, rgba(76, 156, 176, 0.4) 35%, rgba(76, 156, 176, 0.12) 70%, rgba(76, 156, 176, 0) 100%);
+    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
     -webkit-mask-size: 16px 16px, 100% 4px;
-    -webkit-mask-position: left var(--sidebar-w, 224px) bottom 4px, left 0 bottom 0;
+    -webkit-mask-position: 0 0, 0 100%;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-composite: source-over;
-    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(90deg, transparent var(--sidebar-w, 224px), #000 var(--sidebar-w, 224px), transparent 100%);
+    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
     mask-size: 16px 16px, 100% 4px;
-    mask-position: left var(--sidebar-w, 224px) bottom 4px, left 0 bottom 0;
+    mask-position: 0 0, 0 100%;
     mask-repeat: no-repeat;
     mask-composite: add;
   }
 }
 @media print { .panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; } }
+
+/* Calendario con el marco a sangre (19-nov-2026, fase 1): sin tarjeta dentro de la tarjeta, la barra de vistas y de filtros en los
+   neutros de Shopify (no el crema de marca), la columna de mes y filtros sin su borde propio, y la semana que entra al cambiar. */
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] { background: transparent; padding: 0; gap: 2px; }
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] button { border-radius: 8px; min-height: 28px; height: 28px; font-size: 13px; font-weight: 500; color: #4a4a4a; background: transparent; box-shadow: none; }
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] button:hover { background: #f7f7f7; color: #101010; }
+.panel-app[data-shell-nuevo] [data-calendario-cabecera] [data-tour='calendario-vistas'] button[aria-pressed='true'] { background: #ebebeb; color: #101010; font-weight: 600; }
+.panel-app[data-shell-nuevo] [data-calendario-marco] aside[aria-label='Mes y filtros'] { border-right: 0; padding-top: 4px; width: 192px; padding-inline: 12px; }
+.panel-app[data-shell-nuevo] [data-calendario-marco] [data-testid='semana-franjas'] { scrollbar-gutter: stable; }
+@keyframes calendario-semana-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .panel-app[data-shell-nuevo] .calendario-semana-entra { animation: calendario-semana-entra 0.28s cubic-bezier(0.2, 0.8, 0, 1) backwards; }
 
 /* Las vistas de un módulo viven en el menú desplegable (lib/nav-submenus.ts): mientras el menú las enseña, la pantalla no repite sus
    pestañas arriba. Con el menú contraído, o en móvil, se ven como siempre. */

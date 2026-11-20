@@ -350,6 +350,41 @@ test('a sangre — el resplandor del menú sigue bajo la esquina del lienzo', as
   await page.screenshot({ path: 'test-results/shell-brillo-esquina.png', clip: { x: 0, y: 780, width: 700, height: 120 } });
 });
 
+for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 844]] as const) {
+  test(`a sangre — calendario (${nombre})`, async ({ page }) => {
+    await preparar(page, true);
+    await page.setViewportSize({ width: ancho, height: alto });
+    await ir(page, 'calendario');
+    await listo(page);
+    await page.waitForTimeout(1500);
+    await page.screenshot({ path: `test-results/shell-calendario-${nombre}.png` });
+  });
+}
+
+test('a sangre — calendario: sin tarjeta exterior, columnas iguales y atajos ← → y T', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'calendario');
+  await listo(page);
+  const marco = page.locator('[data-calendario-marco]');
+  await expect(marco).toBeVisible({ timeout: 120_000 });
+  expect(await marco.evaluate((e) => getComputedStyle(e).borderTopWidth), 'sin la tarjeta con borde de antes').toBe('0px');
+  // Ningún día queda plegado a una tira: los vacíos miden al menos 64 px y los de clases, 150 o más (que «Reformer» quepa entero).
+  const anchos = await page.locator('[data-cabecera-dia]').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)));
+  if (anchos.length === 7) {
+    expect(Math.min(...anchos), `columnas ${anchos.join(',')}`).toBeGreaterThanOrEqual(64);
+    expect(Math.max(...anchos), `columnas ${anchos.join(',')}`).toBeGreaterThanOrEqual(150);
+  }
+  // → pasa a la semana siguiente; T vuelve a hoy.
+  const cab = page.locator('[data-calendario-cabecera]');
+  const antes = (await cab.innerText()).replace(/\s+/g, ' ');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await cab.innerText()).replace(/\s+/g, ' '), { timeout: 20_000, message: '→ cambia la semana' }).not.toBe(antes);
+  await page.keyboard.press('t');
+  await expect.poll(async () => (await cab.innerText()).replace(/\s+/g, ' '), { timeout: 20_000, message: 'T vuelve a hoy' }).toBe(antes);
+  await page.screenshot({ path: 'test-results/shell-calendario-fase1.png' });
+});
+
 test('a sangre — las vistas viven en el menú: la pantalla no repite sus pestañas', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 1440, height: 900 });
