@@ -42,11 +42,15 @@ import { cn } from '@/lib/utils';
 import { DEGRADADO_LOGO } from '@/components/dashboard/vivo';
 import { useAltaNuevaPropia } from './use-pon-en-marcha';
 import { PildoraPonEnMarcha } from './pildora-pon-en-marcha';
+import { useGuiaActiva } from './use-guia-paso-a-paso';
+import { PildoraGuia } from './pildora-guia';
 
 /** `variante`: la barra de escritorio o la cabecera del móvil (las dos están montadas, una oculta). */
 export function PrimerosPasosFlotante({ variante = 'escritorio' }: { variante?: 'escritorio' | 'movil' } = {}) {
   const alta = useAltaNuevaPropia();
-  if (alta.activo === null) return null;
+  const guia = useGuiaActiva();
+  if (alta.activo === null || guia.activo === null) return null;
+  if (guia.activo) return <PildoraGuia variante={variante} />;
   if (alta.activo) return <PildoraPonEnMarcha variante={variante} />;
   return <PrimerosPasosDeSiempre />;
 }
