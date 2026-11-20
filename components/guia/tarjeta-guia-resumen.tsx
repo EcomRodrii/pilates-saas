@@ -47,7 +47,7 @@ export function TarjetaGuiaResumen() {
           <Baldosa tono="verde" Icono={Check} tamano="sm" />
           <div className="min-w-0 flex-1">
             <h2 id="guia-resumen-titulo" className="text-[16px] font-semibold leading-tight text-foreground">Tu estudio está en marcha</h2>
-            <p className="mt-0.5 text-[13px] text-muted-foreground">Has hecho los {ruta.total} pasos. Ya recibes reservas.</p>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">Has hecho lo esencial y ya recibes reservas.</p>
           </div>
           {botonOcultar}
         </div>
@@ -101,7 +101,7 @@ export function TarjetaGuiaResumen() {
               </button>
             )}
             <Link href={RUTA_GUIA} className="zona-tactil rounded-full px-2.5 py-1.5 text-[13px] font-medium text-[color:var(--t-text-link)] hover:bg-muted">
-              Ver los {ruta.total} pasos
+              Ver los {ruta.pasos.length} pasos
             </Link>
           </div>
         </div>

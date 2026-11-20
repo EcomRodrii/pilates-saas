@@ -13,7 +13,7 @@
 import Link from 'next/link';
 import type { ElementType } from 'react';
 import {
-  ArrowLeft, ArrowRight, CalendarDays, Check, CreditCard, DoorOpen, LayoutGrid, Palette, Share2, Tag, Ticket, UserPlus, Users,
+  ArrowLeft, ArrowRight, Building2, CalendarDays, Check, CreditCard, DoorOpen, LayoutGrid, Lock, Palette, Share2, SlidersHorizontal, Tag, Ticket, UserPlus, Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BOTON_DESTACADO, Baldosa, DEGRADADO_LOGO, type Tono } from '@/components/dashboard/vivo';
@@ -22,21 +22,21 @@ import {
 } from '@/lib/guia/ruta-puesta-en-marcha';
 
 export const ICONOS_PASO: Record<IconoPaso, ElementType> = {
-  sala: DoorOpen, equipo: Users, clase: LayoutGrid, calendario: CalendarDays, tarifa: Tag,
-  cobro: CreditCard, marca: Palette, alumnas: UserPlus, compartir: Share2, reserva: Ticket,
+  estudio: Building2, sala: DoorOpen, equipo: Users, clase: LayoutGrid, reglas: SlidersHorizontal, tarifa: Tag,
+  cobro: CreditCard, calendario: CalendarDays, alumnas: UserPlus, marca: Palette, reserva: Ticket,
 };
 
 export const TONO_PASO: Record<IconoPaso, Tono> = {
-  sala: 'azul', equipo: 'magenta', clase: 'indigo', calendario: 'azul', tarifa: 'verde',
-  cobro: 'indigo', marca: 'magenta', alumnas: 'azul', compartir: 'verde', reserva: 'magenta',
+  estudio: 'indigo', sala: 'azul', equipo: 'magenta', clase: 'indigo', reglas: 'azul', tarifa: 'verde',
+  cobro: 'indigo', calendario: 'azul', alumnas: 'azul', marca: 'magenta', reserva: 'magenta',
 };
 
-const ETIQUETA_ESTADO = { hecho: 'hecho', ahora: 'lo siguiente', pendiente: 'pendiente', saltado: 'saltado' } as const;
+const ETIQUETA_ESTADO = { hecho: 'hecho', ahora: 'lo siguiente', pendiente: 'pendiente', saltado: 'saltado', bloqueado: 'antes hay que hacer otro paso' } as const;
 
 /** Los diez tramos de la barra: cada uno lleva a su paso. */
 export function BarraTramos({ ruta, actual }: { ruta: RutaPuestaEnMarcha; actual: string }) {
   return (
-    <nav aria-label="Los diez pasos" className="flex gap-1">
+    <nav aria-label="Los pasos" className="flex gap-1">
       {ruta.pasos.map(p => (
         <Link
           key={p.id}
@@ -115,10 +115,17 @@ export function GuiaPasoAPasoVista({ ruta, paso, onSaltar, onCompartir, ayudaHre
 
   const accionPrincipal = (() => {
     const clase = cn(BOTON_DESTACADO, 'h-[54px] w-full px-6 text-[16px] lg:h-11 lg:w-auto lg:text-[14px]');
+    if (paso.estado === 'bloqueado' && paso.faltaAntes[0]) {
+      const antes = paso.faltaAntes[0];
+      return <Link href={hrefPaso(antes.id)} scroll={false} className={clase}>Primero: {antes.titulo}<ArrowRight size={17} aria-hidden /></Link>;
+    }
     if (hecho) {
       return queToca
         ? <Link href={hrefPaso(queToca.id)} scroll={false} className={clase}>Siguiente: {queToca.titulo}<ArrowRight size={17} aria-hidden /></Link>
         : null;
+    }
+    if (paso.id === 'lanzamiento' && !ruta.listoParaAbrir && ruta.faltaParaAbrir[0]) {
+      return <Link href={hrefPaso(ruta.faltaParaAbrir[0].id)} scroll={false} className={clase}>Primero: {ruta.faltaParaAbrir[0].titulo}<ArrowRight size={17} aria-hidden /></Link>;
     }
     if (!botonDelPaso) {
       return <button type="button" onClick={onCompartir} className={clase}><Share2 size={17} aria-hidden />Ver mi enlace y mi QR</button>;
@@ -134,9 +141,9 @@ export function GuiaPasoAPasoVista({ ruta, paso, onSaltar, onCompartir, ayudaHre
           {paso.otro.label}
         </Link>
       )}
-      {!hecho && paso.saltable && (
+      {!hecho && paso.estado !== 'bloqueado' && paso.saltable && (
         <button type="button" onClick={() => onSaltar(paso.id)} className="zona-tactil inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground lg:text-[13.5px]">
-          Saltar este paso
+          {paso.revision ? 'Ya lo he revisado' : 'Saltar este paso'}
         </button>
       )}
       {!hecho && !paso.saltable && siguiente && (
@@ -169,7 +176,7 @@ export function GuiaPasoAPasoVista({ ruta, paso, onSaltar, onCompartir, ayudaHre
           <div className="flex items-center gap-3">
             <Baldosa tono={TONO_PASO[paso.icono]} Icono={Icono} />
             <p className="font-t-mono text-[12px] uppercase tracking-[0.06em] text-muted-foreground">
-              Paso {paso.numero} de {ruta.total}{paso.minutos ? ` · ≈ ${paso.minutos} min` : ''}
+              Paso {paso.numero} de {ruta.pasos.length}{paso.minutos ? ` · ≈ ${paso.minutos} min` : ''}
             </p>
           </div>
           <h1 id="guia-titulo" className="mt-4 text-[26px] font-semibold leading-[32px] tracking-[-0.02em] text-foreground text-balance sm:text-[28px]">
@@ -189,6 +196,27 @@ export function GuiaPasoAPasoVista({ ruta, paso, onSaltar, onCompartir, ayudaHre
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Por qué importa</h2>
             <p className="mt-1 text-[16px] leading-[24px] text-foreground text-pretty lg:text-[15px]">{paso.porque}</p>
           </section>
+
+          {paso.estado === 'bloqueado' && (
+            <p className="mt-5 flex items-start gap-2 rounded-xl border border-border px-3 py-2.5 text-[15px] text-foreground" data-testid="guia-bloqueado">
+              <Lock size={16} aria-hidden className="mt-1 shrink-0 text-muted-foreground" />
+              <span>Antes necesitas: {paso.faltaAntes.map(p => p.titulo.toLowerCase()).join(', ')}.</span>
+            </p>
+          )}
+
+          {paso.id === 'lanzamiento' && (
+            <section className="mt-5 rounded-2xl border border-border px-4 py-3.5" data-testid="guia-lanzamiento">
+              <h2 className="text-[15px] font-semibold text-foreground">
+                {ruta.listoParaAbrir ? 'Tu estudio está listo para recibir reservas.' : 'Esto te falta para abrir'}
+              </h2>
+              {!ruta.listoParaAbrir && (
+                <ul className="mt-2 grid gap-1.5 text-[15px] text-foreground">
+                  {ruta.faltaParaAbrir.map(p => <li key={p.id}>· {p.titulo}</li>)}
+                </ul>
+              )}
+              <p className="mt-2 text-[14px] leading-[21px] text-muted-foreground">Los paquetes, Stripe y las clientas no bloquean: se piden solo si los vas a usar.</p>
+            </section>
+          )}
 
           <section className="mt-5">
             <h2 className="text-[13px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">Cómo se hace</h2>

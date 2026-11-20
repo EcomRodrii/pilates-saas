@@ -54,7 +54,7 @@ function TarjetaGuia({ colapsado }: { colapsado: boolean }) {
   if (visitaEnMarcha || !studio || !ruta || ocultada || ruta.terminada || !ruta.ahora) return null;
   const t = ruta.ahora;
   const vista: Vista = {
-    paso: t.numero, total: ruta.total, id: t.id, titulo: t.titulo, para: t.que, minutos: t.minutos,
+    paso: t.numero, total: ruta.pasos.length, id: t.id, titulo: t.titulo, para: t.que, minutos: t.minutos,
     accion: { label: 'Hacerlo ahora', href: hrefPaso(t.id) }, puedeOmitir: t.saltable,
   };
   return <TarjetaVista vista={vista} colapsado={colapsado} onOmitir={() => saltar(t.id)} onCompartir={() => {}} />;

@@ -93,6 +93,8 @@ export function useGuiaPasoAPaso(): GuiaPasoAPaso {
     const hecho = new Map(calcularOnboarding(datos).categorias.flatMap(c => c.pasos).map(p => [p.id, p.done]));
     const e = base.estado;
     return rutaPuestaEnMarcha({
+      // Los datos que ya sabe el panel: nada se marca por un clic.
+      estudio: hecho.get('estudio') === true,
       salas: hecho.get('salas') === true,
       instructoras: hecho.get('instructor') === true,
       tipos: hecho.get('clase') === true,
@@ -100,9 +102,8 @@ export function useGuiaPasoAPaso(): GuiaPasoAPaso {
       horario: hecho.get('horario') === true || e?.claseReservable === true,
       tarifas: hecho.get('bonos') === true,
       cobros: hecho.get('stripe') === true,
-      marca: hecho.get('marca') === true,
       alumnas: datos.numSocios > 0 || e?.alumnas === true,
-      compartir: e?.enlaceCompartido === true,
+      marca: hecho.get('marca') === true,
       primeraReserva: estudioActivado(datos) || e?.primeraReserva === true,
       saltados,
     });
