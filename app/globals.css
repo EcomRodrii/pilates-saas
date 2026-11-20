@@ -2141,3 +2141,14 @@ body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; poin
 @media (min-width: 768px) {
   html[data-menu-con-vistas] .panel-app[data-shell-nuevo] [data-vistas-en-menu] { display: none; }
 }
+
+/* Resumen limpio (marco a sangre, 20-nov-2026): las tarjetas del Resumen sin el borde crema, con la sombra de Shopify, y los accesos como
+   baldosas blancas. Solo dentro de `data-resumen-limpio`; las demás pantallas no cambian. */
+.panel-app[data-shell-nuevo] [data-resumen-limpio] .rounded-t-card {
+  border-color: transparent; border-radius: 20px;
+  box-shadow: 0 0 2px 0 #0000003d, 0 2px 12px 0 #00000005, 0 4px 16px 0 #00000005, 0 4px 48px 0 #00000005;
+}
+.panel-app[data-shell-nuevo] [data-resumen-limpio] section[aria-labelledby='accesos-titulo'] a {
+  background-color: #fff !important; border-color: transparent !important; box-shadow: 0 0 0 1px #0000000f, 0 1px 2px #0000000a;
+}
+.panel-app[data-shell-nuevo] [data-resumen-limpio] [data-resumen-mas] > summary:focus-visible { outline: 2px solid oklch(62.89% 0.2036 263.44); outline-offset: -2px; border-radius: 20px; }

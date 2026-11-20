@@ -359,3 +359,17 @@ test('a sangre — las vistas viven en el menú: la pantalla no repite sus pesta
   await expect(page.locator('[data-vistas-en-menu]'), 'las pestañas de arriba no se ven').toBeHidden();
   await page.screenshot({ path: 'test-results/shell-vistas-en-menu.png' });
 });
+
+test('a sangre — Resumen limpio (página entera)', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await ir(page, 'dashboard');
+  await listo(page);
+  await expect(page.locator('[data-resumen-limpio]')).toBeVisible({ timeout: 120_000 });
+  await page.waitForTimeout(1200);
+  for (const [i, y] of [0, 800, 1600].entries()) {
+    await page.evaluate((yy) => window.scrollTo(0, yy), y);
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: `test-results/shell-resumen-limpio-${i}.png` });
+  }
+});
