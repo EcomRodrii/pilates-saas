@@ -147,6 +147,18 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Marco a sangre (`SHELL_NUEVO`): fondo oscuro, barra fija arriba y el contenido como un lienzo
   // claro redondeado. Solo en escritorio (`lg:`): en móvil el panel sigue como estaba.
   const shellNuevo = useShellNuevo();
+  // Marco a sangre: la página no rebota. Con el scroll «de goma» del Mac, al llegar al principio o al final del documento se
+  // destapaba el fondo de detrás (crema) arriba y abajo del lienzo, con sus esquinas redondeadas moviéndose, en lugar del marco
+  // negro. Shopify no lo sufre porque se desplaza dentro de un panel fijo. Aquí: sin rebote y el fondo de la raíz en negro,
+  // solo mientras el panel con el marco a sangre está montado (al salir se devuelve tal cual estaba).
+  useEffect(() => {
+    if (!shellNuevo) return;
+    const raiz = document.documentElement;
+    const antes = { fondo: raiz.style.backgroundColor, rebote: raiz.style.overscrollBehavior };
+    raiz.style.backgroundColor = '#0a0a0a';
+    raiz.style.overscrollBehavior = 'none';
+    return () => { raiz.style.backgroundColor = antes.fondo; raiz.style.overscrollBehavior = antes.rebote; };
+  }, [shellNuevo]);
   // El alta nueva (21-oct-2026): TRES estados, `null` mientras se pregunta. Elige
   // qué bienvenida se enseña (más abajo), y con `null` se espera con el esqueleto
   // en vez de pintar un instante la de siempre.
@@ -500,7 +512,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <PanelPrivacyProvider>
-      <PanelThemeProvider className="panel-app min-h-dvh bg-background" panelNuevo={panelNuevo} shellNuevo={shellNuevo}>
+      <PanelThemeProvider className={cn('panel-app min-h-dvh', shellNuevo ? 'bg-[#0a0a0a]' : 'bg-background')} panelNuevo={panelNuevo} shellNuevo={shellNuevo}>
         <TourProvider>
           {/* El tutorial de cada pantalla (P1.1): dentro de la visita, que manda sobre él. */}
           <TutorialProvider>
