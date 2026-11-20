@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell, Plus, Settings,
+  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell, Plus, Settings, HelpCircle,
 } from 'lucide-react';
 import { Suspense, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
+import { EVENTO_ABRIR_AYUDA } from '@/lib/ayuda/panel-ayuda';
 import { BarraInferiorMovil } from '@/components/layout/movil-app';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { NavItemConHijos } from './nav-item-con-hijos';
@@ -489,6 +490,11 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
             })}
           </div>
         ))}
+        {shell && (
+          <button type="button" onClick={() => { onClose(); window.dispatchEvent(new Event(EVENTO_ABRIR_AYUDA)); }} className="mb-1 flex h-12 w-full items-center gap-5 rounded-full px-4 text-left text-[18px] font-medium text-white active:bg-white/[0.08]">
+            <HelpCircle size={22} strokeWidth={1.6} className="shrink-0 text-white/60" aria-hidden="true" /> Ayuda
+          </button>
+        )}
       </nav>
 
       {shell && (

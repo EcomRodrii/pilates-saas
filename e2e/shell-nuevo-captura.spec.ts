@@ -286,11 +286,8 @@ test('a sangre — Mensajería: las cuatro tarjetas y el cajón de notificacione
   await page.setViewportSize({ width: 1440, height: 900 });
   await ir(page, 'mensajeria');
   await listo(page);
-  const tabs = page.getByRole('tab');
-  // Las vistas viven en el menú (#2940): las pestañas de la pantalla pueden estar ocultas; si se ven, no se aplastan.
-  await expect(tabs.first()).toBeAttached({ timeout: 120_000 });
-  const alto = (await tabs.first().boundingBox())?.height ?? 0;
-  if (alto > 0) expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
+  // Las vistas viven en el menú (#2940): ya no hay pestañas en la pantalla; basta con que cargue su título.
+  await expect(page.getByRole('heading', { name: 'Mensajería' }).first()).toBeVisible({ timeout: 120_000 });
   await page.screenshot({ path: 'test-results/shell-sangre-mensajeria.png' });
   await page.getByRole('button', { name: /notificaciones/i }).first().click().catch(() => {});
   await page.waitForTimeout(600);
@@ -439,7 +436,7 @@ test('a sangre — móvil como app: barra flotante y menú a pantalla completa c
 test('a sangre — móvil como app: pantallas de lista y configuración', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 402, height: 874 });
-  for (const ruta of ['clientas', 'productos', 'mensajeria']) {
+  for (const ruta of ['clientas', 'productos', 'mensajeria', 'configuracion']) {
     await ir(page, ruta);
     await listo(page);
     await page.waitForTimeout(800);
