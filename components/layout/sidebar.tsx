@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell,
 } from 'lucide-react';
-import { Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, memo, useMemo, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
@@ -119,7 +119,7 @@ function BadgeContador({ n, compacto, etiqueta = 'sin leer' }: { n: number; comp
   );
 }
 
-function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, contadorEtiqueta = 'sin leer', horizontal }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number; contadorEtiqueta?: string; horizontal?: boolean }) {
+const NavItem = memo(function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, contadorEtiqueta = 'sin leer', horizontal }: { href: string; label: string; Icon: React.ElementType; onClick?: () => void; collapsed?: boolean; nuevo?: boolean; contador?: number; contadorEtiqueta?: string; horizontal?: boolean }) {
   const pathname = usePathname();
   const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
   // Marco a sangre (`SHELL_NUEVO`): fila rectangular de radio 8 y selección neutra, no la píldora
@@ -157,7 +157,7 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
       {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} etiqueta={contadorEtiqueta} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
   );
-}
+});
 
 /**
  * Un módulo del menú a sangre con vistas (`lib/nav-submenus.ts`): su fila de siempre, un chevron que gira y debajo la lista
@@ -165,7 +165,7 @@ function NavItem({ href, label, Icon, onClick, collapsed, nuevo, contador, conta
  * solo la abre o la cierra. Se abre sola al entrar en el módulo (por el menú, un enlace o el ⌘K) y se queda como la deje
  * quien la cierra a mano.
  */
-function NavItemAcordeon({ item, rol, puedeVer, nuevo, contador, contadorEtiqueta, onNavegar }: {
+const NavItemAcordeon = memo(function NavItemAcordeon({ item, rol, puedeVer, nuevo, contador, contadorEtiqueta, onNavegar }: {
   item: { href: string; label: string; icon: React.ElementType };
   rol: Parameters<typeof submenuDe>[1];
   puedeVer: (ruta: string) => boolean;
@@ -208,7 +208,7 @@ function NavItemAcordeon({ item, rol, puedeVer, nuevo, contador, contadorEtiquet
       </div>
     </div>
   );
-}
+});
 
 /**
  * Marco a sangre, dentro de Configuración: el menú pasa a ser el de sus secciones, con «‹ Configuración»
@@ -523,6 +523,73 @@ function aplicarHuecos(horizontal: boolean, size: SidebarSize, altoBarra?: numbe
 /** El ítem del menú que se ancla abajo para no quedar escondido bajo el pliegue. */
 const ANCLADO = '/configuracion';
 
+/**
+ * Las filas del menú lateral, memorizadas: el menú se repinta con cualquier cambio del estudio (lee su contexto entero), pero las
+ * filas solo cambian si cambian sus entradas (secciones visibles, badges, tamaño). Antes se rehacían todas, con sus acordeones.
+ */
+const FilasDelMenu = memo(function FilasDelMenu({ secciones, horizontal, collapsed, sangre, conNovedad, sinLeerMensajes, porDecidir, rol, puedeVer }: {
+  secciones: typeof navSections;
+  horizontal: boolean; collapsed: boolean; sangre: boolean;
+  conNovedad: ReadonlySet<string>; sinLeerMensajes: number; porDecidir: number;
+  rol: Parameters<typeof submenuDe>[1]; puedeVer: (ruta: string) => boolean;
+}) {
+  return (
+    <>
+      {secciones.map((section, si) => (
+        // `contents` en el grupo de Configuración (columna): su ítem va anclado abajo
+        // (`position: sticky`) y un sticky solo se mueve dentro de su contenedor; si
+        // ese fuera el grupo, que a veces queda entero bajo el pliegue, no se anclaría.
+        <div key={si} className={cn((horizontal || section.items.some(i => i.href === ANCLADO)) && 'contents')}>
+          {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
+              orden, que ya agrupa por sección. */}
+          {section.label && !collapsed && !horizontal && (
+            <p className={sangre ? 'px-3 pb-1 pt-4 text-[12px] font-medium leading-4 text-[#a6a6a6]' : 't-label px-3 pt-3 pb-1 text-white/50'}>
+              {section.label}
+            </p>
+          )}
+          {section.label && collapsed && si > 0 && !horizontal && (
+            <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+          )}
+          {section.items.map(item => {
+            const fila = sangre && !collapsed && !horizontal && Boolean(SUBMENUS[item.href]) ? (
+              <NavItemAcordeon
+                key={item.href} item={item} rol={rol} puedeVer={puedeVer}
+                nuevo={conNovedad.has(item.href)}
+                contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
+              />
+            ) : item.hijos ? (
+              <NavItemConHijos
+                key={item.href} href={item.href} label={item.label} Icon={item.icon} hijos={item.hijos}
+                horizontal={horizontal} collapsed={horizontal ? false : collapsed}
+                nuevo={conNovedad.has(item.href)}
+              />
+            ) : (
+            <NavItem
+              key={item.href} href={item.href} label={item.label} Icon={item.icon}
+              horizontal={horizontal}
+              // Tumbado siempre con rótulo: un menú de solo iconos en
+              // horizontal es un test de memoria. El tamaño «compacto» es
+              // una preferencia de la columna, no de la barra.
+              collapsed={horizontal ? false : collapsed}
+              nuevo={conNovedad.has(item.href)}
+              contador={item.href === '/mensajeria' ? sinLeerMensajes : item.href === '/dashboard' ? porDecidir : undefined}
+              contadorEtiqueta={item.href === '/dashboard' ? 'por decidir' : undefined}
+            />
+            );
+            // Configuración se ancla al borde de abajo del menú: en un portátil el
+            // menú no cabe entero y quedaba cortada bajo el pliegue (auditoría UX,
+            // 10-nov-2026; OPEN DECISION 18). Fondo opaco para tapar lo que pasa por
+            // debajo al desplazar. Tumbado (horizontal) la fila envuelve y no hace falta.
+            return item.href === ANCLADO && !horizontal
+              ? <div key={item.href} className={cn('sticky bottom-0 z-10 pt-1', sangre ? 'bg-[var(--shell-marco)]' : 'bg-[#0A0A0A]')}>{fila}</div>
+              : fila;
+          })}
+        </div>
+      ))}
+    </>
+  );
+});
+
 export function Sidebar() {
   // Solo cambia el escritorio. En móvil no hay sidebar que mover: ya es barra
   // arriba + barra abajo, y así se queda.
@@ -623,7 +690,8 @@ export function Sidebar() {
     return () => { vivo = false; window.removeEventListener('tentare-layout-changed', alCambiar); };
   }, []);
 
-  const seccionesVisibles = seccionesDelMenu(panelNuevo)
+  // Memorizada: se recalculaba en cada render del menú (que se repinta con cualquier cambio del estudio), y con ella todo lo de debajo.
+  const seccionesVisibles = useMemo(() => seccionesDelMenu(panelNuevo)
     .map(s => ({
       ...s,
       // ⚠️ Ordenar DESPUÉS de filtrar, no antes: ordenar primero recorre
@@ -638,7 +706,7 @@ export function Sidebar() {
         ordenMenu,
       ),
     }))
-    .filter(s => s.items.length > 0);
+    .filter(s => s.items.length > 0), [panelNuevo, puedeVer, ocultos, activados, navMode, ordenMenu]);
   // La barra inferior de móvil no distingue esencial/avanzado: son las cuatro
   // de siempre, así que se pasa 'avanzado' y manda solo permiso + ocultos.
   const bottomNavVisibles = filtrarItemsMenu(bottomNavItems, {
@@ -760,57 +828,10 @@ export function Sidebar() {
         ? 'flex min-w-0 flex-row flex-wrap items-center gap-1 py-1'
         : 'py-2 overflow-y-auto space-y-1',
     )}>
-      {seccionesVisibles.map((section, si) => (
-        // `contents` en el grupo de Configuración (columna): su ítem va anclado abajo
-        // (`position: sticky`) y un sticky solo se mueve dentro de su contenedor; si
-        // ese fuera el grupo, que a veces queda entero bajo el pliegue, no se anclaría.
-        <div key={si} className={cn((horizontal || section.items.some(i => i.href === ANCLADO)) && 'contents')}>
-          {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
-              orden, que ya agrupa por sección. */}
-          {section.label && !collapsed && !horizontal && (
-            <p className={sangre ? 'px-3 pb-1 pt-4 text-[12px] font-medium leading-4 text-[#a6a6a6]' : 't-label px-3 pt-3 pb-1 text-white/50'}>
-              {section.label}
-            </p>
-          )}
-          {section.label && collapsed && si > 0 && !horizontal && (
-            <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
-          )}
-          {section.items.map(item => {
-            const fila = sangre && !collapsed && !horizontal && Boolean(SUBMENUS[item.href]) ? (
-              <NavItemAcordeon
-                key={item.href} item={item} rol={rol} puedeVer={puedeVer}
-                nuevo={conNovedad.has(item.href)}
-                contador={item.href === '/mensajeria' ? sinLeerMensajes : undefined}
-              />
-            ) : item.hijos ? (
-              <NavItemConHijos
-                key={item.href} href={item.href} label={item.label} Icon={item.icon} hijos={item.hijos}
-                horizontal={horizontal} collapsed={horizontal ? false : collapsed}
-                nuevo={conNovedad.has(item.href)}
-              />
-            ) : (
-            <NavItem
-              key={item.href} href={item.href} label={item.label} Icon={item.icon}
-              horizontal={horizontal}
-              // Tumbado siempre con rótulo: un menú de solo iconos en
-              // horizontal es un test de memoria. El tamaño «compacto» es
-              // una preferencia de la columna, no de la barra.
-              collapsed={horizontal ? false : collapsed}
-              nuevo={conNovedad.has(item.href)}
-              contador={item.href === '/mensajeria' ? sinLeerMensajes : item.href === '/dashboard' ? porDecidir : undefined}
-              contadorEtiqueta={item.href === '/dashboard' ? 'por decidir' : undefined}
-            />
-            );
-            // Configuración se ancla al borde de abajo del menú: en un portátil el
-            // menú no cabe entero y quedaba cortada bajo el pliegue (auditoría UX,
-            // 10-nov-2026; OPEN DECISION 18). Fondo opaco para tapar lo que pasa por
-            // debajo al desplazar. Tumbado (horizontal) la fila envuelve y no hace falta.
-            return item.href === ANCLADO && !horizontal
-              ? <div key={item.href} className={cn('sticky bottom-0 z-10 pt-1', sangre ? 'bg-[var(--shell-marco)]' : 'bg-[#0A0A0A]')}>{fila}</div>
-              : fila;
-          })}
-        </div>
-      ))}
+      <FilasDelMenu
+        secciones={seccionesVisibles} horizontal={horizontal} collapsed={collapsed} sangre={sangre}
+        conNovedad={conNovedad} sinLeerMensajes={sinLeerMensajes} porDecidir={porDecidir} rol={rol} puedeVer={puedeVer}
+      />
     </nav>
   );
 
