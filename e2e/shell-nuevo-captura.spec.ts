@@ -443,3 +443,21 @@ test('a sangre — móvil como app: pantallas de lista y configuración', async 
     await page.screenshot({ path: `test-results/shell-movil-${ruta}.png` });
   }
 });
+
+test('a sangre — móvil como app: el asistente y los vacíos', async ({ page }) => {
+  await conAsistente(page);
+  await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => r.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ panelNuevo: true, shellNuevo: true }),
+  }));
+  await page.setViewportSize({ width: 402, height: 874 });
+  await ir(page, 'dashboard');
+  await listo(page);
+  await expect(page.locator('[data-movil-barra] a[aria-label="Pregúntale a Tentare"]')).toBeVisible({ timeout: 60_000 });
+  await page.screenshot({ path: 'test-results/shell-movil-asistente.png' });
+  for (const ruta of ['sustituciones', 'notificaciones', 'equipo']) {
+    await ir(page, ruta);
+    await listo(page);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `test-results/shell-movil-vacio-${ruta}.png` });
+  }
+});

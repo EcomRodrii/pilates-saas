@@ -2268,8 +2268,15 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-config-inicio] section > div { border: 0; padding: 0 4px 6px; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section > div h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section > div p { display: none; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] section > h2 { font-size: 21px; font-weight: 600; letter-spacing: -0.015em; padding-inline: 4px; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] section > ul { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] [data-config-icono] { background: transparent !important; color: #5a5a5a !important; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] section ul a > span:first-child { background: transparent !important; color: #5a5a5a !important; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section ul { border: 0; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section ul > li { border: 0; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] section { width: 100%; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] section ul a { width: 100%; }
+  .panel-app[data-shell-nuevo] [data-config-inicio] section ul a > span:nth-child(2) { flex: 1 1 0; min-width: 0; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section ul a { min-height: 52px; padding: 6px 4px; gap: 14px; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section ul a > span:first-child { width: 28px; height: 28px; background: transparent; border-radius: 0; color: #5a5a5a; }
   .panel-app[data-shell-nuevo] [data-config-inicio] section ul a > span:first-child > * { background: transparent !important; color: inherit !important; }
