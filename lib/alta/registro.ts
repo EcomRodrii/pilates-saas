@@ -104,44 +104,15 @@ const COMUNES = new Set([
   'pilates1', 'pilates2024', 'pilates2025', 'pilates2026', '12341234', 'abc12345', 'asdfghjk', 'tentare123',
 ]);
 
-/** Sin acentos, en minúsculas y solo letras y números: como se compara con el nombre. */
-function plano(texto: string): string {
-  return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-/** «12345678», «98765432»: una escalera de cifras. */
-function esEscalera(v: string): boolean {
-  if (!/^\d{4,}$/.test(v)) return false;
-  const paso = Number(v[1]) - Number(v[0]);
-  if (paso !== 1 && paso !== -1) return false;
-  for (let i = 1; i < v.length; i++) {
-    if (Number(v[i]) - Number(v[i - 1]) !== paso) return false;
-  }
-  return true;
-}
-
-/**
- * «Difícil de adivinar: ni 12345678 ni el nombre del estudio». Fácil es:
- *   · una de las de siempre (`COMUNES`), un solo carácter repetido o una
- *     escalera de cifras;
- *   · el nombre del estudio, o un trozo de él, con números o signos alrededor
- *     («EstudioAlba2026!», «pilates123» en «Alba Pilates»), o el nombre entero
- *     dentro de algo más largo. Lo que sobra de quitar cifras y signos tiene que
- *     tener al menos 4 letras: «a1234567» no es «el nombre del estudio».
- */
-export function contrasenaFacil(contrasena: string, nombreEstudio: string): boolean {
+/** Fácil es solo lo que se ve a simple vista: una de la lista de siempre o un solo carácter repetido. */
+export function contrasenaFacil(contrasena: string, _nombreEstudio = ''): boolean {
+  // 20-nov-2026 (decisión del fundador: «muchos estudios abandonan por esto»): solo se rechaza lo que se ve a
+  // simple vista —las de la lista y un solo carácter repetido—. Ya NO se compara con el nombre del estudio ni se
+  // buscan escaleras: «Alma2026» o «pilates-alma» son contraseñas normales de una dueña de estudio. La defensa de
+  // verdad es la del servicio de cuentas (contraseñas filtradas), que se explica con su motivo y ofrece una sugerida.
   if (!contrasena) return false;
-  const minus = contrasena.toLowerCase();
-  if (COMUNES.has(minus)) return true;
-  if (/^(.)\1+$/u.test(contrasena)) return true;
-  if (esEscalera(contrasena)) return true;
-  const nombre = plano(nombreEstudio);
-  if (nombre.length < 4) return false;
-  const letras = plano(contrasena).replace(/\d/g, '');
-  if (letras.length >= 4 && nombre.includes(letras)) return true;
-  // Al revés solo con nombres de 6 letras o más: «alba» está dentro de
-  // «albaricoque», y eso no es poner el nombre del estudio.
-  return nombre.length >= 6 && plano(contrasena).includes(nombre);
+  if (COMUNES.has(contrasena.toLowerCase())) return true;
+  return /^(.)\1+$/u.test(contrasena);
 }
 
 /** Las dos casillas de la contraseña: se marcan solas mientras se escribe. */
