@@ -4,6 +4,7 @@ import { AltaNueva } from './alta-nueva';
 import { variablesTipografiaAltaNueva } from './fuentes-alta-nueva';
 import { foundingGratisEnAltas } from '@/lib/alta/founding-gratis-alta';
 import { versionDelAlta } from '@/lib/alta/registro';
+import { loginNuevoVisible } from '@/lib/auth/login-nuevo';
 
 // La pantalla del alta es de cliente. Esta página solo decide en el SERVIDOR lo
 // que el navegador no puede saber, porque las variables no le llegan:
@@ -25,12 +26,22 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 };
 
+/**
+ * La piel del alta nueva (la misma puerta que el login: `LOGIN_NUEVO`, abierta a todos salvo `off`).
+ * Los e2e (`E2E_TEST=1`) siguen con la de siempre salvo que pidan `?login=nuevo`: sus textos y marcas son los de antes.
+ */
+function pielNueva(login: string | string[] | undefined): boolean {
+  const pedida = (Array.isArray(login) ? login[0] : login) === 'nuevo';
+  if (process.env.E2E_TEST === '1' && !pedida) return false;
+  return loginNuevoVisible(process.env.LOGIN_NUEVO, login);
+}
+
 export default async function CrearEstudioPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { alta } = await searchParams;
+  const { alta, login } = await searchParams;
   const version = versionDelAlta(process.env.ALTA_NUEVA_REGISTRO, alta);
   const foundingGratis = foundingGratisEnAltas();
   if (!version) return <AltaEstudio foundingGratis={foundingGratis} />;
@@ -39,7 +50,7 @@ export default async function CrearEstudioPage({
   // envoltorio no cree caja.
   return (
     <div className={`${variablesTipografiaAltaNueva} marca-panel contents`}>
-      <AltaNueva version={version} foundingGratis={foundingGratis} />
+      <AltaNueva version={version} foundingGratis={foundingGratis} piel={pielNueva(login)} />
     </div>
   );
 }
