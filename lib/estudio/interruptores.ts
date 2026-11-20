@@ -81,6 +81,13 @@ export const INTERRUPTORES = {
    * el estudio de prueba del fundador, a todos cuando él dé el sí.
    */
   onboardingNuevo: 'ONBOARDING_NUEVO',
+  /**
+   * La guía paso a paso de puesta en marcha (20-nov-2026, `docs/guia-puesta-en-marcha.md`): diez pasos
+   * explicados, «Paso n de 10» en el menú, la barra y el Resumen, y estados vacíos que llevan al paso que
+   * toca. APAGADA de serie (decisión del fundador, 20-nov-2026): `on` = todos, `estudios:<id1>,<id2>` = solo
+   * esos; sin variable o `off`, todo como antes.
+   */
+  guiaPasoAPaso: 'GUIA_PASO_A_PASO',
 } as const;
 
 export type Interruptor = keyof typeof INTERRUPTORES;

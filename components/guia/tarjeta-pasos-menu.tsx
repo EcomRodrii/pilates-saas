@@ -31,15 +31,33 @@ import { primerosPasos } from '@/lib/guia/primeros-pasos';
 import { avisoAlCompartir } from '@/lib/alta/estado';
 import { TarjetaVista, type Vista } from './tarjeta-pasos-menu-vista';
 import { omitirTarea, useAltaNuevaPropia, useOmitidas, usePonEnMarcha } from './use-pon-en-marcha';
+import { useGuiaActiva, useGuiaPasoAPaso } from './use-guia-paso-a-paso';
+import { hrefPaso } from '@/lib/guia/ruta-puesta-en-marcha';
 
 // El diálogo de compartir trae el cartel del QR: solo cuando se abre.
 const CompartirEnlace = dynamic(() => import('./compartir-enlace').then(m => m.CompartirEnlace), { ssr: false });
 
 export function TarjetaPasosMenu({ colapsado }: { colapsado: boolean }) {
   const alta = useAltaNuevaPropia();
+  const guia = useGuiaActiva();
   // Mientras se pregunta si el estudio va con el alta nueva, ninguna (como la píldora).
-  if (alta.activo === null) return null;
+  if (alta.activo === null || guia.activo === null) return null;
+  // La guía paso a paso (GUIA_PASO_A_PASO): «Paso n de 10», que lleva a su explicación.
+  if (guia.activo) return <TarjetaGuia colapsado={colapsado} />;
   return alta.activo ? <TarjetaAlta colapsado={colapsado} /> : <TarjetaDeSiempre colapsado={colapsado} />;
+}
+
+function TarjetaGuia({ colapsado }: { colapsado: boolean }) {
+  const { studio } = useStudio();
+  const { ruta, ocultada, saltar } = useGuiaPasoAPaso();
+  const { activo: visitaEnMarcha } = useTour();
+  if (visitaEnMarcha || !studio || !ruta || ocultada || ruta.terminada || !ruta.ahora) return null;
+  const t = ruta.ahora;
+  const vista: Vista = {
+    paso: t.numero, total: ruta.total, id: t.id, titulo: t.titulo, para: t.que, minutos: t.minutos,
+    accion: { label: 'Hacerlo ahora', href: hrefPaso(t.id) }, puedeOmitir: t.saltable,
+  };
+  return <TarjetaVista vista={vista} colapsado={colapsado} onOmitir={() => saltar(t.id)} onCompartir={() => {}} />;
 }
 
 function TarjetaAlta({ colapsado }: { colapsado: boolean }) {

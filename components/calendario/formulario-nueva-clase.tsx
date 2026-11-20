@@ -302,7 +302,7 @@ export function FormularioNuevaClase({
         >
           <select className={selectCls} value={tipoClaseId} onChange={e => cambiarTipo(e.target.value)}>
             {!tipoClaseId && (
-              <option value="">{programables.length ? 'Elige un tipo de clase' : tiposClase.length ? 'Todos tus tipos de clase están archivados' : 'Todavía no tienes tipos de clase'}</option>
+              <option value="">{programables.length ? 'Elige un tipo de clase' : tiposClase.length ? 'Todos tus tipos de clase están archivados' : 'Primero crea un tipo de clase'}</option>
             )}
             {opcionesTipo.map(t => (
               <option key={t.id} value={t.id} disabled={estaArchivado(t)}>
@@ -316,7 +316,7 @@ export function FormularioNuevaClase({
         <div className={cn('grid gap-4', !esInstructora && 'grid-cols-1 sm:grid-cols-2')}>
           <FormField label="Sala">
             <select className={selectCls} value={salaId} onChange={e => cambiarSala(e.target.value)}>
-              {!salaId && <option value="">{salas.length ? 'Elige una sala' : 'Todavía no tienes salas'}</option>}
+              {!salaId && <option value="">{salas.length ? 'Elige una sala' : 'Primero crea una sala'}</option>}
               {salas.map(s => <option key={s.id} value={s.id}>{s.nombre} · {s.capacidad}</option>)}
             </select>
           </FormField>
@@ -326,7 +326,7 @@ export function FormularioNuevaClase({
             <FormField label="Instructora">
               <select className={selectCls} value={instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
                 {!instructorId && (
-                  <option value="">{opcionesInstructora.length ? 'Elige una instructora' : 'Todavía no tienes instructoras'}</option>
+                  <option value="">{opcionesInstructora.length ? 'Elige una instructora' : 'Primero añade una instructora'}</option>
                 )}
                 {opcionesInstructora.map(i => {
                   const au = fecha ? ausenciaEnFecha(ausencias, i.id, mediodia(fecha)) : null;

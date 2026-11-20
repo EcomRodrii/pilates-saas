@@ -25,6 +25,12 @@ export function useOnboardingNuevo(): boolean {
   return useInterruptor('onboardingNuevo', studio?.id);
 }
 
+/** ¿Ve este estudio la guía paso a paso de puesta en marcha (interruptor `GUIA_PASO_A_PASO`, 20-nov-2026)? */
+export function useGuiaPasoAPasoActiva(): boolean {
+  const { studio } = useCore();
+  return useInterruptor('guiaPasoAPaso', studio?.id);
+}
+
 /** ¿Ve este estudio «Tu app» y «Tu web» rehechos (interruptor `MI_WEB_NUEVA`, 16-oct-2026)? */
 export function useMiWebNueva(): boolean {
   const { studio } = useCore();

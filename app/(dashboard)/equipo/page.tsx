@@ -1,5 +1,6 @@
 'use client';
 
+import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useId, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -728,6 +729,7 @@ export default function EquipoPage() {
         </div>
       )}
 
+      {!cargandoTarjetas && tarjetas.length === 0 && <AyudaDelPaso paso="instructoras" />}
       {cargandoTarjetas ? (
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando el equipo…</p>
       ) : falloTarjetas ? (

@@ -20,6 +20,7 @@
 
 import Link from 'next/link';
 import { CalendarPlus, Upload } from 'lucide-react';
+import { FaltanParaProgramar } from '@/components/guia/ayuda-del-paso';
 
 /** 'HH:MM:SS' o 'HH:MM' → 'HH:MM'; lo que no lo sea, `null`. */
 const hora = (t: string | null | undefined) => (t && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : null);
@@ -50,6 +51,7 @@ export function CalendarioSinClases({ puedeCrear, hayTiposDeClase, onCrearClase,
           <p className="text-[14px] leading-[21px] text-muted-foreground text-pretty">
             En cuanto haya una clase aquí, tus clientes podrán reservarla desde su app.
           </p>
+          <FaltanParaProgramar />
           <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3">
             <button
               type="button"
@@ -80,6 +82,7 @@ export function CalendarioSinClases({ puedeCrear, hayTiposDeClase, onCrearClase,
             : 'Cuando haya clases programadas aparecerán aquí.'}
         </p>
       </div>
+      {puedeCrear && <FaltanParaProgramar />}
       {puedeCrear && (
         <div className="flex flex-wrap items-center justify-center gap-3">
           {hayTiposDeClase ? (
