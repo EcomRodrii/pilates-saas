@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import { usePermisos, nombreAppPorRol } from '@/lib/permisos';
+import { BarraInferiorMovil } from '@/components/layout/movil-app';
 import { navSections, bottomNavItems, ESSENTIAL_HREFS } from '@/lib/nav-config';
 import { NavItemConHijos } from './nav-item-con-hijos';
 import { SubListaMenu } from './nav-sublista';
@@ -400,7 +401,7 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
       </div>
 
       {/* All sections */}
-      <nav data-movil-lista className={cn('flex-1 overflow-y-auto px-4 py-3', shell && 'pb-32')}>
+      <nav data-movil-lista className={cn('flex-1 overflow-y-auto px-4 py-3', shell && 'px-2 pb-36')}>
         {sections.map((section, si) => (
           <div key={si} className="mb-2">
             {section.label && (
@@ -419,9 +420,9 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                       type="button"
                       onClick={() => setAbiertoMovil(a => (a === item.href ? null : item.href))}
                       aria-expanded={abierto}
-                      className={cn('flex h-14 w-full items-center gap-4 rounded-2xl px-4 text-left text-[20px] font-medium text-white transition-colors active:bg-white/[0.08]', (abierto || active) && 'bg-[#1b1b1b]')}
+                      className={cn('flex h-12 w-full items-center gap-5 rounded-full px-4 text-left text-[18px] font-medium text-white transition-colors active:bg-white/[0.08]', abierto && 'bg-[#1d1d1d]')}
                     >
-                      <item.icon size={24} strokeWidth={1.6} className="shrink-0 text-white/80" aria-hidden="true" />
+                      <item.icon size={22} strokeWidth={abierto || active ? 2.2 : 1.6} className={cn('shrink-0', abierto || active ? 'text-white' : 'text-white/60')} aria-hidden="true" />
                       <span className="flex-1 truncate">{item.label}</span>
                       <ChevronDown size={22} aria-hidden="true" className={cn('shrink-0 text-white/70 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto && 'rotate-180')} />
                     </button>
@@ -429,7 +430,7 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                       <ul className="min-h-0 overflow-hidden">
                         {sub.map(f => (
                           <li key={f.href}>
-                            <Link href={f.href} onClick={() => onClose()} className="flex h-[54px] items-center pl-[56px] pr-4 text-[19px] font-normal text-white/90 active:text-white">
+                            <Link href={f.href} onClick={() => onClose()} className="flex h-12 items-center pl-[58px] pr-4 text-[18px] font-normal text-white active:text-white/70">
                               {f.label}
                             </Link>
                           </li>
@@ -474,11 +475,11 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                   className={cn(
                     'flex items-center transition-all mb-1',
                     shell
-                      ? cn('h-14 gap-4 rounded-2xl px-4 text-[20px] font-medium text-white active:bg-white/[0.08]', active && 'bg-[#1b1b1b]')
+                      ? cn('h-12 gap-5 rounded-full px-4 text-[18px] font-medium text-white active:bg-white/[0.08]', active && 'bg-[#1d1d1d]')
                       : cn('gap-3.5 px-4 py-3.5 rounded-full text-[15px] font-medium', active ? 'bg-brand text-brand-foreground font-semibold' : 'text-white/50 hover:text-white/80 hover:bg-card/5'),
                   )}
                 >
-                  <item.icon size={shell ? 24 : 18} strokeWidth={shell ? 1.6 : active ? 2.5 : 2} className={shell ? 'shrink-0 text-white/80' : undefined} />
+                  <item.icon size={shell ? 22 : 18} strokeWidth={shell ? (active ? 2.2 : 1.6) : active ? 2.5 : 2} className={shell ? cn('shrink-0', active ? 'text-white' : 'text-white/60') : undefined} />
                   {item.label}
                   {item.href === '/mensajeria' && sinLeerMensajes > 0
                     ? <BadgeContador n={sinLeerMensajes} />
@@ -491,16 +492,16 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
       </nav>
 
       {shell && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-[calc(16px+env(safe-area-inset-bottom,0px))] z-10 flex items-center justify-center gap-3 px-4">
-          <Link href="/configuracion" onClick={() => onClose()} aria-label="Configuración" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1b1b1b] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1a] active:scale-95">
+        <div className="pointer-events-none absolute inset-x-0 bottom-[max(22px,calc(env(safe-area-inset-bottom,0px)-6px))] z-10 flex items-center justify-center gap-2 px-4">
+          <Link href="/configuracion" onClick={() => onClose()} aria-label="Configuración" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
             <Settings size={22} aria-hidden="true" />
           </Link>
           {puedeVer('/calendario') && (
-            <Link href="/calendario?nueva=1" onClick={() => onClose()} className="pointer-events-auto flex h-14 items-center gap-2.5 rounded-full bg-[#1b1b1b] px-6 text-[18px] font-medium text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1a] active:scale-95">
-              <Plus size={20} aria-hidden="true" /> Crear clase
+            <Link href="/calendario?nueva=1" onClick={() => onClose()} className="pointer-events-auto flex h-14 items-center gap-3 rounded-full bg-[#12141b] pl-4 pr-7 text-[18px] font-medium text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#2a3040] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+              <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-white text-black"><Plus size={16} strokeWidth={2.6} /></span> Crear clase
             </Link>
           )}
-          <button type="button" onClick={onClose} aria-label="Cerrar el menú" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1b1b1b] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1a] active:scale-95">
+          <button type="button" onClick={onClose} aria-label="Cerrar el menú" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
             <X size={22} aria-hidden="true" />
           </button>
         </div>
@@ -900,7 +901,15 @@ export function Sidebar() {
       </div>
 
       {/* ── Mobile bottom nav ──────────────────────────────────────────────── */}
-      <nav
+      {shellNuevo ? (
+        <BarraInferiorMovil
+          items={bottomNavVisibles.filter(i => i.href !== '/cobros')}
+          menuAbierto={masOpen}
+          onMenu={() => setMasOpen(o => !o)}
+          porDecidir={porDecidir}
+        />
+      ) : (
+        <nav
         data-tour="menu-principal"
         data-movil-inferior
         className="lg:hidden fixed bottom-0 z-30 flex items-center justify-around px-2 border-t"
@@ -924,20 +933,8 @@ export function Sidebar() {
           <span className="text-[10px] font-medium text-muted-foreground leading-none">Más</span>
         </button>
       </nav>
-
-      {/* Marco a sangre en móvil y tablet: sin barras; el menú es un botón redondo abajo a la izquierda (como el de Shopify)
-          y el asistente/ayuda es el de abajo a la derecha. Las barras de arriba y de abajo se esconden por CSS. */}
-      {shellNuevo && (
-        <button
-          type="button"
-          data-movil-menu
-          onClick={() => setMasOpen(true)}
-          aria-label="Abrir el menú"
-          className="fixed bottom-4 left-4 z-40 hidden size-12 items-center justify-center rounded-full bg-[#1b1b1b] text-white shadow-[0_8px_24px_-8px_#00000066,0_0_0_1px_#ffffff1a]"
-        >
-          <Menu size={20} strokeWidth={1.8} aria-hidden="true" />
-        </button>
       )}
+
 
       {/* ── Mobile "Más" drawer ────────────────────────────────────────────── */}
       <MasDrawer open={masOpen} onClose={() => setMasOpen(false)} userInitials={userInitials} userEmail={userEmail} handleSignOut={handleSignOut} sections={seccionesVisibles} rol={rol} puedeVer={puedeVer} />

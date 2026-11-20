@@ -1964,27 +1964,6 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-vivo='pildoras'] > [data-vivo='pildora'] { border-radius: 9999px; }
 }
 
-/* ── Marco a sangre en MÓVIL y TABLET (< 1024 px) ─────────────────────────────────────────────────────
-   Como el admin de Shopify en pantalla pequeña: el panel entero es el marco oscuro, el contenido un lienzo
-   blanco redondeado a 4 px del borde, sin barra de arriba ni de abajo; el menú es un botón redondo abajo a
-   la izquierda (`data-movil-menu`, abre el mismo cajón «Más») y la ayuda/asistente el de abajo a la derecha.
-   Se conserva la tira de arriba del lienzo (privacidad, mensajes, avisos, perfil) para no perder acceso. */
-@media (max-width: 767.98px) {
-  .panel-app[data-shell-nuevo] { background-color: var(--shell-marco); }
-  .panel-app[data-shell-nuevo] [data-movil-superior],
-  .panel-app[data-shell-nuevo] [data-movil-inferior] { display: none !important; }
-  .panel-app[data-shell-nuevo] [data-movil-menu] { display: flex; }
-  .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-top: 0.25rem !important; padding-bottom: 6rem !important; }
-  .panel-app[data-shell-nuevo] [data-panel-topbar] {
-    display: flex !important; position: sticky; top: 0; height: 44px; margin-bottom: 4px; padding-inline: 12px; margin-inline: -16px;
-    border-top-left-radius: 16px; border-top-right-radius: 16px; gap: 4px; overflow: hidden;
-  }
-  .panel-app[data-shell-nuevo] [data-panel-topbar] > div:first-child { min-width: 0; flex: 1 1 auto; }
-  .panel-app[data-shell-nuevo] [data-panel-topbar] > div:last-child { flex: none; }
-  /* Sin la barra de abajo, el botón de ayuda baja a su sitio y las barras de guardar suben menos. */
-  .panel-app[data-shell-nuevo] [data-testid='boton-ayuda'] { bottom: calc(1rem + env(safe-area-inset-bottom, 0px)) !important; }
-}
-
 /* ── Textos: nada por debajo de 12-13 px dentro del lienzo ────────────────────────────────────────────
    El panel tenía muchas líneas de 10-12,5 px (descripciones, rótulos, filas) que en el admin de Shopify son de
    13 px (cuerpo) y 12 px (detalle y botones). Dentro del contenido: 10-11,5 px → 12 px y 12-12,5 px → 13 px.
@@ -2177,35 +2156,97 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 }
 .panel-app[data-shell-nuevo] [data-resumen-limpio] [data-resumen-mas] > summary:focus-visible { outline: 2px solid oklch(62.89% 0.2036 263.44); outline-offset: -2px; border-radius: 20px; }
 
-/* ── Móvil como una app (20-nov-2026, marco a sangre, < 768 px) ──────────────────────────────────────────────
-   Según la app de Shopify en iPhone: barra inferior FLOTANTE en píldora blanca con los iconos (la sección activa en un
-   círculo gris) y, aparte, un botón redondo (el asistente/ayuda); el menú es una pantalla completa con acordeón (ver `MasDrawer`).
-   Los botones y la letra son de dedo: ≥ 48 px y ≥ 16 px. Esto sustituye al botón redondo del menú de la versión anterior. */
+/* ── Móvil como una app (20-nov-2026, < 768 px) ───────────────────────────────────────────────────────────
+   Copia de la app de Shopify en iPhone. Medidas tomadas de las capturas del fundador (1206 px = 402 pt):
+   · Inicio: cabecera oscura (avatar · estudio · campana) y una hoja blanca de esquinas altas redondeadas.
+   · Las demás pantallas: blancas a pantalla completa, título grande a la izquierda y sin barra de arriba.
+   · Barra inferior: redondo de buscar · píldora de 4 iconos · redondo del asistente (56 pt, a 24 de los bordes).
+   · Píldora negra de la prueba, a 24 pt sobre la barra. Menú: pantalla completa con acordeón y tres botones flotantes.
+   Botones de dedo (≥ 48) y letra ≥ 16. Curva de todo el marco: cubic-bezier(0.2, 0.8, 0, 1). ──────────────── */
 @media (max-width: 767.98px) {
-  .panel-app[data-shell-nuevo] [data-movil-menu] { display: none !important; }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] {
-    display: flex !important; position: fixed; z-index: 30;
-    left: 12px; right: 80px; width: auto !important; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
-    height: 56px !important; padding: 0 6px !important; border: 0 !important; border-radius: 9999px;
-    background: #fff !important; justify-content: space-between; align-items: center;
-    box-shadow: 0 0 0 1px #0000000f, 0 10px 28px -8px #00000030, 0 2px 8px #0000000f;
+  .panel-app[data-shell-nuevo] { background-color: #000; }
+  .panel-app[data-shell-nuevo] [data-movil-superior],
+  .panel-app[data-shell-nuevo] [data-movil-inferior],
+  .panel-app[data-shell-nuevo] [data-panel-topbar],
+  .panel-app[data-shell-nuevo] .panel-wa-fab { display: none !important; }
+  .panel-app[data-shell-nuevo] main { padding: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja] { margin: 0 !important; border-radius: 0 !important; min-height: 100dvh !important; }
+  .panel-app[data-shell-nuevo]:not(.dark) { --background: #ffffff; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja] { background-color: #fff !important; }
+  .panel-app[data-shell-nuevo] [data-panel-contenido] {
+    padding-top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
+    padding-bottom: calc(10rem + env(safe-area-inset-bottom, 0px)) !important;
   }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > a,
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > button { flex: 1 1 0; min-width: 0 !important; padding: 0 !important; height: 48px; justify-content: center; align-items: center; }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > a > span,
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > button > span { display: none; }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > a > div,
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > button > div { width: 48px; height: 48px; border-radius: 9999px; }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > a > div.bg-brand { background-color: #ebebeb !important; }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] > a > div.bg-brand svg { color: #101010 !important; }
-  .panel-app[data-shell-nuevo] [data-movil-inferior] svg { width: 22px; height: 22px; }
-  .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)) !important; }
-  /* El botón de ayuda con el asistente: redondo y blanco, al lado de la barra. */
-  .panel-app[data-shell-nuevo] .panel-wa-fab { right: 12px !important; bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important; }
-  .panel-app[data-shell-nuevo] [data-testid='boton-ayuda'] {
-    width: 56px !important; height: 56px !important; background: #fff !important; color: #101010 !important;
-    box-shadow: 0 0 0 1px #0000000f, 0 10px 28px -8px #00000030, 0 2px 8px #0000000f !important;
+
+  /* Inicio: cabecera oscura + hoja blanca. */
+  .panel-app[data-shell-nuevo] [data-movil-cabecera] {
+    display: flex; align-items: center; justify-content: space-between; background: #000; color: #fff;
+    padding: calc(env(safe-area-inset-top, 0px) + 19px) 12px 16px; height: auto;
   }
-  /* Títulos de pantalla como en la app: grandes y a la izquierda. */
+  .panel-app[data-shell-nuevo] [data-movil-avatar] {
+    width: 32px; height: 32px; border-radius: 9999px; background: #b13cc4; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600;
+  }
+  .panel-app[data-shell-nuevo] [data-movil-estudio] { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .panel-app[data-shell-nuevo] [data-movil-estudio] > span {
+    width: 24px; height: 24px; border-radius: 7px; background: var(--brand, #e6dfcf); color: var(--brand-foreground, #101010);
+    display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex: none;
+  }
+  .panel-app[data-shell-nuevo] [data-movil-estudio] > p { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62vw; }
+  .panel-app[data-shell-nuevo] [data-movil-campana] { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: #fff; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja='inicio'] { border-radius: 24px 24px 0 0 !important; min-height: calc(100dvh - 67px - env(safe-area-inset-top, 0px)) !important; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja='inicio'] [data-panel-contenido] { padding-top: 22px !important; }
+
+  /* Barra inferior flotante. */
+  .panel-app[data-shell-nuevo] [data-movil-barra] {
+    position: fixed; z-index: 30; left: 24px; right: 24px; bottom: max(22px, calc(env(safe-area-inset-bottom, 0px) - 6px));
+    display: flex; flex-direction: column; gap: 24px; pointer-events: none;
+  }
+  .panel-app[data-shell-nuevo] [data-movil-barra]::before {
+    content: ''; position: absolute; z-index: -1; left: -24px; right: -24px; top: -36px; bottom: calc(-1 * max(22px, calc(env(safe-area-inset-bottom, 0px) - 6px)));
+    background: linear-gradient(to bottom, #fff0, #fffffff2 55%);
+  }
+  .panel-app[data-shell-nuevo] [data-movil-barra] > * { pointer-events: auto; }
+  .panel-app[data-shell-nuevo] [data-movil-barra] nav { gap: 10px; }
+  .panel-app[data-shell-nuevo] [data-movil-redondo],
+  .panel-app[data-shell-nuevo] [data-movil-pildora] {
+    background: #fff; box-shadow: 0 0 0 1px #0000000a, 0 8px 24px -6px #00000024, 0 2px 6px #0000000d;
+  }
+  .panel-app[data-shell-nuevo] [data-movil-redondo] {
+    width: 56px; height: 56px; flex: none; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #4a4a4a;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0, 1);
+  }
+  .panel-app[data-shell-nuevo] [data-movil-redondo-hueco] { display: none; }
+  .panel-app[data-shell-nuevo] [data-movil-pildora] { flex: 1 1 0; min-width: 0; height: 56px; border-radius: 9999px; padding: 0 5px; display: flex; align-items: center; justify-content: space-between; }
+  .panel-app[data-shell-nuevo] [data-movil-pildora] > a,
+  .panel-app[data-shell-nuevo] [data-movil-pildora] > button {
+    position: relative; flex: 1 1 0; min-width: 0; height: 46px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; color: #6a6a6a;
+    transition: background-color 0.25s cubic-bezier(0.2, 0.8, 0, 1), transform 0.2s cubic-bezier(0.2, 0.8, 0, 1);
+  }
+  .panel-app[data-shell-nuevo] [data-movil-pildora] > [data-activo] { background: #efefef; color: #0f0f0f; }
+  .panel-app[data-shell-nuevo] [data-movil-pildora] > a > b { position: absolute; top: 9px; right: 14px; width: 9px; height: 9px; border-radius: 9999px; background: #e0483c; }
+  .panel-app[data-shell-nuevo] [data-movil-barra] :is(a, button):active { transform: scale(0.94); }
+
+  /* Píldora negra de la prueba. */
+  .panel-app[data-shell-nuevo] [data-movil-prueba] {
+    height: 52px; margin-inline: 11px; border-radius: 9999px; background: #0d0d0d; border: 1px solid #2b2b2b; color: #fff;
+    padding: 0 7px 0 18px; font-size: 17px; box-shadow: 0 12px 30px -8px #0000004d;
+  }
+  .panel-app[data-shell-nuevo] [data-movil-prueba-dias] { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 9999px; background: #1e2321; font-size: 15.5px; }
+  .panel-app[data-shell-nuevo] [data-movil-prueba-dias] > i { width: 10px; height: 10px; border-radius: 9999px; }
+
+  /* Títulos de pantalla: grandes y a la izquierda; sin la frase de ayuda (una pantalla = una cosa). */
   .panel-app[data-shell-nuevo] [data-slot='page-header-title'] { font-size: 28px; line-height: 1.15; font-weight: 600; letter-spacing: -0.025em; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header-description'] { display: none; }
+  /* Cabecera: título a la izquierda y la acción principal a su derecha en la misma línea (si cabe); sin «Cómo funciona» ni ⓘ. */
+  .panel-app[data-shell-nuevo] [data-slot='page-header'] { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header'] > div:first-child { flex: 1 1 auto; min-width: 0; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header-actions'] { margin-left: auto; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header'] [data-slot='ayuda-pantalla-trigger'],
+  .panel-app[data-shell-nuevo] [data-slot='page-header'] button:has([data-boton-tutorial-texto]) { display: none; }
+  .panel-app[data-shell-nuevo] [data-slot='page-header-actions'] > :is(a, button) { min-height: 44px; font-size: 16px; }
+
+  /* Menú a pantalla completa (MasDrawer). */
+  @media (prefers-reduced-motion: reduce) {
+    .panel-app[data-shell-nuevo] [data-movil-barra] * { transition: none !important; }
+  }
 }
