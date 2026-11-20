@@ -121,7 +121,7 @@ import { nuevoHorarioArrastrado } from '@/lib/calendario-arrastre';
 import { puedeAjustarAforoASalaCapacidad, motivoAforoBloqueado } from '@/lib/calendario-acciones';
 import { claseAtenuadaPorInstructor, claseAtenuadaPorColumna, instructoraApagada, alternarInstructora, alternarEnConjunto } from '@/lib/calendario-filtros';
 import { ColumnaCalendario, type FilaColumna } from '@/components/calendario/columna-calendario';
-import { useAltaNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useAltaNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { ClasesFijasPorAlumna, SelectorHorarioPor, type HorarioPor } from '@/components/calendario/clases-fijas-por-alumna';
 import { rangoDia, rangoSemanaDesde, claveRango, type RangoFechas } from '@/lib/calendario-rango';
 import { historialSustituciones } from '@/lib/calendario-historial';
@@ -810,6 +810,7 @@ export default function Calendario() {
   // ojo por clase y por instructora y «Solo con alumnas apuntadas». Atenúan,
   // como el filtro de instructora. Solo cuentan donde se ve la columna.
   const panelNuevo = usePanelNuevo();
+  const shellNuevo = useShellNuevo();
   // Horario «Por clase» o «Por alumna» (Turnos de Bonsai): solo con el panel nuevo.
   const [horarioPor, setHorarioPor] = useState<HorarioPor>('clase');
   const columnaCabe = useCoincideMedio('(min-width: 1360px)');
@@ -1075,6 +1076,31 @@ export default function Calendario() {
   function cambiarDia(delta: number) {
     setDiaSeleccionado(prev => addDays(prev, delta));
   }
+  // Atajos del marco a sangre: ← y → cambian de semana o de día, y T vuelve a hoy. No actúan con un campo enfocado,
+  // un diálogo abierto ni una tecla modificadora (⌘T, ⌘←…): solo la tecla sola, sobre la pantalla.
+  const atajosRef = useRef({ vista: 'semana' as string, semana: cambiarSemana, dia: cambiarDia, hoy: irAHoy });
+  useEffect(() => { atajosRef.current = { vista, semana: cambiarSemana, dia: cambiarDia, hoy: irAHoy }; });
+  useEffect(() => {
+    if (!shellNuevo) return;
+    const alPulsar = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      if (document.querySelector('[role="dialog"], [data-slot="dialog-content"]')) return;
+      const { vista: v, semana: cs, dia: cd, hoy } = atajosRef.current;
+      if (v === 'horario') return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const delta = e.key === 'ArrowLeft' ? -1 : 1;
+        if (v === 'semana') cs(delta); else cd(delta);
+      } else if (e.key === 't' || e.key === 'T') {
+        e.preventDefault();
+        hoy();
+      }
+    };
+    window.addEventListener('keydown', alPulsar);
+    return () => window.removeEventListener('keydown', alPulsar);
+  }, [shellNuevo]);
   // El selector de fecha: lleva a ese día sin cambiar de vista (en Semana, a la
   // semana que lo enseña; ver semana-visible.ts).
   function irAFecha(fecha: string) {
@@ -3709,7 +3735,14 @@ export default function Calendario() {
     // y es la PÁGINA la que hace scroll.
     <div ref={refLienzo} data-tour="calendario-vista" className="flex flex-col md:h-[calc(100vh-136px)]">
     <LienzoCalendario>
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)]">
+    <div
+      data-calendario-marco
+      className={cn(
+        'flex min-h-0 flex-1 flex-col overflow-hidden',
+        // Marco a sangre: el calendario va directo sobre el lienzo, sin tarjeta dentro de la tarjeta.
+        !shellNuevo && 'rounded-3xl border border-border bg-card shadow-[0_20px_50px_-24px_rgba(0,0,0,0.18)]',
+      )}
+    >
       <ConColumna columna={columnaVisible ? (
         <ColumnaCalendario
           abrirEn={vista === 'semana' ? localDate(semana) : localDate(diaSeleccionado)}
