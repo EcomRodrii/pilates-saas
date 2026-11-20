@@ -2158,6 +2158,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 @keyframes calendario-semana-entra { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: no-preference) {
   .panel-app[data-shell-nuevo] .calendario-semana-entra { animation: calendario-semana-entra 0.28s cubic-bezier(0.2, 0.8, 0, 1) backwards; }
+}
 
 /* Las vistas de un módulo viven en el menú desplegable (lib/nav-submenus.ts): mientras el menú las enseña, la pantalla no repite sus
    pestañas arriba. Con el menú contraído, o en móvil, se ven como siempre. */
