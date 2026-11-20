@@ -702,21 +702,22 @@ export default function EquipoPage() {
 
       {/* Barra de filtros, fija al hacer scroll */}
       {tarjetas.length > 0 && (
-        <div className="sticky top-0 z-30 -mx-1 px-1 py-2 flex items-center gap-2 flex-wrap bg-background/85 backdrop-blur-md">
-          <div className="relative flex-1 min-w-[200px]">
+        <div data-equipo-filtros className="sticky top-0 z-30 -mx-1 px-1 py-2 flex items-center gap-2 flex-wrap bg-background/85 backdrop-blur-md">
+          <div data-equipo-buscar className="relative flex-1 min-w-[200px]">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nombre…"
               className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition"
             />
           </div>
+          <div data-equipo-chips className="contents">
           <PillSelect label="Estado" value={estadoF} onChange={v => setEstadoF(v as FiltroEstadoEquipo)}
             options={(['activas', 'todas', 'inactivas'] as FiltroEstadoEquipo[]).map(v => [v, ESTADO_LABEL[v]])} />
           {gestiona && (
             <PillSelect label="Rol" value={filtroRol} onChange={v => setFiltroRol(v as FiltroRol)}
               options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['MANAGER', 'Responsable de sede'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
           )}
-          <div className="ml-auto flex items-center gap-2">
+          <div data-equipo-orden className="ml-auto flex items-center gap-2">
             <PillSelect label="Ordenar" value={orden} onChange={v => setOrden(v as Orden)}
               options={ordenesPermitidos.map(o => [o, ORDEN_LABEL[o]])} />
             {hayFiltro && (
@@ -725,6 +726,7 @@ export default function EquipoPage() {
                 {ordenados.length} de {tarjetas.length} · quitar filtros
               </button>
             )}
+          </div>
           </div>
         </div>
       )}
@@ -1140,7 +1142,7 @@ function PillSelect({ label, value, onChange, options }: {
   return (
     // Con el dedo, el desplegable ocupa todo el alto de la píldora (44): tocar la
     // píldora fuera de su texto (22 px) no lo abría.
-    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors tactil:py-0">
+    <label data-chip-filtro className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors tactil:py-0">
       <span className="text-muted-foreground font-medium whitespace-nowrap">{label}:</span>
       <select value={value} onChange={e => onChange(e.target.value)}
         className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer tactil:min-h-11">
@@ -1195,6 +1197,7 @@ function TarjetaMiembro({
   return (
     <article
       ref={refCb}
+      data-miembro
       className={nueva
         ? 'bg-card border border-border rounded-t-card shadow-t-card p-5 flex flex-col gap-4 transition-shadow hover:shadow-t-floating motion-reduce:transition-none'
         : 'bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none'}
@@ -1277,7 +1280,7 @@ function TarjetaMiembro({
       </div>
 
       {/* 1. Dónde está ahora */}
-      <div className={`rounded-xl px-4 py-3 ${estilo.fondo}`}>
+      <div data-miembro-estado className={`rounded-xl px-4 py-3 ${estilo.fondo}`}>
         <p className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${estilo.tinta}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${estilo.punto}`} />{est.etiqueta}
         </p>

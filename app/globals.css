@@ -2321,4 +2321,20 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
   /* Botones de las cards: píldora gris (secundario) y píldora negra (principal), de 54 de alto. */
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] button[class*='rounded-full'][class*='border']:not([data-vivo-boton]) { background: #ececec !important; border-color: transparent !important; }
+
+  /* Equipo como Shopify: buscador en píldora gris, chips de filtro en una sola fila que se desliza, y fichas con panel gris interior. */
+  .panel-app[data-shell-nuevo] [data-equipo-filtros] { position: static !important; flex-wrap: nowrap !important; overflow-x: auto; gap: 8px !important; padding: 0 !important; margin: 0 !important; background: transparent !important; backdrop-filter: none !important; scrollbar-width: none; flex-direction: row; align-items: center; }
+  .panel-app[data-shell-nuevo] [data-equipo-filtros]::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo] [data-equipo-filtros] { flex-wrap: wrap !important; overflow: visible !important; }
+  .panel-app[data-shell-nuevo] [data-equipo-buscar] { flex: 1 0 100% !important; min-width: 100% !important; order: -1; }
+  .panel-app[data-shell-nuevo] [data-equipo-chips] { display: flex !important; flex: 1 0 100%; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -24px; padding: 0 24px; }
+  .panel-app[data-shell-nuevo] [data-equipo-chips]::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo] [data-chip-filtro] { flex: none; }
+  .panel-app[data-shell-nuevo] [data-equipo-orden] { display: contents; }
+  .panel-app[data-shell-nuevo] [data-equipo-buscar] input { height: 52px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding-left: 48px !important; font-size: 17px; }
+  .panel-app[data-shell-nuevo] [data-equipo-buscar] svg { left: 18px !important; width: 20px; height: 20px; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] label[data-chip-filtro][data-chip-filtro][data-chip-filtro] { height: 44px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding: 0 12px 0 16px !important; font-size: 15px; box-shadow: none !important; }
+  .panel-app[data-shell-nuevo] [data-equipo-orden] { margin-left: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-miembro] { padding: 20px !important; gap: 16px !important; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja] [data-miembro-estado] { background: #f6f6f6 !important; border-radius: 16px !important; padding: 16px !important; }
 }
