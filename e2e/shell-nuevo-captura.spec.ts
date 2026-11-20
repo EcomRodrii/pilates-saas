@@ -373,3 +373,22 @@ test('a sangre — Resumen limpio (página entera)', async ({ page }) => {
     await page.screenshot({ path: `test-results/shell-resumen-limpio-${i}.png` });
   }
 });
+
+test('a sangre — móvil como app: barra flotante y menú a pantalla completa con acordeón', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await ir(page, 'dashboard');
+  await listo(page);
+  const barra = page.locator('[data-movil-inferior]');
+  await expect(barra).toBeVisible({ timeout: 120_000 });
+  const caja = await barra.boundingBox();
+  expect(caja?.height, 'la barra es una píldora de 56 px').toBeLessThanOrEqual(60);
+  expect((caja?.y ?? 0) + (caja?.height ?? 0), 'y flota sobre el borde de abajo').toBeLessThan(844 - 8);
+  await page.screenshot({ path: 'test-results/shell-movil-app-inicio.png' });
+  await barra.getByRole('button').last().click();
+  await expect(page.locator('[data-movil-lista]')).toBeVisible();
+  await page.getByRole('button', { name: /^Paquetes/ }).click();
+  await expect(page.getByRole('link', { name: 'Tarjeta regalo' }).or(page.getByRole('link', { name: 'Tarifas' })).first()).toBeVisible();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: 'test-results/shell-movil-app-menu.png' });
+});
