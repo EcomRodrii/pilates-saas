@@ -26,26 +26,37 @@ Patrones comunes:
 5. **El vacío es parte de la guía**: dice qué falta y qué paso es.
 6. **En móvil es otra app**: un paso por pantalla, botón grande abajo, nada de listas largas.
 
-## 2. La ruta elegida (10 pasos)
+## 2. La ruta (12 pasos, ordenados por dependencias)
 
-Orden del camino a la primera reserva, el mismo que el de un estudio de Pilates en la vida real
-(el sitio → quién → qué → cuándo → a qué precio → cómo se cobra → que se vea suyo → traer gente).
+Regla de oro: **nunca se pide una tarea sin sus dependencias**. Un paso con `requiere` sin cumplir sale
+«bloqueado» y su botón lleva al paso que falta (ej.: programar clases exige sala, instructora y tipo de clase).
 
-| # | Paso | Qué es (una frase) | Se marca con | Se puede saltar |
+| # | Paso | Requiere | Se marca con (dato real) | Saltable |
 |---|---|---|---|---|
-| 1 | Salas | El espacio donde das clase; su aforo es el máximo de plazas | alguna sala | no |
-| 2 | Instructoras | Quien da cada clase, aunque seas tú | alguna instructora | no |
-| 3 | Tipos de clase | Reformer, Mat…: se define una vez y sirve para todo el horario | algún tipo de clase | no |
-| 4 | Horario | Las clases en el calendario, sueltas o repetidas cada semana | alguna clase programada | no |
-| 5 | Tarifas | Clase suelta, bonos y cuotas | alguna tarifa con precio | sí |
-| 6 | Cobros | Cobrar en el estudio o con tarjeta online (Stripe) | Stripe conectado | sí (cobrar en mano es válido) |
-| 7 | Tu app | Logo y color: lo primero que ve tu clienta | marca personalizada | sí |
-| 8 | Tus clientas | Traerlas de tu programa anterior o darlas de alta | alguna ficha | no |
-| 9 | Compartir | Enlace y QR de tu app | el enlace se copió/mandó | no |
-| 10 | Primera reserva | Se marca sola cuando alguien reserva | una reserva | no (sin botón) |
+| 1 | Tus datos y tu horario | – | NIF puesto | sí |
+| 2 | Sala | – | alguna sala | no |
+| 3 | Instructora | – | alguna instructora | no |
+| 4 | Tipo de clase (plantilla, no clase en el calendario) | – | algún tipo | no |
+| 5 | Reglas de reserva | – | **sin dato** (revisión) | sí |
+| 6 | Reglas de cancelación | – | **sin dato** (revisión) | sí |
+| 7 | Paquetes (suelta, bono, cuota) | tipo | algún paquete con precio | sí |
+| 8 | Cobros (en el estudio o Stripe) | – | Stripe conectado | sí |
+| 9 | Programar clases | sala, instructora, tipo | alguna clase programada | no |
+| 10 | Clientas / migración | – | alguna ficha | sí |
+| 11 | La app de tus clientas (marca) | – | marca personalizada | sí |
+| 12 | Abre tus reservas | horario | primera reserva real | no |
 
-«Tu primera clase» (alta nueva) crea de golpe sala + instructora + tipo + clase + tarifa: quien
-pasó por ahí ve los pasos 1 a 5 ya hechos. La guía ofrece ese atajo a quien no ha hecho ninguno.
+«Listo para abrir» = sala + instructora + tipo + clase. Paquetes, Stripe y clientas NO bloquean (condicionales).
+
+⚠️ **Duda documentada**: las reglas de reserva y de cancelación tienen valores de serie y no hay un «guardado»
+que diga «el estudio las revisó». Por eso son *revisión*: no cuentan como hechas ni en el progreso; se cierran
+con «Ya lo he revisado» (solo en este navegador). Marcarlas de verdad por dato exigiría una columna nueva
+(migración): decisión pendiente. Las opciones nombradas en la guía (exigir paquete, lista de espera y su plazo,
+horas de cancelación, devolver sesión/recuperación en cancelación tardía) están en `/configuracion?tab=reservas`.
+Los cargos por cancelar tarde/no presentarse se activan aparte (penalización); no se describe su comportamiento.
+
+Pendiente de las siguientes tandas: ayuda contextual ampliada, Academy por fases, analítica, seguimiento interno
+de estudios atascados y Playwright.
 
 ## 3. Qué se construyó
 
