@@ -282,15 +282,15 @@ for (const ruta of ['calendario', 'cobros', 'equipo', 'productos', 'informes', '
   });
 }
 
-test('a sangre — Mensajería: las cuatro tarjetas y el cajón de notificaciones', async ({ page }) => {
+test('a sangre — Mensajería: sus vistas viven en el menú y el cajón de notificaciones', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 1440, height: 900 });
   await ir(page, 'mensajeria');
   await listo(page);
-  const tabs = page.getByRole('tab');
-  await expect(tabs.first()).toBeVisible({ timeout: 120_000 });
-  const alto = (await tabs.first().boundingBox())?.height ?? 0;
-  expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
+  // Las cuatro vistas (Notificaciones, Comunidad, Conversaciones, Enviar mensaje) viven ahora en el menú desplegable: la pantalla ya
+  // no repite sus tarjetas de arriba (`data-vistas-en-menu`).
+  await expect(page.locator('[data-acordeon="/mensajeria"] [data-sublista]')).toHaveAttribute('data-abierta', '', { timeout: 120_000 });
+  await expect(page.locator('[data-vistas-en-menu]'), 'las tarjetas de arriba no se repiten').toBeHidden();
   await page.screenshot({ path: 'test-results/shell-sangre-mensajeria.png' });
   await page.getByRole('button', { name: /notificaciones/i }).first().click().catch(() => {});
   await page.waitForTimeout(600);
