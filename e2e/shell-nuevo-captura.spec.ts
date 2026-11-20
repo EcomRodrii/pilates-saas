@@ -166,7 +166,7 @@ test('a sangre — Resumen de un estudio nuevo: tarjetas de paso con imagen', as
 
 // ── Revisión de lo que dependía del hueco del menú y del móvil ───────────────────────────────
 
-test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y sin desbordes', async ({ page }) => {
+test('a sangre — móvil (390): marco oscuro, lienzo blanco, barra flotante y sin desbordes', async ({ page }) => {
   await preparar(page, true);
   await page.setViewportSize({ width: 390, height: 844 });
   await ir(page, 'dashboard');
@@ -174,13 +174,13 @@ test('a sangre — móvil (390): marco oscuro, lienzo blanco, botón de menú y 
   await page.waitForTimeout(1200);
   const ancho = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, ventana: window.innerWidth }));
   expect(ancho.doc, 'ni una barra de scroll horizontal').toBeLessThanOrEqual(ancho.ventana + 1);
-  await expect(page.locator('[data-movil-menu]'), 'el botón redondo del menú').toBeVisible({ timeout: 120_000 });
-  await expect(page.locator('[data-movil-inferior]'), 'sin barra de abajo').toBeHidden();
+  await expect(page.locator('[data-movil-pildora]'), 'la píldora de la barra').toBeVisible({ timeout: 120_000 });
+  await expect(page.locator('[data-movil-inferior]'), 'sin la barra de abajo de siempre').toBeHidden();
   await expect(page.locator('[data-movil-superior]'), 'sin barra de arriba').toBeHidden();
   await expect(page.locator('[data-pildora-asistente]')).toBeHidden();
   await page.screenshot({ path: 'test-results/shell-sangre-movil.png' });
-  await page.locator('[data-movil-menu]').click();
-  await expect(page.getByText('Menú', { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir el menú' }).click();
+  await expect(page.locator('[data-movil-lista]')).toBeVisible();
   await page.screenshot({ path: 'test-results/shell-sangre-movil-menu.png' });
 });
 
@@ -287,9 +287,10 @@ test('a sangre — Mensajería: las cuatro tarjetas y el cajón de notificacione
   await ir(page, 'mensajeria');
   await listo(page);
   const tabs = page.getByRole('tab');
-  await expect(tabs.first()).toBeVisible({ timeout: 120_000 });
+  // Las vistas viven en el menú (#2940): las pestañas de la pantalla pueden estar ocultas; si se ven, no se aplastan.
+  await expect(tabs.first()).toBeAttached({ timeout: 120_000 });
   const alto = (await tabs.first().boundingBox())?.height ?? 0;
-  expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
+  if (alto > 0) expect(alto, 'las tarjetas de Mensajería no se aplastan a 28 px').toBeGreaterThan(56);
   await page.screenshot({ path: 'test-results/shell-sangre-mensajeria.png' });
   await page.getByRole('button', { name: /notificaciones/i }).first().click().catch(() => {});
   await page.waitForTimeout(600);
