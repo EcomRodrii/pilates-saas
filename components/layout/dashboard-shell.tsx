@@ -24,6 +24,8 @@ import { PanelPageTransition } from '@/components/layout/panel-page-transition';
 import { VentanaCalendario } from '@/components/calendario/ventana-calendario';
 import { ControlAmpliado } from '@/components/layout/control-ampliado';
 import { PanelSkeleton } from '@/components/ui/panel-skeleton';
+import { PantallaCargaAlta } from '@/components/alta-nueva/pantalla-carga-alta';
+import { limpiarAltaEnCurso, useAltaEnCurso } from '@/lib/alta/alta-en-curso';
 import { estadoBilling } from '@/lib/api-client';
 import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
@@ -154,6 +156,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // qué bienvenida se enseña (más abajo), y con `null` se espera con el esqueleto
   // en vez de pintar un instante la de siempre.
   const altaNueva = useAltaNueva();
+  // Viene de «Tu estudio ya existe»: la espera es oscura y neutra, no el esqueleto del panel (lib/alta/alta-en-curso.ts).
+  const enAlta = useAltaEnCurso();
 
   // Título de la pestaña por sección. Por defecto heredaba el de la web comercial
   // (app/layout) en TODAS las pantallas del panel → con varias pestañas abiertas
@@ -305,6 +309,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // antes de llegar aquí, en carga fría eso son muchos segundos de nada — y una
   // pantalla vacía no se lee como "cargando", se lee como "se ha roto". El marco
   // + skeleton ya existen para el caso de datos; se reutilizan también aquí.
+  // Si el estudio ya tiene la bienvenida vista, la marca sobra: se quita (si no, cada carga mostraría la oscura).
+  useEffect(() => {
+    if (enAlta && studio && !cargandoDatos && studio.bienvenidaVistaEn) limpiarAltaEnCurso();
+  }, [enAlta, studio, cargandoDatos]);
+  const cargandoAlta = enAlta && (loading || !session || cargandoDatos || altaNueva === null);
+  if (cargandoAlta) return <PantallaCargaAlta />;
+
   if (loading) {
     return (
       <PanelPrivacyProvider>

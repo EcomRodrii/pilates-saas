@@ -38,6 +38,8 @@ import { BOTON_DESTACADO, Baldosa, DEGRADADO_LOGO, fondoTenido } from '@/compone
 import { usePonEnMarcha } from './use-pon-en-marcha';
 import { useOnboardingNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { TarjetasDeArranque } from './tarjetas-de-arranque';
+import { useGuiaActiva } from './use-guia-paso-a-paso';
+import { TarjetaGuiaResumen } from './tarjeta-guia-resumen';
 
 // El diálogo de compartir trae el cartel del QR: solo cuando se abre.
 const CompartirEnlace = dynamic(() => import('./compartir-enlace').then(m => m.CompartirEnlace), { ssr: false });
@@ -243,6 +245,12 @@ export function AyudaPersona({ nombreEstudio, compacta = false }: { nombreEstudi
 // ── La tarjeta del Resumen ───────────────────────────────────────────────────
 
 export function PonEnMarchaTarjeta() {
+  const guia = useGuiaActiva();
+  // La guía paso a paso (GUIA_PASO_A_PASO) sustituye a la lista de cinco; apagada, la de siempre.
+  return guia.activo === true ? <TarjetaGuiaResumen /> : <PonEnMarchaTarjetaDeSiempre />;
+}
+
+function PonEnMarchaTarjetaDeSiempre() {
   const { studio, updateStudio } = useStudio();
   const { pasos, ocultada, creadoEn, omitir, estado } = usePonEnMarcha();
   // Tarjetas al estilo Shopify (`ONBOARDING_NUEVO`); apagado, la lista de siempre.

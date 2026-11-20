@@ -1,5 +1,6 @@
 'use client';
 
+import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import { Suspense, useState, useId, useEffect, useRef, useMemo } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
 import { useTutorial } from '@/lib/tutorial-context';
@@ -1345,6 +1346,7 @@ export default function Productos() {
       )}
 
       {/* ── PLANES, en el panel nuevo ── */}
+      {tab === 'planes' && planesTarifa.length === 0 && <AyudaDelPaso paso="tarifas" />}
       {tab === 'planes' && panelNuevo && (planesTarifa.length === 0 ? (
         // Sin ninguna tarifa: el vacío que enseña. Lleva las dos anclas del
         // tutorial de la pantalla (los tipos y la lista), que aquí son la misma caja.

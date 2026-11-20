@@ -27,6 +27,7 @@ import { textoLegalVigenteDeFila } from '@/lib/legal-textos';
 import { aplicarConsentimientoEnCron, consentimientoCubrePenalizacion } from '@/lib/billing/penalizacion-consentimiento';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { hoyEnEstudio } from '@/lib/utils';
+import { esFalloDeConexion, MENSAJE_BD_NO_ACCESIBLE } from '@/lib/errores-conexion';
 import { esReservaPlazaFija } from '../reservas/plaza-fija-id.ts';
 
 async function procesarUna(admin: SupabaseClient, pen: { id: string; studio_id: string; socio_id: string; reserva_id: string; tipo: string; importe: number; detectada_en: string }) {
@@ -360,9 +361,11 @@ async function seguirRecibosResueltos(admin: SupabaseClient) {
         await seguirPenalizacionAlRecibo(admin, { studioId: fila.studio_id as string, reciboId: fila.recibo_id as string });
       }
     } catch (e) {
-      Sentry.captureMessage('[penalizaciones] barrido de recibos resueltos', {
+      const error = e instanceof Error ? e.message : String(e);
+      // Sin conexión con la base de datos no es un fallo del barrido: un solo aviso agrupado (lib/errores-conexion.ts).
+      Sentry.captureMessage(esFalloDeConexion(error) ? MENSAJE_BD_NO_ACCESIBLE : '[penalizaciones] barrido de recibos resueltos', {
         level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-recibo' },
-        extra: { estadoRecibo, error: e instanceof Error ? e.message : String(e) },
+        extra: { estadoRecibo, error, barrido: 'recibos-resueltos' },
       });
     }
   }
@@ -435,9 +438,10 @@ async function soltarRecibosDePenalizacionesAnuladas(admin: SupabaseClient) {
       ultimoId = filas[filas.length - 1].id;
     }
   } catch (e) {
-    Sentry.captureMessage('[penalizaciones] barrido de recibos de penalizaciones anuladas', {
+    const error = e instanceof Error ? e.message : String(e);
+    Sentry.captureMessage(esFalloDeConexion(error) ? MENSAJE_BD_NO_ACCESIBLE : '[penalizaciones] barrido de recibos de penalizaciones anuladas', {
       level: 'error', tags: { area: 'cobros', tipo: 'penalizacion-anulada' },
-      extra: { error: e instanceof Error ? e.message : String(e) },
+      extra: { error, barrido: 'penalizaciones-anuladas' },
     });
   }
 }

@@ -35,9 +35,21 @@ const proponerDemo = z.strictObject({
   resumen: z.string().min(3).max(260),
   aclaracion: z.string().max(300).optional(),
 });
+// `no_soportado` es la respuesta de «eso no lo hace Tentare»: un motivo de 310 caracteres o cuatro alternativas no son un
+// peligro, y rechazarla dejaba a quien probaba la demo con el turno «degradado» (Sentry: `no_soportado · motivo:too_big`). Aquí
+// se RECORTA lo que se pasa de largo; lo demás (claves de más, motivo demasiado corto) sigue siendo inválido. En `preguntar` y
+// `proponer_demo` el tope sigue rechazando: ahí el texto y las opciones son parte del contrato.
+function cortarTexto(texto: string, max: number): string {
+  const base = texto.slice(0, max - 1);
+  const ultimoEspacio = base.lastIndexOf(' ');
+  const corte = ultimoEspacio > max * 0.6 ? base.slice(0, ultimoEspacio) : base;
+  return `${corte.replace(/[\s.,;:¿¡]+$/, '')}…`;
+}
+const recortado = (max: number) => (v: unknown) => (typeof v === 'string' && v.length > max ? cortarTexto(v, max) : v);
+const primeros = (n: number) => (v: unknown) => (Array.isArray(v) ? v.slice(0, n) : v);
 const noSoportado = z.strictObject({
-  motivo: z.string().min(3).max(300),
-  alternativas: z.array(z.string()).max(3).default([]),
+  motivo: z.preprocess(recortado(300), z.string().min(3).max(300)),
+  alternativas: z.preprocess(primeros(3), z.array(z.string()).max(3)).default([]),
 });
 
 export interface HerramientaModelo {

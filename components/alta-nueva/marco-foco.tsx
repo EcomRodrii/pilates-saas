@@ -75,6 +75,22 @@ export function EstilosFoco() {
   .ob-secundario { height: 54px; border-radius: 14px; }
   .ob-ayuda { display: none; }
 }
+/* Pantallas bajas (portátil de 720 px, iPhone SE): menos aire para que la tarjeta quepa sin scroll. */
+@media (max-height: 780px) {
+  .ob-col { padding-top: 16px; padding-bottom: 12px; }
+  .ob-cab { margin-top: 14px; }
+  .ob-eyebrow { margin-top: 8px; }
+  .ob-h1 { font-size: 26px; line-height: 30px; }
+  .ob-hoja { margin-top: 14px; padding: 24px 28px; }
+  .ob-ayuda { display: none; }
+}
+@media (max-width: 640px) and (max-height: 780px) {
+  .ob-top { padding-top: max(14px, env(safe-area-inset-top)); }
+  .ob-logo { height: 26px !important; }
+  .ob-cab { margin: 10px 0 auto; }
+  .ob-h1 { font-size: 23px; line-height: 28px; }
+  .ob-hoja { margin-top: 10px; padding: 20px 24px calc(14px + env(safe-area-inset-bottom)); }
+}
 @media (prefers-reduced-motion: reduce) {
   .ob-logo, .ob-titulo, .ob-hoja { animation: none; }
   .ob-barra, .ob-pulsable { transition: none; }

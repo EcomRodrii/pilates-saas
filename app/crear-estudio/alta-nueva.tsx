@@ -23,6 +23,7 @@ import { VERSION_TEXTOS_LEGALES } from '@/lib/legal-info';
 import { SOPORTE_WHATSAPP } from '@/lib/soporte';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { avisarProgresoAlta } from '@/lib/alta/progreso-cliente';
+import { marcarAltaEnCurso } from '@/lib/alta/alta-en-curso';
 import { cn } from '@/lib/utils';
 import { useEscalaIphone } from '@/components/ui/marco-iphone';
 import { AppDeMuestra } from '@/components/alta-nueva/app-de-muestra';
@@ -277,6 +278,8 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
       capturarEvento('alta_estudio_creada', { plan: 'BASE', version });
       registrarAltaCompletada('BASE');
       setEstudioCreado(nombre);
+      // El panel esperará con una pantalla oscura y neutra, no con su esqueleto claro (lib/alta/alta-en-curso.ts).
+      marcarAltaEnCurso();
       setFase('listo');
       // «Tu cuenta está activa» (correo 2). Sin esperar: el servidor decide si
       // toca (una vez, estudio recién creado, alta nueva) y si no sale, el alta
@@ -613,7 +616,7 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
                 </span>
                 {/* La base sale de `slugify`, pero `dbCreateStudio` le pone «-2»,
                     «-3»… si ya es de otro estudio: no se promete la exacta. */}
-                <span className="block" data-testid="aviso-direccion" aria-live="polite">
+                <span className="block" data-testid="aviso-direccion" aria-live="polite" hidden={foco && direccion?.estado !== 'con_numero' && direccion?.estado !== 'agotada'}>
                   {direccion?.estado === 'libre'
                     ? 'Está libre.'
                     : direccion?.estado === 'con_numero'
@@ -650,7 +653,7 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
             {!conSesion && (
               <>
                 {/* ── Email ── */}
-                <div className="mt-[18px] min-w-0">
+                <div className="mt-4 min-w-0">
                   <label htmlFor={id('email')} className={ETIQUETA}>Tu email</label>
                   <div className="relative">
                     <input
@@ -671,7 +674,7 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
                     />
                     <IconoBien visible={bien('email') && !sugerencia} />
                   </div>
-                  <p id={`${id('email')}-a`} className={cn(AYUDA, 'mt-1.5')}>Te mandaremos un código para comprobar que es tuyo.</p>
+                  <p id={`${id('email')}-a`} hidden={foco} className={cn(AYUDA, 'mt-1.5')}>Te mandaremos un código para comprobar que es tuyo.</p>
                   {/* Solo SUGIERE: el email no se cambia sin que ella lo pida. */}
                   <div id={`${id('email')}-s`} aria-live="polite">
                     {sugerencia && (
@@ -692,7 +695,7 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
                 </div>
 
                 {/* ── Contraseña ── */}
-                <div className="mt-[18px] min-w-0">
+                <div className="mt-4 min-w-0">
                   <label htmlFor={id('contrasena')} className={ETIQUETA}>Contraseña</label>
                   <div className="relative">
                     <input
@@ -723,7 +726,6 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
                   </div>
                   <ul id={`${id('contrasena')}-r`} className="mt-2 grid gap-[5px]">
                     <Regla ok={reglas.largo}>8 caracteres o más</Regla>
-                    <Regla ok={reglas.dificil}>Difícil de adivinar: ni 12345678 ni el nombre del estudio</Regla>
                   </ul>
                   <ErrorCampo id={`${id('contrasena')}-e`} texto={mostrarError('contrasena') ? errores.contrasena : ''} />
                 </div>
@@ -760,7 +762,7 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
             y la{' '}
             <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="text-t-link underline underline-offset-2">política de privacidad</a>.
           </p>
-          {!conSesion && (
+          {!conSesion && !foco && (
             <p className="mt-3.5 text-[14px] text-t-secondary">
               ¿Ya tienes cuenta? <Link href="/login" className="text-t-link underline underline-offset-2">Entrar</Link>
             </p>
@@ -778,7 +780,6 @@ export function AltaNueva({ version, foundingGratis, piel = false }: { version: 
         <CabeceraPaso
           etiqueta="Paso 1 de 5 · unos 2 minutos"
           titulo="Crea tu estudio en Tentare"
-          sub="Crea tu cuenta y, en unos 10 minutos, tendrás tu primera clase abierta a reservas."
           tituloRef={tituloRef}
         />
         {cuerpo}
