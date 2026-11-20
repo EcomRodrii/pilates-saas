@@ -75,33 +75,24 @@ test('la contraseña: corta primero, fácil después', () => {
 
 // ── Contraseña fácil ────────────────────────────────────────────────────────
 
-test('fácil: las de siempre, un carácter repetido y las escaleras de cifras', () => {
-  for (const c of ['12345678', 'Password', 'contraseña', 'qwerty123', 'aaaaaaaa', '00000000', '23456789', '98765432', 'Pilates123']) {
+test('fácil: solo las de siempre y un carácter repetido', () => {
+  for (const c of ['12345678', 'Password', 'contraseña', 'qwerty123', 'aaaaaaaa', '00000000', 'Pilates123']) {
     assert.equal(contrasenaFacil(c, 'Estudio Norte'), true, c);
   }
 });
 
-test('fácil: el nombre del estudio con números o signos, o un trozo de él', () => {
+test('ya NO se compara con el nombre del estudio ni se buscan escaleras (20-nov-2026: muchos estudios abandonaban)', () => {
   const nombre = 'Estudio Alba Pilates';
-  for (const c of ['EstudioAlba2026', 'estudio-alba!', 'albapilates', 'Pilates!!!!', 'ESTUDIOALBAPILATES2026', 'estudíoalba1']) {
-    assert.equal(contrasenaFacil(c, nombre), true, c);
+  for (const c of ['EstudioAlba2026', 'estudio-alba!', 'albapilates', 'Pilates!!!!', 'alba2026', '23456789', 'mi perro come peras']) {
+    assert.equal(contrasenaFacil(c, nombre), false, c);
   }
-});
-
-test('no es fácil una frase cualquiera, ni una palabra que solo contiene un nombre corto', () => {
-  assert.equal(contrasenaFacil('mi perro come peras', 'Estudio Alba Pilates'), false);
-  assert.equal(contrasenaFacil('estudiante2024!', 'Estudio Alba Pilates'), false);
-  // «alba» está dentro de «albaricoque»: eso no es poner el nombre del estudio.
-  assert.equal(contrasenaFacil('albaricoque99', 'Alba'), false);
-  assert.equal(contrasenaFacil('alba2026', 'Alba'), true);
-  // Un nombre de menos de 4 letras no cuenta (cualquier palabra lo contendría).
-  assert.equal(contrasenaFacil('omnipresente', 'Om'), false);
 });
 
 test('las dos casillas se marcan con lo mismo que decide el error', () => {
   assert.deepEqual(reglasContrasena('', 'Alba'), { largo: false, dificil: false });
   assert.deepEqual(reglasContrasena('12345678', 'Alba'), { largo: true, dificil: false });
   assert.deepEqual(reglasContrasena('mi perro come peras', 'Alba'), { largo: true, dificil: true });
+  assert.deepEqual(reglasContrasena('Alba2026', 'Alba'), { largo: true, dificil: true });
 });
 
 // ── «¿Querías decir…?» ──────────────────────────────────────────────────────

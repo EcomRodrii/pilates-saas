@@ -21,6 +21,7 @@
 // no pasa nada.
 // ─────────────────────────────────────────────────────────────────────────────
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { esFalloDeConexion, MENSAJE_BD_NO_ACCESIBLE } from '../errores-conexion.ts';
 // Relativo y con `.ts` explícita: el alias `@/` no lo resuelve el runner de
 // `node --test`, y este módulo sí tiene test unitario propio (salud.test.ts).
 import { PREFIJO_RESERVA_WEB } from '../lista-espera/esperas-sin-plaza.ts';
@@ -88,7 +89,15 @@ export function avisoParaSentry(
 ): { nivel: 'warning' | 'error'; mensaje: string; extra: { comprobacion: string; valor: number; error?: string } } | null {
   const mensaje = `[salud] ${d.id}`;
   // Igual que en `comprobarFlujos`: no poder contar es un fallo, no un verde.
-  if (r.error) return { nivel: 'error', mensaje, extra: { comprobacion: d.id, valor: -1, error: r.error.message } };
+  // Una caída de conexión con la base de datos no es un fallo de ESTA comprobación: va como un solo aviso (mensaje estable) y
+  // `extra.comprobacion` dice cuál lo vio (lib/errores-conexion.ts).
+  if (r.error) {
+    return {
+      nivel: 'error',
+      mensaje: esFalloDeConexion(r.error.message) ? MENSAJE_BD_NO_ACCESIBLE : mensaje,
+      extra: { comprobacion: d.id, valor: -1, error: r.error.message },
+    };
+  }
   const valor = r.count ?? 0;
   const estado = clasificar(valor, d.umbralAviso, d.umbralFallo);
   if (estado === 'ok') return null;

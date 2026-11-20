@@ -26,6 +26,7 @@ import { faltaParaCrearClase } from '@/lib/calendario/falta-para-crear-clase';
 import { avisoTrasCancelar } from '@/lib/calendario/aviso-tras-cancelar';
 import { cn, cuandoEstudio, fechaLargaEstudio, formatEuro, franjaLocalDe, horaEstudio, capitalizarPrimera, hoyEnEstudio, masDias, TZ_ESTUDIO } from '@/lib/utils';
 import { horaParedAInstante, fechaLocalDe, esHoraHHMM } from '@/lib/citas/slots';
+import { opcionVigente } from '@/lib/calendario/opcion-vigente';
 import { calcularImpactoEdicionSerie, cambiosPorClase, type EdicionDeSerie, type ImpactoEdicionSerie } from '@/lib/series-impacto-edicion';
 import { DialogoImpactoEdicion, type CambioVisible } from '@/components/series/dialogo-impacto-edicion';
 import { enviarEmailCancelacionClase, avisarCambioClaseServidor, avisarCambioSerieServidor, avisarClaseCancelada, listarAusencias, decidirReservaPendiente, type AusenciaInstructora } from '@/lib/api-client';
@@ -357,7 +358,18 @@ function ModalClasesRecurrentes({
     aforoMaximo: aforoPorDefectoDeSesion(programables[0]?.aforoPorDefecto, salas[0]?.capacidad),
   };
 
-  const [form, setForm] = useState<RecurringFormData>(emptyForm);
+  const [formBruto, setForm] = useState<RecurringFormData>(emptyForm);
+  // Un <select> controlado cuyo valor ya no está entre sus opciones ENSEÑA la
+  // primera, pero el estado conserva el id viejo (o ''): la usuaria veía una
+  // instructora y la serie salía con otra que la base de datos rechazaba (FK
+  // `sesiones_instructor_id_fkey`, Sentry JAVASCRIPT-NEXTJS-4F). Lo que se
+  // pinta y lo que se envía es siempre una opción que existe ahora.
+  const form = useMemo<RecurringFormData>(() => ({
+    ...formBruto,
+    instructorId: opcionVigente(formBruto.instructorId, instructores),
+    salaId: opcionVigente(formBruto.salaId, salas),
+  }), [formBruto, instructores, salas]);
+  const faltaInstructoraOSala = !form.instructorId || !form.salaId;
   // «Duplicar serie» de un tipo archivado: se enseña lo que trae, sin dejar crearla.
   const tipoArchivado = estaArchivado(tiposClase.find(t => t.id === form.tipoClaseId));
   const duracionInvalida = !form.duracion || form.duracion < 15;
@@ -559,6 +571,11 @@ function ModalClasesRecurrentes({
               <p className="text-sm font-semibold text-foreground">Se crearán <span className="font-bold">{estimatedCount}</span> clases</p>
             </div>
           )}
+          {faltaInstructoraOSala && (
+            <p className="text-xs text-destructive">
+              {!form.instructorId ? 'No hay ninguna instructora activa que pueda dar clase: añádela en Equipo.' : 'No hay ninguna sala: crea una en Configuración.'}
+            </p>
+          )}
           {conflictosCount > 0 && (
             <div className="rounded-xl bg-warning/10 border border-warning/30 px-4 py-3 flex items-center gap-2">
               <AlertTriangle size={15} className="text-warning shrink-0" />
@@ -572,7 +589,7 @@ function ModalClasesRecurrentes({
           <button onClick={onClose} className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold border border-border text-muted-foreground hover:bg-muted transition-colors">Cancelar</button>
           <button
             onClick={handleSubmit}
-            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida || horaInvalida || tipoArchivado}
+            disabled={form.diasSemana.length === 0 || estimatedCount === 0 || duracionInvalida || horaInvalida || tipoArchivado || faltaInstructoraOSala}
             className="flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold bg-brand text-brand-foreground hover:brightness-95 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {estimatedCount > 0 ? `Crear ${estimatedCount} clases` : 'Crear clases'}

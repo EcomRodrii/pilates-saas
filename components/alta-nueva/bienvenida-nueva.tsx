@@ -42,6 +42,7 @@ import { ENTRADA_PRIMERA_CLASE, LINEA_DE_PASOS, PASO_DE_PANTALLA, anteriorPantal
 import { sedesDeOnbCentros, type Sedes } from '@/lib/alta/tu-estudio';
 import { ErrorGuardado, WhatsAppPersona } from './piezas';
 import { MarcoFoco } from './marco-foco';
+import { limpiarAltaEnCurso } from '@/lib/alta/alta-en-curso';
 import { PasoCuando, PasoDonde } from './paso-tu-estudio';
 import { PasoImportar } from './paso-importar';
 import { PasoMarca } from './paso-marca';
@@ -63,6 +64,8 @@ function inicio(studioId: string): PantallaAlta {
 export function BienvenidaNueva({ studio }: { studio: Studio }) {
   const { updateStudio } = useStudio();
   const router = useRouter();
+  // La bienvenida ya está en pantalla: la pantalla de carga de después del alta ha cumplido.
+  useEffect(() => { limpiarAltaEnCurso(); }, []);
   const [pantalla, setPantalla] = useState<PantallaAlta>(() => inicio(studio.id));
   const [sedes, setSedes] = useState<Sedes>(() => sedesDeOnbCentros(studio.onbCentros) ?? { tipo: 'una' });
   const [saliendo, setSaliendo] = useState(false);

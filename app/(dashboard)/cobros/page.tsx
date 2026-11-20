@@ -179,7 +179,7 @@ export default function Cobros() {
       {panelNuevo && <CifrasCobros datos={datos} onIr={irDesdeCifra} />}
 
       {/* `max-w-full` + scroll: en un móvil de 375 px las cuatro no caben. */}
-      <nav data-tour="cobros-secciones" aria-label="Secciones de Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
+      <nav data-tour="cobros-secciones" data-vistas-en-menu aria-label="Secciones de Cobros" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl bg-muted p-1">
         {tabs.map(t => (
           <button
             key={t} type="button" aria-current={tab === t ? 'page' : undefined}

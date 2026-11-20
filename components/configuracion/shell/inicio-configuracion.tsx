@@ -170,8 +170,8 @@ export function InicioConfiguracion({
   };
 
   return (
-    <div className="tab-content-in space-y-6">
-      <div className="space-y-2">
+    <div data-config-inicio className="tab-content-in space-y-6">
+      <div data-config-buscador className="space-y-2">
         <label htmlFor={idBuscador} className="sr-only">Buscar un ajuste</label>
         <div className="relative">
           <Search size={18} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

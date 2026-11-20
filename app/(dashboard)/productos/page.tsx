@@ -1,5 +1,6 @@
 'use client';
 
+import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import { Suspense, useState, useId, useEffect, useRef, useMemo } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
 import { useTutorial } from '@/lib/tutorial-context';
@@ -1333,7 +1334,7 @@ export default function Productos() {
       {/* Tabs — la pestaña "Productos de la caja" queda oculta con POS congelado (solo
           se muestra la barra si hay más de una pestaña). */}
       {TABS.length > 1 && (
-        <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+        <div data-vistas-en-menu className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
           {TABS.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
               className="zona-tactil px-4 py-2 rounded-lg text-sm font-semibold transition-all"
@@ -1345,6 +1346,7 @@ export default function Productos() {
       )}
 
       {/* ── PLANES, en el panel nuevo ── */}
+      {tab === 'planes' && planesTarifa.length === 0 && <AyudaDelPaso paso="tarifas" />}
       {tab === 'planes' && panelNuevo && (planesTarifa.length === 0 ? (
         // Sin ninguna tarifa: el vacío que enseña. Lleva las dos anclas del
         // tutorial de la pantalla (los tipos y la lista), que aquí son la misma caja.

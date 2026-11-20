@@ -31,6 +31,7 @@ import {
   MessageCircle, Package, RefreshCw, UserPlus, Users, Zap,
 } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
@@ -131,24 +132,9 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
   // ella, la tarjeta de siempre en su sitio; mientras se pregunta, ninguna.
   const altaNueva = useAltaNuevaPropia().activo;
   const conPrimerosPasos = props.verPrimerosPasos && visible('onboarding');
+  const shell = useShellNuevo();
 
-  return (
-    <div className="flex flex-col gap-5" data-testid="resumen-nuevo">
-      <PageHeader title={props.titulo} description={props.fecha} />
-      <CompositorInicio />
-
-      {props.avisos}
-
-      {conPrimerosPasos && altaNueva === true && (
-        <div className="flex flex-col gap-5 empty:hidden xl:flex-row xl:items-start [&>*]:min-w-0 xl:[&>*:first-child]:flex-[7] xl:[&>*:last-child:not(:first-child)]:flex-[5]">
-          <PonEnMarchaTarjeta />
-          <TuPlanTarjeta />
-        </div>
-      )}
-
-      {/* ── Cifras ──────────────────────────────────────────────────────────── */}
-      {visible('kpis') && (
-        // 2 × 2 hasta que caben cuatro con aire (brand: «máximo 4 por fila; nunca 3+1»).
+  const kpis = visible('kpis') ? (
         <div data-resumen-kpis className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
           <TarjetaOcupacion etiqueta="Ocupación hoy" tono="azul" Icono={CalendarCheck} ocupacion={ocupacionHoy} vacio="Hoy no hay clases" href={props.puedeIr('/calendario') ? '/calendario' : null} />
           <TarjetaOcupacion etiqueta="Ocupación semana" tono="indigo" Icono={Activity} ocupacion={ocupacionSemana} vacio={`Semana ${semanaISO(hoy)} sin clases`} contexto={`Semana ${semanaISO(hoy)}`} href={props.puedeIr('/informes') ? '/informes' : null} />
@@ -181,7 +167,26 @@ export function ResumenNuevo(props: ResumenNuevoProps) {
             {...ladoClientas(props.sociasActivas, props.sinVenir30d)}
           />
         </div>
+  ) : null;
+
+  if (shell) return <ResumenLimpio {...props} kpis={kpis} altaNueva={altaNueva} conPrimerosPasos={Boolean(conPrimerosPasos)} slug={slug} hoy={hoy} alDia={alDia} recibos={recibos} socios={socios} reservas={reservas} />;
+
+  return (
+    <div className="flex flex-col gap-5" data-testid="resumen-nuevo">
+      <PageHeader title={props.titulo} description={props.fecha} />
+      <CompositorInicio />
+
+      {props.avisos}
+
+      {conPrimerosPasos && altaNueva === true && (
+        <div className="flex flex-col gap-5 empty:hidden xl:flex-row xl:items-start [&>*]:min-w-0 xl:[&>*:first-child]:flex-[7] xl:[&>*:last-child:not(:first-child)]:flex-[5]">
+          <PonEnMarchaTarjeta />
+          <TuPlanTarjeta />
+        </div>
       )}
+
+      {/* ── Cifras ──────────────────────────────────────────────────────────── */}
+      {kpis}
 
       {/* En una sola columna (móvil e iPad), los accesos van justo debajo de las
           cifras: al final de todo quedaban a seis pantallas de distancia. */}
@@ -420,5 +425,99 @@ function Actividad({ actividad, verTodo }: { actividad: ActividadResumen[]; verT
         </ul>
       )}
     </section>
+  );
+}
+
+
+// ─── La maqueta limpia del marco a sangre (`SHELL_NUEVO`, 20-nov-2026) ───────────────────────────────────────────────
+// Como la home de Shopify: el saludo centrado en dos líneas, el campo del asistente debajo y secciones con un título pequeño,
+// en una columna de ancho de lectura. Lo secundario (gráficas, renovaciones, ventas, actividad) se pliega en «Más detalle»:
+// no se quita nada, solo deja de competir con lo que toca hoy. Mismos datos, mismos permisos y mismas tarjetas que la maqueta de
+// siempre; cambia el orden y el aire.
+
+function SeccionLimpia({ titulo, children }: { titulo: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 empty:hidden">
+      <h2 className="px-0.5 text-[13px] font-medium text-foreground">{titulo}</h2>
+      {children}
+    </section>
+  );
+}
+
+function ResumenLimpio(props: ResumenNuevoProps & {
+  kpis: ReactNode;
+  altaNueva: boolean | null;
+  conPrimerosPasos: boolean;
+  slug: string | null;
+  hoy: string;
+  alDia: ReturnType<typeof ingresosAlDia>;
+  recibos: ReturnType<typeof useStudio>['recibos'];
+  socios: ReturnType<typeof useStudio>['socios'];
+  reservas: ReturnType<typeof useStudio>['reservas'];
+}) {
+  const { visible, verFinanzas, kpis, altaNueva, conPrimerosPasos, slug, hoy, alDia, recibos, socios, reservas } = props;
+  const conGraficas = visible('kpis');
+  return (
+    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-10 pb-12 pt-1" data-testid="resumen-nuevo" data-resumen-limpio>
+      <header className="text-center">
+        <h1 className="text-balance text-[28px] font-medium leading-[1.2] tracking-[-0.025em] text-foreground">{props.titulo}</h1>
+        <p className="mt-1 text-[15px] text-muted-foreground">{props.fecha}</p>
+      </header>
+      <div className="mx-auto w-full max-w-[620px]"><CompositorInicio /></div>
+
+      {props.avisos}
+
+      {conPrimerosPasos && altaNueva === true && (
+        <div className="flex flex-col gap-5 empty:hidden xl:flex-row xl:items-start [&>*]:min-w-0 xl:[&>*:first-child]:flex-[7] xl:[&>*:last-child:not(:first-child)]:flex-[5]">
+          <PonEnMarchaTarjeta />
+          <TuPlanTarjeta />
+        </div>
+      )}
+      {conPrimerosPasos && altaNueva === false && <PrimerosPasosTarjeta />}
+
+      {/* Lo que espera tu visto bueno, antes que nada: si no hay nada, no ocupa sitio. */}
+      <div className="flex flex-col gap-4 empty:hidden">
+        {props.bandeja}
+        {visible('accion') && props.centroDeControl}
+      </div>
+
+      {visible('hoy') && (
+        // La tarjeta lleva su propio título («Hoy en el estudio»): no se repite.
+        <div className="flex flex-col gap-5">
+          <HoyEnElEstudio nueva />
+          {visible('proximas') && <div className="empty:hidden"><ProximasClases nueva /></div>}
+        </div>
+      )}
+
+      {kpis && <SeccionLimpia titulo="Tu estudio de un vistazo">{kpis}</SeccionLimpia>}
+
+      <SeccionLimpia titulo="Atajos"><AccesosRapidos {...props} slug={slug} /></SeccionLimpia>
+
+      <details data-resumen-mas className="group rounded-[20px] bg-card shadow-[0_0_2px_#0000003d,0_2px_12px_#00000005,0_4px_16px_#00000005,0_4px_48px_#00000005] open:pb-5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-[13px] font-medium text-foreground [&::-webkit-details-marker]:hidden">
+          <span>Más detalle del estudio</span>
+          <span aria-hidden className="text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] group-open:rotate-90"><ArrowRight size={14} /></span>
+        </summary>
+        <div className="grid grid-cols-1 items-start gap-5 px-5 xl:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-5">
+            {verFinanzas && visible('principal') && (
+              props.pendientesTotal > 0 ? props.pagosPendientes : (
+                <VacioPositivo titulo="Cobros al día" texto="Nadie te debe nada ahora mismo. Cuando un recibo quede pendiente, lo cobrarás desde aquí." />
+              )
+            )}
+            {verFinanzas && visible('ingresos') && <GraficaIngresos recibos={recibos} hoy={hoy} alDia={alDia} href={props.puedeIr('/informes') ? '/informes' : null} />}
+            {conGraficas && <GraficaAltas socios={socios} hoy={hoy} href={props.puedeIr('/clientas') ? '/clientas' : null} />}
+          </div>
+          <div className="flex min-w-0 flex-col gap-5">
+            {conGraficas && <GraficaReservas reservas={reservas} hoy={hoy} href={props.puedeIr('/calendario') ? '/calendario' : null} />}
+            {verFinanzas && visible('principal') && <Renovaciones renovaciones={props.renovaciones} hoy={hoy} />}
+            {verFinanzas && visible('ingresos') && props.ventasRecientes}
+            {visible('crecimiento') && props.crecimiento}
+            {visible('principal') && <Actividad actividad={props.actividad} verTodo={props.puedeIr('/notificaciones')} />}
+          </div>
+        </div>
+        {visible('graficos') && <div className="px-5 pt-5">{props.graficos}</div>}
+      </details>
+    </div>
   );
 }

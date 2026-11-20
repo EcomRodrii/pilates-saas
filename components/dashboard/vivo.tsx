@@ -20,7 +20,7 @@
 
 import type { CSSProperties, ElementType, ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Check } from 'lucide-react';
+import { Plus, ArrowRight, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Ocupacion } from '@/lib/inicio/cifras';
 
@@ -362,8 +362,8 @@ export function BotonVivo({ label, href, onClick, Icono, grande = false, disable
   const clase = cn(destacado ? BOTON_DESTACADO : BOTON_VIVO, grande ? 'h-11 px-5 text-[14px]' : 'h-9 px-4 text-[13px]', disabled && 'pointer-events-none opacity-60', className);
   const contenido = <>{Icono ? <Icono size={grande ? 17 : 15} aria-hidden /> : null}{label}{!Icono && href ? <ArrowRight size={grande ? 16 : 14} aria-hidden /> : null}</>;
   return href ? (
-    <Link href={href} className={clase}>{contenido}</Link>
+    <Link href={href} className={clase} data-vivo-boton data-mas={Icono === Plus ? '' : undefined}>{contenido}</Link>
   ) : (
-    <button type={type} onClick={onClick} disabled={disabled} className={clase}>{contenido}</button>
+    <button type={type} onClick={onClick} disabled={disabled} className={clase} data-vivo-boton data-mas={Icono === Plus ? '' : undefined}>{contenido}</button>
   );
 }
