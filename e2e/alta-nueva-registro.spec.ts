@@ -120,8 +120,9 @@ test.describe('Validación en línea, campo a campo', () => {
     await expect(page.getByText('Usa 8 caracteres o más.')).toBeVisible();
     await contrasena(page).fill('12345678');
     await expect(page.getByText('Es fácil de adivinar. Prueba con una frase corta que recuerdes.')).toBeVisible();
+    // 20-nov-2026: ya NO se rechaza por parecerse al nombre del estudio (muchos estudios abandonaban por esto).
     await contrasena(page).fill('EstudioAlba2026');
-    await expect(page.getByText(/Es fácil de adivinar/)).toBeVisible();
+    await expect(page.getByText(/Es fácil de adivinar|Usa 8 caracteres/)).toHaveCount(0);
     await contrasena(page).fill('mi perro come peras');
     await expect(page.getByText(/Es fácil de adivinar|Usa 8 caracteres/)).toHaveCount(0);
     expect(altas, 'validar no gasta viajes al servidor').toBe(0);
@@ -131,17 +132,15 @@ test.describe('Validación en línea, campo a campo', () => {
     await page.goto(ALTA);
     await escribirNombre(page);
     const largo = page.getByRole('listitem').filter({ hasText: '8 caracteres o más' });
-    const dificil = page.getByRole('listitem').filter({ hasText: 'Difícil de adivinar' });
     await expect(largo).toContainText('(pendiente)');
-    await expect(dificil).toContainText('(pendiente)');
+    // Ya no hay una segunda regla «Difícil de adivinar»: solo el largo.
+    await expect(page.getByRole('listitem').filter({ hasText: 'Difícil de adivinar' })).toHaveCount(0);
 
     await contrasena(page).fill('12345678');
     await expect(largo).toContainText('(cumplido)');
-    await expect(dificil).toContainText('(pendiente)');
 
     await contrasena(page).fill('mi perro come peras');
     await expect(largo).toContainText('(cumplido)');
-    await expect(dificil).toContainText('(cumplido)');
 
     // Ver lo escrito sin perder lo tecleado.
     await expect(contrasena(page)).toHaveAttribute('type', 'password');
