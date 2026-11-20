@@ -2288,4 +2288,32 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   @media (prefers-reduced-motion: reduce) {
     .panel-app[data-shell-nuevo] [data-movil-barra] * { transition: none !important; }
   }
+
+  /* Las «cards» de escritorio fuera: en la app de Shopify una pantalla es una lista plana sobre blanco, sin marcos ni sombras ni fondos teñidos. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(.bg-card, .bg-t-card, [class*='bg-gradient'], [class*='from-brand']):is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-t-card, .rounded-t-panel) {
+    background: transparent !important; background-image: none !important; box-shadow: none !important; border-color: transparent !important; border-radius: 0 !important;
+  }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(.bg-card, .bg-t-card):is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-t-card) :is(.border-b, .border-t, [class*='divide-y'] > *) { border-color: #ececec !important; }
+
+  /* Tokens fríos: el beige del escritorio (bordes, campos, chips) pasa a grises de la app de Shopify. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] {
+    --border: #ececec; --input: #ececec; --muted: #f4f4f4; --secondary: #f4f4f4; --accent: #f4f4f4;
+  }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(a, button, div, label)[class*='rounded-'][class*='border']:not([class*='border-brand']):not([class*='border-primary']):not([class*='border-dashed']) {
+    border-color: #efefef !important; background-image: none !important; box-shadow: none !important;
+  }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(input, select, textarea) { background-color: #f4f4f4 !important; border-color: transparent !important; }
+
+  /* Mensajería: las cuatro baldosas pasan a lista de filas, como el menú de Ajustes de Shopify. */
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] { display: flex !important; flex-direction: column; gap: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button {
+    flex-direction: row !important; align-items: center !important; gap: 14px !important; min-height: 64px; padding: 10px 0 !important;
+    border: 0 !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; ring: 0;
+  }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button[aria-selected='true'] > span:last-child > span:first-child { font-weight: 700; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span[aria-hidden] { background: transparent !important; color: #4a4a4a !important; width: 28px; height: 28px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span[aria-hidden] svg { width: 24px; height: 24px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button { --tw-ring-shadow: 0 0 #0000 !important; --tw-ring-color: transparent !important; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span:last-child > span:first-child { font-size: 17px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span:last-child > span:last-child { font-size: 14px; }
 }
