@@ -54,7 +54,7 @@ export function CifrasPaquetes({ planes, suscripciones, verFinanzas, onTipo }: {
   const mesPasado = c.mesAnterior.slice(0, 3);
 
   return (
-    <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
+    <div data-cifras-movil className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
       <TarjetaCifra
         etiqueta="Cuotas activas"
         tono="azul"

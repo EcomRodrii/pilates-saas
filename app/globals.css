@@ -2252,6 +2252,11 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   }
   .panel-app[data-shell-nuevo] [data-slot='page-header-actions'] [data-vivo-boton][data-mas] svg { width: 26px; height: 26px; }
 
+  /* Una pantalla = una cosa: las cifras de arriba (Clientes, Equipo) se quedan para escritorio. */
+  .panel-app[data-shell-nuevo] [data-testid='cifras-clientas'],
+  .panel-app[data-shell-nuevo] [data-testid='cifras-equipo'],
+  .panel-app[data-shell-nuevo] [data-cifras-movil] { display: none; }
+
   /* Configuración: listas agrupadas de filas grandes (icono · nombre · chevron), sin tarjetas ni descripciones; buscador en píldora. */
   .panel-app[data-shell-nuevo] [data-config-buscador] input {
     height: 52px; border: 0; border-radius: 9999px; background: #fff; font-size: 17px; padding-left: 48px;
