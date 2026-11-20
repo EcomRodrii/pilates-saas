@@ -84,8 +84,8 @@ export const INTERRUPTORES = {
   /**
    * La guía paso a paso de puesta en marcha (20-nov-2026, `docs/guia-puesta-en-marcha.md`): diez pasos
    * explicados, «Paso n de 10» en el menú, la barra y el Resumen, y estados vacíos que llevan al paso que
-   * toca. Encendida de serie para el estudio del alta nueva (el fundador perdía estudios porque la guía
-   * solo llevaba a «crear la primera clase»); `off` la apaga.
+   * toca. APAGADA de serie (decisión del fundador, 20-nov-2026): `on` = todos, `estudios:<id1>,<id2>` = solo
+   * esos; sin variable o `off`, todo como antes.
    */
   guiaPasoAPaso: 'GUIA_PASO_A_PASO',
 } as const;
@@ -99,7 +99,7 @@ export type Interruptor = keyof typeof INTERRUPTORES;
  * - `altaNueva` (19-nov-2026): la bienvenida de los pasos 3 a 5 del alta nueva para todos los estudios (antes solo los nacidos del
  *   alta nueva o con `ALTA_NUEVA`), ahora que `/crear-estudio` es la nueva para todo el mundo.
  */
-export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = ['onboardingNuevo', 'altaNueva', 'guiaPasoAPaso'];
+export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = ['onboardingNuevo', 'altaNueva'];
 
 export function interruptoresDe(studioId: string, entorno: Record<string, string | undefined>): Record<Interruptor, boolean> {
   return Object.fromEntries(

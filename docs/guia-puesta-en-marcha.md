@@ -56,7 +56,7 @@ pasó por ahí ve los pasos 1 a 5 ya hechos. La guía ofrece ese atajo a quien n
 - `AyudaDelPaso`: banda en Equipo, Configuración (salas, tipos de clase), Tarifas y Calendario que
   explica el concepto mientras el paso no está hecho.
 - Estados vacíos del Calendario, Salas, Tipos de clase y Equipo: explican y llevan al paso.
-- Interruptor `GUIA_PASO_A_PASO` (encendido de serie, `off` lo apaga).
+- Interruptor `GUIA_PASO_A_PASO`: APAGADO de serie; `on` = todos, `estudios:<id1>,<id2>` = solo esos.
 
 ## 4. Lo que no se hizo
 
