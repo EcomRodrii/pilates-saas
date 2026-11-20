@@ -6,6 +6,7 @@ import * as Sentry from '@sentry/nextjs';
 import { Resend } from 'resend';
 import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { fetchAllRows } from '@/lib/supabase-data';
+import { enTandas } from '@/lib/en-tandas';
 import { tieneFeature, COLUMNAS_PLAN, planDeFila } from '@/lib/billing/entitlements';
 import { cobrarReciboOffSession } from '@/lib/billing/stripe-cobros';
 import { cobroManualDeRecibo } from '@/lib/billing/penalizacion-aprobar-reglas';
@@ -265,7 +266,9 @@ export const analizarEstudio = inngest.createFunction(
     // pantalla lo encuentra por su `dedupe_key`.
     const idsPersistidos: (string | null)[] = recomendacionesRedactadas.length > 0
       ? await step.run('persistir-recomendaciones-lote', () =>
-          Promise.all(recomendacionesRedactadas.map(r => dbUpsertRecomendacion(r)))
+          // En tandas: un `Promise.all` sin cota abría dos consultas por recomendación a la vez y, con varios
+          // estudios en paralelo, agotaba el pool de PostgREST (Sentry JAVASCRIPT-NEXTJS-4G/4H, PGRST003).
+          enTandas(recomendacionesRedactadas, 5, r => dbUpsertRecomendacion(r))
         )
       : [];
     const idPersistidoPorDedupe = new Map<string, string>();
@@ -277,9 +280,9 @@ export const analizarEstudio = inngest.createFunction(
     // Igual: lote de expiraciones
     if (resultado.expiraciones.length > 0) {
       await step.run('expirar-lote', () =>
-        Promise.all(resultado.expiraciones.map(exp =>
+        enTandas(resultado.expiraciones, 5, exp =>
           dbTransicionarRecomendacion(exp.id, studioId, 'PENDIENTE', 'EXPIRADA')
-        ))
+        )
       );
     }
 
