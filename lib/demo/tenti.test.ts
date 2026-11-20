@@ -142,3 +142,19 @@ test('el aviso de «respuesta inválida» dice DÓNDE falló, sin repetir lo que
   assert.match(porQueEsInvalida({ name: 'proponer_demo', input: { escenario: 'caducidad_bono', parametros: {}, resumen: 'hola', ejecutar: 'rm -rf' } }, ctxPregunta), /proponer_demo · .*unrecognized_keys/);
   assert.equal(porQueEsInvalida({ name: 'preguntar', input: { pregunta: '¿Domingo?' } }, { ...ctxPregunta, puedePreguntar: false }), 'preguntar · ya-no-puede-preguntar');
 });
+
+test('«no soportado» recorta el motivo y las alternativas que se pasan del tope en vez de perder el turno (Sentry: motivo:too_big)', () => {
+  const largo = 'palabra '.repeat(80); // 640 caracteres
+  const t = interpretarSalida({ name: 'no_soportado', input: { motivo: largo, alternativas: ['a', 'b', 'c', 'd', 'e'] } }, ctx);
+  assert.equal(t?.tipo, 'no_soportado');
+  if (t?.tipo === 'no_soportado') {
+    assert.ok(t.texto.length <= 300, 'el motivo cabe en 300');
+    assert.ok(t.texto.endsWith('…'), 'y dice que se ha recortado');
+    assert.doesNotMatch(t.texto, /palabr…$/, 'sin cortar una palabra por la mitad');
+    assert.ok(t.alternativas.length <= 3);
+  }
+  // Lo que no tiene arreglo sigue siendo inválido.
+  assert.equal(interpretarSalida({ name: 'no_soportado', input: { motivo: 'x' } }, ctx), null);
+  assert.equal(interpretarSalida({ name: 'no_soportado', input: { motivo: 'No puedo hacer eso', ejecutar: 'rm -rf' } }, ctx), null);
+  assert.equal(porQueEsInvalida({ name: 'no_soportado', input: { motivo: largo } }, ctx), 'no_soportado');
+});
