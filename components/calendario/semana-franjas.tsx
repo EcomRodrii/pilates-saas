@@ -3,7 +3,7 @@
 import { Fragment, useMemo, useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { colorDeOcupacion } from '@/components/dashboard/vivo';
 import { clasesPorCelda, claveCelda, diasConClases, filasDeFranjaVacia, filasDeFranjas, textoHueco, type ClaseEnFranja } from '@/lib/calendario/franjas';
 import { TarjetaClase, type DatosTarjeta } from './tarjeta-clase';
@@ -64,6 +64,7 @@ export function SemanaFranjas({
 }: SemanaFranjasProps) {
   const rejillaRef = useRef<HTMLDivElement>(null);
   const panelNuevo = usePanelNuevo();
+  const shell = useShellNuevo();
   const [destino, setDestino] = useState<number | null>(null);
   // Sin clases y con franja: sus horas, una fila cada una, y los días a todo lo ancho.
   const semanaVacia = clases.length === 0 && !!franjaVacia;
@@ -90,13 +91,16 @@ export function SemanaFranjas({
   // la tarjeta se come ~11 px a la altura del texto y «DOM» (la abreviatura más ancha, ~28 px) no
   // cabía. El Calendario abre una semana que EMPIEZA hoy, así que cada lunes la última columna es
   // el domingo (e2e/panel-nuevo-tableta-mostrador.spec.ts, falló el lunes 19-oct-2026 en todos los PR).
-  const ancho = (i: number) => (conClases[i] || semanaVacia ? 'minmax(0,1fr)' : compacta ? (i === fechas.length - 1 ? '44px' : '36px') : '60px');
+  // Marco a sangre y sitio de sobra (no compacta): los siete días miden lo mismo, que es lo que se escanea mejor; los días sin clases
+  // solo se pliegan donde no cabe (iPad en vertical, ficha abierta al lado), que es la decisión 4 de siempre.
+  // Los días con clases pesan más que los vacíos (1,7 frente a 0,75): iguales del todo, a 121 px, la tarjeta se recortaba («R…»).
+  const ancho = (i: number) => (shell && !compacta && !semanaVacia ? (conClases[i] ? 'minmax(0,1.7fr)' : 'minmax(0,0.75fr)') : conClases[i] || semanaVacia ? 'minmax(0,1fr)' : compacta ? (i === fechas.length - 1 ? '44px' : '36px') : '60px');
   const plantilla = `${compacta ? '44px' : '52px'} ${fechas.map((_, i) => ancho(i)).join(' ')}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-card">
       <div className="min-h-0 flex-1 overflow-auto" data-testid="semana-franjas">
-        <div ref={rejillaRef} data-rejilla className={cn('grid', semanaVacia ? 'min-w-[420px]' : 'min-w-[560px]')} style={{ gridTemplateColumns: plantilla }}>
+        <div ref={rejillaRef} data-rejilla key={shell ? fechas[0]?.toDateString() : undefined} className={cn('grid', semanaVacia ? 'min-w-[420px]' : 'min-w-[560px]', shell && 'calendario-semana-entra')} style={{ gridTemplateColumns: plantilla }}>
           {/* Cabecera de días, fija arriba al desplazarse. */}
           <div className="sticky top-0 z-20 border-b border-border bg-card" />
           {fechas.map((f, i) => {
@@ -115,7 +119,7 @@ export function SemanaFranjas({
                   // más a la izquierda: a la altura del texto la curva de la esquina
                   // (28,8 px de radio) entra 8 px.
                   panelNuevo && !conClases[i] && !semanaVacia && (i === fechas.length - 1 ? 'pl-0 pr-2' : 'px-0.5'),
-                  esHoy ? 'bg-[color-mix(in_srgb,var(--brand)_7%,var(--card))]' : 'bg-card',
+                  esHoy && !shell ? 'bg-[color-mix(in_srgb,var(--brand)_7%,var(--card))]' : 'bg-card',
                   destino === i && 'bg-[color-mix(in_srgb,var(--brand)_14%,var(--card))]',
                 )}
               >
@@ -125,7 +129,7 @@ export function SemanaFranjas({
                       <span>{NOMBRE_DIA[f.getDay()]}</span>
                       <span className={cn(
                         'tabular-nums normal-case',
-                        esHoy ? 'flex size-6 items-center justify-center rounded-full bg-brand text-[13px] text-brand-foreground' : 'text-[15px] text-foreground',
+                        esHoy ? cn('flex size-6 items-center justify-center rounded-full text-[13px]', shell ? 'bg-[#101010] text-white' : 'bg-brand text-brand-foreground') : 'text-[15px] text-foreground',
                       )}>
                         {f.getDate()}
                       </span>
@@ -157,7 +161,7 @@ export function SemanaFranjas({
           })}
 
           {filas.map(fila => fila.tipo === 'hueco' ? (
-            <div key={`h-${fila.desde}`} className="col-span-full border-b border-border bg-muted/40 px-3 py-1 text-[11.5px] text-muted-foreground">
+            <div key={`h-${fila.desde}`} className={cn('col-span-full border-b border-border px-3 text-[11.5px] text-muted-foreground', shell ? 'bg-transparent py-0.5 text-[11px] opacity-70' : 'bg-muted/40 py-1')}>
               {textoHueco(fila)}
             </div>
           ) : (
@@ -181,7 +185,8 @@ export function SemanaFranjas({
                       'group relative min-w-0 space-y-1.5 border-b border-l border-border p-1.5',
                       semanaVacia && 'h-7',
                       semanaVacia && cerrados[dia] && 'bg-muted/70',
-                      hoyIndex === dia && 'bg-[color-mix(in_srgb,var(--brand)_4%,var(--card))]',
+                      hoyIndex === dia && !shell && 'bg-[color-mix(in_srgb,var(--brand)_4%,var(--card))]',
+                      hoyIndex === dia && shell && 'bg-[#fafafa]',
                       destino === dia && 'bg-[color-mix(in_srgb,var(--brand)_10%,var(--card))]',
                       crear && conClases[dia] && 'min-h-[52px] cursor-pointer',
                       crear && !conClases[dia] && 'cursor-pointer',
