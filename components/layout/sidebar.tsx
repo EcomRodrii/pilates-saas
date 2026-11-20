@@ -597,6 +597,14 @@ export function Sidebar() {
   // A sangre solo en columna: con el menú arriba no hay borde izquierdo al que pegarlo.
   const sangre = shellNuevo && !horizontal;
   const pathnameMenu = usePathname();
+  // El menú desplegable (columna ancha, a sangre) lleva las vistas de cada módulo: mientras se enseña, las pantallas ocultan sus
+  // pestañas propias (`data-vistas-en-menu`), que serían lo mismo dos veces. Con el menú contraído o arriba, vuelven.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    const lleva = sangre && !collapsed;
+    raiz.toggleAttribute('data-menu-con-vistas', lleva);
+    return () => raiz.removeAttribute('data-menu-con-vistas');
+  }, [sangre, collapsed]);
   const enConfiguracion = sangre && (pathnameMenu ?? '').startsWith('/configuracion');
   useEffect(() => {
     let vivo = true;

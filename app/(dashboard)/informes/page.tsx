@@ -484,6 +484,7 @@ export default function Informes() {
         // Como las pestañas de la ficha de una clienta: en píldora, con su URL.
         <div
           role="tablist"
+          data-vistas-en-menu
           aria-label="Temas del informe"
           className="-mx-4 flex gap-1 overflow-x-auto px-4 print:hidden sm:mx-0 sm:w-fit sm:max-w-full sm:rounded-full sm:bg-muted sm:p-1"
         >

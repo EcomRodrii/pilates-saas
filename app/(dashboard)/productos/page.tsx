@@ -1333,7 +1333,7 @@ export default function Productos() {
       {/* Tabs — la pestaña "Productos de la caja" queda oculta con POS congelado (solo
           se muestra la barra si hay más de una pestaña). */}
       {TABS.length > 1 && (
-        <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+        <div data-vistas-en-menu className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
           {TABS.map(([v, l]) => (
             <button key={v} onClick={() => setTab(v)}
               className="zona-tactil px-4 py-2 rounded-lg text-sm font-semibold transition-all"

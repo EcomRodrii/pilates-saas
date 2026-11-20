@@ -2135,3 +2135,9 @@ body:has([data-columna-asistente]:not([inert])) .panel-wa-fab { opacity: 0; poin
   }
 }
 @media print { .panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; } }
+
+/* Las vistas de un módulo viven en el menú desplegable (lib/nav-submenus.ts): mientras el menú las enseña, la pantalla no repite sus
+   pestañas arriba. Con el menú contraído, o en móvil, se ven como siempre. */
+@media (min-width: 768px) {
+  html[data-menu-con-vistas] .panel-app[data-shell-nuevo] [data-vistas-en-menu] { display: none; }
+}
