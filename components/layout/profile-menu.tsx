@@ -19,7 +19,12 @@ import { SOPORTE_WHATSAPP } from '@/components/layout/whatsapp-fab';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { WhatsAppIcon } from '@/components/icons/brand-icons';
 
-export function ProfileMenu() {
+/**
+ * `variante`: `barra` (la de siempre: avatar + chevron arriba a la derecha) o `menu` (marco a sangre,
+ * pie del menú lateral: la ficha del estudio y su nombre, o la persona con su correo si `persona`; el
+ * desplegable se abre hacia arriba).
+ */
+export function ProfileMenu({ variante = 'barra', persona = false }: { variante?: 'barra' | 'menu'; persona?: boolean } = {}) {
   const { user, signOut } = useAuth();
   const { studio, instructores } = useCore();
   // Con el panel nuevo no flota el botón de WhatsApp (dashboard-shell.tsx): el
@@ -35,6 +40,7 @@ export function ProfileMenu() {
   const yo = instructores.find(i => i.authUserId === user?.id) ?? null;
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const enMenu = variante === 'menu';
 
   // Propietaria sin ficha propia (yo === null): usa el nombre que haya
   // guardado en Configuración > Mi perfil (auth.users.user_metadata) en vez
@@ -84,16 +90,44 @@ export function ProfileMenu() {
   return (
     <>
       <div className="relative" ref={ref}>
-        <button
-          onClick={() => setOpen(v => !v)}
-          aria-label="Abrir menú de perfil"
-          aria-expanded={open}
-          aria-haspopup="menu"
-          className="zona-tactil flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
-        >
-          <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="sm" />
-          <ChevronDown size={14} className="text-muted-foreground" />
-        </button>
+        {enMenu ? (
+          <button
+            onClick={() => setOpen(v => !v)}
+            aria-label="Abrir menú de perfil"
+            aria-expanded={open}
+            aria-haspopup="menu"
+            className="zona-tactil flex w-full min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 text-left text-white transition-colors hover:bg-white/10"
+          >
+            {persona ? (
+              <>
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">{userInitials}</span>
+                <span className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate text-[12px] font-medium">{yo ? yo.nombre : (metaNombre ?? 'Mi perfil')}</span>
+                  <span className="block truncate text-[11px] text-white/55">{userEmail}</span>
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--t-blue-500)] text-[10px] font-bold text-white">
+                  {(studio?.nombre ?? 'T').trim().slice(0, 2).toUpperCase()}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-white/90">{studio?.nombre ?? 'Tentare'}</span>
+              </>
+            )}
+            <ChevronDown size={14} aria-hidden className="shrink-0 text-white/50" />
+          </button>
+        ) : (
+          <button
+            onClick={() => setOpen(v => !v)}
+            aria-label="Abrir menú de perfil"
+            aria-expanded={open}
+            aria-haspopup="menu"
+            className="zona-tactil flex items-center gap-1.5 pl-1 pr-2 py-1 rounded-full hover:bg-background transition-colors"
+          >
+            <ProfileAvatar avatarId={yo ? yo.avatar : studio?.avatarAdmin} fotoUrl={yo ? yo.fotoUrl : studio?.fotoUrl} nombre={userInitials} size="sm" />
+            <ChevronDown size={14} className="text-muted-foreground" />
+          </button>
+        )}
 
         {open && (
           <div className="absolute right-0 top-full mt-2 w-64 bg-card rounded-2xl shadow-xl border border-border py-1.5 z-20 menu-pop-in">
