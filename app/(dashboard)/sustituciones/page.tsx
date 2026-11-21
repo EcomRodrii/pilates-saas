@@ -360,7 +360,7 @@ export default function SustitucionesPage() {
       {panelNuevo ? (
         <section aria-labelledby="como-cubre" className="rounded-t-card border border-border bg-card p-4 shadow-t-card sm:p-5">
           <CabeceraTarjeta tono="azul" Icono={ArrowLeftRight} id="como-cubre" titulo="Cómo cubre Tentare las bajas" sub="Elige cuánto quieres que haga solo. Lo puedes cambiar cuando quieras." />
-          <div role="radiogroup" aria-label="Modo de autonomía" className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+          <div role="radiogroup" data-modos aria-label="Modo de autonomía" className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
             {MODOS.map(m => {
               const bloqueado = m.premium && !autonomiaOk;
               const activo = modo === m.val;

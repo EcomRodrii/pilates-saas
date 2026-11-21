@@ -12,6 +12,7 @@ import {
   CalendarClock, CalendarOff, Copy, Star, Search, MoreVertical, Camera, Loader2, Clock, Download,
   ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro, TrendingUp,
   Network, ArrowLeftRight,
+  ChevronDown,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, formatFechaLarga, uid as generarId, cn, hoyEnEstudio, masDias, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
@@ -702,21 +703,22 @@ export default function EquipoPage() {
 
       {/* Barra de filtros, fija al hacer scroll */}
       {tarjetas.length > 0 && (
-        <div className="sticky top-0 z-30 -mx-1 px-1 py-2 flex items-center gap-2 flex-wrap bg-background/85 backdrop-blur-md">
-          <div className="relative flex-1 min-w-[200px]">
+        <div data-equipo-filtros className="sticky top-0 z-30 -mx-1 px-1 py-2 flex items-center gap-2 flex-wrap bg-background/85 backdrop-blur-md">
+          <div data-equipo-buscar className="relative flex-1 min-w-[200px]">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar por nombre…"
               className="w-full rounded-xl border border-border bg-card pl-9 pr-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 transition"
             />
           </div>
+          <div data-equipo-chips className="contents">
           <PillSelect label="Estado" value={estadoF} onChange={v => setEstadoF(v as FiltroEstadoEquipo)}
             options={(['activas', 'todas', 'inactivas'] as FiltroEstadoEquipo[]).map(v => [v, ESTADO_LABEL[v]])} />
           {gestiona && (
             <PillSelect label="Rol" value={filtroRol} onChange={v => setFiltroRol(v as FiltroRol)}
               options={[['todos', 'Todos'], ['PROPIETARIO', 'Propietaria'], ['MANAGER', 'Responsable de sede'], ['RECEPCION', 'Recepción'], ['INSTRUCTOR', 'Instructora']]} />
           )}
-          <div className="ml-auto flex items-center gap-2">
+          <div data-equipo-orden className="ml-auto flex items-center gap-2">
             <PillSelect label="Ordenar" value={orden} onChange={v => setOrden(v as Orden)}
               options={ordenesPermitidos.map(o => [o, ORDEN_LABEL[o]])} />
             {hayFiltro && (
@@ -725,6 +727,7 @@ export default function EquipoPage() {
                 {ordenados.length} de {tarjetas.length} · quitar filtros
               </button>
             )}
+          </div>
           </div>
         </div>
       )}
@@ -1140,7 +1143,7 @@ function PillSelect({ label, value, onChange, options }: {
   return (
     // Con el dedo, el desplegable ocupa todo el alto de la píldora (44): tocar la
     // píldora fuera de su texto (22 px) no lo abría.
-    <label className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors tactil:py-0">
+    <label data-chip-filtro className="flex items-center gap-1.5 rounded-xl border border-border bg-card pl-3 pr-2 py-2 text-[13px] cursor-pointer hover:bg-muted/40 transition-colors tactil:py-0">
       <span className="text-muted-foreground font-medium whitespace-nowrap">{label}:</span>
       <select value={value} onChange={e => onChange(e.target.value)}
         className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer tactil:min-h-11">
@@ -1190,16 +1193,20 @@ function TarjetaMiembro({
   // de compañeras (instructora sobre otra persona) ni "tu propia cuenta desde
   // fuera de la gestión" tienen acciones administrativas.
   const verMenu = gestiona;
+  // En móvil la ficha va plegada (fila: avatar, nombre y flecha) y se despliega al tocarla; en escritorio, siempre abierta (el CSS no la pliega).
+  const [abierta, setAbierta] = useState(false);
   const clasesSemana = m.semana.reduce((a, b) => a + b, 0);
 
   return (
     <article
       ref={refCb}
+      data-miembro
+      data-abierta={abierta ? '' : undefined}
       className={nueva
         ? 'bg-card border border-border rounded-t-card shadow-t-card p-5 flex flex-col gap-4 transition-shadow hover:shadow-t-floating motion-reduce:transition-none'
         : 'bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none'}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div data-miembro-cabecera onClick={e => { if (!(e.target as HTMLElement).closest('button, a, [data-menu-equipo]')) setAbierta(v => !v); }} className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <ProfileAvatar avatarId={m.avatar} fotoUrl={m.fotoUrl} nombre={m.nombre} color={m.color} size="md" />
           <div className="min-w-0">
@@ -1228,6 +1235,9 @@ function TarjetaMiembro({
             </div>
           </div>
         </div>
+        <button type="button" data-miembro-flecha aria-expanded={abierta} aria-label={abierta ? `Plegar a ${m.nombre}` : `Desplegar a ${m.nombre}`} onClick={() => setAbierta(v => !v)} className="hidden size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground">
+          <ChevronDown size={20} className={cn('transition-transform duration-200', abierta && 'rotate-180')} aria-hidden="true" />
+        </button>
         {verMenu && (
           <div className="flex items-center gap-1 shrink-0 relative" data-menu-equipo>
             <button onClick={onEditar} title="Editar" className="w-8 h-8 tactil:size-11 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">
@@ -1277,7 +1287,7 @@ function TarjetaMiembro({
       </div>
 
       {/* 1. Dónde está ahora */}
-      <div className={`rounded-xl px-4 py-3 ${estilo.fondo}`}>
+      <div data-miembro-estado className={`rounded-xl px-4 py-3 ${estilo.fondo}`}>
         <p className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider ${estilo.tinta}`}>
           <span className={`w-1.5 h-1.5 rounded-full ${estilo.punto}`} />{est.etiqueta}
         </p>

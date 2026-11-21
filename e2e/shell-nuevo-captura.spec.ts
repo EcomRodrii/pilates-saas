@@ -444,6 +444,18 @@ test('a sangre — móvil como app: pantallas de lista y configuración', async 
   }
 });
 
+test('a sangre — móvil como app: calendario y clientas', async ({ page }) => {
+  await preparar(page, true);
+  await page.setViewportSize({ width: 402, height: 874 });
+  for (const ruta of ['calendario', 'clientas']) {
+    await ir(page, ruta);
+    await listo(page);
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: `test-results/shell-movil-${ruta}.png` });
+    await page.screenshot({ path: `test-results/shell-movil-${ruta}-largo.png`, fullPage: true });
+  }
+});
+
 test('a sangre — móvil como app: el asistente y los vacíos', async ({ page }) => {
   await conAsistente(page);
   await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => r.fulfill({

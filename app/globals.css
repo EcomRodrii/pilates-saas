@@ -2302,4 +2302,90 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   @media (prefers-reduced-motion: reduce) {
     .panel-app[data-shell-nuevo] [data-movil-barra] * { transition: none !important; }
   }
+
+  /* Cards como las de Shopify: blancas, esquinas de 24, borde finísimo, sombra casi invisible y mucho aire dentro. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(.bg-card, .bg-t-card, [class*='bg-gradient'], [class*='from-brand']):is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-t-card, .rounded-t-panel) {
+    background: #fff !important; background-image: none !important; border: 1px solid #e9e9e9 !important; border-radius: 24px !important;
+    box-shadow: 0 1px 2px #0000000a, 0 10px 28px -14px #00000026 !important;
+  }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(.bg-card, .bg-t-card):is(.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-t-card):not(:has(input, select, textarea)):not(button):not(a) { padding: 20px; }
+  /* Tokens fríos: el beige del escritorio (bordes, campos, chips) pasa a grises de la app de Shopify. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] {
+    --border: #ececec; --input: #ececec; --muted: #f4f4f4; --secondary: #f4f4f4; --accent: #f4f4f4;
+  }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(a, button, div, label)[class*='rounded-'][class*='border']:not([class*='border-brand']):not([class*='border-primary']):not([class*='border-dashed']) {
+    border-color: #efefef !important; background-image: none !important; box-shadow: none !important;
+  }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is(input[type='text'], input[type='search'], input:not([type]), textarea) { background-color: #f4f4f4 !important; border-color: transparent !important; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] select { background-color: transparent !important; }
+
+  /* Mensajería: las cuatro baldosas pasan a lista de filas, como el menú de Ajustes de Shopify. */
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] { display: flex !important; flex-direction: column; gap: 0 !important; background: #fff; border: 1px solid #e9e9e9; border-radius: 24px; box-shadow: 0 1px 2px #0000000a, 0 10px 28px -14px #00000026; padding: 4px 18px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button:last-child { border-bottom: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button {
+    flex-direction: row !important; align-items: center !important; gap: 14px !important; min-height: 64px; padding: 10px 0 !important;
+    border: 0 !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important; ring: 0;
+  }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button[aria-selected='true'] > span:last-child > span:first-child { font-weight: 700; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span[aria-hidden] { background: transparent !important; color: #4a4a4a !important; width: 28px; height: 28px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span[aria-hidden] svg { width: 24px; height: 24px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button { --tw-ring-shadow: 0 0 #0000 !important; --tw-ring-color: transparent !important; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span:last-child > span:first-child { font-size: 17px; }
+  .panel-app[data-shell-nuevo] [data-vistas-en-menu] > button > span:last-child > span:last-child { font-size: 14px; }
+
+  /* Botones de las cards: píldora gris (secundario) y píldora negra (principal), de 54 de alto. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] button[class*='rounded-full'][class*='border']:not([data-vivo-boton]) { background: #ececec !important; border-color: transparent !important; }
+
+  /* Equipo como Shopify: buscador en píldora gris, chips de filtro en una sola fila que se desliza, y fichas con panel gris interior. */
+  .panel-app[data-shell-nuevo] [data-equipo-filtros] { position: static !important; flex-wrap: nowrap !important; overflow-x: auto; gap: 8px !important; padding: 0 !important; margin: 0 !important; background: transparent !important; backdrop-filter: none !important; scrollbar-width: none; flex-direction: row; align-items: center; }
+  .panel-app[data-shell-nuevo] [data-equipo-filtros]::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo] [data-equipo-filtros] { flex-wrap: wrap !important; overflow: visible !important; }
+  .panel-app[data-shell-nuevo] [data-equipo-buscar] { flex: 1 0 100% !important; min-width: 100% !important; order: -1; }
+  .panel-app[data-shell-nuevo] [data-equipo-chips] { display: flex !important; flex: 1 0 100%; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -24px; padding: 0 24px; }
+  .panel-app[data-shell-nuevo] [data-equipo-chips]::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo] [data-chip-filtro] { flex: none; }
+  .panel-app[data-shell-nuevo] [data-equipo-orden] { display: contents; }
+  .panel-app[data-shell-nuevo] [data-equipo-buscar] input { height: 52px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding-left: 48px !important; font-size: 17px; }
+  .panel-app[data-shell-nuevo] [data-equipo-buscar] svg { left: 18px !important; width: 20px; height: 20px; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] label[data-chip-filtro][data-chip-filtro][data-chip-filtro] { height: 44px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding: 0 12px 0 16px !important; font-size: 15px; box-shadow: none !important; }
+  .panel-app[data-shell-nuevo] [data-equipo-orden] { margin-left: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-miembro] { padding: 20px !important; gap: 16px !important; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja] [data-miembro-estado] { background: #f6f6f6 !important; border-radius: 16px !important; padding: 16px !important; }
+  /* Fichas del equipo plegables: fila (avatar, nombre, estado) y, al tocarla, el detalle. */
+  .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) > :not([data-miembro-cabecera]) { display: none !important; }
+  .panel-app[data-shell-nuevo] [data-miembro] { gap: 16px; }
+  .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) { padding: 14px 16px !important; }
+  .panel-app[data-shell-nuevo] [data-miembro-cabecera] { align-items: center; cursor: pointer; }
+  .panel-app[data-shell-nuevo] [data-miembro-flecha] { display: flex !important; }
+  .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) [data-menu-equipo] { display: none; }
+  /* Estados vacíos como Shopify: sin card, centrados, grandes, y un solo botón negro a ancho completo. */
+  .panel-app[data-shell-nuevo] [data-movil-hoja='pantalla'] [data-panel-contenido] section[data-pantalla-vacia] {
+    background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; padding: 56px 8px 24px !important;
+  }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > span[aria-hidden] { width: 96px; height: 96px; border-radius: 28px; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > span[aria-hidden] svg { width: 40px; height: 40px; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] h2 { font-size: 24px; margin-top: 28px; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > p { font-size: 17px; max-width: 320px; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja='pantalla'] [data-pantalla-vacia] > div:has(> ul) { background: #f6f6f6 !important; border: 0 !important; border-radius: 20px !important; padding: 18px !important; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] [data-vivo-boton] { width: 100%; height: 54px; font-size: 17px; border-radius: 9999px; justify-content: center; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > div:last-child { width: 100%; flex-direction: column; }
+
+  /* Sustituciones: los cuatro modos pasan a filas con filete, sin contornos de color. */
+  .panel-app[data-shell-nuevo] [data-modos] { gap: 0 !important; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-modos] > button[role='radio'] {
+    border: 0 !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 14px 0 !important; transform: none !important;
+  }
+  .panel-app[data-shell-nuevo] [data-modos] > button[role='radio']:last-child { border-bottom: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-modos] > button > span[aria-hidden] { background: #f4f4f4 !important; color: #222 !important; border-radius: 12px !important; }
+  .panel-app[data-shell-nuevo] [data-modos] > button[aria-checked='true'] > span[aria-hidden] { background: #111 !important; color: #fff !important; }
+  .panel-app[data-shell-nuevo] [data-modos] > button > span:last-child > span:first-child { font-size: 17px; }
+  /* Calendario: sin el doble margen lateral (el lienzo ya lo pone). */
+  .panel-app[data-shell-nuevo] [data-tour='calendario-vista'] { margin-left: -16px; margin-right: -16px; }
+  .panel-app[data-shell-nuevo] [data-calendario-cabecera] header > :last-child { padding-right: 52px; }
+  .panel-app[data-shell-nuevo] [data-tour='calendario-vista'] button, .panel-app[data-shell-nuevo] [data-tour='calendario-vista'] [role='tab'] { min-height: 44px; }
+
+  /* Clientes: buscador en píldora gris, como el de Shopify, y la barra sin card alrededor. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-barra-filtros] { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-clientas-buscar] input { height: 52px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding-left: 48px !important; font-size: 17px; }
+  .panel-app[data-shell-nuevo] [data-clientas-buscar] > svg { left: 18px !important; width: 20px; height: 20px; }
 }

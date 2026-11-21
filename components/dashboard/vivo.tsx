@@ -312,7 +312,7 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEj
 }) {
   const c = TONOS[tono];
   return (
-    <section className={cn('flex flex-col items-center rounded-t-card border px-6 py-10 text-center shadow-t-card sm:py-12', className)} style={fondoTenido(tono, 10)}>
+    <section data-pantalla-vacia className={cn('flex flex-col items-center rounded-t-card border px-6 py-10 text-center shadow-t-card sm:py-12', className)} style={fondoTenido(tono, 10)}>
       <span
         aria-hidden
         className="flex size-16 items-center justify-center rounded-[20px]"
