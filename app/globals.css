@@ -2344,4 +2344,25 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-miembro-cabecera] { align-items: center; cursor: pointer; }
   .panel-app[data-shell-nuevo] [data-miembro-flecha] { display: flex !important; }
   .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) [data-menu-equipo] { display: none; }
+  /* Estados vacíos como Shopify: sin card, centrados, grandes, y un solo botón negro a ancho completo. */
+  .panel-app[data-shell-nuevo] [data-movil-hoja='pantalla'] [data-panel-contenido] section[data-pantalla-vacia] {
+    background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; padding: 56px 8px 24px !important;
+  }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > span[aria-hidden] { width: 96px; height: 96px; border-radius: 28px; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > span[aria-hidden] svg { width: 40px; height: 40px; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] h2 { font-size: 24px; margin-top: 28px; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > p { font-size: 17px; max-width: 320px; }
+  .panel-app[data-shell-nuevo] [data-movil-hoja='pantalla'] [data-pantalla-vacia] > div:has(> ul) { background: #f6f6f6 !important; border: 0 !important; border-radius: 20px !important; padding: 18px !important; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] [data-vivo-boton] { width: 100%; height: 54px; font-size: 17px; border-radius: 9999px; justify-content: center; }
+  .panel-app[data-shell-nuevo] [data-pantalla-vacia] > div:last-child { width: 100%; flex-direction: column; }
+
+  /* Sustituciones: los cuatro modos pasan a filas con filete, sin contornos de color. */
+  .panel-app[data-shell-nuevo] [data-modos] { gap: 0 !important; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-modos] > button[role='radio'] {
+    border: 0 !important; border-bottom: 1px solid #f0f0f0 !important; border-radius: 0 !important; background: transparent !important; outline: none !important; box-shadow: none !important; padding: 14px 0 !important; transform: none !important;
+  }
+  .panel-app[data-shell-nuevo] [data-modos] > button[role='radio']:last-child { border-bottom: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-modos] > button > span[aria-hidden] { background: #f4f4f4 !important; color: #222 !important; border-radius: 12px !important; }
+  .panel-app[data-shell-nuevo] [data-modos] > button[aria-checked='true'] > span[aria-hidden] { background: #111 !important; color: #fff !important; }
+  .panel-app[data-shell-nuevo] [data-modos] > button > span:last-child > span:first-child { font-size: 17px; }
 }
