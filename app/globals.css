@@ -2132,6 +2132,8 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 @media (prefers-reduced-motion: reduce) { .panel-app[data-shell-nuevo] [data-marco-vivo] { transition: none; } }
 @media print { .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; } }
 
+/* (El radio de la máscara es ~1 px menor que el de la esquina del lienzo: el resplandor solapa su borde antialiasado y no
+   queda el aro negro de la cabecera de abajo a la izquierda.) */
 /* El resplandor del menú sigue por debajo del lienzo: por la franja de 4 px del marco y por la esquina redondeada de abajo a la
    izquierda, desvaneciéndose hacia la derecha, como en Shopify. Estático y de 20 px de alto (la versión anterior clonaba el
    resplandor ANIMADO y desenfocado del menú a 400 px de alto, que se repintaba sin parar). La máscara deja solo lo que queda
@@ -2142,12 +2144,12 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
     display: block; position: fixed; z-index: 26; pointer-events: none; contain: strict;
     left: var(--sidebar-w, 224px); bottom: 0; width: 560px; height: 20px;
     background: linear-gradient(90deg, rgba(76, 156, 176, 0.66) 0%, rgba(76, 156, 176, 0.4) 35%, rgba(76, 156, 176, 0.12) 70%, rgba(76, 156, 176, 0) 100%);
-    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
     -webkit-mask-size: 16px 16px, 100% 4px;
     -webkit-mask-position: 0 0, 0 100%;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-composite: source-over;
-    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
     mask-size: 16px 16px, 100% 4px;
     mask-position: 0 0, 0 100%;
     mask-repeat: no-repeat;
