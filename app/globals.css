@@ -2365,4 +2365,13 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-modos] > button > span[aria-hidden] { background: #f4f4f4 !important; color: #222 !important; border-radius: 12px !important; }
   .panel-app[data-shell-nuevo] [data-modos] > button[aria-checked='true'] > span[aria-hidden] { background: #111 !important; color: #fff !important; }
   .panel-app[data-shell-nuevo] [data-modos] > button > span:last-child > span:first-child { font-size: 17px; }
+  /* Calendario: sin el doble margen lateral (el lienzo ya lo pone). */
+  .panel-app[data-shell-nuevo] [data-tour='calendario-vista'] { margin-left: -16px; margin-right: -16px; }
+  .panel-app[data-shell-nuevo] [data-calendario-cabecera] header > :last-child { padding-right: 52px; }
+  .panel-app[data-shell-nuevo] [data-tour='calendario-vista'] button, .panel-app[data-shell-nuevo] [data-tour='calendario-vista'] [role='tab'] { min-height: 44px; }
+
+  /* Clientes: buscador en píldora gris, como el de Shopify, y la barra sin card alrededor. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-barra-filtros] { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
+  .panel-app[data-shell-nuevo] [data-clientas-buscar] input { height: 52px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding-left: 48px !important; font-size: 17px; }
+  .panel-app[data-shell-nuevo] [data-clientas-buscar] > svg { left: 18px !important; width: 20px; height: 20px; }
 }
