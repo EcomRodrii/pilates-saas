@@ -12,6 +12,7 @@ import {
   CalendarClock, CalendarOff, Copy, Star, Search, MoreVertical, Camera, Loader2, Clock, Download,
   ChevronLeft, ChevronRight, Plane, Stethoscope, AlertTriangle, MessageCircle, Bell, Euro, TrendingUp,
   Network, ArrowLeftRight,
+  ChevronDown,
 } from 'lucide-react';
 import { ProfileAvatar, AvatarPicker } from '@/components/ui/profile-avatar';
 import { formatFechaHora, formatFechaLarga, uid as generarId, cn, hoyEnEstudio, masDias, cuandoEstudio, fechaLargaEstudio, horaEstudio } from '@/lib/utils';
@@ -1192,17 +1193,20 @@ function TarjetaMiembro({
   // de compañeras (instructora sobre otra persona) ni "tu propia cuenta desde
   // fuera de la gestión" tienen acciones administrativas.
   const verMenu = gestiona;
+  // En móvil la ficha va plegada (fila: avatar, nombre y flecha) y se despliega al tocarla; en escritorio, siempre abierta (el CSS no la pliega).
+  const [abierta, setAbierta] = useState(false);
   const clasesSemana = m.semana.reduce((a, b) => a + b, 0);
 
   return (
     <article
       ref={refCb}
       data-miembro
+      data-abierta={abierta ? '' : undefined}
       className={nueva
         ? 'bg-card border border-border rounded-t-card shadow-t-card p-5 flex flex-col gap-4 transition-shadow hover:shadow-t-floating motion-reduce:transition-none'
         : 'bg-card border border-border rounded-2xl p-5 flex flex-col gap-4 transition-shadow hover:shadow-lg motion-reduce:transition-none'}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div data-miembro-cabecera onClick={e => { if (!(e.target as HTMLElement).closest('button, a, [data-menu-equipo]')) setAbierta(v => !v); }} className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <ProfileAvatar avatarId={m.avatar} fotoUrl={m.fotoUrl} nombre={m.nombre} color={m.color} size="md" />
           <div className="min-w-0">
@@ -1231,6 +1235,9 @@ function TarjetaMiembro({
             </div>
           </div>
         </div>
+        <button type="button" data-miembro-flecha aria-expanded={abierta} aria-label={abierta ? `Plegar a ${m.nombre}` : `Desplegar a ${m.nombre}`} onClick={() => setAbierta(v => !v)} className="hidden size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground">
+          <ChevronDown size={20} className={cn('transition-transform duration-200', abierta && 'rotate-180')} aria-hidden="true" />
+        </button>
         {verMenu && (
           <div className="flex items-center gap-1 shrink-0 relative" data-menu-equipo>
             <button onClick={onEditar} title="Editar" className="w-8 h-8 tactil:size-11 flex items-center justify-center rounded-lg hover:bg-muted text-muted-foreground transition-colors">

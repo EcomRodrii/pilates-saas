@@ -2337,4 +2337,11 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-equipo-orden] { margin-left: 0 !important; }
   .panel-app[data-shell-nuevo] [data-miembro] { padding: 20px !important; gap: 16px !important; }
   .panel-app[data-shell-nuevo] [data-movil-hoja] [data-miembro-estado] { background: #f6f6f6 !important; border-radius: 16px !important; padding: 16px !important; }
+  /* Fichas del equipo plegables: fila (avatar, nombre, estado) y, al tocarla, el detalle. */
+  .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) > :not([data-miembro-cabecera]) { display: none !important; }
+  .panel-app[data-shell-nuevo] [data-miembro] { gap: 16px; }
+  .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) { padding: 14px 16px !important; }
+  .panel-app[data-shell-nuevo] [data-miembro-cabecera] { align-items: center; cursor: pointer; }
+  .panel-app[data-shell-nuevo] [data-miembro-flecha] { display: flex !important; }
+  .panel-app[data-shell-nuevo] [data-miembro]:not([data-abierta]) [data-menu-equipo] { display: none; }
 }
