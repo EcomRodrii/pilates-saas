@@ -2139,6 +2139,17 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] .calendario-semana-entra { animation: calendario-semana-entra 0.28s cubic-bezier(0.2, 0.8, 0, 1) backwards; }
 }
 
+/* Menú lateral a sangre (20-nov-2026): las filas responden al dedo y al puntero con las mismas curvas del resto del marco (fundido de fondo y
+   color, y un hundimiento muy corto al pulsar), y la lista no arrastra la página de detrás al llegar a su final. Sin `transition: all`:
+   solo las propiedades que cambian, para que no se recalcule el diseño al pasar el ratón. */
+@media (prefers-reduced-motion: no-preference) {
+  .panel-app[data-shell-nuevo] aside[data-panel-menu] nav :is(a, button) {
+    transition-property: background-color, color, box-shadow, transform, opacity;
+    transition-duration: 0.14s; transition-timing-function: cubic-bezier(0.2, 0.8, 0, 1);
+  }
+  .panel-app[data-shell-nuevo] aside[data-panel-menu] nav :is(a, button):active { transform: scale(0.985); }
+}
+.panel-app[data-shell-nuevo] aside[data-panel-menu] nav { overscroll-behavior: contain; }
 /* Las vistas de un módulo viven en el menú desplegable (lib/nav-submenus.ts): mientras el menú las enseña, la pantalla no repite sus
    pestañas arriba. Con el menú contraído, o en móvil, se ven como siempre. */
 @media (min-width: 768px) {

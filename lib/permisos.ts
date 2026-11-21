@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useAuth } from './auth-context';
 import { useCore } from './core-context';
 import { puedeVer } from './permisos-reglas';
@@ -42,5 +43,7 @@ export function useRol(): Rol {
 
 export function usePermisos() {
   const rol = useRol();
-  return { rol, puedeVer: (path: string) => puedeVer(rol, path) };
+  // Estable mientras el rol no cambie: antes devolvía un objeto y una función nuevos en cada render, y nada que dependiera de ellos
+  // (el menú lateral, sus listas) podía memorizarse.
+  return useMemo(() => ({ rol, puedeVer: (path: string) => puedeVer(rol, path) }), [rol]);
 }

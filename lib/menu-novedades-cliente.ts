@@ -12,7 +12,7 @@
 // 20260806150000_realtime_sin_mensajes_equipo), y esto se publica una vez cada
 // varias semanas: enterarse al recargar es de sobra.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/db/supabase';
 import type { NovedadMenu } from '@/lib/menu-novedades';
 
@@ -55,5 +55,6 @@ export function useMenuNovedades(): Set<string> {
     return () => { vivo = false; };
   }, []);
 
-  return new Set(novedades.map(n => n.href));
+  // El mismo `Set` mientras no lleguen novedades nuevas (antes, uno nuevo en cada render del menú).
+  return useMemo(() => new Set(novedades.map(n => n.href)), [novedades]);
 }
