@@ -47,6 +47,7 @@ export function TarjetaCifraFiltro({ etiqueta, tono, Icono, valor, arriba, abajo
       type="button"
       onClick={onClick}
       aria-pressed={activo}
+      data-vivo="cifra"
       title={activo ? 'Quitar el filtro' : accion}
       className={cn(
         'group flex min-h-[132px] w-full flex-col rounded-t-card border p-4 text-left shadow-t-card sm:p-5',
