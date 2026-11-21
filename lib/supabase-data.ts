@@ -884,6 +884,7 @@ export function mapPlanTarifa(r: RowPlanesTarifa): PlanTarifa {
     validezDias: r.validez_dias ?? null,
     limiteSemanal: r.limite_semanal ?? null,
     activo: r.activo,
+    archivadoEn: r.archivado_en ?? null,
     ofertaHasta: r.oferta_hasta ?? null,
     // `?? 1` y `?? 0`: la BD los trae NOT NULL con default, pero los tipos
     // generados los dan como opcionales y un plan leído de un backup viejo
@@ -1633,6 +1634,7 @@ const COLUMNAS_PLAN = {
   validezDias: 'validez_dias',
   limiteSemanal: 'limite_semanal',
   activo: 'activo',
+  archivadoEn: 'archivado_en',
   ofertaHasta: 'oferta_hasta',
   periodicidadMeses: 'periodicidad_meses',
   matricula: 'matricula',
@@ -1680,7 +1682,8 @@ function sesionToDb(ses: Sesion) {
     studio_id: ses.studioId ?? STUDIO_ID,
     tipo_clase_id: ses.tipoClaseId,
     sala_id: ses.salaId,
-    instructor_id: ses.instructorId,
+    // Sin instructora es un estado admitido: '' no es un id y rompería la FK.
+    instructor_id: ses.instructorId || null,
     inicio: ses.inicio,
     fin: ses.fin,
     aforo_maximo: ses.aforoMaximo,
@@ -2580,11 +2583,16 @@ export async function dbUpdatePlanTarifa(id: string, changes: Partial<PlanTarifa
   return ESCRITURA_OK;
 }
 
-export async function dbDeletePlanTarifa(id: string): Promise<ResultadoEscritura> {
+export async function dbDeletePlanTarifa(id: string): Promise<ResultadoEscritura & { conHistorial?: boolean }> {
   // Mismo silencio que en el UPDATE: sin `.select()`, un DELETE que la RLS
   // deja en cero filas se lee como borrado hecho.
   const { data: borradas, error } = await supabase
     .from('planes_tarifa').delete().eq('id', id).select('id');
+  // 23503: algo con historial lo referencia (suscripción, venta de caja que
+  // cobró la matrícula…). No es un fallo: quien llama lo archiva.
+  if (error && (error as { code?: string }).code === '23503') {
+    return { ok: false, error: 'El paquete tiene historial.', conHistorial: true };
+  }
   if (error) return falloEscritura('[dbDeletePlanTarifa]', error);
   if (!borradas?.length) return { ok: false, error: await motivoSinEfecto(id, 'borrar') };
   return ESCRITURA_OK;
