@@ -126,8 +126,9 @@ export function Topbar() {
           />
         )}
       </div>
-      {/* `tactil:gap-2`: con el dedo, cada icono (36 px) gana 4 a cada lado hasta
-          los 44 de su zona táctil; con 6 de hueco se pisaban 2. */}
+      {!shellNuevo && (
+      /* `tactil:gap-2`: con el dedo, cada icono (36 px) gana 4 a cada lado hasta
+          los 44 de su zona táctil; con 6 de hueco se pisaban 2. */
       <div className="flex items-center gap-1.5 tactil:gap-2">
         {/* Panel nuevo: la lista de arranque, recogida; se abre al tocarla y nunca tapa la pantalla. */}
         <PrimerosPasosFlotante />
@@ -149,6 +150,7 @@ export function Topbar() {
         <NotificationBell />
         <ProfileMenu />
       </div>
+      )}
     </div>
   );
 }

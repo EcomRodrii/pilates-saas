@@ -82,7 +82,8 @@ function destinoDelAviso(n: NotifItem): string | null {
   return n.deepLink;
 }
 
-export function NotificationBell() {
+/** `oscuro`: el pie del menú lateral a sangre (fondo casi negro): icono claro y resalte en blanco. */
+export function NotificationBell({ oscuro = false }: { oscuro?: boolean } = {}) {
   const router = useRouter();
   // Panel nuevo: la bandeja es un cajón a toda altura, como «Todas las
   // notificaciones» de Bonsai (b-86), en vez de un desplegable.
@@ -291,9 +292,9 @@ export function NotificationBell() {
       <button
         onClick={() => setAbierto(o => !o)}
         aria-label="Notificaciones"
-        className="zona-tactil relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-muted transition-colors"
+        className={cn('zona-tactil relative flex items-center justify-center transition-colors', oscuro ? 'size-8 rounded-lg hover:bg-white/10 hover:text-white text-white/70' : 'w-9 h-9 rounded-full hover:bg-muted')}
       >
-        <Bell size={18} className="text-muted-foreground" />
+        <Bell size={oscuro ? 16 : 18} className={oscuro ? 'text-current' : 'text-muted-foreground'} />
         {/* ⚠️ `red-600` y no `red-500`: el contador va en 10 px, y blanco sobre
             `red-500` (#FB2C36) da **3,81:1**, por debajo del 4,5 que pide AA
             para texto normal. `red-600` (#E7000B) da 4,77 y es el siguiente

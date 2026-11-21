@@ -1608,7 +1608,10 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   /* 1 · Cabecera de página: una fila — icono pequeño + título de 13 px — y acciones a la derecha.
      Solo donde la sección lleva su icono (`page-header-icono` con contenido): el saludo de Resumen
      y las fichas (con su flecha de volver) conservan el título grande, como en Shopify. */
-  .panel-app[data-shell-nuevo] [data-panel-topbar] { height: 44px; }
+  /* La fila de iconos de arriba NO existe en Shopify: sus controles viven en el pie del menú (sidebar.tsx,
+     `data-pie-menu`). La barra se queda como un hueco de 12 px (la monta el buscador ⌘K y la usan las cabeceras
+     pegajosas y la transición de ampliar) y la cabecera de página arranca debajo, a la altura de Shopify. */
+  .panel-app[data-shell-nuevo] [data-panel-topbar] { height: 12px; margin-bottom: 0; }
   .panel-app[data-shell-nuevo] [data-slot='page-header']:has([data-slot='page-header-icono']:not(:empty)) {
     flex-direction: row;
     flex-wrap: nowrap;
@@ -1777,6 +1780,30 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
     letter-spacing: -0.01em;
     box-shadow: 0 8px 10px -5px #00000014, 0 5px 5px -2.5px #00000008, 0 3px 3px -1.5px #00000005, 0 0 0 1px #0000000f;
   }
+}
+
+/* Sin rebote al llegar al borde del scroll (como el admin de Shopify): se puede deslizar arriba y abajo, pero la página no
+   «estira» ni deja ver lo que hay detrás del lienzo. El marco oscuro llena también la raíz, por si el navegador pinta algo
+   fuera. Solo en el marco a sangre. */
+html:has(.panel-app[data-shell-nuevo]),
+html:has(.panel-app[data-shell-nuevo]) body {
+  overscroll-behavior: none;
+}
+html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0a0a0a); }
+
+/* Pie del menú a sangre: los desplegables (perfil, prueba, primeros pasos) salen hacia arriba y pegados a la
+   izquierda, porque el pie está abajo del todo. El aviso de prueba, en gris sobre el marco oscuro. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-pie-menu] .absolute.right-0 {
+    right: auto; left: 0; top: auto; bottom: 100%; margin-top: 0; margin-bottom: 8px; transform-origin: bottom left;
+  }
+  .panel-app[data-shell-nuevo] [data-pie-menu] [data-tour='pildora-prueba'] > button {
+    width: 100%; justify-content: center; background: #303030 !important; height: 32px; padding-inline: 12px;
+  }
+  .panel-app[data-shell-nuevo] [data-pie-menu] [data-primeros-pasos-pildora] {
+    width: 100%; justify-content: space-between; background: #303030; border-color: transparent; color: #fcfcfc; height: 32px;
+  }
+  .panel-app[data-shell-nuevo] [data-pie-menu] [data-primeros-pasos-pildora]:hover { background: #3a3a3a; }
 }
 
 /* Con la columna del asistente abierta el lienzo mide ~860 px aunque la ventana pase de 1280: los
