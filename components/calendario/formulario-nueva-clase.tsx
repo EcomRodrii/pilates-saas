@@ -208,7 +208,7 @@ export function FormularioNuevaClase({
   const faltaConfigurar = faltaParaCrearClase({
     tipoClaseId, salaId, instructorId,
     hayTipos: programables.length > 0, haySalas: salas.length > 0, hayInstructoras: instructores.length > 0,
-    exigeInstructora: true, hayArchivados: tiposClase.length > programables.length,
+    exigeInstructora: false, hayArchivados: tiposClase.length > programables.length,
   });
 
   // Una sola clase que choca BLOQUEA (la base de datos la rechazaría igual:
@@ -250,9 +250,9 @@ export function FormularioNuevaClase({
   const alLlenarse = fraseAlLlenarse(studio, tipo);
   const hrefTipos = puedeAbrirEnConfiguracion(rol, HREF_TIPOS_DE_CLASE) ? HREF_TIPOS_DE_CLASE : null;
 
-  const origenPlazas = form.aforoTocado ? 'a mano'
-    : tipo?.aforoPorDefecto != null ? 'las del tipo de clase'
-    : 'las de la sala';
+  const origenPlazas = form.aforoTocado ? 'plazas elegidas por ti'
+    : tipo?.aforoPorDefecto != null ? 'plazas por defecto de este tipo de clase'
+    : 'plazas de la sala';
 
   // Un campo de número vacío da 0: una clase sin plazas no se puede reservar.
   const plazasInvalidas = !(aforoMaximo >= 1);
@@ -278,6 +278,16 @@ export function FormularioNuevaClase({
     setGuardando(false);
     if (!res.ok) setError(res.error);
   }
+
+  // Lo que se va a crear, en una frase, para no tener que releer el formulario.
+  const resumen = !tipo || !sala || !fecha || horaVacia || horaInvalida ? null : [
+    tipo.nombre,
+    repite ? `${aCrear} ${aCrear === 1 ? 'clase' : 'clases'} desde el ${fechaCorta(fecha)}` : fechaCorta(fecha),
+    `${horaInicio}–${horaFin}`,
+    sala.nombre,
+    instructorId ? nombreInstructora(instructorId) : 'sin instructora',
+    `${aforoMaximo} plazas`,
+  ].join(' · ');
 
   const textoBoton = guardando ? 'Guardando…'
     : !repite ? 'Crear clase'
@@ -313,6 +323,7 @@ export function FormularioNuevaClase({
           </select>
         </FormField>
 
+        <p className="pt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Dónde y con quién</p>
         <div className={cn('grid gap-4', !esInstructora && 'grid-cols-1 sm:grid-cols-2')}>
           <FormField label="Sala">
             <select className={selectCls} value={salaId} onChange={e => cambiarSala(e.target.value)}>
@@ -325,9 +336,9 @@ export function FormularioNuevaClase({
           {!esInstructora && (
             <FormField label="Instructora">
               <select className={selectCls} value={instructorId} onChange={e => setForm(f => ({ ...f, instructorId: e.target.value }))}>
-                {!instructorId && (
-                  <option value="">{opcionesInstructora.length ? 'Elige una instructora' : 'Primero añade una instructora'}</option>
-                )}
+                {/* Opcional: una clase sin instructora es un estado que el producto ya admite
+                    (instructor_id nulo); se asigna después desde la clase. */}
+                <option value="">Sin instructora (la asignas después)</option>
                 {opcionesInstructora.map(i => {
                   const au = fecha ? ausenciaEnFecha(ausencias, i.id, mediodia(fecha)) : null;
                   return <option key={i.id} value={i.id}>{i.nombre}{i.activo ? '' : ' · ya no está en el equipo'}{sufijoAusencia(au)}</option>;
@@ -337,6 +348,7 @@ export function FormularioNuevaClase({
           )}
         </div>
 
+        <p className="pt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Cuándo</p>
         <FormField label="Fecha">
           <input type="date" className={inputCls} value={fecha} onChange={e => cambiarFecha(e.target.value)} />
         </FormField>
@@ -410,7 +422,7 @@ export function FormularioNuevaClase({
               onChange={e => setForm(f => ({ ...f, aforoMaximo: Number(e.target.value), aforoTocado: true }))}
             />
             <span className="text-xs text-muted-foreground text-pretty">
-              {origenPlazas}{sala ? ` · la sala tiene ${sala.capacidad}` : ''}
+              {sala ? `La sala tiene ${sala.capacidad} sitios` : 'Elige una sala'} · {origenPlazas}
             </span>
           </div>
           {plazasInvalidas && <p role="alert" className="text-xs text-destructive">Pon al menos 1 plaza.</p>}
@@ -569,6 +581,11 @@ export function FormularioNuevaClase({
       )}
 
       <div className="px-6 py-5 border-t border-border shrink-0">
+        {resumen && !bloqueado && (
+          <p data-testid="resumen-clase" className="mb-3 text-[13px] text-foreground text-pretty">
+            <span className="font-semibold">Vas a crear:</span> {resumen}
+          </p>
+        )}
         {error && (
           <p role="alert" className="mb-3 text-[13px] text-destructive">
             No se ha creado{repite && aCrear > 1 ? ' ninguna' : ''}. {error}

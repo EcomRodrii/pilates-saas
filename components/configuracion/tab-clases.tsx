@@ -436,7 +436,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
 
   const closeModal = useCallback(() => { setModal(null); setErrorGuardar(null); setConEjemplo(false); }, []);
 
-  const guardar = useCallback(async () => {
+  const guardar = useCallback(async (otra = false) => {
     if (modal === 'nueva') {
       // Esperamos a la base de datos antes de decir que está creado.
       setGuardando(true);
@@ -448,6 +448,18 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
       setGuardando(false);
       if (!res.ok) { setErrorGuardar(res.error); return; }
       showToast(`"${fields.nombre}" ya está guardado. Para su logo y su banner, pulsa «Editar»`);
+      if (otra) {
+        // Laura crea varias seguidas: la siguiente hereda lo que se repite
+        // (duración, nivel, plazas, online) y empieza sin nombre.
+        setForm({
+          ...emptyClaseForm(colorSalaPorDefecto(tiposClase.length + 1)),
+          duracionMinutos: form.duracionMinutos,
+          nivel: form.nivel,
+          aforoPorDefecto: form.aforoPorDefecto,
+          esOnline: form.esOnline,
+        });
+        return;
+      }
     } else if (editId) {
       setGuardando(true);
       setErrorGuardar(null);
@@ -460,7 +472,7 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
     }
     setModal(null);
     setConEjemplo(false);
-  }, [modal, editId, form, reglasDeDinero, addTipoClase, updateTipoClase, showToast]);
+  }, [modal, editId, form, reglasDeDinero, addTipoClase, updateTipoClase, showToast, tiposClase.length]);
 
   // Un PATCH por cada tipo cuya posición cambia (`cambiosDeOrden`), en paralelo,
   // y cada uno comprueba que tocó su fila (`dbUpdateTipoClase`). El contexto

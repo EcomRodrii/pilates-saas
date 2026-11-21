@@ -478,6 +478,7 @@ export interface RowPlanesTarifa {
   matricula_gratis_usados: number | null;
   // migr 20260926120237.
   es_prueba: boolean | null;
+  archivado_en?: string | null;
 }
 
 export interface RowPostsComunidad {

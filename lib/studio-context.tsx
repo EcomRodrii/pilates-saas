@@ -1819,15 +1819,20 @@ export function StudioProvider({ children, studioIdOverride, publicSlug }: { chi
     // duro y la BD lo rechazaba con 23503: la propietaria veía "no se ha podido
     // eliminar" sin ninguna explicación y el plan seguía en el catálogo. La
     // suite no lo ve porque `page.route` nunca devuelve el 4xx real de la RPC.
-    const contratada = suscripciones.some(s => s.planId === id);
-    if (contratada) {
-      const res = await dbUpdatePlanTarifa(id, { activo: false });
-      if (!res.ok) return res;
-      setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, activo: false } : p));
-      if (plan) addActividadReciente('PLAN_EDITADO', `${actorNombre ?? 'Alguien'} archivó el plan "${plan.nombre}" (seguía contratado)`);
-      return { ...res, archivado: true };
-    }
+    const archivar = async (): Promise<ResultadoEscritura & { archivado?: boolean }> => {
+      // `activo = false` además de `archivadoEn`: todo lo que ya filtra por
+      // «a la venta» (catálogo público, compra, caja) lo excluye sin tocarlo.
+      const cambios = { activo: false, archivadoEn: new Date().toISOString() };
+      const r = await dbUpdatePlanTarifa(id, cambios);
+      if (!r.ok) return r;
+      setPlanesTarifa(prev => prev.map(p => p.id === id ? { ...p, ...cambios } : p));
+      if (plan) addActividadReciente('PLAN_EDITADO', `${actorNombre ?? 'Alguien'} archivó el plan "${plan.nombre}" (tiene historial)`);
+      return { ...r, archivado: true };
+    };
+    if (suscripciones.some(s => s.planId === id)) return archivar();
     const res = await dbDeletePlanTarifa(id);
+    // Historial que el cliente no ve (p. ej. una venta de caja): archivar.
+    if (!res.ok && res.conHistorial) return archivar();
     if (!res.ok) return res;
     setPlanesTarifa(prev => prev.filter(p => p.id !== id));
     if (plan) addActividadReciente('PLAN_ELIMINADO', `${actorNombre ?? 'Alguien'} eliminó el plan "${plan.nombre}"`);
