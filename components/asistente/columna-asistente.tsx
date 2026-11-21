@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Maximize2, PanelRight, SquarePen, Sparkles, X } from 'lucide-react';
+import { Maximize2, PanelRight, SquarePen, X } from 'lucide-react';
+import { TentiIcono } from '@/components/tenti/tenti-icono';
 import { useAuth } from '@/lib/auth-context';
 import { useCore } from '@/lib/core-context';
 import { useRol } from '@/lib/permisos';
@@ -104,16 +105,13 @@ export function PildoraAsistente() {
       data-pildora-asistente
       aria-hidden={abierta}
       tabIndex={abierta ? -1 : 0}
-      className="group fixed bottom-4 left-[calc(50%+var(--sidebar-w,0px)/2)] z-20 hidden h-11 w-[340px] -translate-x-1/2 items-center gap-2 rounded-full bg-white pl-2 pr-1.5 text-[13px] text-[#4a4a4a] shadow-[0_0_0_1px_#00000012,0_2px_20px_#00000008,0_5px_20px_#00000008,0_8px_60px_#00000008] transition-[transform,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] hover:-translate-y-0.5 hover:shadow-[0_0_0_1px_#0000001f,0_6px_24px_#00000014,0_12px_60px_#0000000f] active:translate-y-0 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-ring md:flex"
+      className="group fixed bottom-4 left-[calc(50%+var(--sidebar-w,0px)/2)] z-20 hidden h-[52px] w-[360px] -translate-x-1/2 items-center gap-3 rounded-full bg-white pl-3 pr-2 text-[15px] text-[#707070] shadow-[0_0_0_1px_#00000012,0_2px_20px_#00000008,0_5px_20px_#00000008,0_8px_60px_#00000008] transition-[transform,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] hover:shadow-[0_0_0_1px_#0000001f,0_4px_24px_#0000000f,0_8px_60px_#0000000a] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-ring md:flex"
       style={{ opacity: abierta ? 0 : 1, pointerEvents: abierta ? 'none' : 'auto' }}
     >
-      <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--t-blue-500)_12%,white)] text-[var(--t-blue-500)]">
-        <Sparkles size={14} />
-      </span>
+      <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center"><TentiIcono ancho={28} /></span>
       <span className="flex-1 truncate text-left">Pregúntale a Tentare</span>
-      <kbd className="font-mono text-[11px] leading-none text-muted-foreground/70">⌘J</kbd>
-      <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-black/10" />
-      <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full text-foreground transition-colors group-hover:bg-[#f7f7f7]"><PanelRight size={15} /></span>
+      <span aria-hidden="true" className="h-5 w-px bg-black/10" />
+      <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-full text-[#303030] transition-colors group-hover:bg-[#f7f7f7]"><PanelRight size={18} strokeWidth={1.75} /></span>
     </button>
   );
 }

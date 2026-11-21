@@ -1877,7 +1877,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-vivo='cifra']:first-child, .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li:first-child { animation-delay: 80ms; }
 
   /* Fundido de entrada del contenido de cada pantalla: `as-enter`, 400 ms lineal. */
-  .panel-app[data-shell-nuevo] [data-panel-pagina] { animation: shell-contenido-entra 400ms linear backwards; } /* `backwards`, no `both`: al acabar no deja capa de apilamiento (los desplegables de la página siguen por encima de la barra) */
+  /* Sin fundido de entrada del contenido: Shopify cambia de pantalla en seco (medido 21-nov-2026). */
 
   /* Hover de una tarjeta: se levanta 1 px con la sombra más grande, 0,15 s. */
   .panel-app[data-shell-nuevo] [data-vivo='cifra'] { transition: box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1); }

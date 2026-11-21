@@ -208,6 +208,9 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // El botón flotante del chat vivía solo (8-oct-2026); el 11-nov el fundador lo quiso DENTRO del botón de ayuda: «no deben de
   // estar los 2 separados». Ahora Tenti es el icono de ese único botón y de la pestaña «Tentare» (no en «Mensajes», la de la persona).
   'components/ayuda/ayuda-del-panel.tsx': { usos: 1, motivo: 'el botón único de la esquina: Tenti es su icono cuando el asistente está disponible (no junto a un cobro)' },
+  // La píldora flotante «Pregúntale a Tentare» (fundador, 21-nov-2026): el icono de destellos «era muy IA»; en su lugar, la mascota, como el
+  // avatar del campo de Sidekick en Shopify. Va dentro de un botón: no se toca, solo mira y parpadea.
+  'components/asistente/columna-asistente.tsx': { usos: 1, motivo: 'la píldora flotante que abre el asistente: Tenti es su avatar (pedido del fundador)' },
   'components/ayuda/panel-ayuda.tsx': { usos: 2, motivo: 'el panel de ayuda: la pestaña «Tentare» (su icono) y el saludo de Inicio, donde se le pregunta al asistente' },
   // La demo personalizada de la landing (/demo, 28-oct-2026): la propietaria que aún no es clienta habla con Tenti, que entiende
   // su duda y le prepara un recorrido. UN solo Tenti, en la cabecera del chat (no uno por mensaje: cada uno monta un canvas),

@@ -7,7 +7,7 @@ import { subItemActivo, type SubItem } from '@/lib/nav-submenus';
 
 // La lista de vistas que cuelga de un módulo del menú a sangre (`SHELL_NUEVO`), como el desplegable de Shopify:
 // sin iconos, sangrada bajo el nombre y con la vista activa en vidrio. Se abre y se cierra animando el alto
-// (`grid-template-rows` 0fr → 1fr) con la curva del resto del marco, y cerrada no recibe foco ni toques (`inert`).
+// (`grid-template-rows` 0fr → 1fr, 400 ms, medido en Shopify) con la curva del resto del marco, y cerrada no recibe foco ni toques (`inert`).
 // Va dentro de un `<Suspense>` porque lee `useSearchParams` para saber qué vista de la pantalla está abierta.
 
 export function useVistaActiva(hijos: readonly SubItem[]): number {
@@ -32,7 +32,7 @@ export function SubListaMenu({ abierta, hijos, etiqueta, onNavegar }: {
       data-abierta={abierta ? '' : undefined}
       inert={!abierta}
       className={cn(
-        'grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] motion-reduce:transition-none',
+        'grid transition-[grid-template-rows,opacity] duration-400 ease-[cubic-bezier(0.2,0.8,0,1)] motion-reduce:transition-none',
         abierta ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
       )}
     >

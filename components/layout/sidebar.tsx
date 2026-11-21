@@ -155,7 +155,7 @@ const NavItem = memo(function NavItem({ href, label, Icon, onClick, collapsed, n
       )}
     >
       <Icon size={17} className="shrink-0" strokeWidth={sangre ? 1.6 : active ? 2.5 : 2} />
-      {!collapsed && label}
+      {!collapsed && (sangre && href === '/dashboard' ? 'Inicio' : label)}
       {Boolean(contador) ? <BadgeContador n={contador!} compacto={collapsed} etiqueta={contadorEtiqueta} /> : nuevo && <BadgeNuevo compacto={collapsed} />}
     </Link>
   );
