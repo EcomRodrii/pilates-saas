@@ -478,7 +478,8 @@ export interface RowPlanesTarifa {
   matricula_gratis_usados: number | null;
   // migr 20260926120237.
   es_prueba: boolean | null;
-  archivado_en?: string | null;
+  // migr 20261121100000.
+  archivado_en: string | null;
 }
 
 export interface RowPostsComunidad {
@@ -5361,6 +5362,7 @@ export type PlanesTarifaInsert = {
   matricula_gratis_cupos?: number | null | null;
   matricula_gratis_usados?: number | null | null;
   es_prueba?: boolean | null | null;
+  archivado_en?: string | null | null;
 }
 
 export type PlanesTarifaUpdate = {
@@ -5381,6 +5383,7 @@ export type PlanesTarifaUpdate = {
   matricula_gratis_cupos?: number | null | null;
   matricula_gratis_usados?: number | null | null;
   es_prueba?: boolean | null | null;
+  archivado_en?: string | null | null;
 }
 
 export type PostsComunidadInsert = {
