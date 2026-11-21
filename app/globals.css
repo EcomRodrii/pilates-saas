@@ -2417,4 +2417,22 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-barra-filtros] { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
   .panel-app[data-shell-nuevo] [data-clientas-buscar] input { height: 52px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding-left: 48px !important; font-size: 17px; }
   .panel-app[data-shell-nuevo] [data-clientas-buscar] > svg { left: 18px !important; width: 20px; height: 20px; }
+
+  /* Cobros, Informes, Clientes y Productos: sus pestañas son solo texto, no baldosas con icono como las de Mensajería.
+     Vuelven a ser chips grises que se deslizan en una fila; la activa, píldora negra (como los filtros de Shopify). */
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) { flex-direction: row !important; align-items: center; gap: 8px !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; width: auto !important; max-width: none; margin: 0 -24px !important; padding-inline: 24px !important; overflow-x: auto; scrollbar-width: none; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden]))::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button { flex: 0 0 auto; flex-direction: row !important; align-items: center !important; gap: 6px !important; min-height: 40px; height: 40px; padding: 0 16px !important; margin: 0 !important; border: 0 !important; border-radius: 9999px !important; background: #f1f1f1; color: #303030; font-size: 14px; font-weight: 600; white-space: nowrap; box-shadow: none !important; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button:is([aria-selected='true'], [aria-current='page']) { background: #1a1a1a !important; color: #fff !important; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button:is([aria-selected='true'], [aria-current='page']) span { background: rgba(255, 255, 255, 0.2) !important; color: #fff !important; }
+
+  /* Cifras y gráficas de Cobros e Informes: cards blancas de Shopify (sin tinte de color ni icono), etiqueta en frase y cifra grande. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='cifra'], .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='grafica'] { background: #fff !important; border: 1px solid #e9e9e9 !important; border-radius: 24px !important; box-shadow: 0 1px 2px #0000000a, 0 10px 28px -14px #00000026 !important; padding: 18px !important; min-height: 0; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='cifra-icono'] { display: none; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='cifra-etiqueta'], .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='grafica-titulo'] { font-size: 14px; font-weight: 600; letter-spacing: 0; text-transform: none; color: #303030; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='cifra-valor'] { font-size: 28px; line-height: 1.15; font-weight: 700; letter-spacing: -0.01em; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='grafica-cifra'] { font-size: 28px; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='pildoras'] { background: transparent; padding: 0; gap: 8px; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='pildora'] { height: 36px; padding: 0 16px; border-radius: 9999px; background: #f1f1f1; color: #303030; font-size: 14px; box-shadow: none; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='pildora'][aria-pressed='true'] { background: #1a1a1a; color: #fff; }
 }
