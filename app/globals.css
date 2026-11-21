@@ -2388,4 +2388,12 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-barra-filtros] { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
   .panel-app[data-shell-nuevo] [data-clientas-buscar] input { height: 52px; border-radius: 9999px !important; background: #f4f4f4 !important; border: 0 !important; padding-left: 48px !important; font-size: 17px; }
   .panel-app[data-shell-nuevo] [data-clientas-buscar] > svg { left: 18px !important; width: 20px; height: 20px; }
+
+  /* Cobros, Informes, Clientes y Productos: sus pestañas son solo texto, no baldosas con icono como las de Mensajería.
+     Vuelven a ser chips grises que se deslizan en una fila; la activa, píldora negra (como los filtros de Shopify). */
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) { flex-direction: row !important; align-items: center; gap: 8px !important; background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding: 0 !important; width: auto !important; max-width: none; margin: 0 -24px !important; padding-inline: 24px !important; overflow-x: auto; scrollbar-width: none; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden]))::-webkit-scrollbar { display: none; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button { flex: 0 0 auto; flex-direction: row !important; align-items: center !important; gap: 6px !important; min-height: 40px; height: 40px; padding: 0 16px !important; margin: 0 !important; border: 0 !important; border-radius: 9999px !important; background: #f1f1f1; color: #303030; font-size: 14px; font-weight: 600; white-space: nowrap; box-shadow: none !important; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button:is([aria-selected='true'], [aria-current='page']) { background: #1a1a1a !important; color: #fff !important; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button:is([aria-selected='true'], [aria-current='page']) span { background: rgba(255, 255, 255, 0.2) !important; color: #fff !important; }
 }
