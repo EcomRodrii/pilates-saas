@@ -2,6 +2,7 @@
 
 import { ViewTransition } from 'react';
 import { TIPO_SECCION } from '@/lib/panel/transiciones';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El contenido del panel al cambiar de sección: lo de antes se va hacia arriba
@@ -22,8 +23,12 @@ import { TIPO_SECCION } from '@/lib/panel/transiciones';
 // anima fotos del contenido, no el contenido, y no deja nada puesto.
 // ─────────────────────────────────────────────────────────────────────────────
 export function PanelPageTransition({ children }: { children: React.ReactNode }) {
+  // Marco a sangre (`SHELL_NUEVO`): Shopify NO anima el contenido al cambiar de pantalla (medido el 21-nov-2026 con
+  // `document.getAnimations()` en su admin: solo se funde el resaltado del menú, 150 ms, y se despliegan los submenús).
+  // Aquí el deslizamiento + fundido de la sección se sentía como una carga lenta, así que con el marco nuevo se cambia en seco.
+  const shell = useShellNuevo();
   return (
-    <ViewTransition update={{ [TIPO_SECCION]: 'panel-seccion', default: 'none' }} default="none">
+    <ViewTransition update={{ [TIPO_SECCION]: shell ? 'none' : 'panel-seccion', default: 'none' }} default="none">
       <div data-panel-pagina>{children}</div>
     </ViewTransition>
   );

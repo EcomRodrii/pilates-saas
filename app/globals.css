@@ -1825,6 +1825,9 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 @media (min-width: 768px) {
   /* Lienzo blanco como el de Shopify (en oscuro se queda con su fondo). */
   .panel-app[data-shell-nuevo]:not(.dark) { --background: #ffffff; }
+  /* Neutros de Shopify (`--p-color-border` #ebebeb, superficies #f7f7f7): con la marca de siempre, el borde de tablas y tarjetas
+     era el beige `#CFC6B8` y pestañas, cabeceras de tabla y chips salían en `#ECE6DC`. Medido el 21-nov-2026 en el panel de Clientes. */
+  .panel-app[data-shell-nuevo]:not(.dark) { --border: #ebebeb; --secondary: #f7f7f7; --muted: #f7f7f7; --accent: #f1f1f1; }
 
   /* Botones: 28 px, 12/500, píldora; la principal es `#1b1b1b` con el relieve de Polaris. */
   .panel-app[data-shell-nuevo] [data-slot='button'] {
@@ -1877,7 +1880,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-vivo='cifra']:first-child, .panel-app[data-shell-nuevo] [data-testid='tarjetas-de-paso'] > li:first-child { animation-delay: 80ms; }
 
   /* Fundido de entrada del contenido de cada pantalla: `as-enter`, 400 ms lineal. */
-  .panel-app[data-shell-nuevo] [data-panel-pagina] { animation: shell-contenido-entra 400ms linear backwards; } /* `backwards`, no `both`: al acabar no deja capa de apilamiento (los desplegables de la página siguen por encima de la barra) */
+  /* Sin fundido de entrada del contenido: Shopify cambia de pantalla en seco (medido 21-nov-2026). */
 
   /* Hover de una tarjeta: se levanta 1 px con la sombra más grande, 0,15 s. */
   .panel-app[data-shell-nuevo] [data-vivo='cifra'] { transition: box-shadow 0.15s cubic-bezier(0.25, 0.1, 0.25, 1), transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1); }
