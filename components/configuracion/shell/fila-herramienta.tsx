@@ -1,5 +1,6 @@
 'use client';
 
+import { Flechita } from './flechita';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import Link from 'next/link';
 import { ArrowUpRight, BellRing, CalendarRange, ChevronRight, Code2, DoorOpen, Gift, Mail, Newspaper, Smartphone, Ticket, type LucideIcon } from 'lucide-react';
@@ -130,7 +131,7 @@ export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valo
             {valor ?? h.resumen}
           </span>
         </span>
-        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+        <Flechita />
       </Link>
     </li>
   );

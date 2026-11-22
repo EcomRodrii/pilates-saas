@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 // Todo vive en el CSS de `app/globals.css` bajo `.panel-app[data-shell-nuevo]` (atributos `data-movil-*`).
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** La píldora negra de la prueba: «Elige tu plan | Quedan N días». Solo la propietaria entra a contratar, así que lleva a /suscripcion. */
+/** La píldora negra de la prueba: «Elige tu plan | Quedan N días». Solo la propietaria entra a contratar, así que lleva a Configuración → Plan. */
 function PildoraPruebaMovil() {
   const [estado, setEstado] = useState<EstadoBilling | null>(null);
   useEffect(() => {
@@ -34,7 +34,7 @@ function PildoraPruebaMovil() {
   const expirada = trial.fase === 'EXPIRADA';
   const dias = trial.diasRestantes;
   return (
-    <Link href="/suscripcion" data-movil-prueba className="flex items-center justify-between">
+    <Link href="/configuracion?tab=plan" data-movil-prueba className="flex items-center justify-between">
       <span>Elige tu plan</span>
       <span data-movil-prueba-dias>
         <i aria-hidden="true" className={expirada ? 'bg-[#f08a7e]' : 'bg-[#c9e79a]'} />

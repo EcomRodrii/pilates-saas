@@ -1,8 +1,9 @@
 'use client';
 
+import { Flechita } from './flechita';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, ChevronRight, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { Interruptor } from '@/components/ui/interruptor';
@@ -138,7 +139,7 @@ export function FilaAjuste({
           <ValorFila valor={valor} descripcion={frase ?? tarjeta.frase} entero={entero || !!estado} />
           {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
         </span>
-        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+        <Flechita />
       </button>
     </li>
   );
@@ -271,7 +272,7 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
         </span>
         {panelNuevo
           ? <CajaValor valor={valor ?? 'Abrir'} />
-          : <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
+          : <Flechita />}
       </a>
     </li>
   );

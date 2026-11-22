@@ -382,6 +382,7 @@ function valorDe(id: SeccionId, d: DatosConfiguracion): string | null {
     // La motivación y tus avisos se cargan al abrir su sección, y exportar no
     // tiene un estado.
     case 'motivacion':
+    case 'plan':
     case 'avisos':
     case 'datos':
       return null;

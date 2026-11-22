@@ -76,6 +76,7 @@ const COMPONENTES: Record<SeccionId, ComponentType<PropsSeccion>> = {
   motivacion: dynamic(() => import('@/components/configuracion/secciones/seccion-motivacion').then(m => m.SeccionMotivacion), { loading: cargando }),
   conexiones: dynamic(() => import('@/components/configuracion/secciones/seccion-conexiones').then(m => m.SeccionConexiones), { loading: cargando }),
   datos: dynamic(() => import('@/components/configuracion/secciones/seccion-datos').then(m => m.SeccionDatos), { loading: cargando }),
+  plan: dynamic(() => import('@/components/configuracion/secciones/seccion-plan').then(m => m.SeccionPlan), { loading: cargando }),
   avisos: dynamic(() => import('@/components/configuracion/secciones/seccion-avisos').then(m => m.SeccionAvisos), { loading: cargando }),
   panel: dynamic(() => import('@/components/configuracion/secciones/seccion-panel').then(m => m.SeccionPanel), { loading: cargando }),
 };

@@ -38,12 +38,12 @@ export const ICONOS_SECCION: Record<SeccionId, LucideIcon> = {
   motivacion: Trophy,
   conexiones: Plug,
   datos: Download,
+  plan: Receipt,
   avisos: Bell,
   panel: PanelLeft,
 };
 
 export const ICONOS_EXTERNAS: Record<FilaExternaId, LucideIcon> = {
-  plan: Receipt,
   'mi-cuenta': CircleUser,
 };
 
