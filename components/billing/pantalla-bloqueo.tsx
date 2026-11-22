@@ -44,7 +44,7 @@ export function PantallaBloqueo({ titulo, frase, pildoras, anclaPlanes, children
           Ver todos los planes
         </a>
       </div>
-      <div className="m-2 flex flex-col gap-4 rounded-[18px] bg-white p-5 text-[#101010] sm:p-6">{children}</div>
+      <div className="m-2 flex flex-col gap-4 rounded-[18px] bg-white p-5 text-[#101010] sm:p-6 [&_[role=radiogroup]]:!grid-cols-1">{children}</div>
     </section>
   );
 }
