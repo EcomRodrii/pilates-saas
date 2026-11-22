@@ -138,8 +138,39 @@ export function BarraGuardar({
     onDescartar();
   }
 
+  // Como Shopify: el diálogo de edición lleva SIEMPRE su pie, «Cancelar» y «Guardar» (apagado hasta que hay cambios).
+  const pie = Boolean(cajon && sangre);
+
   return (
     <>
+      {pie && cajon && (
+        <div
+          {...(visible ? { 'data-barra-guardar': '' } : {})}
+          role="region"
+          aria-label="Cambios sin guardar"
+          className="sticky bottom-0 z-10 -mx-4 mt-auto bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-5 md:px-5 md:pb-5"
+        >
+          {(error || bloqueo) && (
+            <p role="alert" className="mb-2 text-sm font-medium text-destructive text-pretty">
+              {error ? textoDeError(error) : bloqueo}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button" onClick={cajon.cerrar} disabled={guardando}
+              className="h-7 rounded-full bg-white px-3 text-[13px] leading-5 text-[#101010] shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_2px_20px_rgba(0,0,0,0.03),0_5px_20px_rgba(0,0,0,0.03)] transition-colors hover:bg-[#f7f7f7] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button" onClick={alPulsarGuardar} disabled={!visible || guardando || !!bloqueo}
+              className="h-7 rounded-full bg-foreground px-3 text-[13px] leading-5 text-background transition-colors hover:bg-foreground/90 disabled:bg-foreground/[0.13] disabled:text-background focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Fuera de la barra: cuando se guarda, la barra desaparece y esto es lo
           que le dice a un lector de pantalla que ha ido bien. */}
       <p role="status" className="sr-only">{visible ? '' : anuncio}</p>
@@ -158,7 +189,7 @@ export function BarraGuardar({
           </p>
         </div>
       )}
-      {visible && (
+      {visible && !pie && (
         <div
           data-barra-guardar=""
           role="region"
