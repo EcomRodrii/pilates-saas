@@ -43,8 +43,13 @@ test('quien monta la isla monta también el pie: un solo armazón, cabeza y pie 
   // La home es la excepción: la isla va dentro de SeccionHero (el envoltorio que
   // limita hasta dónde se queda pegada) y el pie, en LandingCliente.
   const conIsla = FUENTES.filter(({ f, s }) => /<IslaWeb\b/.test(s) && f !== 'components/landing/SeccionHero.tsx');
-  assert.ok(conIsla.length >= 15, `solo ${conIsla.length} ficheros montan la isla: ¿cambió la forma de la etiqueta?`);
+  // 13 desde el 22-nov-2026: el Centro de ayuda (portada, categorías y artículos) dejó la isla por su propio marco, `AyudaMarco`,
+  // con la forma del de Shopify (decisión del fundador). El pie sigue siendo el mismo (ver la comprobación de abajo).
+  assert.ok(conIsla.length >= 13, `solo ${conIsla.length} ficheros montan la isla: ¿cambió la forma de la etiqueta?`);
   assert.deepEqual(conIsla.filter(({ s }) => !/<PieWeb\b/.test(s)).map(({ f }) => f), []);
+  // El marco de la ayuda no es una cabecera más por tipo de página que se libre del pie: lo monta él mismo.
+  const marcoAyuda = FUENTES.find(({ f }) => f === 'components/ayuda/AyudaMarco.tsx')!.s;
+  assert.match(marcoAyuda, /<PieWeb \/>/);
   const landing = FUENTES.find(({ f }) => f === 'components/landing/LandingCliente.tsx')!.s;
   assert.match(landing, /<PieWeb \/>/);
   // Y las legales, con el mismo armazón que el resto.
