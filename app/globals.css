@@ -2552,3 +2552,21 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'] > span,
   .cajon-modal button[role='switch'][aria-checked='true'] > span { transform: translateX(18px) !important; }
 }
+
+/* Pastillas de estado de Configuración como las de Shopify (`SHELL_NUEVO`): relleno de color, sin borde ni icono,
+   radio 8, 12/16 peso 500. Colores de las insignias de Polaris (éxito, atención, crítico y neutro). */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste],
+  .cajon-modal [data-estado-ajuste] {
+    border: 0; border-radius: 8px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500; gap: 0;
+    background-color: #ebebeb; color: #303030;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste] > svg,
+  .cajon-modal [data-estado-ajuste] > svg { display: none; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste='activo'],
+  .cajon-modal [data-estado-ajuste='activo'] { background-color: #affebf; color: #0c5132; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste='pendiente'],
+  .cajon-modal [data-estado-ajuste='pendiente'] { background-color: #ffeb78; color: #4f4700; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste='problema'],
+  .cajon-modal [data-estado-ajuste='problema'] { background-color: #fed1d7; color: #8e0b21; }
+}
