@@ -51,7 +51,10 @@ export const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-color
  * derecha, su control: el interruptor si es un sí/no, y si no, una caja con el
  * valor de hoy que abre su editor de siempre (que se guarda con «Guardar»).
  */
-export const FILA_NUEVA = 'flex w-full flex-col gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 sm:flex-row sm:items-center sm:gap-5';
+export const FILA_NUEVA = 'flex w-full flex-col gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 sm:flex-row sm:items-center sm:gap-5 group-data-[sangre]/config:px-4 group-data-[sangre]/config:pt-3 group-data-[sangre]/config:pb-4';
+
+/** La tarjeta de lista de Shopify: 784 px, radio 16 y un aro de 1 px con sombra apilada (la misma de las tarjetas de Inicio, `globals.css`). */
+export const TARJETA_SANGRE = 'max-w-[784px] divide-y divide-border overflow-hidden rounded-[16px] bg-card shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_2px_2px_-1px_#00000005,0_1px_1px_-0.5px_#00000008,0_0.5px_0.5px_0_#0000000a,0_0_0_1px_#0000000f]';
 
 /** La caja de la derecha: el valor de hoy, como el campo de Bonsai, y la flecha de que se abre. */
 export function CajaValor({ valor, externo = false }: { valor: string | null; externo?: boolean }) {
@@ -112,7 +115,7 @@ export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valo
         >
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className={sangre ? 'text-[13px] font-medium leading-5 text-foreground' : 'text-[15px] font-semibold text-foreground'}>{h.titulo}</span>
+              <span className={sangre ? 'text-[13px] font-normal leading-5 tracking-[-0.13px] text-[#101010]' : 'text-[15px] font-semibold text-foreground'}>{h.titulo}</span>
               {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
             </span>
             <span data-resumen={valor ? 'valor' : 'descripcion'} className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{h.resumen}</span>
@@ -137,7 +140,7 @@ export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valo
         <IconoFila icono={ICONOS_HERRAMIENTA[id]} />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className={sangre ? 'text-[13px] font-medium leading-5 text-foreground' : 'text-[15px] font-semibold text-foreground'}>{h.titulo}</span>
+            <span className={sangre ? 'text-[13px] font-normal leading-5 tracking-[-0.13px] text-[#101010]' : 'text-[15px] font-semibold text-foreground'}>{h.titulo}</span>
             {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
           </span>
           <span data-resumen={valor ? 'valor' : 'descripcion'} className="block text-sm text-muted-foreground text-pretty">
@@ -154,7 +157,7 @@ export function FilasHerramienta({ filas }: { filas: readonly { id: HerramientaI
   const sangre = useShellNuevo();
   const panelNuevo = usePanelNuevo();
   return (
-    <ul className={sangre ? 'max-w-3xl divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card' : panelNuevo ? cn('max-w-3xl space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'max-w-2xl divide-y divide-border overflow-hidden')} data-tarjeta-ajuste="">
+    <ul className={sangre ? TARJETA_SANGRE : panelNuevo ? cn('max-w-3xl space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'max-w-2xl divide-y divide-border overflow-hidden')} data-tarjeta-ajuste="">
       {filas.map(f => <FilaHerramienta key={f.id} {...f} />)}
     </ul>
   );

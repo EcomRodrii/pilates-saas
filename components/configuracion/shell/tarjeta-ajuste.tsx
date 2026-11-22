@@ -56,7 +56,7 @@ export function TarjetaAjuste({
       data-tarjeta-ajuste=""
       className={cn(
         'scroll-mt-32',
-        tarjeta.ancho === 'amplio' ? 'max-w-5xl' : 'max-w-2xl',
+        tarjeta.ancho === 'amplio' ? 'max-w-5xl' : 'max-w-2xl group-data-[sangre]/config:max-w-[784px]',
         marco && cn(cardCls, 'p-4 @md/config:p-6'),
         className,
       )}
