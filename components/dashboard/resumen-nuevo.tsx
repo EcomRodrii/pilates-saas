@@ -38,7 +38,9 @@ import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
 import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
 import { CompositorInicio } from '@/components/asistente/compositor-inicio';
+import { EmpiezaTarjetas } from '@/components/guia/empieza-tarjetas';
 import { PonEnMarchaTarjeta } from '@/components/guia/pon-en-marcha';
+import { PalabrasQueEntran, useBienvenidaInicio } from '@/components/dashboard/bienvenida-inicio';
 import { TuPlanTarjeta } from '@/components/guia/tu-plan-tarjeta';
 import { useAltaNuevaPropia } from '@/components/guia/use-pon-en-marcha';
 import { GraficaArea } from '@/components/dashboard/grafica-area';
@@ -457,22 +459,25 @@ function ResumenLimpio(props: ResumenNuevoProps & {
 }) {
   const { visible, verFinanzas, kpis, altaNueva, conPrimerosPasos, slug, hoy, alDia, recibos, socios, reservas } = props;
   const conGraficas = visible('kpis');
+  const bienvenida = useBienvenidaInicio();
+  const palabrasTitulo = bienvenida ? props.titulo.split(' ').length : 0;
   return (
-    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-10 pb-12 pt-1" data-testid="resumen-nuevo" data-resumen-limpio>
+    <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-10 pb-12 pt-1" data-testid="resumen-nuevo" data-resumen-limpio data-bienvenida={bienvenida ? 'on' : undefined}>
       <header className="text-center">
-        <h1 className="text-balance text-[28px] font-medium leading-[1.2] tracking-[-0.025em] text-foreground">{props.titulo}</h1>
-        <p className="mt-1 text-[15px] text-muted-foreground">{props.fecha}</p>
+        <h1 className="text-balance text-[28px] font-medium leading-[1.2] tracking-[-0.025em] text-foreground">
+          {bienvenida ? <PalabrasQueEntran texto={props.titulo} /> : props.titulo}
+        </h1>
+        <p className="mt-1 text-[15px] text-muted-foreground">
+          {bienvenida ? <PalabrasQueEntran texto={props.fecha} desde={palabrasTitulo} /> : props.fecha}
+        </p>
       </header>
       <div className="mx-auto w-full max-w-[620px]"><CompositorInicio /></div>
 
       {props.avisos}
 
-      {conPrimerosPasos && altaNueva === true && (
-        <div className="flex flex-col gap-5 empty:hidden xl:flex-row xl:items-start [&>*]:min-w-0 xl:[&>*:first-child]:flex-[7] xl:[&>*:last-child:not(:first-child)]:flex-[5]">
-          <PonEnMarchaTarjeta />
-          <TuPlanTarjeta />
-        </div>
-      )}
+      {/* Como «Empieza a crear la tienda» de Shopify: las tarjetas, a todo el ancho y justo bajo el compositor. */}
+      {conPrimerosPasos && altaNueva === true && <EmpiezaTarjetas />}
+      {conPrimerosPasos && altaNueva === true && <div className="empty:hidden"><TuPlanTarjeta /></div>}
       {conPrimerosPasos && altaNueva === false && <PrimerosPasosTarjeta />}
 
       {/* Lo que espera tu visto bueno, antes que nada: si no hay nada, no ocupa sitio. */}
