@@ -727,3 +727,12 @@ sesión con Apple (el plugin propio, necesita la capacidad en el App ID), el
 registro de push y que llegue un aviso (APNs de producción), un Universal Link
 desde Notas (necesita `APPLE_TEAM_ID`), y la cuenta de revisión contra
 producción (necesita la alumna de demo y las variables).
+
+## Siri y Atajos (23-nov-2026)
+
+`ios/App/App/ProximaClaseIntents.swift` (App Intents, iOS 16+; la app sigue admitiendo iOS 15, en iOS 15 simplemente no aparecen).
+- «¿Cuándo es mi próxima clase en Tentare?» y «¿Qué clases tengo en Tentare?». Aparecen también en la app Atajos sin configurar nada.
+- **Solo consultan.** Leen lo mismo que el widget (grupo de apps, `ProximasClasesAlmacen`): sin red, al instante. Reservar o cancelar por voz NO está a propósito: mueve bonos y penalizaciones y necesita sesión.
+- Los datos los refresca la app al abrirse; si lleva días cerrada, Siri contesta con lo último guardado (caduca a los 14 días y entonces dice que no ve clases).
+- Las frases van en español; se puso `developmentRegion = es` (el Info.plist ya lo decía) para que Siri las trate como frases del idioma de origen.
+- ⚠️ **No probado en un iPhone real ni con Siri**: compila (simulador), y el texto de las respuestas se comprobó con un script aparte. Hay que probarlo en dispositivo antes del build 1.1 (las frases con `\(.applicationName)` dependen de cómo se llame la app en esa instalación).
