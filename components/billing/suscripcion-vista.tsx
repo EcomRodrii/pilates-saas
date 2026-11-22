@@ -175,10 +175,10 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
     const cargar = () => estadoBilling().then((e) => {
       if (!vivo) return;
       setEstado(e);
-      // Visita a secas a /suscripcion de un estudio que NO está bloqueado: su sitio es Configuración → Plan
+      // Visita a secas a /suscripcion de la PROPIETARIA de un estudio que NO está bloqueado (la gerencia no ve Plan en Configuración): su sitio es Configuración → Plan
       // (fundador, 22-nov-2026). Con `?…` (vuelta de Stripe, ?tarjeta=1, ?pack=) o `#…` (#consultas,
-      // #exportar-datos) se queda aquí: son enlaces de correos, avisos y Stripe que dependen de esta pantalla.
-      if (!embebida && e && !e.bloqueado && !window.location.search && !window.location.hash) { router.replace('/configuracion?tab=plan'); return; }
+      // #exportar-datos, #tu-plan) se queda aquí: son enlaces de correos, avisos y Stripe que dependen de esta pantalla.
+      if (!embebida && e && !e.bloqueado && e.esPropietaria && !window.location.search && !window.location.hash) { router.replace('/configuracion?tab=plan'); return; }
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
@@ -286,7 +286,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
         : 'Sin permanencia. Cancela cuando quieras.';
 
   return (
-    <div className={embebida ? undefined : 'min-h-dvh bg-background'}>
+    <div id={embebida ? undefined : 'tu-plan'} className={embebida ? undefined : 'min-h-dvh bg-background'}>
       <div className={embebida ? undefined : 'mx-auto max-w-4xl px-4 pb-20 pt-10 sm:px-6 sm:pt-14'}>
         {embebida ? (
           <p className="mb-4 max-w-xl text-[13px] leading-5 text-muted-foreground">{textoEstado}</p>
