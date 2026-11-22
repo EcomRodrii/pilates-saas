@@ -120,7 +120,7 @@ export function ListaSecciones({
                   const actual = activa === s.id;
                   return (
                     <li key={s.id}>
-                      <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} onClick={elegir(s.id)} className={filaNueva(actual)}>
+                      <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} title={s.titulo} onClick={elegir(s.id)} className={filaNueva(actual)}>
                         <Icono size={16} className={icono(actual)} aria-hidden />
                         <span className="min-w-0 flex-1 truncate">{s.titulo}</span>
                       </Link>
