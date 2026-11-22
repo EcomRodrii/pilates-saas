@@ -19,6 +19,7 @@ import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/Stat
 import { LoTuyo } from '@/components/student/domain/LoTuyo';
 import { TarjetaProximaClase } from '@/components/student/domain/TarjetaProximaClase';
 import { useWidgetProximasClases } from '@/components/nativo/useWidgetProximasClases';
+import { useAvisosLocales } from '@/components/nativo/useAvisosLocales';
 import { BaldosasInicio } from '@/components/student/domain/BaldosasInicio';
 import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { Descubre } from '@/components/student/domain/Descubre';
@@ -118,6 +119,8 @@ export default function InicioPage() {
 
   // El widget de iOS «Mi próxima clase» (en la web no hace nada): con lo que Inicio ya cargó.
   useWidgetProximasClases(data ?? null, estudio.nombre);
+  // Y los avisos de «tu clase empieza en 15 minutos» del propio iPhone.
+  useAvisosLocales(data ?? null, estudio.nombre);
 
   // «Huecos de hoy» es un atajo para RESERVAR, así que una clase ya empezada no
   // es un hueco: el servidor la rechaza (`sesionYaEmpezada`). Antes salía toda la

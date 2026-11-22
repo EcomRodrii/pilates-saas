@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Eye, EyeOff, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Plus, Settings, HelpCircle,
+  X, Menu, LogOut, Eye, EyeOff, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, Search, Plus, Settings, HelpCircle,
 } from 'lucide-react';
 import { Suspense, memo, useMemo, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -167,9 +167,8 @@ const NavItem = memo(function NavItem({ href, label, Icon, onClick, collapsed, n
 
 /**
  * Un módulo del menú a sangre con vistas (`lib/nav-submenus.ts`): su fila de siempre, un chevron que gira y debajo la lista
- * de sus vistas desplegada en línea, como Shopify. Pulsar el nombre navega a la vista principal Y abre la lista; el chevron
- * solo la abre o la cierra. Se abre sola al entrar en el módulo (por el menú, un enlace o el ⌘K) y se queda como la deje
- * quien la cierra a mano.
+
+ * de sus vistas desplegada en línea, como Shopify: sin flechita, y solo abierto el módulo en el que estás.
  */
 const NavItemAcordeon = memo(function NavItemAcordeon({ item, rol, puedeVer, nuevo, contador, contadorEtiqueta, onNavegar }: {
   item: { href: string; label: string; icon: React.ElementType };
@@ -183,10 +182,8 @@ const NavItemAcordeon = memo(function NavItemAcordeon({ item, rol, puedeVer, nue
   const pathname = usePathname();
   const hijos = submenuDe(item.href, rol, puedeVer);
   const dentro = pathname === item.href || pathname.startsWith(`${item.href}/`);
-  const [abierto, setAbierto] = useState(dentro);
-  // Al ENTRAR en el módulo se abre (se ajusta durante el render, no en un efecto: sin un fotograma cerrado).
-  const [estabaDentro, setEstabaDentro] = useState(dentro);
-  if (dentro !== estabaDentro) { setEstabaDentro(dentro); if (dentro) setAbierto(true); }
+  // Como Shopify: solo está desplegado el módulo en el que estás; al pasar a otro, el anterior se cierra. Sin flechita.
+  const abierto = dentro;
   if (hijos.length < 2) {
     return <NavItem href={item.href} label={item.label} Icon={item.icon} nuevo={nuevo} contador={contador} contadorEtiqueta={contadorEtiqueta} onClick={onNavegar} />;
   }
@@ -195,18 +192,8 @@ const NavItemAcordeon = memo(function NavItemAcordeon({ item, rol, puedeVer, nue
     <div className="relative" data-acordeon={item.href}>
       <NavItem
         href={item.href} label={item.label} Icon={item.icon} nuevo={nuevo} contador={contador} contadorEtiqueta={contadorEtiqueta}
-        onClick={() => { setAbierto(true); onNavegar?.(); }}
+        onClick={onNavegar}
       />
-      <button
-        type="button"
-        onClick={() => setAbierto(a => !a)}
-        aria-expanded={abierto}
-        aria-controls={idLista}
-        aria-label={abierto ? `Cerrar ${item.label}` : `Abrir ${item.label}`}
-        className="absolute right-1 top-[3px] flex size-6 items-center justify-center rounded-lg text-[#a6a6a6] transition-colors hover:bg-white/[0.08] hover:text-white focus-visible:outline-2 focus-visible:outline-[#4f8ff7]"
-      >
-        <ChevronRight size={14} aria-hidden="true" className={cn('transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto && 'rotate-90')} />
-      </button>
       <div id={idLista}>
         <Suspense fallback={null}>
           <SubListaMenu abierta={abierto} hijos={hijos} etiqueta={item.label} onNavegar={onNavegar} />
@@ -1002,7 +989,12 @@ export function Sidebar() {
           (sangre ? SIDEBAR_SANGRE : SIDEBAR_SIZES)[size].aside,
         )}
       >
-        {collapsed || sangre ? (
+        {sangre && collapsed ? (
+          // Como Shopify: con el menú contraído, el logo lo vuelve a ampliar (el ancho anima con la curva del marco).
+          <button type="button" onClick={() => applySize('normal')} aria-label="Ampliar el menú" title="Ampliar el menú" className="zona-tactil flex items-center justify-center rounded-lg transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-[#4f8ff7]">
+            <LogoTentare formato="isotipo" tinta="blanco" producto={producto} titulo={marca} alto={28} animacion={animacionLogo} />
+          </button>
+        ) : collapsed || sangre ? (
           <LogoTentare formato="isotipo" tinta={sangre ? 'blanco' : 'auto'} producto={producto} titulo={marca} alto={sangre ? 28 : 46} animacion={animacionLogo} />
         ) : (
           <LogoTentare formato="horizontal" tinta="auto" producto={producto} titulo={marca} alto={52} animacion={animacionLogo} />

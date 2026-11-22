@@ -24,6 +24,7 @@ import { TZ_ESTUDIO } from '@/lib/utils';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
+import { PantallaBloqueo } from '@/components/billing/pantalla-bloqueo';
 import { cn } from '@/lib/utils';
 import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -265,6 +266,10 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
 
   const fecha = fechaLarga;
 
+  // Prueba terminada: la pantalla de bloqueo, con el marco de la de Shopify (#2958). Solo en la pantalla
+  // suelta: dentro de Configuración el estudio no está bloqueado y se enseña el selector de siempre.
+  const bloqueo = !embebida && !cargando && !yaPaga && !gratis && pruebaAgotada;
+
   const textoEstado = gratis
     ? 'Gratis mientras tu estudio crece. Cuando pase de los límites, eliges cómo seguir en un momento.'
     : yaPaga && enImpago
@@ -292,6 +297,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
             </Link>
 
             {/* Esta pantalla vive fuera del panel y no usa PageHeader, así que su (i) va a mano. */}
+            {!bloqueo && (
             <header className="mb-7">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
@@ -301,6 +307,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
               </div>
               <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">{textoEstado}</p>
             </header>
+            )}
           </>
         )}
 
@@ -493,7 +500,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
         ) : (
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
-            <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
+            {(() => { const elegirPlan = (<>
             {soloCadena && (
               <p data-solo-cadena className="mb-4 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">
                 <strong className="font-semibold text-foreground">Esta sede forma parte de tu cadena,</strong> así que se contrata con el plan Cadena:
@@ -528,6 +535,20 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
               )}
             </div>
 
+            </>);
+            return bloqueo ? (
+              <PantallaBloqueo
+                titulo="Tu prueba ha terminado"
+                frase="Tus datos están intactos: no se ha borrado nada. Elige un plan y sigues justo donde lo dejaste."
+                pildoras={['Sin permanencia', 'Cancela cuando quieras']}
+                anclaPlanes="planes"
+              >{elegirPlan}</PantallaBloqueo>
+            ) : (<>
+              <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
+              {elegirPlan}
+            </>);
+            })()}
+            <div id="planes" className="scroll-mt-6" />
             <section className="mt-9">
               <h2 className="mb-3 text-[19px] font-extrabold tracking-tight text-foreground">Qué incluye cada plan</h2>
               <ComparativaPlanes destacado={elegido} />
