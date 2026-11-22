@@ -325,11 +325,8 @@ test('a sangre — el menú despliega las vistas de un módulo en línea (Paquet
   await expect(lista, 'al entrar en Paquetes se abre solo').toHaveAttribute('data-abierta', '');
   await expect(lista.getByRole('link', { name: 'Tarifas' })).toHaveAttribute('aria-current', 'page');
   await page.screenshot({ path: 'test-results/shell-menu-desplegado.png' });
-  // El chevron la cierra y la abre.
-  await acordeon.getByRole('button', { name: /Cerrar Paquetes/ }).click();
-  await expect(lista).not.toHaveAttribute('data-abierta', '');
-  await acordeon.getByRole('button', { name: /Abrir Paquetes/ }).click();
-  await expect(lista).toHaveAttribute('data-abierta', '');
+  // Sin flechita: no hay botón que la cierre; solo está abierto el módulo en el que estás.
+  await expect(acordeon.getByRole('button', { name: /Cerrar Paquetes|Abrir Paquetes/ })).toHaveCount(0);
   // Pulsar otra vista: la URL la sigue y el menú marca la nueva sin recargar la página.
   const regalo = lista.getByRole('link', { name: 'Tarjeta regalo' });
   if (await regalo.count()) {
