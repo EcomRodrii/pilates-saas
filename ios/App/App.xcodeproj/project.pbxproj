@@ -23,6 +23,7 @@
 		7E47A2E20000000000000004 /* ProximasClases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000001 /* ProximasClases.swift */; };
 		7E47A2E20000000000000006 /* ProximaClasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000003 /* ProximaClasePlugin.swift */; };
 		7E47A2E40000000000000002 /* ProximaClaseIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E40000000000000001 /* ProximaClaseIntents.swift */; };
+		7E47A2E50000000000000002 /* BloqueoPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E50000000000000001 /* BloqueoPlugin.swift */; };
 		7E47A2E30000000000000002 /* AvisosLocalesPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E30000000000000001 /* AvisosLocalesPlugin.swift */; };
 		7E47A2E20000000000000008 /* TentareWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000005 /* TentareWidget.swift */; };
 		7E47A2E2000000000000000A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7E47A2E2000000000000000B /* PrivacyInfo.xcprivacy */; };
@@ -73,6 +74,7 @@
 		7E47A2E20000000000000001 /* ProximasClases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximasClases.swift; sourceTree = "<group>"; };
 		7E47A2E20000000000000003 /* ProximaClasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximaClasePlugin.swift; sourceTree = "<group>"; };
 		7E47A2E40000000000000001 /* ProximaClaseIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximaClaseIntents.swift; sourceTree = "<group>"; };
+		7E47A2E50000000000000001 /* BloqueoPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BloqueoPlugin.swift; sourceTree = "<group>"; };
 		7E47A2E30000000000000001 /* AvisosLocalesPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvisosLocalesPlugin.swift; sourceTree = "<group>"; };
 		7E47A2E20000000000000005 /* TentareWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TentareWidget.swift; sourceTree = "<group>"; };
 		7E47A2E20000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -129,6 +131,7 @@
 				7E47A2E10000000000000003 /* SignInWithApplePlugin.swift */,
 				7E47A2E20000000000000003 /* ProximaClasePlugin.swift */,
 				7E47A2E30000000000000001 /* AvisosLocalesPlugin.swift */,
+				7E47A2E50000000000000001 /* BloqueoPlugin.swift */,
 				7E47A2E40000000000000001 /* ProximaClaseIntents.swift */,
 				7E47A2E10000000000000005 /* App.entitlements */,
 				7E47A2E10000000000000007 /* PrivacyInfo.xcprivacy */,
@@ -284,6 +287,7 @@
 				7E47A2E10000000000000004 /* SignInWithApplePlugin.swift in Sources */,
 				7E47A2E20000000000000006 /* ProximaClasePlugin.swift in Sources */,
 				7E47A2E30000000000000002 /* AvisosLocalesPlugin.swift in Sources */,
+				7E47A2E50000000000000002 /* BloqueoPlugin.swift in Sources */,
 				7E47A2E40000000000000002 /* ProximaClaseIntents.swift in Sources */,
 				7E47A2E20000000000000002 /* ProximasClases.swift in Sources */,
 			);

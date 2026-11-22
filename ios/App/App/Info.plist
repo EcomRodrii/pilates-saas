@@ -39,6 +39,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Para desbloquear la app con Face ID si activas el bloqueo en Preferencias.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Para hacerte la foto de tu perfil y, si das clases, escanear el QR de tus alumnas al pasar lista.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>

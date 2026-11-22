@@ -1,7 +1,7 @@
 'use client';
 
 import { soltarPushStudent } from '@/lib/student/push';
-import { borrarAvisosLocales, borrarClasesDelWidget } from '@/lib/nativo/puente';
+import { apagarBloqueoAlSalir, borrarAvisosLocales, borrarClasesDelWidget } from '@/lib/nativo/puente';
 import { useCallback } from 'react';
 import { codigoDeError, emailYaEnUso, segundosHastaOtroCorreo, traducirAuth, type CodigoAuth } from './auth-errores.ts';
 import { supabasePortal } from '@/lib/db/supabase-portal';
@@ -282,6 +282,7 @@ export function useAuthStudent(slug: string) {
     // Sin `await`: cerrar sesión nunca espera al puente nativo.
     void borrarClasesDelWidget();
     void borrarAvisosLocales();
+    void apagarBloqueoAlSalir();
     invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut({ scope: 'local' });
   }, [slug]);
 
@@ -292,6 +293,7 @@ export function useAuthStudent(slug: string) {
   const olvidarCuentaBorrada = useCallback(async () => {
     void borrarClasesDelWidget();
     void borrarAvisosLocales();
+    void apagarBloqueoAlSalir();
     invalidarCatalogo(slug); olvidarInvitacionApp(slug);
     try { localStorage.removeItem(CLAVE_ULTIMO_ESTUDIO); } catch { /* modo privado */ }
     await supabasePortal.auth.signOut({ scope: 'local' });
