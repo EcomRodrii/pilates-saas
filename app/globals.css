@@ -1637,7 +1637,7 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   .panel-app[data-shell-nuevo] [data-vivo='grafica'] {
     background: var(--card) !important;
     border: 0 !important;
-    border-radius: 16px !important;
+    border-radius: 20px !important;
     /* `--p-shadow-100` de Polaris, leída del admin real: el aro de 1 px va DENTRO de la sombra. */
     box-shadow: 0 5px 5px -2.5px #00000008, 0 3px 3px -1.5px #00000005, 0 2px 2px -1px #00000005, 0 1px 1px -0.5px #00000008, 0 0.5px 0.5px 0 #0000000a, 0 0 0 1px #0000000f !important;
   }
@@ -2098,7 +2098,6 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell])::-webkit-scrollbar { display: none; }
   .panel-app[data-shell-nuevo] [role='tablist']:not([data-sin-estilo-shell]) > [role='tab'] { scroll-snap-align: start; flex: none; }
   .panel-app[data-shell-nuevo] [data-resumen-kpis], .panel-app[data-shell-nuevo] [data-testid='resumen-cobrado'] { grid-template-columns: minmax(0, 1fr); }
-  .panel-app[data-shell-nuevo] [data-slot='card'] { border-radius: 16px; }
   .panel-app[data-shell-nuevo] [data-slot='dialog-content'] { max-height: 90dvh; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
   .panel-app[data-shell-nuevo] h1 { font-size: 20px; }
 }
@@ -2194,6 +2193,10 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 @media (min-width: 768px) {
   html[data-menu-con-vistas] .panel-app[data-shell-nuevo] [data-vistas-en-menu] { display: none; }
 }
+
+/* Las tarjetas del panel, a radio 20 como las de Shopify (medido en su admin el 22-nov-2026: la tarjeta de Inicio y la de Analytics miden 20;
+   el doc anterior decía 16 y estaba mal). Las de Configuración se quedan en 16: son otro componente, con su propia regla más arriba. */
+.panel-app[data-shell-nuevo] [data-slot='card'], .panel-app[data-shell-nuevo] .rounded-t-card { border-radius: 20px; }
 
 /* Resumen limpio (marco a sangre, 20-nov-2026): las tarjetas del Resumen sin el borde crema, con la sombra de Shopify, y los accesos como
    baldosas blancas. Solo dentro de `data-resumen-limpio`; las demás pantallas no cambian. */
