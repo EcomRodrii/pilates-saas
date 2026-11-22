@@ -202,13 +202,13 @@ export function FilaInterruptor({
 
   const panelNuevo = usePanelNuevo();
   return (
-    <li id={id} className={cn('flex min-h-16 scroll-mt-32 scroll-mb-32 items-center', panelNuevo ? 'gap-5 px-5 py-4' : 'gap-3 px-4 py-3')}>
+    <li id={id} className={cn('flex min-h-16 scroll-mt-32 scroll-mb-32 items-center', panelNuevo ? 'gap-5 px-5 py-4' : 'gap-3 px-4 py-3', panelNuevo && 'group-data-[sangre]/config:gap-3 group-data-[sangre]/config:px-4 group-data-[sangre]/config:pb-4 group-data-[sangre]/config:pt-3')}>
       <IconoFila icono={icono} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-foreground">{tarjeta.titulo}</span>
+        <span className={cn('block text-[15px] font-semibold text-foreground', 'group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:font-normal group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#101010]')}>{tarjeta.titulo}</span>
         {error
           ? <span role="alert" className="block text-sm font-medium text-destructive text-pretty">{textoDeError(error)}</span>
-          : <span className="block text-sm text-muted-foreground text-pretty">{tarjeta.frase}</span>}
+          : <span className="block text-sm text-muted-foreground text-pretty group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{tarjeta.frase}</span>}
       </span>
       <Interruptor
         on={pedido ?? on ?? false}
@@ -231,8 +231,8 @@ export function FilaInformativa({ icono, titulo, detalle }: { icono: LucideIcon;
     <li data-fila-informativa="" className="flex min-h-16 items-center gap-3 px-4 py-3">
       <IconoFila icono={icono} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium text-foreground text-pretty">{titulo}</span>
-        {detalle && <span className="block text-sm text-muted-foreground text-pretty">{detalle}</span>}
+        <span className="block text-[15px] font-medium text-foreground text-pretty group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:font-normal group-data-[sangre]/config:leading-5 group-data-[sangre]/config:text-[#101010]">{titulo}</span>
+        {detalle && <span className="block text-sm text-muted-foreground text-pretty group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:leading-5 group-data-[sangre]/config:text-[#4a4a4a]">{detalle}</span>}
       </span>
     </li>
   );

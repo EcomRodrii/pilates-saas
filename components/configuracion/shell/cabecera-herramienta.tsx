@@ -44,14 +44,14 @@ export function CabeceraHerramienta({
             id="herramienta-titulo"
             ref={tituloRef}
             tabIndex={-1}
-            className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
+            className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance group-data-[sangre]/config:md:text-[26px] group-data-[sangre]/config:md:font-medium group-data-[sangre]/config:md:leading-8 group-data-[sangre]/config:md:text-[#101010]"
           >
             {herramienta.titulo}
           </h2>
           <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id, abrir: herramienta.id })} />
         </div>
       </div>
-      <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3">{herramienta.frase}</p>
+      <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3 group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{herramienta.frase}</p>
     </>
   );
 }
