@@ -1760,10 +1760,14 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 
 /* Marco a sangre: la letra del admin de Shopify (Inter). Las variables `--fuente-*` las leen
    `font-sans` y `font-heading`; el stack termina en la fuente de marca por si Inter no llega. */
+/* La letra del admin de Shopify, medida el 22-nov-2026: Inter a 13 px con 20 px de interlineado y -1 % de tracking (-0,13 px),
+   y los rótulos del menú en peso 450. Lo que no declara tamaño o tracking propio hereda esto. */
 .panel-app[data-shell-nuevo] {
   --fuente-sans: 'Inter', var(--t-font-sans);
   font-family: 'Inter', var(--t-font-sans);
+  font-size: 13px; line-height: 20px; letter-spacing: -0.01em;
 }
+.panel-app[data-shell-nuevo] [data-panel-menu] a { font-weight: 450; }
 
 /* Marco a sangre: la píldora de prueba/plan de la barra de arriba como el aviso negro de Shopify
    (`#0a0a0a`, 36 px, radio completo, texto `#fcfcfc` 13/500 y sombra suave). Solo el color y la forma:
