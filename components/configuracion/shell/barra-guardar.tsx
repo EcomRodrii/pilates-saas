@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import type { SeccionId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
 import { useCajonAjuste } from './cajon-ajuste';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Algunos errores ya empiezan por «No se ha guardado:» (una fila que la RLS no
 // deja tocar, lib/db/actualizar-studio.ts): no se repite.
@@ -70,6 +71,7 @@ export function BarraGuardar({
 }) {
   const nav = useNavegacionConfig();
   const cajon = useCajonAjuste();
+  const sangre = useShellNuevo();
   const visible = cambios.length > 0;
   const enVuelo = useRef(false);
   const [guardando, setGuardando] = useState(false);
@@ -162,7 +164,7 @@ export function BarraGuardar({
           role="region"
           aria-label="Cambios sin guardar"
           className={cajon
-            ? 'sticky bottom-0 z-10 -mx-4 mt-auto border-t border-border bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-6 md:px-6'
+            ? cn('sticky bottom-0 z-10 -mx-4 mt-auto border-t border-border bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-6 md:px-6', sangre && 'md:-mx-5 md:border-0 md:px-5 md:pb-5')
             : 'sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4'}
         >
           <div className={cn(
@@ -180,14 +182,14 @@ export function BarraGuardar({
               </p>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 @sm/config:flex">
-              <Button type="button" variant="outline" size="lg" onClick={descartar} disabled={guardando}>
+              <Button type="button" variant="outline" size="lg" onClick={descartar} disabled={guardando} className={cn(sangre && 'md:h-7 md:rounded-full md:px-3 md:text-[13px] md:font-normal')}>
                 Descartar
               </Button>
               {/* Apagado (un plazo imposible) tiene que seguir leyéndose: la
                   opacidad del `Button` dejaba el oliva a medio fundir. */}
               <Button
                 type="button" size="lg" onClick={alPulsarGuardar} disabled={guardando || !!bloqueo}
-                className="disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                className={cn('disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100', sangre && 'md:h-7 md:rounded-full md:border-transparent md:bg-[#303030] md:px-3 md:text-[13px] md:font-normal md:text-white md:hover:bg-[#1a1a1a] md:disabled:bg-black/[0.13] md:disabled:text-white')}
               >
                 {guardando ? 'Guardando…' : 'Guardar'}
               </Button>
