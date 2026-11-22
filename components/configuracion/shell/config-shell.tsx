@@ -477,6 +477,7 @@ export function ConfigShell() {
       <div
         data-tour="configuracion-vista"
         data-config-raiz
+        data-sangre={shellNuevo ? '' : undefined}
         data-vista={herramienta ? 'herramienta' : permitida ? 'detalle' : 'inicio'}
         className="group/config config-tactil space-y-6"
       >
