@@ -1133,7 +1133,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function Productos() {
-  const { planesTarifa, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS, dataLoaded } = useStudio();
+  const { planesTarifa: planesConArchivados, addPlan, updatePlan, deletePlan, productosPOS, addProductoPOS, updateProductoPOS, deleteProductoPOS, suscripciones, tiposClase, refrescarTrasVentaPOS, dataLoaded } = useStudio();
   const [tab, setTab] = useState<Tab>('planes');
   useUrlSigueALaVista('tab', tab, 'planes');
   const [tipoTab, setTipoTab] = useState<TipoPlanTab>('MENSUAL');
@@ -1157,6 +1157,9 @@ export default function Productos() {
   // Borrar una tarifa no se confirmaba: un clic de más y desaparecía sin
   // preguntar ni avisar. El otro formulario sí confirmaba — misma acción
   // destructiva, dos comportamientos.
+  // Los archivados (eliminados con historial) no se enseñan: siguen en BD solo
+  // para las suscripciones y ventas que ya los usaron.
+  const planesTarifa = useMemo(() => planesConArchivados.filter(p => !p.archivadoEn), [planesConArchivados]);
   const [borrando, setBorrando] = useState<PlanTarifa | null>(null);
   // El aviso de la pantalla, con su variante: un fallo en rojo y 8 s, no en la
   // píldora neutra de antes (P0.3). Lo pinta el `<Toast>` de siempre, que se
@@ -1750,14 +1753,14 @@ export default function Productos() {
               // Decir cuántas la tienen contratada ANTES de borrar: el recuento
               // ya se calculaba para pintarlo en la tarjeta, pero no se usaba
               // para avisar en el único momento en que importa.
-              ? `"${borrando.nombre}" la tienen contratada ${susCount(borrando.id)} cliente${susCount(borrando.id) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; lo que desaparece es la tarifa del catálogo, para que no puedas venderla más.`
+              ? `"${borrando.nombre}" la tienen contratada ${susCount(borrando.id)} cliente${susCount(borrando.id) !== 1 ? 's' : ''}. Seguirán con su plan y se les seguirá cobrando; se archiva: desaparece del catálogo y no se puede vender más, pero conserva su historial.`
               : `"${borrando.nombre}" dejará de estar a la venta. No la tiene contratada nadie.`)
           : ''}
         textoConfirmar="Eliminar"
         onConfirm={async () => {
           if (borrando) {
             const res = await deletePlan(borrando.id);
-            if (res.ok) setAviso(`"${borrando.nombre}" ya no está a la venta`); else setAvisoError(res.error);
+            if (res.ok) setAviso(res.archivado ? `"${borrando.nombre}" archivado: ya no se vende y sus clientes conservan su plan` : `"${borrando.nombre}" eliminado`); else setAvisoError(res.error);
           }
           setBorrando(null);
         }}

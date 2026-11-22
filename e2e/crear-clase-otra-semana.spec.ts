@@ -155,16 +155,15 @@ test.describe('El cajón de «Nueva clase» cabe en la ventana', () => {
 // «Todavía no lo tienes creado» que valía para un tipo de clase, no para ella.
 // ─────────────────────────────────────────────────────────────────────────────
 test.describe('Crear clase sin ninguna instructora', () => {
-  test('el aviso manda a Equipo a darla de alta, y no deja crear', async ({ page }) => {
+  test('la instructora es opcional: se puede crear sin ella y el formulario lo dice', async ({ page }) => {
     await montar(page, { sinInstructoras: true });
     await expect(page.getByTestId('selector-fecha')).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Crear clase', exact: true }).first().click({ timeout: 30_000 });
     await page.getByTestId('crear-clase-suelta').click();
     const cajon = page.getByRole('dialog', { name: 'Nueva clase' });
-    const aviso = cajon.getByTestId('falta-crear');
-    await expect(aviso).toHaveText('Todavía no tienes ninguna instructora en tu equipo. Añádela en Equipo y vuelve aquí.');
-    await expect(aviso.getByRole('link', { name: 'Añádela en Equipo' })).toHaveAttribute('href', '/equipo?nuevo=1');
-    await expect(cajon).not.toContainText('Créalo en Configuración');
-    await expect(cajon.getByRole('button', { name: 'Crear clase' })).toBeDisabled();
+    await expect(cajon.getByRole('combobox', { name: 'Instructora' })).toContainText('Sin instructora');
+    await expect(cajon.getByTestId('falta-crear')).toHaveCount(0);
+    await expect(cajon.getByTestId('resumen-clase')).toContainText('sin instructora');
+    await expect(cajon.getByRole('button', { name: 'Crear clase' })).toBeEnabled();
   });
 });

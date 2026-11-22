@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { TRANSICION_SECCION } from '@/lib/panel/transiciones';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  X, Menu, LogOut, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Bell, Plus, Settings, HelpCircle,
+  X, Menu, LogOut, Eye, EyeOff, Check, PanelLeft, ExternalLink, ChevronDown, ChevronLeft, ChevronRight, Search, Plus, Settings, HelpCircle,
 } from 'lucide-react';
 import { Suspense, memo, useMemo, useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,10 @@ import { SedeActiva } from '@/components/layout/sede-activa';
 import { LogoTentare, type AnimacionMarca } from '@/components/marca/logo-tentare';
 import { PildoraPrueba } from '@/components/billing/pildora-prueba';
 import { PrimerosPasosFlotante } from '@/components/guia/primeros-pasos-flotante';
+import { ProfileMenu } from '@/components/layout/profile-menu';
+import { NotificationBell } from '@/components/notifications/notification-bell';
+import { FelicidadesCrecimiento } from '@/components/billing/felicidades-crecimiento';
+import { usePanelPrivacy } from '@/lib/panel-privacy';
 import { TarjetaPasosMenu } from '@/components/guia/tarjeta-pasos-menu';
 import { huecosDelMenu, BARRA_ALTO_INICIAL } from '@/lib/panel-huecos';
 import { alPulsarEnlaceAConfiguracion } from '@/components/configuracion/shell/ir-a-configuracion';
@@ -587,6 +591,23 @@ const ANCLADO = '/configuracion';
  * Las filas del menú lateral, memorizadas: el menú se repinta con cualquier cambio del estudio (lee su contexto entero), pero las
  * filas solo cambian si cambian sus entradas (secciones visibles, badges, tamaño). Antes se rehacían todas, con sus acordeones.
  */
+/** Ojo de privacidad (ocultar cifras) en el pie del menú a sangre. */
+function BotonOjoPrivacidad() {
+  const { oculto, setOculto } = usePanelPrivacy();
+  const Icono = oculto ? EyeOff : Eye;
+  return (
+    <button
+      type="button"
+      onClick={() => setOculto(!oculto)}
+      aria-label={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
+      title={oculto ? 'Mostrar cifras' : 'Ocultar cifras (modo privacidad)'}
+      className={cn('zona-tactil flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/10 hover:text-white', oculto ? 'text-white' : 'text-white/70')}
+    >
+      <Icono size={16} aria-hidden="true" />
+    </button>
+  );
+}
+
 const FilasDelMenu = memo(function FilasDelMenu({ secciones, horizontal, collapsed, sangre, conNovedad, sinLeerMensajes, porDecidir, rol, puedeVer }: {
   secciones: typeof navSections;
   horizontal: boolean; collapsed: boolean; sangre: boolean;
@@ -1008,7 +1029,7 @@ export function Sidebar() {
           'hidden lg:flex fixed z-20 transition-[width] duration-200',
           // Recortar solo tiene sentido en la columna: tumbada, la barra CRECE
           // con las filas que haga falta en vez de tragarse los módulos.
-          !horizontal && 'overflow-hidden',
+          !horizontal && !sangre && 'overflow-hidden',
           horizontal
             // Barra: ancho completo, alto fijo, y todo en fila. El
             // `rounded-3xl` es el mismo lenguaje de la píldora, solo que
@@ -1113,26 +1134,27 @@ export function Sidebar() {
           </div>
         ))}
 
-        {/* Marco a sangre: la fila de la tienda (ficha de color, nombre y avisos), como Shopify. */}
-        {sangre && !collapsed && enConfiguracion && (
-          // En Configuración, como Shopify: abajo la persona (avatar, nombre y correo), no la tienda.
-          <Link href="/mi-perfil" title="Editar mi perfil" className="flex shrink-0 items-center gap-2.5 px-4 pb-3 pt-2 text-white">
-            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-white/20 text-[10px] font-bold">{userInitials}</span>
-            <span className="min-w-0 flex-1 leading-tight">
-              <span className="block truncate text-[12px] font-medium">{yo?.nombre ?? (user?.user_metadata?.nombre as string | undefined) ?? 'Mi perfil'}</span>
-              <span className="block truncate text-[11px] text-white/55">{userEmail}</span>
-            </span>
-          </Link>
+        {/* Marco a sangre: el pie del menú, como Shopify. Aquí viven los controles que antes colgaban de una fila
+            suelta sobre el lienzo (que en Shopify no existe): el aviso de prueba, «Primeros pasos», la tienda con su
+            menú (sede, perfil, ayuda, modo oscuro, salir), la campana y el ojo de privacidad. Los desplegables salen
+            hacia arriba (`data-pie-menu`, globals.css). */}
+        {sangre && !collapsed && (
+          <div data-pie-menu className="flex shrink-0 flex-col gap-2 px-3 pb-3 pt-2">
+            <FelicidadesCrecimiento />
+            <PildoraPrueba className="w-full" />
+            <PrimerosPasosFlotante />
+            <div className="flex items-center gap-0.5">
+              <div className="min-w-0 flex-1"><ProfileMenu variante="menu" persona={enConfiguracion} /></div>
+              <BotonOjoPrivacidad />
+              <NotificationBell oscuro />
+            </div>
+          </div>
         )}
-        {sangre && !collapsed && !enConfiguracion && (
-          <div className="flex shrink-0 items-center gap-2.5 px-4 pb-3 pt-2">
-            <Link href="/mi-perfil" title="Editar mi perfil" className="zona-tactil flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--t-blue-500)] text-[10px] font-bold text-white">
-              {(studio?.nombre ?? 'T').trim().slice(0, 2).toUpperCase()}
-            </Link>
-            <span className="min-w-0 flex-1 truncate text-[13px] text-white/90">{studio?.nombre ?? marca}</span>
-            <Link href="/notificaciones" aria-label="Avisos" title="Avisos" className="zona-tactil flex size-7 items-center justify-center rounded-lg text-white/70 transition-colors hover:bg-white/10 hover:text-white">
-              <Bell size={16} aria-hidden="true" />
-            </Link>
+        {sangre && collapsed && (
+          <div data-pie-menu className="flex shrink-0 flex-col items-center gap-1 pb-1">
+            <FelicidadesCrecimiento />
+            <BotonOjoPrivacidad />
+            <NotificationBell oscuro />
           </div>
         )}
 

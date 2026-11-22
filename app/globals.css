@@ -1608,7 +1608,10 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
   /* 1 · Cabecera de página: una fila — icono pequeño + título de 13 px — y acciones a la derecha.
      Solo donde la sección lleva su icono (`page-header-icono` con contenido): el saludo de Resumen
      y las fichas (con su flecha de volver) conservan el título grande, como en Shopify. */
-  .panel-app[data-shell-nuevo] [data-panel-topbar] { height: 44px; }
+  /* La fila de iconos de arriba NO existe en Shopify: sus controles viven en el pie del menú (sidebar.tsx,
+     `data-pie-menu`). La barra se queda como un hueco de 12 px (la monta el buscador ⌘K y la usan las cabeceras
+     pegajosas y la transición de ampliar) y la cabecera de página arranca debajo, a la altura de Shopify. */
+  .panel-app[data-shell-nuevo] [data-panel-topbar] { height: 12px; margin-bottom: 0; }
   .panel-app[data-shell-nuevo] [data-slot='page-header']:has([data-slot='page-header-icono']:not(:empty)) {
     flex-direction: row;
     flex-wrap: nowrap;
@@ -1777,6 +1780,37 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
     letter-spacing: -0.01em;
     box-shadow: 0 8px 10px -5px #00000014, 0 5px 5px -2.5px #00000008, 0 3px 3px -1.5px #00000005, 0 0 0 1px #0000000f;
   }
+}
+
+/* Sin rebote al llegar al borde del scroll (como el admin de Shopify): se puede deslizar arriba y abajo, pero la página no
+   «estira» ni deja ver lo que hay detrás del lienzo. El marco oscuro llena también la raíz, por si el navegador pinta algo
+   fuera. Solo en el marco a sangre. */
+html:has(.panel-app[data-shell-nuevo]),
+html:has(.panel-app[data-shell-nuevo]) body {
+  overscroll-behavior: none;
+}
+html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0a0a0a); }
+
+/* Ampliar / reducir con el marco a sangre: la curva y la duración que mide Shopify en su lienzo (0,4 s, cubic-bezier(0.2, 0.8, 0, 1):
+   sale rápido y frena al final, en vez del arranque lento de 0,5 s). El resto del panel conserva las suyas. */
+:root:has(.panel-app[data-shell-nuevo]) {
+  --motion-ventana: 400ms;
+  --motion-ease-ventana: cubic-bezier(0.2, 0.8, 0, 1);
+}
+
+/* Pie del menú a sangre: los desplegables (perfil, prueba, primeros pasos) salen hacia arriba y pegados a la
+   izquierda, porque el pie está abajo del todo. El aviso de prueba, en gris sobre el marco oscuro. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-pie-menu] .absolute.right-0 {
+    right: auto; left: 0; top: auto; bottom: 100%; margin-top: 0; margin-bottom: 8px; transform-origin: bottom left;
+  }
+  .panel-app[data-shell-nuevo] [data-pie-menu] [data-tour='pildora-prueba'] > button {
+    width: 100%; justify-content: center; background: #303030 !important; height: 32px; padding-inline: 12px;
+  }
+  .panel-app[data-shell-nuevo] [data-pie-menu] [data-primeros-pasos-pildora] {
+    width: 100%; justify-content: space-between; background: #303030; border-color: transparent; color: #fcfcfc; height: 32px;
+  }
+  .panel-app[data-shell-nuevo] [data-pie-menu] [data-primeros-pasos-pildora]:hover { background: #3a3a3a; }
 }
 
 /* Con la columna del asistente abierta el lienzo mide ~860 px aunque la ventana pase de 1280: los
@@ -2105,6 +2139,8 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 @media (prefers-reduced-motion: reduce) { .panel-app[data-shell-nuevo] [data-marco-vivo] { transition: none; } }
 @media print { .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; } }
 
+/* (El radio de la máscara es ~1 px menor que el de la esquina del lienzo: el resplandor solapa su borde antialiasado y no
+   queda el aro negro de la cabecera de abajo a la izquierda.) */
 /* El resplandor del menú sigue por debajo del lienzo: por la franja de 4 px del marco y por la esquina redondeada de abajo a la
    izquierda, desvaneciéndose hacia la derecha, como en Shopify. Estático y de 20 px de alto (la versión anterior clonaba el
    resplandor ANIMADO y desenfocado del menú a 400 px de alto, que se repintaba sin parar). La máscara deja solo lo que queda
@@ -2115,12 +2151,12 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
     display: block; position: fixed; z-index: 26; pointer-events: none; contain: strict;
     left: var(--sidebar-w, 224px); bottom: 0; width: 560px; height: 20px;
     background: linear-gradient(90deg, rgba(76, 156, 176, 0.66) 0%, rgba(76, 156, 176, 0.4) 35%, rgba(76, 156, 176, 0.12) 70%, rgba(76, 156, 176, 0) 100%);
-    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
     -webkit-mask-size: 16px 16px, 100% 4px;
     -webkit-mask-position: 0 0, 0 100%;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-composite: source-over;
-    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
     mask-size: 16px 16px, 100% 4px;
     mask-position: 0 0, 0 100%;
     mask-repeat: no-repeat;

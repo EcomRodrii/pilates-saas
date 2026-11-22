@@ -1,12 +1,13 @@
 'use client';
 
-import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { Baldosa } from '@/components/dashboard/vivo';
 import { TONO_SECCION_CONFIG } from './tono-config';
 import { ICONOS_SECCION } from './lista-secciones';
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { GRUPOS_PANEL_NUEVO, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
 import { hrefDeLugar } from '@/lib/configuracion/destino';
 import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
@@ -32,6 +33,8 @@ export function CabeceraSeccion({
 }) {
   const panelNuevo = usePanelNuevo();
   const miWebNueva = useMiWebNueva();
+  // Marco a sangre: como Shopify, sin baldosa de color ni el grupo encima — solo el título de la sección.
+  const sangre = useShellNuevo();
   // En qué grupo estás (con el interruptor, «Mi app» y «Mi web» son grupos propios: lib/configuracion/mi-web-nueva.ts).
   const grupo = gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva).find(g => g.secciones.includes(seccion.id));
   return (
@@ -45,15 +48,15 @@ export function CabeceraSeccion({
         >
           <ArrowLeft size={20} aria-hidden />
         </button>
-        {panelNuevo && <span className="mr-2 hidden md:inline-flex"><Baldosa tono={TONO_SECCION_CONFIG[seccion.id] ?? 'azul'} Icono={ICONOS_SECCION[seccion.id]} /></span>}
+        {panelNuevo && !sangre && <span className="mr-2 hidden md:inline-flex"><Baldosa tono={TONO_SECCION_CONFIG[seccion.id] ?? 'azul'} Icono={ICONOS_SECCION[seccion.id]} /></span>}
         <span className="min-w-0">
           {/* Panel nuevo: en qué grupo estás, encima del título, para no perderse. */}
-          {panelNuevo && grupo && !grupoEsLaSeccion(grupo, seccion) && <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:block">{grupo.titulo}</span>}
+          {panelNuevo && !sangre && grupo && !grupoEsLaSeccion(grupo, seccion) && <span className="hidden text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground md:block">{grupo.titulo}</span>}
           <h2
             id="seccion-titulo"
             ref={tituloRef}
             tabIndex={-1}
-            className="min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-xl md:text-balance"
+            className={cn('min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-balance', sangre ? 'md:text-[20px] md:leading-7 md:tracking-[-0.02em]' : 'md:text-xl')}
           >
             {seccion.titulo}
           </h2>

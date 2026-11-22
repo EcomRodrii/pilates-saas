@@ -464,7 +464,8 @@ export function PanelTipoClase({
   subiendoLogo: boolean;
   onSubirLogo: (file: File) => Promise<{ url: string } | { error: string }>;
   onCambiarLogo: (url: string | null) => Promise<void>;
-  onGuardar: () => void;
+  /** `otra`: guarda y deja el formulario listo para la siguiente clase (hereda duración, nivel y plazas). */
+  onGuardar: (otra?: boolean) => void | Promise<void>;
   /** «Hazlo conmigo» (P1.3): la banda y el texto en gris; el estado inicial es el de siempre. */
   ejemplo?: Ejemplo;
   onCerrar: () => void;
@@ -495,10 +496,12 @@ export function PanelTipoClase({
   const errorNombre = intentado && nombreVacio ? 'Ponle un nombre a la clase — es lo primero que ve tu cliente.' : null;
   const errorDuracion = intentado && duracionInvalida ? 'Dinos cuánto dura: al menos 5 minutos.' : null;
 
-  function intentarGuardar() {
+  async function intentarGuardar(otra = false) {
     setIntentado(true);
     if (nombreVacio || duracionInvalida || ventanaImposible) return;
-    onGuardar();
+    await onGuardar(otra);
+    // La siguiente clase nace limpia: sin el «Ponle un nombre» en rojo.
+    if (otra) setIntentado(false);
   }
 
   function cerrar() {
@@ -1212,9 +1215,18 @@ export function PanelTipoClase({
           <button className={cn(btnSecondary, 'flex-1 justify-center sm:flex-none')} onClick={cerrar} disabled={guardando}>
             Cancelar
           </button>
+          {modo === 'nueva' && (
+            <button
+              className={cn(btnSecondary, 'flex-1 justify-center sm:flex-none')}
+              onClick={() => intentarGuardar(true)}
+              disabled={guardando}
+            >
+              Crear y añadir otra
+            </button>
+          )}
           <button
             className={cn(btnPrimary, 'flex-1 justify-center sm:flex-none')}
-            onClick={intentarGuardar}
+            onClick={() => intentarGuardar()}
             disabled={guardando}
           >
             {guardando ? 'Guardando…' : modo === 'nueva' ? 'Crear tipo de clase' : 'Guardar cambios'}
