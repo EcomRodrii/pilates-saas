@@ -696,6 +696,28 @@ frente a la guía 4.3(a) (ver el plan B de la app).
 - **Sin probar en un iPhone real:** la firma con cuenta de Apple, que el widget aparezca tras instalar desde TestFlight y que
   la pulsación abra la app por el enlace universal (`https://www.tentare.app/app`).
 
+## Avisos locales de clase (23-nov-2026)
+
+«Tu clase empieza en 15 minutos», **programado en el propio iPhone** con
+`UNUserNotificationCenter`: salta sin red y con la app cerrada. Algo que una web
+no puede hacer.
+
+- **Quién arma qué**: `lib/nativo/avisos-locales.ts` (puro, con tests) decide los
+  avisos; `useAvisosLocales` (Inicio) los entrega con lo que Inicio ya cargó;
+  `AvisosLocalesPlugin.swift` los programa. Un aviso por reserva confirmada que
+  empiece en más de 15 min, máximo 10.
+- **No duplica al servidor**: el estudio ya manda por push el de 24 h y el de 1 h
+  (`recordatorio-clase.ts`). Este es el último empujón. Si el servidor llega a
+  mandar uno a 15 min, se quita este.
+- **No pide permiso**: usa el que la alumna dio a los avisos. Sin permiso no
+  programa nada. Solo toca lo que empieza por `clase-local-`: los push no se ven.
+- **Apagarlo**: Preferencias › interruptor «Aviso 15 minutos antes de tu clase»
+  (solo en la app de iOS; es del dispositivo, `localStorage`). Cerrar sesión o
+  borrar la cuenta los quita.
+- Contenido (pantalla de bloqueo): nombre de la clase, estudio y sala. Nada más.
+- ⚠️ No comprobado en un iPhone real ni con permiso concedido en simulador: solo
+  compila y se prueba la parte pura.
+
 ## Qué no se ha podido comprobar
 
 Compila en el simulador (Debug) y se archiva en Release sin firmar (7-oct-2026),
