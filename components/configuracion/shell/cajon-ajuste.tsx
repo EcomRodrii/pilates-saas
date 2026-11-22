@@ -115,7 +115,7 @@ export function CajonAjuste({
   const conCambios = useRef(new Map<number, () => void>());
   const ultimaMarca = useRef(0);
   const [preguntando, setPreguntando] = useState(false);
-  // Marco a sangre: como en Shopify, lo que se edita se abre en un diálogo centrado de 620 px (radio 24, sin velo), no en un cajón lateral.
+  // Marco a sangre: como en Shopify, lo que se edita se abre en un diálogo centrado de 620 px (radio 24, con el fondo en gris suave como Shopify), no en un cajón lateral.
   const sangre = useShellNuevo();
 
   const cajon = useMemo<Cajon>(() => ({
@@ -149,7 +149,7 @@ export function CajonAjuste({
         open={abierto}
         onClose={pedirCerrar}
         label={tarjeta.titulo}
-        backdropClassName={sangre ? 'fixed inset-0 z-50 flex justify-end bg-foreground/20 md:items-center md:justify-center md:bg-transparent' : undefined}
+        backdropClassName={sangre ? 'fixed inset-0 z-50 flex justify-end bg-foreground/20 md:items-center md:justify-center md:bg-black/[0.11]' : undefined}
         sheetClassName={sangre
           ? '@container/config config-tactil cajon-modal relative flex h-full w-full flex-col bg-card shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] md:h-auto md:max-h-[calc(100dvh-64px)] md:w-[620px] md:rounded-[24px] md:shadow-[0_2px_3px_-1px_rgba(0,0,0,0.06),0_4px_6px_-2px_rgba(0,0,0,0.06),0_8px_12px_-4px_rgba(0,0,0,0.06),0_16px_24px_-6px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.08)]'
           : '@container/config config-tactil relative flex h-full w-full flex-col bg-card shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] md:w-[28rem]'}

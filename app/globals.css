@@ -2490,7 +2490,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 
 
 /* ── Diálogo de edición de Configuración (`SHELL_NUEVO`) ─────────────────────────────────────────────
-   Shopify abre lo que se edita en un diálogo centrado (620 px, radio 24, sin velo), no en un cajón: entra con
+   Shopify abre lo que se edita en un diálogo centrado (620 px, radio 24, fondo en gris suave), no en un cajón: entra con
    un fundido breve y no desliza. ───────── */
 @keyframes cajon-modal-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
 @media (min-width: 768px) {
