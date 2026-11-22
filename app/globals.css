@@ -2493,8 +2493,12 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
    Shopify abre lo que se edita en un diálogo centrado (620 px, radio 24, fondo en gris suave), no en un cajón: entra con
    un fundido breve y no desliza. ───────── */
 @keyframes cajon-modal-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes cajon-modal-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.98); } }
 @media (min-width: 768px) {
   .cajon-modal { animation: cajon-modal-in 140ms ease-out backwards !important; }
+  /* ⚠️ Al cerrar tiene que haber una animación de SALIDA: el panel se desmonta al acabar (`onAnimationEnd` de
+     DashboardDrawer). Con solo la de entrada forzada, nunca terminaba y el fondo gris se quedaba tapando la página. */
+  .cajon-modal.animate-drawer-sheet-out { animation: cajon-modal-out 120ms ease-in forwards !important; }
 }
 @media (min-width: 768px) {
   /* Campos del diálogo como los de Shopify: 30 px, radio 8, 13 px, borde gris fino; etiquetas de 13 px y peso 500. */
