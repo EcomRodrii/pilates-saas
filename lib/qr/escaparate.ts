@@ -20,13 +20,15 @@ import { QrCode, Ecc } from '../vendor/qrcodegen.ts';
 import { foregroundParaFondo, hexARgb, ratioContraste } from '../wcag-contrast.ts';
 import { mezclarHex } from '../color-utils.ts';
 
-export type DestinoQr = 'reservas' | 'app' | 'web';
+export type DestinoQr = 'reservas' | 'app' | 'web' | 'resena';
 
 /** Lo que dice el cartel de cada uno. Frases para quien pasa por la calle. */
 export const TEXTOS_QR: Record<DestinoQr, { titulo: string; frase: string; archivo: string }> = {
   reservas: { titulo: 'Reserva tu clase', frase: 'Mira el horario y reserva en un minuto.', archivo: 'reservas' },
   app: { titulo: 'Entra en la app del estudio', frase: 'Tus reservas y tu bono, siempre en el móvil.', archivo: 'app' },
   web: { titulo: 'Visita nuestra web', frase: 'Conoce el estudio antes de venir.', archivo: 'web' },
+  // El cartel de recepción: se pide justo cuando la clienta sale contenta de la clase.
+  resena: { titulo: '¿Te ha gustado? Cuéntalo', frase: 'Déjanos tu reseña: son 30 segundos.', archivo: 'resenas' },
 };
 
 export const INSTRUCCION_QR = 'Apunta con la cámara del móvil';

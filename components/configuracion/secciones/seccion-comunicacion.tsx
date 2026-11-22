@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Bot, MessageCircle, Mail } from 'lucide-react';
+import { Bot, MessageCircle, Mail, Star } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { resumenHerramienta } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA, seccionPorId, tarjetaPorId } from '@/lib/configuracion/secciones';
@@ -10,6 +10,7 @@ import { FilaAjuste, FilaExterna, FilaOtraSeccion, GrupoFilas } from '@/componen
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
 import { dbListTextosAviso } from '@/lib/notifications/textos-estudio-db';
 import { FormRemitente, useRemitente } from '@/components/configuracion/canales-comunicacion';
+import { FormResenasConPremio, useResenas } from '@/components/configuracion/resenas-con-premio';
 
 // Cómo me comunico: los correos que salen solos y con qué nombre salen, en filas
 // con su valor de hoy (15-sep, v2). WhatsApp se conecta en Integraciones
@@ -20,7 +21,7 @@ import { FormRemitente, useRemitente } from '@/components/configuracion/canales-
 // 20260921145514 el estudio elige su antelación y el texto de los avisos del
 // móvil: herramienta «Avisos en el móvil».
 
-const CAJONES = ['integracion-resend'] as const;
+const CAJONES = ['integracion-resend', 'resenas-y-premio'] as const;
 
 export function SeccionComunicacion({ showToast }: { showToast: (m: string) => void }) {
   const { studio, plantillasEmail, plantillasEmailCargadas } = useStudio();
@@ -34,6 +35,7 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
     return () => { vivo = false; };
   }, [studioId]);
   const remitente = useRemitente();
+  const resenas = useResenas();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
 
   function guardado(texto: string) {
@@ -65,6 +67,10 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
         />
       </GrupoFilas>
 
+      <GrupoFilas titulo="Reseñas">
+        <FilaAjuste id="resenas-y-premio" icono={Star} valor={resenas.valor} onAbrir={abrir} />
+      </GrupoFilas>
+
       <GrupoFilas titulo="Sus avisos">
         <FilaHerramienta
           id="avisos-del-movil"
@@ -88,6 +94,10 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
 
       <CajonAjuste id="integracion-resend" abierto={cajon === 'integracion-resend'} onCerrar={cerrar}>
         <FormRemitente remitente={remitente} onGuardado={guardado} />
+      </CajonAjuste>
+
+      <CajonAjuste id="resenas-y-premio" abierto={cajon === 'resenas-y-premio'} onCerrar={cerrar}>
+        <FormResenasConPremio resenas={resenas} onGuardado={guardado} />
       </CajonAjuste>
     </>
   );

@@ -822,6 +822,8 @@ export interface RowSocios {
   cumple_mm_dd: string | null;
   // migr 20260925013446.
   genero: string | null;
+  // migr 20261121094512.
+  resena_pedida_en: string | null;
 }
 
 export interface RowSoporteSolicitudes {
@@ -1166,6 +1168,14 @@ export interface RowStudios {
   congelacion_max_dias: number | null;
   // migr 20261112233833.
   excluir_de_metricas: boolean | null;
+  // migr 20261121094512.
+  resena_enlace: string | null;
+  // migr 20261121094512.
+  resena_premio_tipo: string | null;
+  // migr 20261121094512.
+  resena_premio_valor: number | null;
+  // migr 20261121094512.
+  resena_premio_dias: number | null;
 }
 
 export interface RowSuscripciones {
@@ -4569,6 +4579,13 @@ export interface RowBillingVisitasPlanes {
   visitas: number;
 }
 
+export interface RowResenasClics {
+  studio_id: string;
+  dia: string;
+  origen: string;
+  n: number;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -5825,6 +5842,7 @@ export type SociosInsert = {
   consentimiento_salud_registrado_por_uid?: string | null | null;
   cumple_mm_dd?: string | null | null;
   genero?: string | null | null;
+  resena_pedida_en?: string | null | null;
 }
 
 export type SociosUpdate = {
@@ -5876,6 +5894,7 @@ export type SociosUpdate = {
   consentimiento_salud_registrado_por_uid?: string | null | null;
   cumple_mm_dd?: string | null | null;
   genero?: string | null | null;
+  resena_pedida_en?: string | null | null;
 }
 
 export type SoporteSolicitudesInsert = {
@@ -6091,6 +6110,10 @@ export type StudiosInsert = {
   congelacion_permitida?: boolean | null | null;
   congelacion_max_dias?: number | null | null;
   excluir_de_metricas?: boolean | null | null;
+  resena_enlace?: string | null | null;
+  resena_premio_tipo?: string | null | null;
+  resena_premio_valor?: number | null | null;
+  resena_premio_dias?: number | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6264,6 +6287,10 @@ export type StudiosUpdate = {
   congelacion_permitida?: boolean | null | null;
   congelacion_max_dias?: number | null | null;
   excluir_de_metricas?: boolean | null | null;
+  resena_enlace?: string | null | null;
+  resena_premio_tipo?: string | null | null;
+  resena_premio_valor?: number | null | null;
+  resena_premio_dias?: number | null | null;
 }
 
 export type SuscripcionesInsert = {
@@ -12652,6 +12679,20 @@ export type BillingVisitasPlanesUpdate = {
   visitas?: number | null;
 }
 
+export type ResenasClicsInsert = {
+  studio_id?: string | null;
+  dia?: string | null;
+  origen?: string | null;
+  n?: number | null;
+}
+
+export type ResenasClicsUpdate = {
+  studio_id?: string | null;
+  dia?: string | null;
+  origen?: string | null;
+  n?: number | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -14074,6 +14115,11 @@ export type Database = {
         Row: RowBillingVisitasPlanes;
         Insert: BillingVisitasPlanesInsert;
         Update: BillingVisitasPlanesUpdate;
+      };
+      resenas_clics: {
+        Row: RowResenasClics;
+        Insert: ResenasClicsInsert;
+        Update: ResenasClicsUpdate;
       };
     };
   };

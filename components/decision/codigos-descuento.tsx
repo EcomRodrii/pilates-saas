@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Ticket, Plus, Sparkles, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
 import { esCodigoReactivacion, buscarCodigo } from '@/lib/codigos-descuento';
+import { esCodigoDePremioResena } from '@/lib/valoraciones/premio';
 import type { CodigoDescuento } from '@/lib/types';
 import { hoyEnEstudio } from '@/lib/utils';
 import type { MostrarToast } from '@/components/ui/toast';
@@ -44,10 +45,14 @@ export function CodigosDescuento({ onToast }: { onToast: MostrarToast }) {
   const [errorAlta, setErrorAlta] = useState<string | null>(null);
   const [form, setForm] = useState({ codigo: '', tipo: 'PORCENTAJE' as CodigoDescuento['tipo'], valor: '', usosMax: '', expira: '', descripcion: '' });
 
+  // Los premios por valorar una clase (GRACIAS-…) son uno por clienta: con doscientas
+  // taparían el catálogo. Se canjean igual en la Caja (el POS lee todos los códigos);
+  // aquí solo se cuentan, y se gestionan en «Reseñas y premio».
   const codigos = useMemo(
-    () => [...codigosDescuento].sort((a, b) => (b.creadoEn ?? '').localeCompare(a.creadoEn ?? '')),
+    () => [...codigosDescuento].filter(c => !esCodigoDePremioResena(c)).sort((a, b) => (b.creadoEn ?? '').localeCompare(a.creadoEn ?? '')),
     [codigosDescuento],
   );
+  const premiosPorValorar = codigosDescuento.length - codigos.length;
 
   const puedeCrear = form.codigo.trim().length > 0 && parseFloat(form.valor) > 0;
 
@@ -145,6 +150,12 @@ export function CodigosDescuento({ onToast }: { onToast: MostrarToast }) {
               </button>
             </div>
           </div>
+        )}
+
+        {premiosPorValorar > 0 && (
+          <p className="px-4 pt-2 text-[12px] text-muted-foreground" data-testid="premios-por-valorar">
+            Además hay {premiosPorValorar} {premiosPorValorar === 1 ? 'código regalado' : 'códigos regalados'} por valorar una clase (uno por clienta). Se canjean igual en la Caja; se gestionan en «Cómo me comunico» → «Reseñas y premio».
+          </p>
         )}
 
         {codigos.length === 0 ? (

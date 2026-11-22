@@ -1,6 +1,7 @@
 'use client';
 
 import { portalAuthHeader } from '@/lib/student/api-publica';
+import { esRutaDeResenas, leerPremio, type PremioResena } from '@/lib/valoraciones/premio';
 
 // Valorar una clase desde la app. Contra `/api/public/valorar-clase`, que es
 // quien decide si se puede (solo tras ASISTIDA) — aquí solo se traduce.
@@ -23,7 +24,10 @@ export async function getValoracionClase(studioId: string, sesionId: string): Pr
   }
 }
 
-export type ResultadoValorar = { ok: true; actualizada: boolean; yaValorada: boolean } | { ok: false; error: string };
+/** Lo que el servidor añade a una valoración: el premio (si el estudio lo ofrece) y su enlace de reseñas. */
+export interface ExtrasValoracion { premio?: PremioResena; enlaceResenas?: string }
+
+export type ResultadoValorar = ({ ok: true; actualizada: boolean; yaValorada: boolean } & ExtrasValoracion) | { ok: false; error: string };
 
 export async function enviarValoracion(
   studioId: string, sesionId: string, puntuacion: number, comentario: string,
@@ -37,9 +41,12 @@ export async function enviarValoracion(
       headers: { 'Content-Type': 'application/json', ...auth },
       body: JSON.stringify({ studioId, sesionId, puntuacion, comentario: comentario.trim() || null, ...(opciones.soloSiNueva ? { soloSiNueva: true } : {}) }),
     });
-    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; actualizada?: boolean; yaValorada?: boolean; error?: string } | null;
+    const cuerpo = (await res.json().catch(() => null)) as { ok?: boolean; actualizada?: boolean; yaValorada?: boolean; error?: string; premio?: unknown; enlaceResenas?: unknown } | null;
     if (!res.ok || !cuerpo?.ok) return { ok: false, error: cuerpo?.error ?? 'No se ha podido enviar tu valoración.' };
-    return { ok: true, actualizada: cuerpo.actualizada === true, yaValorada: cuerpo.yaValorada === true };
+    const premio = leerPremio(cuerpo.premio);
+    // Solo la ruta con seguimiento de ESTA app se pinta como enlace (el servidor ya la filtra; aquí, por si acaso).
+    const enlaceResenas = esRutaDeResenas(cuerpo.enlaceResenas) ? cuerpo.enlaceResenas : undefined;
+    return { ok: true, actualizada: cuerpo.actualizada === true, yaValorada: cuerpo.yaValorada === true, ...(premio ? { premio } : {}), ...(enlaceResenas ? { enlaceResenas } : {}) };
   } catch {
     return { ok: false, error: 'Sin conexión. Inténtalo de nuevo.' };
   }

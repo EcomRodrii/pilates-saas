@@ -479,7 +479,8 @@ async function sinFilasTocadas(tabla: string, id: string, sinPermiso: string): P
 // devuelve filas a PROPIETARIO y RECEPCION. A un MANAGER o una INSTRUCTORA le
 // llegan sin esas claves y `mapSocio` las deja en `null`.
 export type FilaSocioPanel =
-  Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado' | 'consentimiento_salud_registrado_por_uid' | ColumnaPrivadaSocia>
+  // `resena_pedida_en` (21-nov-2026): solo de servidor (`reclamar_pedido_resena`), el panel no la pide.
+  Omit<RowSocios, 'aceptacion_version' | 'auth_user_id' | 'borrado_en' | 'consentimiento_marketing_texto' | 'consentimiento_salud_texto' | 'visible_en_clase' | 'excluir_de_perfilado' | 'consentimiento_salud_registrado_por_uid' | 'resena_pedida_en' | ColumnaPrivadaSocia>
   & Partial<Pick<RowSocios, ColumnaPrivadaSocia>>;
 // `creado_en` fuera, igual que las otras dos: el panel no la pide en su select
 // ni la pinta — es para medir el embudo desde el servidor, no un dato de la
