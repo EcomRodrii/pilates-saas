@@ -1791,6 +1791,13 @@ html:has(.panel-app[data-shell-nuevo]) body {
 }
 html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0a0a0a); }
 
+/* Ampliar / reducir con el marco a sangre: la curva y la duración que mide Shopify en su lienzo (0,4 s, cubic-bezier(0.2, 0.8, 0, 1):
+   sale rápido y frena al final, en vez del arranque lento de 0,5 s). El resto del panel conserva las suyas. */
+:root:has(.panel-app[data-shell-nuevo]) {
+  --motion-ventana: 400ms;
+  --motion-ease-ventana: cubic-bezier(0.2, 0.8, 0, 1);
+}
+
 /* Pie del menú a sangre: los desplegables (perfil, prueba, primeros pasos) salen hacia arriba y pegados a la
    izquierda, porque el pie está abajo del todo. El aviso de prueba, en gris sobre el marco oscuro. */
 @media (min-width: 768px) {
