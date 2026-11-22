@@ -279,7 +279,8 @@ export function useAuthStudent(slug: string) {
     // dispositivo deja de recibir los avisos de esta cuenta.
     await soltarPushStudent(slug);
     // El widget de la pantalla de inicio no puede seguir enseñando sus clases a quien venga después.
-    await borrarClasesDelWidget();
+    // Sin `await`: cerrar sesión nunca espera al puente nativo.
+    void borrarClasesDelWidget();
     invalidarCatalogo(slug); olvidarInvitacionApp(slug); await supabasePortal.auth.signOut({ scope: 'local' });
   }, [slug]);
 
@@ -288,7 +289,7 @@ export function useAuthStudent(slug: string) {
   // último estudio de la app de iOS, que ya no es de nadie. `local`: la cuenta ya
   // no existe, no queda ninguna sesión que cerrar en las demás.
   const olvidarCuentaBorrada = useCallback(async () => {
-    await borrarClasesDelWidget();
+    void borrarClasesDelWidget();
     invalidarCatalogo(slug); olvidarInvitacionApp(slug);
     try { localStorage.removeItem(CLAVE_ULTIMO_ESTUDIO); } catch { /* modo privado */ }
     await supabasePortal.auth.signOut({ scope: 'local' });

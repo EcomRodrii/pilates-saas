@@ -35,6 +35,7 @@ export { esVueltaDeOAuth } from './enlaces.ts';
 
 const ESPERA_PUSH_MS = 20_000;
 const ESPERA_OAUTH_MS = 10 * 60_000;
+const ESPERA_WIDGET_MS = 2_500;
 
 /** `true` solo dentro de la app nativa (Capacitor de verdad), nunca en la web. */
 export function esAppNativa(): boolean {
@@ -534,6 +535,10 @@ export async function guardarClasesParaElWidget(json: string): Promise<boolean> 
 export async function borrarClasesDelWidget(): Promise<void> {
   if (!esAppNativa()) return;
   try {
-    await (await proximaClase()).borrar();
+    // Con tope: si el puente nativo no contesta, esto no se queda esperando para siempre.
+    await Promise.race([
+      proximaClase().then((p) => p.borrar()),
+      new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
+    ]);
   } catch { /* sin plugin: no hay widget que limpiar */ }
 }
