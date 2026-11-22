@@ -188,7 +188,7 @@ test('/suscripcion, gerente: ve el uso, pero no los packs (dinero) ni botones de
   await conAsistente(page, { rol: 'MANAGER' });
   await conSaldo(page, { ...SALDO, packsQuedan: 0, puedeComprar: false });
   await conSuscripcion(page, false);
-  await page.goto('/configuracion?tab=plan');
+  await page.goto('/suscripcion');
   const seccion = page.getByTestId('consultas-tentare');
   await expect(seccion).toBeVisible({ timeout: 60_000 });
   await expect(seccion).toContainText('Solo la propietaria puede comprar packs de consultas. Pídeselo a ella.');
