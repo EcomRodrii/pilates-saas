@@ -2597,3 +2597,12 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [data-config-raiz] button.bg-card.border-border.rounded-lg:hover,
   .cajon-modal button.bg-card.border-border.rounded-lg:hover { background-color: #e3e3e3; }
 }
+
+/* Anchura y campos de las herramientas (`SHELL_NUEVO`): todo el ancho de la columna de 784 px, como las tarjetas de
+   Shopify, y campos de texto de 30 px con radio 8 también fuera de los diálogos. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(.max-w-2xl, .max-w-3xl, .max-w-4xl) { max-width: 784px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(input:not([type]), input[type='text'], input[type='email'], input[type='url'], input[type='number'], input[type='tel'], input[type='search'], input[type='password']) {
+    height: 30px; min-height: 0; border-radius: 8px; font-size: 13px; line-height: 20px; padding-block: 4px; padding-inline: 8px; border-color: rgba(0, 0, 0, 0.2);
+  }
+}
