@@ -104,7 +104,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     const cuenta = page.getByRole('region', { name: 'Tu cuenta' });
     await expect(cuenta.locator('#inicio-seccion-avisos')).toBeVisible({ timeout: 30_000 });
     await expect(cuenta.locator('#inicio-seccion-panel')).toBeVisible();
-    await expect(cuenta.locator('#inicio-plan')).toBeVisible();
+    await expect(cuenta.locator('#inicio-seccion-plan')).toBeVisible();
     await expect(cuenta.locator('#inicio-mi-cuenta')).toBeVisible();
 
     await cuenta.locator('#inicio-seccion-avisos').click();
@@ -269,7 +269,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
 
     // Y el buscador lo encuentra, con el mismo destino.
     await page.getByRole('searchbox', { name: 'Buscar un ajuste' }).fill('plan');
-    const resultado = page.getByRole('list', { name: 'Resultados de la búsqueda' }).getByRole('link', { name: /Plan de Tentare/ });
+    const resultado = page.getByRole('list', { name: 'Resultados de la búsqueda' }).getByRole('link', { name: /Plan de Tentare/ }).first();
     await expect(resultado).toHaveAttribute('href', /tab=plan/);
   });
 });

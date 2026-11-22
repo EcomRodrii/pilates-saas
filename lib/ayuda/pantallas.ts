@@ -283,7 +283,7 @@ export const AYUDA_POR_PANTALLA = {
 
   '/suscripcion': {
     titulo: 'Plan de Tentare',
-    valor: 'Lo que pagas tú a Tentare: tu plan, tus facturas y tu tarjeta. Lo que cobras a tus clientes va en Cobros.',
+    // Sin `valor`: ya no es una entrada del menú, es una sección de Configuración.
     resumen:
       'Lo que le pagas tú a Tentare: tu plan, tus facturas y la tarjeta con la que se cobra. Nada que ver con lo que cobras a tus clientes, que va por Cobros.',
     ahorra: 'Confundir tu cuota con el dinero de tu estudio.',
