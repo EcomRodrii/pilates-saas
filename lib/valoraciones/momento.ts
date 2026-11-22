@@ -8,7 +8,7 @@
 // la clase tenga menos de 48 h.
 //
 // ⚠️ Estos números viven DOS veces: aquí y en el predicado del cron de pg_cron
-// (`valoraciones-pedir`, migración 20261121094512). El predicado de la base de
+// (`valoraciones-pedir`, migración 20261122004106). El predicado de la base de
 // datos tiene que ser IGUAL o MÁS AMPLIO que la consulta de la ruta, nunca más
 // estrecho: uno más estrecho dejaría clases sin pedir en silencio. Lo cruza
 // `premio-contrato.test.ts`.

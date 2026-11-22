@@ -11,7 +11,7 @@ export const maxDuration = 60;
 
 // Pedir valorar una clase JUSTO tras ella (21-nov-2026): antes la pedía un barrido de
 // Inngest cada 12 h y el aviso llegaba entre 0 y 12 horas tarde. Lo dispara Postgres
-// (pg_cron + pg_net, migración 20261121094512) cada 10 min y SOLO si hay una clase
+// (pg_cron + pg_net, migración 20261122004106) cada 10 min y SOLO si hay una clase
 // terminada hace más de 20 min con alguien que asistió y sin pedir: sin trabajo no se
 // llama a nadie. Esta ruta no envía nada: avisa al worker de Inngest, que es quien lo
 // hace (idempotente por clase: `valoracion_pedida_en` con compare-and-set).

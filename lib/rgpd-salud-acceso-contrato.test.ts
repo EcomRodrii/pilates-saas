@@ -210,7 +210,7 @@ test('socios: authenticated pierde el grant de TABLA y ninguna columna de consen
 //    propia socia por la ruta del portal (service_role); un trigger bloquea al staff.
 //  · cumple_mm_dd (M1, 20260914025903): columna GENERADA desde fecha_nacimiento;
 //    no la escribe nadie.
-//  · resena_pedida_en (20261121094512): cuándo se le enseñó el enlace de reseñas. La
+//  · resena_pedida_en (20261122004106): cuándo se le enseñó el enlace de reseñas. La
 //    escribe solo `reclamar_pedido_resena` (SECURITY DEFINER, solo service_role); si
 //    el navegador pudiera tocarla, un cliente-staff podría reabrir la petición.
 const SOCIOS_SOLO_SERVIDOR = new Set<string>(['excluir_de_perfilado', 'cumple_mm_dd', 'resena_pedida_en']);

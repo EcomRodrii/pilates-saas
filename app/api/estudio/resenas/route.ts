@@ -13,7 +13,7 @@ import { LIMITES_PREMIO, PREFIJO_CODIGO_PREMIO_RESENA, validarAjustesResenas, ty
 //
 // Con service-role y filtrando SIEMPRE por el estudio de la sesión. La base lo
 // vuelve a exigir con CHECK (https, topes del premio): ver la migración
-// 20261121094512. Ninguna columna se acepta fuera de las de aquí.
+// 20261122004106. Ninguna columna se acepta fuera de las de aquí.
 
 export const dynamic = 'force-dynamic';
 

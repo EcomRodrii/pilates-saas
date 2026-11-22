@@ -6,7 +6,7 @@
 // ⚠️ El premio es por la valoración INTERNA (la de `valoraciones`, solo de quien
 // asistió), NUNCA por la reseña externa, y NO depende de la nota. El enlace de
 // reseñas se ofrece a TODAS, sin mencionar el premio. Razones (migración
-// 20261121094512): no se puede saber si alguien dejó una reseña en Google, Google
+// 20261122004106): no se puede saber si alguien dejó una reseña en Google, Google
 // prohíbe incentivarlas y filtrar a quién se le piden, y la normativa de consumo
 // obliga a declarar las incentivadas. `premio-contrato.test.ts` lo vigila.
 // ─────────────────────────────────────────────────────────────────────────────

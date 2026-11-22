@@ -822,7 +822,7 @@ export interface RowSocios {
   cumple_mm_dd: string | null;
   // migr 20260925013446.
   genero: string | null;
-  // migr 20261121094512.
+  // migr 20261122004106.
   resena_pedida_en: string | null;
 }
 
@@ -1168,13 +1168,13 @@ export interface RowStudios {
   congelacion_max_dias: number | null;
   // migr 20261112233833.
   excluir_de_metricas: boolean | null;
-  // migr 20261121094512.
+  // migr 20261122004106.
   resena_enlace: string | null;
-  // migr 20261121094512.
+  // migr 20261122004106.
   resena_premio_tipo: string | null;
-  // migr 20261121094512.
+  // migr 20261122004106.
   resena_premio_valor: number | null;
-  // migr 20261121094512.
+  // migr 20261122004106.
   resena_premio_dias: number | null;
 }
 

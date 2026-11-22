@@ -26,7 +26,7 @@ function cuandoTexto(inicio: string): string {
 
 // Dispatcher: cada 12 h, ahora solo RED DE SEGURIDAD. La petición normal sale unos
 // 20-30 min tras la clase por `/api/cron/valoraciones` (pg_cron cada 10 min, migración
-// 20261121094512). Si ese cron falla o se retrasa, este barrido recoge las clases de
+// 20261122004106). Si ese cron falla o se retrasa, este barrido recoge las clases de
 // las últimas 48 h; lo que ya se pidió está marcado (`valoracion_pedida_en`) y no se
 // repite. (00:15 y 12:15 UTC para no chocar con dunning 08:30 / decision 06:30·14:30 /
 // automatizaciones 07:00.)

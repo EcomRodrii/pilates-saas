@@ -9,7 +9,7 @@ import { limitesDeBarrido } from '@/lib/valoraciones/momento';
 // encuentra ya marcado (`sesiones.valoracion_pedida_en`, compare-and-set).
 //
 // ⚠️ Mismas condiciones que la consulta del worker (lib/inngest/valoraciones.ts) y
-// que el predicado del cron de la base de datos (migración 20261121094512): solo
+// que el predicado del cron de la base de datos (migración 20261122004106): solo
 // estudios con alguna clase terminada hace más de 20 min y menos de 48 h, sin
 // pedir. Un estudio sin ninguna no gasta un run.
 

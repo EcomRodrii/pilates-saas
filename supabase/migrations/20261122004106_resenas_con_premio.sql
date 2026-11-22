@@ -13,13 +13,15 @@
 --   · Google prohíbe incentivar reseñas y filtrar a quién se le pide, y la
 --     normativa de consumo exige declarar las reseñas incentivadas.
 -- Por eso el premio NO mira la nota (se da igual con un 1 que con un 5) y el
--- enlace se ofrece a todas, sin mencionar el premio. Mismo criterio que
--- `review_boost` (20260821120000), que ya separa la recompensa de la reseña.
+-- enlace se enseña sin mencionar el premio y sin mirar la nota (más abajo, quién
+-- lo recibe lo decide la asistencia). Mismo criterio que `review_boost`
+-- (20260821120000), que ya separa la recompensa de la reseña.
 --
 -- El premio es una fila de `codigos_descuento` (los canjean la Caja y los
 -- checkouts), con id determinista por (estudio, alumna): UNA por alumna y
--- estudio sin tabla nueva (ni RLS, ni clasificación RGPD aparte). El id es un
--- hash: no lleva el id de la alumna en claro.
+-- estudio, sin tabla propia para el premio (ni RLS, ni clasificación RGPD
+-- aparte). El id es un hash: no lleva el id de la alumna en claro. Lo que sí
+-- tiene tabla es el recuento de clics (`resenas_clics`, más abajo).
 
 -- ── Ajustes del estudio ─────────────────────────────────────────────────────
 alter table public.studios add column if not exists resena_enlace text;
@@ -30,11 +32,8 @@ alter table public.studios add column if not exists resena_premio_dias integer n
 -- La cerradura es la base de datos: el enlace se pinta como `href` en la app de
 -- la alumna, y un `javascript:` ahí sería un XSS; el importe lo escribe quien
 -- gestiona el estudio y no debe poder regalar el 100 % por accidente.
-alter table public.studios drop constraint if exists studios_resena_enlace_https;
 alter table public.studios add constraint studios_resena_enlace_https
   check (resena_enlace is null or (resena_enlace ~ '^https://[^[:space:]]+$' and length(resena_enlace) <= 500));
-
-alter table public.studios drop constraint if exists studios_resena_premio_valido;
 -- ⚠️ `coalesce(…, false)`: un CHECK que da NULL se da por VÁLIDO, y con tipo sin
 -- valor (o valor sin tipo) las ramas de abajo dan NULL, no false.
 alter table public.studios add constraint studios_resena_premio_valido check (coalesce(
@@ -42,13 +41,11 @@ alter table public.studios add constraint studios_resena_premio_valido check (co
   or (resena_premio_tipo = 'PORCENTAJE' and resena_premio_valor between 1 and 50)
   or (resena_premio_tipo = 'IMPORTE_FIJO' and resena_premio_valor between 1 and 200),
   false));
-
-alter table public.studios drop constraint if exists studios_resena_premio_dias_rango;
 alter table public.studios add constraint studios_resena_premio_dias_rango
   check (resena_premio_dias between 7 and 365);
 
 comment on column public.studios.resena_enlace is
-  'Enlace https de la página de reseñas del estudio (Google u otra). Se ofrece a TODAS las alumnas tras valorar, sin condicionarlo a la nota ni al premio.';
+  'Enlace https de la página de reseñas del estudio (Google u otra). Se enseña a cada clienta una vez (tras 3 clases asistidas, cada 180 días como mucho) justo después de valorar: lo decide la asistencia, nunca la nota, y no menciona el premio.';
 comment on column public.studios.resena_premio_tipo is
   'PORCENTAJE (1-50) o IMPORTE_FIJO (1-200 €) del código que se regala por valorar una clase en Tentare. NULL = sin premio.';
 
@@ -185,7 +182,6 @@ grant select, insert, update on public.resenas_clics to service_role;
 
 -- Toda tabla con RLS lleva la política restrictiva del segundo paso (ver
 -- 20261003102845): supabase/tests/rls-doble-factor.test.ts falla sin ella.
-drop policy if exists exige_doble_factor on public.resenas_clics;
 create policy exige_doble_factor on public.resenas_clics as restrictive for all to authenticated
   using ((select public.nivel_acceso_suficiente())) with check ((select public.nivel_acceso_suficiente()));
 

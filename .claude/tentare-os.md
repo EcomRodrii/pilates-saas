@@ -391,7 +391,7 @@ así que todo lo que se versiona lo lee cualquiera:
   servicio; «Te echamos de menos» es comercial también con la cuota activa. Se descartó ampararse en
   el art. 21.2 LSSI: exige ofrecer la oposición al recoger los datos y el producto no lo hace.
   ⚠️ Un tipo nuevo con mensaje para la alumna declara su clase (lo vigila `mensajes-socia.test.ts`).
-- **Reseñas con premio (21-nov-2026, decisión del fundador; `lib/valoraciones/premio.ts` y `momento.ts`, migr `20261121094512`).** El estudio pone
+- **Reseñas con premio (21-nov-2026, decisión del fundador; `lib/valoraciones/premio.ts` y `momento.ts`, migr `20261122004106`).** El estudio pone
   el enlace de su página de reseñas (Google u otra) y, si quiere, regala un código de descuento (% 1–50 o € 1–200, de un solo uso) a la
   clienta que VALORA una clase en Tentare. Se gestiona en Configuración → Cómo me comunico → «Reseñas y premio» (`/api/estudio/resenas`,
   solo propietaria; **no** en Marketing, que está desactivado por `MARKETING_MODULE_ENABLED`).
