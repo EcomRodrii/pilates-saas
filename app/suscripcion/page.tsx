@@ -24,6 +24,7 @@ import { TZ_ESTUDIO } from '@/lib/utils';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
+import { PantallaBloqueo } from '@/components/billing/pantalla-bloqueo';
 import { cn } from '@/lib/utils';
 import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -258,6 +259,10 @@ export default function SuscripcionPage() {
 
   const fecha = fechaLarga;
 
+  // Prueba terminada: la pantalla de bloqueo, con el marco de la de Shopify. El selector, el aviso y el
+  // botón de pago son los de siempre, dentro de su panel derecho (una sola vez cada uno).
+  const bloqueo = !cargando && !yaPaga && !gratis && pruebaAgotada;
+
   return (
     <div className="min-h-dvh bg-background">
       <div className="mx-auto max-w-4xl px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
@@ -269,6 +274,7 @@ export default function SuscripcionPage() {
         </Link>
 
         {/* ── Encabezado: una sola frase que dice dónde está ─────────────── */}
+        {!bloqueo && (
         <header className="mb-7">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
@@ -294,6 +300,7 @@ export default function SuscripcionPage() {
                   : 'Sin permanencia. Cancela cuando quieras.'}
           </p>
         </header>
+        )}
 
         {/* ── Avisos ─────────────────────────────────────────────────────── */}
         <div aria-live="polite">
@@ -484,7 +491,7 @@ export default function SuscripcionPage() {
         ) : (
           /* ── Elegir plan ──────────────────────────────────────────────── */
           <>
-            <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
+            {(() => { const elegirPlan = (<>
             {soloCadena && (
               <p data-solo-cadena className="mb-4 max-w-2xl rounded-xl border border-border bg-card px-4 py-3 text-[13.5px] leading-relaxed text-muted-foreground text-pretty">
                 <strong className="font-semibold text-foreground">Esta sede forma parte de tu cadena,</strong> así que se contrata con el plan Cadena:
@@ -519,6 +526,20 @@ export default function SuscripcionPage() {
               )}
             </div>
 
+            </>);
+            return bloqueo ? (
+              <PantallaBloqueo
+                titulo="Tu prueba ha terminado"
+                frase="Tus datos están intactos: no se ha borrado nada. Elige un plan y sigues justo donde lo dejaste."
+                pildoras={['Sin permanencia', 'Cancela cuando quieras']}
+                anclaPlanes="planes"
+              >{elegirPlan}</PantallaBloqueo>
+            ) : (<>
+              <UsoDelPlan estado={estado} className="mb-4 rounded-xl border border-border bg-card px-4 py-3" />
+              {elegirPlan}
+            </>);
+            })()}
+            <div id="planes" className="scroll-mt-6" />
             <section className="mt-9">
               <h2 className="mb-3 text-[19px] font-extrabold tracking-tight text-foreground">Qué incluye cada plan</h2>
               <ComparativaPlanes destacado={elegido} />
