@@ -10,7 +10,7 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getConsentimientoMarketing, getPreferencias, guardarConsentimientoMarketing, guardarPreferencia } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
-import { borrarAvisosLocales, esAppNativa } from '@/lib/nativo/puente';
+import { borrarAvisosLocales, cambiarBloqueo, esAppNativa, estadoBloqueo, type EstadoBloqueo } from '@/lib/nativo/puente';
 import { avisosLocalesEncendidos, guardarAvisosLocales } from '@/lib/nativo/avisos-locales-pref';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { OposicionPerfilado } from '@/components/student/domain/OposicionPerfilado';
@@ -43,6 +43,9 @@ export default function PreferenciasPage() {
   const [ocupadoPush, setOcupadoPush] = useState(false);
   // Avisos de clase programados en el iPhone (solo en la app de iOS). null = no aplica.
   const [avisosLocal, setAvisosLocal] = useState<boolean | null>(null);
+  // Bloqueo con Face ID: solo en la app y si el iPhone lo permite (y el build lo trae).
+  const [bloqueo, setBloqueo] = useState<EstadoBloqueo | null>(null);
+  const [ocupadoBloqueo, setOcupadoBloqueo] = useState(false);
 
   const cargar = useCallback(async () => {
     const prefs = await getPreferencias();
@@ -50,6 +53,7 @@ export default function PreferenciasPage() {
     setEmailPagos(prefs.find((p) => p.category === 'pagos')?.email ?? false);
     setPush(estadoPush(await contextoPushStudent(estudio.slug, estudio.id)));
     setAvisosLocal(esAppNativa() ? avisosLocalesEncendidos() : null);
+    void estadoBloqueo().then((e) => setBloqueo(e && e.disponible ? e : null));
     setMarketing(await getConsentimientoMarketing(estudio.id));
     return estadoInicialPush('SOCIA', prefs);
   }, [estudio.slug, estudio.id]);
@@ -113,6 +117,21 @@ export default function PreferenciasPage() {
     if (!valor) void borrarAvisosLocales();
   };
 
+  // Lo hace el iPhone: pide Face ID para encender y para apagar. Se enseña lo que CONTESTA.
+  const alternarBloqueo = async (valor: boolean) => {
+    setOcupadoBloqueo(true);
+    try {
+      const activo = await cambiarBloqueo(valor);
+      if (activo === null) {
+        toast('No hemos podido cambiar el bloqueo en este dispositivo.', { variant: 'error' });
+        return;
+      }
+      setBloqueo((b) => (b ? { ...b, activo } : b));
+    } finally {
+      setOcupadoBloqueo(false);
+    }
+  };
+
   const dispositivo = push === null ? null : textoPush(push, esAppNativa());
 
   return (
@@ -154,6 +173,18 @@ export default function PreferenciasPage() {
                   sub="Lo programa tu iPhone, así que llega aunque no tengas conexión."
                   on={avisosLocal}
                   onChange={cambiarAvisosLocales}
+                />
+              </div>
+            )}
+
+            {bloqueo && (
+              <div className="card" style={{ overflow: 'hidden', marginTop: 12 }} data-testid="bloqueo-app">
+                <Interruptor
+                  label={bloqueo.tipo === 'código' ? 'Bloquear la app con el código' : `Bloquear la app con ${bloqueo.tipo}`}
+                  sub="Se pide al abrirla y al volver a ella pasado medio minuto. Solo en este iPhone."
+                  on={bloqueo.activo}
+                  disabled={ocupadoBloqueo}
+                  onChange={(v) => void alternarBloqueo(v)}
                 />
               </div>
             )}

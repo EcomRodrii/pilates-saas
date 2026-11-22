@@ -736,3 +736,13 @@ producción (necesita la alumna de demo y las variables).
 - Los datos los refresca la app al abrirse; si lleva días cerrada, Siri contesta con lo último guardado (caduca a los 14 días y entonces dice que no ve clases).
 - Las frases van en español; se puso `developmentRegion = es` (el Info.plist ya lo decía) para que Siri las trate como frases del idioma de origen.
 - ⚠️ **No probado en un iPhone real ni con Siri**: compila (simulador), y el texto de las respuestas se comprobó con un script aparte. Hay que probarlo en dispositivo antes del build 1.1 (las frases con `\(.applicationName)` dependen de cómo se llame la app en esa instalación).
+
+## Bloqueo con Face ID (23-nov-2026)
+
+`ios/App/App/BloqueoPlugin.swift`, interruptor en Perfil → Preferencias (solo en la app y si el iPhone tiene Face ID, Touch ID o código).
+- **Opcional y del dispositivo**: lo aplica el iPhone (`UserDefaults`), no la web ni el servidor. Apagado de serie.
+- `LAContext` con `.deviceOwnerAuthentication`: si Face ID falla, iOS ofrece el código del iPhone; nunca queda sin salida.
+- Encender y apagar piden autenticarse. Al **cerrar sesión se apaga sin pedir** (`apagarBloqueoAlSalir`): ya no hay cuenta que proteger.
+- La pantalla se tapa en cuanto la app deja de estar activa (tampoco se ve en el selector de apps); se pide desbloquear al abrirla en frío y al volver pasados 30 s.
+- Necesita `NSFaceIDUsageDescription` (ya en `Info.plist`). Un build antiguo no tiene el plugin: la web no enseña el interruptor (`estadoBloqueo()` devuelve `null`).
+- ⚠️ **No probado en un iPhone real** (el simulador compila; no se ha ejercitado la autenticación). Probar antes del build 1.1: apertura en frío, volver tras >30 s, cancelar el desbloqueo y reintentar, y cerrar sesión con el bloqueo encendido.

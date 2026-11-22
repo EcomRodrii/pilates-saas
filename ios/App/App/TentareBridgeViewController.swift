@@ -12,6 +12,8 @@ class TentareBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(ProximaClasePlugin())
         // «Tu clase empieza en 15 minutos», programado en el propio iPhone.
         bridge?.registerPluginInstance(AvisosLocalesPlugin())
+        // Bloqueo opcional con Face ID / código del iPhone (Preferencias).
+        bridge?.registerPluginInstance(BloqueoPlugin())
         // Deslizar desde el borde izquierdo para volver, como en cualquier app
         // del iPhone. La web navega con `history.pushState`, así que cada
         // pantalla deja su entrada y el gesto vuelve a la anterior (Next lo

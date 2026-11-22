@@ -587,3 +587,66 @@ export async function borrarAvisosLocales(): Promise<void> {
     ]);
   } catch { /* sin plugin: no hay nada que quitar */ }
 }
+
+// ─── Bloqueo de la app con Face ID ────────────────────────────────────────
+//
+// Opcional y del dispositivo (`BloqueoPlugin`): lo aplica el iPhone, no la web.
+// Encender y apagar piden Face ID / código; al cerrar sesión se apaga sin pedir.
+
+export interface EstadoBloqueo {
+  /** El iPhone tiene Face ID, Touch ID o código. */
+  disponible: boolean;
+  /** Cómo llamarlo en pantalla. */
+  tipo: 'Face ID' | 'Touch ID' | 'código';
+  activo: boolean;
+}
+
+interface PluginBloqueo {
+  estado(): Promise<EstadoBloqueo>;
+  activar(o: { activo: boolean; sinPedir?: boolean }): Promise<{ activo: boolean }>;
+}
+let pluginBloqueo: PluginBloqueo | null = null;
+
+async function bloqueo(): Promise<PluginBloqueo> {
+  if (!pluginBloqueo) {
+    const { registerPlugin } = await import('@capacitor/core');
+    pluginBloqueo = registerPlugin<PluginBloqueo>('Bloqueo');
+  }
+  return pluginBloqueo;
+}
+
+/** `null` fuera de la app, sin plugin (build antiguo) o si no contesta. */
+export async function estadoBloqueo(): Promise<EstadoBloqueo | null> {
+  if (!esAppNativa()) return null;
+  try {
+    return await Promise.race([
+      bloqueo().then((p) => p.estado()),
+      new Promise<null>((resolver) => setTimeout(() => resolver(null), ESPERA_WIDGET_MS)),
+    ]);
+  } catch {
+    return null;
+  }
+}
+
+/** Enciende o apaga (pide Face ID). Devuelve cómo queda; `null` si no se pudo hablar con el iPhone. */
+export async function cambiarBloqueo(activo: boolean): Promise<boolean | null> {
+  if (!esAppNativa()) return null;
+  try {
+    // Sin límite de tiempo: la alumna puede tardar en autenticarse.
+    const r = await (await bloqueo()).activar({ activo });
+    return r.activo;
+  } catch {
+    return null;
+  }
+}
+
+/** Cerrar sesión: apaga el bloqueo sin pedir nada (ya no hay cuenta que proteger). */
+export async function apagarBloqueoAlSalir(): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    await Promise.race([
+      bloqueo().then((p) => p.activar({ activo: false, sinPedir: true })),
+      new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
+    ]);
+  } catch { /* sin plugin: no hay bloqueo que apagar */ }
+}
