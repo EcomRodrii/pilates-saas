@@ -120,7 +120,7 @@ test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no
   await page.reload();
   const pildora = page.getByRole('link', { name: /Te quedan 12 días para pasarte a Founding Studio de pago/ }).first();
   await expect(pildora).toBeVisible({ timeout: 30_000 });
-  await expect(pildora).toHaveAttribute('href', '/suscripcion');
+  await expect(pildora).toHaveAttribute('href', '/configuracion?tab=plan');
 });
 
 test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un clic, una sola vez', async ({ page }) => {
