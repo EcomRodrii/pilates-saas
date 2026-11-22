@@ -4,15 +4,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Search } from 'lucide-react';
 import { PageShell } from '@/components/recursos/PageShell';
-import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { LogoTentare } from '@/components/marca/logo-tentare';
-import { WhatsAppIcon } from '@/components/icons/brand-icons';
+import { AyudaMarco } from '@/components/ayuda/AyudaMarco';
 import { CATEGORIAS, articulosPublicadosDe, urlArticulo } from '@/lib/ayuda/registro';
 import { buscarArticulos, categoriasSugeridas } from '@/lib/ayuda/busqueda';
 import { crearRegistroDeBusquedas } from '@/lib/ayuda/registrar-busqueda';
-import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
-import { SOPORTE_WHATSAPP } from '@/lib/soporte';
 
 // El Centro de Ayuda con la forma del de Shopify (22-nov-2026, medido en help.shopify.com): una barra mínima arriba
 // (logo + «Ayuda»), el buscador ancho y centrado en mitad de mucho aire, y «Explorar por tema» en tres columnas donde
@@ -37,22 +33,10 @@ export default function AyudaHomePage() {
     return () => registro.current?.cancelar();
   }, [q, resultados.length]);
 
-  const chat = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, tengo una duda sobre Tentare:');
-
   return (
     <PageShell>
       <OrganizationStructuredData />
-      <div className="ay-marco">
-        <header className="ay-barra">
-          <Link href="/" className="ay-logo" aria-label="Tentare">
-            <LogoTentare formato="isotipo" tinta="auto" alto={26} titulo="Tentare" />
-            <span>Ayuda</span>
-          </Link>
-          <Link href="/login" className="ay-entrar">Abrir Tentare</Link>
-        </header>
-
-        <main className="ay-lienzo">
-          <div className="ay-contenido">
+      <AyudaMarco ancho={1024} portada>
             <h1 className="sr-only">Centro de Ayuda de Tentare</h1>
             <label className="ay-buscador">
               <Search size={16} aria-hidden="true" />
@@ -120,26 +104,9 @@ export default function AyudaHomePage() {
                 </p>
               </section>
             )}
-          </div>
-        </main>
-
-        {chat && (
-          <a href={chat} target="_blank" rel="noreferrer" className="ay-chat">
-            <WhatsAppIcon size={15} /> Chat humano
-          </a>
-        )}
-      </div>
-
-      <PieWeb />
+      </AyudaMarco>
 
       <style>{`
-        .ay-marco { background: #f7f7f7; min-height: 100dvh; font-family: Inter, system-ui, sans-serif; font-weight: 450; color: #1a1a1a; display: flex; flex-direction: column; }
-        .ay-barra { height: 56px; padding: 0 clamp(16px, 3.4vw, 48px); display: flex; align-items: center; justify-content: space-between; flex: none; }
-        .ay-logo { display: inline-flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; color: #1a1a1a; text-decoration: none; }
-        .ay-entrar { font-size: 13px; font-weight: 500; color: #303030; text-decoration: none; padding: 6px 12px; border-radius: 999px; transition: background .2s cubic-bezier(.2,.8,0,1); }
-        .ay-entrar:hover { background: #ececec; }
-        .ay-lienzo { background: #fff; border-radius: 16px 16px 0 0; flex: 1; padding: clamp(56px, 14vh, 180px) clamp(16px, 3.4vw, 48px) 120px; }
-        .ay-contenido { max-width: 1024px; margin: 0 auto; }
         .ay-buscador { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 16px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; color: #616161; box-shadow: 0 1px 2px #00000008; transition: border-color .2s, box-shadow .2s; }
         .ay-buscador:focus-within { border-color: #303030; box-shadow: 0 0 0 3px #30303014; }
         .ay-buscador input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; line-height: 20px; color: #303030; }
@@ -167,11 +134,9 @@ export default function AyudaHomePage() {
         .ay-sin { margin: 0 0 12px; font-size: 14px; color: #616161; }
         .ay-sugeridas { flex-direction: row !important; flex-wrap: wrap; }
         .ay-sugeridas a { display: block; padding: 10px 14px; border: 1px solid #e3e3e3; border-radius: 12px; font-size: 14px; font-weight: 500; color: #1a1a1a; text-decoration: none; }
-        .ay-chat { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000d; font-size: 14px; font-weight: 500; color: #303030; text-decoration: none; transition: transform .35s cubic-bezier(.2,.8,0,1), box-shadow .35s; }
-        .ay-chat:hover { transform: translateY(-2px); box-shadow: 0 1px 2px #0000000a, 0 8px 22px #00000014; }
         @media (max-width: 900px) { .ay-temas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-        @media (max-width: 600px) { .ay-temas { grid-template-columns: 1fr; } .ay-lienzo { padding-top: 40px; } }
-        @media (prefers-reduced-motion: reduce) { .ay-chat, .ay-resultado, .ay-entrar { transition: none; } .ay-chat:hover { transform: none; } }
+        @media (max-width: 600px) { .ay-temas { grid-template-columns: 1fr; } }
+        @media (prefers-reduced-motion: reduce) { .ay-resultado { transition: none; } }
       `}</style>
     </PageShell>
   );

@@ -1,0 +1,32 @@
+/* El marco del Centro de ayuda con la forma del de Shopify (22-nov-2026, medido en help.shopify.com): barra mínima arriba sobre un
+   gris casi blanco, el contenido en un lienzo blanco con las esquinas de arriba redondeadas, y «Chat humano» flotando abajo a la derecha. */
+.ay-marco { background: #f7f7f7; min-height: 100dvh; font-family: Inter, system-ui, sans-serif; font-weight: 450; color: #1a1a1a; display: flex; flex-direction: column; }
+.ay-barra { height: 56px; padding: 0 clamp(16px, 3.4vw, 48px); display: flex; align-items: center; justify-content: space-between; flex: none; }
+.ay-logo { display: inline-flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; color: #1a1a1a; text-decoration: none; }
+.ay-entrar { font-size: 13px; font-weight: 500; color: #303030; text-decoration: none; padding: 6px 12px; border-radius: 999px; transition: background .2s cubic-bezier(.2,.8,0,1); }
+.ay-entrar:hover { background: #ececec; }
+.ay-lienzo { background: #fff; border-radius: 16px 16px 0 0; flex: 1; padding: clamp(40px, 9vh, 120px) clamp(16px, 3.4vw, 48px) 120px; }
+.ay-lienzo--portada { padding-top: clamp(56px, 14vh, 180px); }
+.ay-contenido { max-width: var(--ay-ancho, 1024px); margin: 0 auto; }
+.ay-chat { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000d; font-size: 14px; font-weight: 500; color: #303030; text-decoration: none; transition: transform .35s cubic-bezier(.2,.8,0,1), box-shadow .35s; }
+.ay-chat:hover { transform: translateY(-2px); box-shadow: 0 1px 2px #0000000a, 0 8px 22px #00000014; }
+@media (max-width: 600px) { .ay-lienzo--portada { padding-top: 40px; } }
+@media (prefers-reduced-motion: reduce) { .ay-chat, .ay-entrar { transition: none; } .ay-chat:hover { transform: none; } }
+
+/* Páginas de artículo y de categoría dentro del marco */
+.ay-migas { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 24px; font-size: 13px; color: #616161; }
+.ay-migas a { color: #616161; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #c9c9c9; }
+.ay-migas a:hover { color: #1a1a1a; text-decoration-color: currentColor; }
+.ay-h1 { margin: 0 0 12px; font-size: clamp(24px, 3vw, 30px); font-weight: 600; line-height: 1.15; letter-spacing: -0.025em; color: #1a1a1a; }
+.ay-intro { margin: 0 0 16px; font-size: 15px; line-height: 1.6; color: #616161; }
+.ay-meta { display: flex; gap: 8px; margin: 0 0 32px; padding-bottom: 24px; border-bottom: 1px solid #ebebeb; font-size: 13px; color: #8a8a8a; }
+.ay-cuerpo { font-size: 15px; line-height: 1.7; color: #1a1a1a; }
+.ay-lista { list-style: none; margin: 8px 0 0; padding: 0; }
+.ay-lista li { border-top: 1px solid #ebebeb; }
+.ay-lista li:last-child { border-bottom: 1px solid #ebebeb; }
+.ay-fila { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 4px; text-decoration: none; color: inherit; transition: background .2s cubic-bezier(.2,.8,0,1), padding .35s cubic-bezier(.2,.8,0,1); }
+a.ay-fila:hover { background: #fafafa; padding-inline: 12px; }
+.ay-fila b { display: block; font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+.ay-fila span { display: block; margin-top: 4px; font-size: 14px; line-height: 1.5; color: #616161; }
+.ay-pronto { flex: none; font-size: 12px; color: #8a8a8a; background: #f1f1f1; padding: 4px 10px; border-radius: 999px; }
+@media (prefers-reduced-motion: reduce) { .ay-fila { transition: none; } }
