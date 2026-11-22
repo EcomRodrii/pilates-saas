@@ -10,7 +10,8 @@ import { useToast } from '@/components/student/ui/Toast';
 import { getConsentimientoMarketing, getPreferencias, guardarConsentimientoMarketing, guardarPreferencia } from '@/lib/student/perfil-y-avisos';
 import { ErrorState, ListSkeleton, OfflineState } from '@/components/student/ui/States';
 import { activarPushStudent, contextoPushStudent, desactivarPushStudent } from '@/lib/student/push';
-import { esAppNativa } from '@/lib/nativo/puente';
+import { borrarAvisosLocales, esAppNativa } from '@/lib/nativo/puente';
+import { avisosLocalesEncendidos, guardarAvisosLocales } from '@/lib/nativo/avisos-locales-pref';
 import { estadoPush, textoPush, type EstadoPush } from '@/lib/student/push-estado';
 import { OposicionPerfilado } from '@/components/student/domain/OposicionPerfilado';
 import { PushPorTipo, estadoInicialPush } from '@/components/student/domain/PushPorTipo';
@@ -40,12 +41,15 @@ export default function PreferenciasPage() {
   // permiso + suscripción del SW acotado a la app. `null` hasta leerlo.
   const [push, setPush] = useState<EstadoPush | null>(null);
   const [ocupadoPush, setOcupadoPush] = useState(false);
+  // Avisos de clase programados en el iPhone (solo en la app de iOS). null = no aplica.
+  const [avisosLocal, setAvisosLocal] = useState<boolean | null>(null);
 
   const cargar = useCallback(async () => {
     const prefs = await getPreferencias();
     // Sin fila, email apagado: es el defecto del endpoint, no una suposición.
     setEmailPagos(prefs.find((p) => p.category === 'pagos')?.email ?? false);
     setPush(estadoPush(await contextoPushStudent(estudio.slug, estudio.id)));
+    setAvisosLocal(esAppNativa() ? avisosLocalesEncendidos() : null);
     setMarketing(await getConsentimientoMarketing(estudio.id));
     return estadoInicialPush('SOCIA', prefs);
   }, [estudio.slug, estudio.id]);
@@ -101,6 +105,14 @@ export default function PreferenciasPage() {
     }
   };
 
+  // Del dispositivo, no del servidor: se guarda aquí. Apagado quita los ya programados;
+  // encendido se programan al abrir Inicio (el hook ya lo hace con sus reservas).
+  const cambiarAvisosLocales = (valor: boolean) => {
+    setAvisosLocal(valor);
+    guardarAvisosLocales(valor);
+    if (!valor) void borrarAvisosLocales();
+  };
+
   const dispositivo = push === null ? null : textoPush(push, esAppNativa());
 
   return (
@@ -133,6 +145,17 @@ export default function PreferenciasPage() {
                   )}
                 </div>
               </>
+            )}
+
+            {avisosLocal !== null && (
+              <div className="card" style={{ overflow: 'hidden', marginTop: 12 }} data-testid="avisos-locales">
+                <Interruptor
+                  label="Aviso 15 minutos antes de tu clase"
+                  sub="Lo programa tu iPhone, así que llega aunque no tengas conexión."
+                  on={avisosLocal}
+                  onChange={cambiarAvisosLocales}
+                />
+              </div>
             )}
 
             <p className="t-label" style={{ margin: '16px 0 7px' }}>Avisos en el móvil</p>

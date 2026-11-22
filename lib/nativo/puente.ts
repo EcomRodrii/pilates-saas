@@ -542,3 +542,48 @@ export async function borrarClasesDelWidget(): Promise<void> {
     ]);
   } catch { /* sin plugin: no hay widget que limpiar */ }
 }
+
+// ─── Avisos de clase en el iPhone ─────────────────────────────────────────
+//
+// Programados con `UNUserNotificationCenter` (`AvisosLocalesPlugin`): saltan sin
+// red. Lo que se programa lo arma `lib/nativo/avisos-locales.ts`. No piden
+// permiso: usan el que la alumna ya diera a los avisos de la app.
+
+interface PluginAvisosLocales {
+  programar(o: { json: string }): Promise<{ programados: number }>;
+  borrar(): Promise<void>;
+}
+let pluginAvisosLocales: PluginAvisosLocales | null = null;
+
+async function avisosLocales(): Promise<PluginAvisosLocales> {
+  if (!pluginAvisosLocales) {
+    const { registerPlugin } = await import('@capacitor/core');
+    pluginAvisosLocales = registerPlugin<PluginAvisosLocales>('AvisosLocales');
+  }
+  return pluginAvisosLocales;
+}
+
+/** Cuántos avisos quedaron programados; `null` fuera de la app o si el plugin no contesta. */
+export async function programarAvisosLocales(json: string): Promise<number | null> {
+  if (!esAppNativa()) return null;
+  try {
+    const r = await Promise.race([
+      avisosLocales().then((p) => p.programar({ json })),
+      new Promise<null>((resolver) => setTimeout(() => resolver(null), ESPERA_WIDGET_MS)),
+    ]);
+    return r ? r.programados : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Quita los avisos programados (cerrar sesión, apagarlos). No hace nada fuera de la app. */
+export async function borrarAvisosLocales(): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    await Promise.race([
+      avisosLocales().then((p) => p.borrar()),
+      new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
+    ]);
+  } catch { /* sin plugin: no hay nada que quitar */ }
+}
