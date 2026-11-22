@@ -268,12 +268,13 @@ test('lista de espera: una oferta caducada llama aunque no haya plataformas; una
 test('los cinco jobs conservan nombre y cadencia, y llaman solo si la guarda lo dice', async () => {
   const [{ hay }] = await sql`select to_regclass('cron.job') is not null as hay`;
   if (!hay) return; // sin pg_cron en esta base no hay jobs que mirar
+  // Mismo ritmo, minuto distinto: 20261122120000 los escalona para que no arranquen todos a la vez.
   const esperados: Record<string, [string, string]> = {
-    'notif-recordatorios': ['*/15 * * * *', 'cron_hay_recordatorios_de_clase()'],
-    'checkin-automatico': ['*/30 * * * *', 'cron_hay_checkin_automatico()'],
-    'sustituciones-cerrar-vencidas': ['*/30 * * * *', 'cron_hay_sustituciones_vencidas()'],
-    'zoom-sync': ['*/15 * * * *', 'cron_hay_zoom_sync()'],
-    'lista-espera-ofertas-expirar': ['*/5 * * * *', 'cron_hay_trabajo_lista_espera()'],
+    'notif-recordatorios': ['6-51/15 * * * *', 'cron_hay_recordatorios_de_clase()'],
+    'checkin-automatico': ['9,39 * * * *', 'cron_hay_checkin_automatico()'],
+    'sustituciones-cerrar-vencidas': ['11,41 * * * *', 'cron_hay_sustituciones_vencidas()'],
+    'zoom-sync': ['5-50/15 * * * *', 'cron_hay_zoom_sync()'],
+    'lista-espera-ofertas-expirar': ['1-56/5 * * * *', 'cron_hay_trabajo_lista_espera()'],
   };
   for (const [nombre, [cadencia, guardaSql]] of Object.entries(esperados)) {
     const filas = await sql`select schedule, command from cron.job where jobname = ${nombre}`;
