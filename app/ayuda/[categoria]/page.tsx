@@ -3,15 +3,12 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { CATEGORIAS, articulosDe, categoriaDe, urlArticulo } from '@/lib/ayuda/registro';
-import { AyudaIcono } from '@/components/ayuda/iconos';
 import { AyudaBreadcrumbs } from '@/components/ayuda/AyudaBreadcrumbs';
 import { AyudaBreadcrumbStructuredData } from '@/components/ayuda/AyudaStructuredData';
 import { AyudaCTASoporte } from '@/components/ayuda/AyudaCTASoporte';
 import { PageShell } from '@/components/recursos/PageShell';
-import { IslaWeb } from '@/components/web/IslaWeb';
-import { PieWeb } from '@/components/web/PieWeb';
+import { AyudaMarco } from '@/components/ayuda/AyudaMarco';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { ACC, MUTED } from '@/components/landing/theme';
 import { urlDe } from '@/lib/seo/paginas';
 
 export function generateStaticParams() {
@@ -41,55 +38,36 @@ export default async function CategoriaPage({ params }: { params: Promise<{ cate
     <PageShell>
       <OrganizationStructuredData />
       <AyudaBreadcrumbStructuredData items={migas} />
-      <IslaWeb />
-
-      <header style={{ maxWidth: 900, margin: '0 auto', padding: 'clamp(32px,5vw,56px) clamp(20px,4vw,44px) 8px' }}>
+      <AyudaMarco>
         <AyudaBreadcrumbs items={migas} />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
-          <span style={{ width: 44, height: 44, borderRadius: 14, background: '#F1F2EA', display: 'grid', placeItems: 'center', flex: 'none' }}>
-            <AyudaIcono nombre={categoria.icono} size={20} color={ACC} />
-          </span>
-          <h1 style={{ fontWeight: 800, fontSize: 'clamp(26px,3.4vw,36px)', letterSpacing: '-.03em', margin: 0 }}>{categoria.titulo}</h1>
-        </div>
-        <p style={{ fontSize: 16, lineHeight: 1.55, color: MUTED, margin: '0 0 8px', maxWidth: 620 }}>{categoria.descripcion}</p>
-      </header>
+        <h1 className="ay-h1">{categoria.titulo}</h1>
+        <p className="ay-intro">{categoria.descripcion}</p>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px clamp(20px,4vw,44px) clamp(56px,7vw,80px)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <ul className="ay-lista">
           {articulos.map((a) => {
             const publicado = a.estado === 'publicado';
             const contenido = (
               <>
                 <div>
-                  <p style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 4px', color: publicado ? '#1A1A1A' : '#8E8E86' }}>{a.titulo}</p>
-                  <p style={{ fontSize: 13.5, lineHeight: 1.5, color: MUTED, margin: 0 }}>{a.descripcion}</p>
+                  <b style={{ color: publicado ? '#1a1a1a' : '#8a8a8a' }}>{a.titulo}</b>
+                  <span>{a.descripcion}</span>
                 </div>
-                {publicado ? <ArrowRight size={16} style={{ flex: 'none', color: '#8E8E86' }} /> : (
-                  <span className="lp-mono" style={{ flex: 'none', fontSize: 10, color: '#A8A89F', background: '#F1F1EB', padding: '4px 9px', borderRadius: 999 }}>Próximamente</span>
-                )}
+                {publicado ? <ArrowRight size={16} style={{ flex: 'none', color: '#8a8a8a' }} aria-hidden /> : <span className="ay-pronto">Próximamente</span>}
               </>
             );
-            const style: React.CSSProperties = {
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-              padding: '18px 20px', background: '#fff', border: '1px solid #E7E7E0', borderRadius: 16,
-            };
-            return publicado ? (
-              <Link key={a.slug} href={urlArticulo(a)} className="ayuda-cat-item" style={{ ...style, textDecoration: 'none', color: 'inherit' }}>{contenido}</Link>
-            ) : (
-              <div key={a.slug} style={style}>{contenido}</div>
+            return (
+              <li key={a.slug}>
+                {publicado
+                  ? <Link href={urlArticulo(a)} className="ay-fila">{contenido}</Link>
+                  : <div className="ay-fila">{contenido}</div>}
+              </li>
             );
           })}
-          {articulos.length === 0 && (
-            <p style={{ color: MUTED, padding: '24px 0' }}>Estamos preparando los artículos de esta categoría.</p>
-          )}
-        </div>
+        </ul>
+        {articulos.length === 0 && <p className="ay-intro" style={{ padding: '24px 0' }}>Estamos preparando los artículos de esta categoría.</p>}
 
         <AyudaCTASoporte />
-      </div>
-
-      <PieWeb />
-
-      <style>{`.ayuda-cat-item{transition:border-color .15s,transform .15s}.ayuda-cat-item:hover{border-color:${ACC};transform:translateY(-2px)}`}</style>
+      </AyudaMarco>
     </PageShell>
   );
 }
