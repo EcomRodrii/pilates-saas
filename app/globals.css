@@ -2536,3 +2536,19 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
     background-color: #ebebeb; border-color: transparent; color: #101010; border-radius: 9999px; height: 28px; min-height: 28px; padding-block: 0; padding-inline: 12px; font-size: 12px; line-height: 16px; font-weight: 500;
   }
 }
+
+/* Interruptor de Configuración como el de Shopify (`SHELL_NUEVO`): pista de 32×16 en tinta (#101010) con la bola
+   blanca de 12 px; apagado, pista gris. Medido en «Cuentas de cliente» (32×16, radio 9999). */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'],
+  .cajon-modal button[role='switch'] {
+    width: 32px !important; height: 16px !important; border-width: 0 !important; padding: 0;
+    background-color: color-mix(in srgb, var(--foreground) 22%, var(--card)) !important;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'],
+  .cajon-modal button[role='switch'][aria-checked='true'] { background-color: #101010 !important; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'] > span,
+  .cajon-modal button[role='switch'] > span { width: 12px !important; height: 12px !important; background-color: #fff !important; transform: translateX(2px) !important; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'] > span,
+  .cajon-modal button[role='switch'][aria-checked='true'] > span { transform: translateX(18px) !important; }
+}
