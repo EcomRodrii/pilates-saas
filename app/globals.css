@@ -2457,4 +2457,9 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [role][class*='bg-muted'][class*='rounded-full'][class*='p-1'] { background: transparent !important; padding: 0 !important; gap: 8px !important; box-shadow: none !important; border-radius: 0 !important; overflow-x: auto; scrollbar-width: none; }
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [role][class*='bg-muted'][class*='rounded-full'][class*='p-1'] > button { background: #f1f1f1 !important; color: #303030 !important; box-shadow: none !important; height: 40px; padding: 0 16px !important; font-size: 14px !important; }
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [role][class*='bg-muted'][class*='rounded-full'][class*='p-1'] > button:is(.bg-card, [aria-selected='true'], [aria-pressed='true']) { background: #1a1a1a !important; color: #fff !important; }
+
+  /* Equipo: las fichas de miembros a una columna en todo el móvil (entre 640 y 767 px el grid pasaba a dos y quedaba una tarjeta a medias). */
+  .panel-app[data-shell-nuevo] [data-panel-contenido] :has(> [data-miembro]) { grid-template-columns: minmax(0, 1fr) !important; }
+  /* Sustituciones: los cuatro modos a una columna en todo el móvil (a 757 px salían en dos). */
+  .panel-app[data-shell-nuevo] [data-modos] { grid-template-columns: minmax(0, 1fr) !important; }
 }
