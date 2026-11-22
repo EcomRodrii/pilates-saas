@@ -2511,13 +2511,13 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-config-raiz] :is(button, a).bg-brand,
   .cajon-modal :is(button, a).bg-brand,
-  [data-accion-herramienta] :is(button, a).bg-brand {
-    background-color: var(--primary); color: var(--primary-foreground); border-color: transparent;
+  [data-accion-herramienta] :is(button, a) {
+    background-image: none; background-color: var(--primary); color: var(--primary-foreground); border-color: transparent;
     border-radius: 9999px; min-height: 28px; height: 28px; padding-block: 0; padding-inline: 12px; font-size: 13px; line-height: 20px; font-weight: 400;
   }
   .panel-app[data-shell-nuevo] [data-config-raiz] :is(button, a).bg-brand:hover,
   .cajon-modal :is(button, a).bg-brand:hover,
-  [data-accion-herramienta] :is(button, a).bg-brand:hover { background-color: color-mix(in srgb, var(--primary) 90%, transparent); filter: none; }
+  [data-accion-herramienta] :is(button, a):hover { background-color: color-mix(in srgb, var(--primary) 90%, transparent); filter: none; }
   /* El hover de una fila: un gris casi blanco, sin cambiar nada más. */
   .panel-app[data-shell-nuevo] [data-config-raiz] [data-tarjeta-ajuste] > li > :is(a, button):hover { background-color: color-mix(in srgb, var(--foreground) 3%, transparent); }
 }
@@ -2550,7 +2550,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'],
   .cajon-modal button[role='switch'][aria-checked='true'] { background-color: #101010 !important; }
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'] > span,
-  .cajon-modal button[role='switch'] > span { width: 12px !important; height: 12px !important; background-color: #fff !important; transform: translateX(2px) !important; }
+  .cajon-modal button[role='switch'] > span { width: 12px !important; height: 12px !important; background-color: #fff !important; translate: none !important; transform: translateX(2px) !important; }
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'] > span,
   .cajon-modal button[role='switch'][aria-checked='true'] > span { transform: translateX(18px) !important; }
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { AccionHerramienta } from '@/components/configuracion/shell/accion-herramienta';
 import { useMemo, useState } from 'react';
 import { Ticket, Plus, Sparkles, X } from 'lucide-react';
 import { useStudio } from '@/lib/studio-context';
@@ -89,13 +90,15 @@ export function CodigosDescuento({ onToast }: { onToast: MostrarToast }) {
         <h2 className="font-heading text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           Códigos de descuento
         </h2>
-        <button
-          onClick={() => setAbierto(a => !a)}
-          className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {abierto ? <X size={14} /> : <Plus size={14} />}
-          {abierto ? 'Cancelar' : 'Nuevo código'}
-        </button>
+        <AccionHerramienta>
+          <button
+            onClick={() => setAbierto(a => !a)}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {abierto ? <X size={14} /> : <Plus size={14} />}
+            {abierto ? 'Cancelar' : 'Nuevo código'}
+          </button>
+        </AccionHerramienta>
       </div>
 
       <div className="rounded-3xl border border-border bg-card p-1">
