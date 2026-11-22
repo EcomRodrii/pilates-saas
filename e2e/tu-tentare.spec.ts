@@ -82,7 +82,7 @@ test.describe('Configuración · Tu Tentare', () => {
     await expect(tu.getByTestId('modulo-tu-tentare')).toHaveCount(19);
     for (const congelado of ['Chat de equipo', 'Oferta digital', 'Tentare Network']) await expect(tu.getByText(congelado)).toHaveCount(0);
     await expect(tu.getByText(/próximamente/i)).toHaveCount(0);
-    await expect(tu.getByText('No se puede quitar')).toHaveCount(3);
+    await expect(tu.getByText('No se puede quitar')).toHaveCount(2);
     await expect(fila(page, '/cobros').getByText(/Con tarjeta guardada se cobra sola; las domiciliaciones van en tu remesa al banco/)).toBeVisible();
     // La sección de siempre sigue debajo.
     await expect(page.locator('#menu-del-panel')).toBeVisible();
