@@ -256,6 +256,7 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
 }) {
   const nav = useNavegacionConfig();
   const panelNuevo = usePanelNuevo();
+  const sangre = useShellNuevo();
   return (
     <li>
       <a
@@ -272,11 +273,11 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
           {panelNuevo
-            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{descripcion ?? valor ?? ''}</span>
+            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{sangre ? (valor ?? descripcion ?? '') : (descripcion ?? valor ?? '')}</span>
             : <ValorFila valor={valor} descripcion={descripcion ?? valor ?? ''} />}
         </span>
         {panelNuevo
-          ? <CajaValor valor={valor ?? 'Abrir'} />
+          ? (sangre ? <Flechita /> : <CajaValor valor={valor ?? 'Abrir'} />)
           : <Flechita />}
       </a>
     </li>
@@ -293,6 +294,7 @@ export function FilaExterna({ id, icono, titulo, valor, descripcion, href }: {
   href: string;
 }) {
   const panelNuevo = usePanelNuevo();
+  const sangre = useShellNuevo();
   return (
     <li>
       <Link id={id} href={href} className={cn(panelNuevo ? FILA_NUEVA : FILA, 'scroll-mt-32 scroll-mb-32')}>
@@ -300,11 +302,11 @@ export function FilaExterna({ id, icono, titulo, valor, descripcion, href }: {
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
           {panelNuevo
-            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{descripcion}</span>
+            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{sangre ? (valor ?? descripcion) : descripcion}</span>
             : <ValorFila valor={valor} descripcion={descripcion} />}
         </span>
         {panelNuevo
-          ? <CajaValor valor={valor ?? 'Abrir'} externo />
+          ? (sangre ? <ArrowUpRight size={16} className="shrink-0 text-muted-foreground" aria-hidden /> : <CajaValor valor={valor ?? 'Abrir'} externo />)
           : <ArrowUpRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
       </Link>
     </li>

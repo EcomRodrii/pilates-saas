@@ -492,6 +492,17 @@ export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['plan', 'avisos', 'panel'], externas: ['mi-cuenta'] },
 ];
 
+/**
+ * El nombre de una sección en el menú y en el título del marco a sangre (`SHELL_NUEVO`): una o dos
+ * palabras, como el menú de Configuración de Shopify (General, Plan, Facturación…). Los títulos largos
+ * de `SECCIONES` se quedan para el inicio, el buscador y el resto del panel.
+ */
+export const NOMBRE_CORTO: Readonly<Record<SeccionId, string>> = {
+  estudio: 'Mi estudio', clases: 'Clases y citas', reservas: 'Reservas', cobros: 'Cobros', altas: 'Altas',
+  comunicacion: 'Comunicación', motivacion: 'Motivación', marca: 'Marca', web: 'App y web', equipo: 'Equipo',
+  conexiones: 'Integraciones', datos: 'Datos', plan: 'Plan', avisos: 'Avisos', panel: 'Panel',
+};
+
 /** El grupo del panel nuevo al que pertenece una sección. */
 export function grupoPanelNuevoDe(id: SeccionId): GrupoPanelNuevo {
   return GRUPOS_PANEL_NUEVO.find(g => g.secciones.includes(id))!;

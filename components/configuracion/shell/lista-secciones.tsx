@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import {
-  FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
+  FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, NOMBRE_CORTO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
 import { useMiWebNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
@@ -95,7 +95,7 @@ export function ListaSecciones({
   // Marco a sangre: como el menú de Configuración de Shopify, una lista PLANA (sin títulos de grupo) de filas de 28 px.
   const sangre = useShellNuevo();
   // Las medidas de la fila (30 px, píldora de vidrio, 13 px/450) las pone `#host-menu-configuracion` en globals.css, medidas sobre el real.
-  const filaNueva = sangre ? (actual: boolean) => cn(filaNuevaPorDefecto(actual), 'text-[13px] leading-5') : filaNuevaPorDefecto;
+  const filaNueva = sangre ? (actual: boolean) => cn(filaNuevaPorDefecto(actual), 'border-0 text-[13px] leading-5') : filaNuevaPorDefecto;
 
   // Panel nuevo: las secciones por grupos, cada uno con su título (como las
   // pestañas de Preferencias de Bonsai), en vez de quince filas seguidas.
@@ -123,7 +123,7 @@ export function ListaSecciones({
                     <li key={s.id}>
                       <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} title={s.titulo} onClick={elegir(s.id)} className={filaNueva(actual)}>
                         <Icono size={16} className={icono(actual)} aria-hidden />
-                        <span className="min-w-0 flex-1 truncate">{s.titulo}</span>
+                        <span className="min-w-0 flex-1 truncate">{sangre ? NOMBRE_CORTO[s.id] : s.titulo}</span>
                       </Link>
                     </li>
                   );

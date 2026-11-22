@@ -8,7 +8,7 @@ import { ICONOS_SECCION } from './lista-secciones';
 import type { RefObject } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GRUPOS_PANEL_NUEVO, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
+import { GRUPOS_PANEL_NUEVO, NOMBRE_CORTO, type SeccionConfiguracion } from '@/lib/configuracion/secciones';
 import { hrefDeLugar } from '@/lib/configuracion/destino';
 import { BotonTutorial } from '@/components/tutorial/boton-tutorial';
 
@@ -58,7 +58,7 @@ export function CabeceraSeccion({
             tabIndex={-1}
             className={cn('min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-balance', sangre ? 'md:text-[26px] md:font-medium md:leading-8 md:tracking-normal md:text-[#101010]' : 'md:text-xl')}
           >
-            {seccion.titulo}
+            {sangre && NOMBRE_CORTO[seccion.id] ? NOMBRE_CORTO[seccion.id] : seccion.titulo}
           </h2>
         </span>
         {/* El «?» del tutorial de esta vista (P1.1): su clave es la URL canónica. */}
