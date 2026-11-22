@@ -147,7 +147,8 @@ export function CajonAjuste({
     onCerrar();
   }
 
-  pedirCerrarRef.current = pedirCerrar;
+  // La referencia se actualiza fuera del render (React no deja escribir una ref mientras se pinta).
+  useLayoutEffect(() => { pedirCerrarRef.current = pedirCerrar; });
 
   return (
     <ContextoCajon.Provider value={cajon}>
