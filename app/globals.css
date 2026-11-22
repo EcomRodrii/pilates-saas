@@ -2460,4 +2460,6 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 
   /* Equipo: las fichas de miembros a una columna en todo el móvil (entre 640 y 767 px el grid pasaba a dos y quedaba una tarjeta a medias). */
   .panel-app[data-shell-nuevo] [data-panel-contenido] :has(> [data-miembro]) { grid-template-columns: minmax(0, 1fr) !important; }
+  /* Sustituciones: los cuatro modos a una columna en todo el móvil (a 757 px salían en dos). */
+  .panel-app[data-shell-nuevo] [data-modos] { grid-template-columns: minmax(0, 1fr) !important; }
 }
