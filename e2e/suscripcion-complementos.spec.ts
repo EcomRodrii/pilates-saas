@@ -33,7 +33,7 @@ async function montar(page: Page, addons: (route: Route) => Promise<void>) {
   await page.route('**/api/billing/status**', (route) => json(route, ESTADO));
   await page.route('**/api/billing/addons', async (route) => { intentos.push(route.request().postDataJSON()); await addons(route); });
   await page.route('**/rest/v1/**', (route) => json(route, []));
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await expect(page.getByRole('heading', { name: 'Complementos' })).toBeVisible({ timeout: 30_000 });
   return intentos;
 }
@@ -95,7 +95,7 @@ async function montarConComplemento(page: Page, cambiar: (route: Route) => Promi
     await cambiar(route);
   });
   await page.route('**/rest/v1/**', (route) => json(route, []));
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await expect(page.getByRole('heading', { name: 'Complementos' })).toBeVisible({ timeout: 30_000 });
   return { intentos, marcarCambiado: () => { cambiado = true; } };
 }

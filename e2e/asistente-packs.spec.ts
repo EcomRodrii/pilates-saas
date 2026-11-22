@@ -108,7 +108,7 @@ test('la compra falla (400, 500, red caída): lo dice, no se va a Stripe, y cada
     if (caso === 'red') return r.abort('connectionreset');
     return json(r, { error: caso === 400 ? 'Ese pack no existe' : 'No se pudo abrir el pago. Inténtalo de nuevo en un momento: no se ha cobrado nada.' }, caso);
   });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   const seccion = page.getByTestId('consultas-tentare');
   await expect(seccion).toBeVisible({ timeout: 60_000 });
   const comprar = seccion.getByRole('button', { name: 'Comprar 100 consultas por 9 €' });
@@ -126,7 +126,7 @@ test('la compra falla (400, 500, red caída): lo dice, no se va a Stripe, y cada
   await comprar.click();
   await expect(seccion.locator('[data-error-compra]')).toContainText('No se ha podido conectar');
   expect(intentos).toBe(3);
-  await expect(page).toHaveURL(/\/suscripcion$/);
+  await expect(page).toHaveURL(/\/configuracion\?tab=plan$/);
   // Y los botones vuelven a estar disponibles para reintentar.
   await expect(comprar).toBeEnabled();
 });
@@ -170,7 +170,7 @@ test('/suscripcion: el uso del mes, los packs vivos y los tres packs; con packs,
   await conAsistente(page);
   await conSaldo(page, { ...SALDO, usadas: 200, disponibles: 364, packsQuedan: 364, packs: PACKS_VIVOS, puedeComprar: true });
   await conSuscripcion(page);
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   const seccion = page.getByTestId('consultas-tentare');
   await expect(seccion).toBeVisible({ timeout: 60_000 });
   await expect(seccion.getByTestId('consultas-uso')).toHaveText('200 de 200 este mes');
@@ -188,7 +188,7 @@ test('/suscripcion, gerente: ve el uso, pero no los packs (dinero) ni botones de
   await conAsistente(page, { rol: 'MANAGER' });
   await conSaldo(page, { ...SALDO, packsQuedan: 0, puedeComprar: false });
   await conSuscripcion(page, false);
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   const seccion = page.getByTestId('consultas-tentare');
   await expect(seccion).toBeVisible({ timeout: 60_000 });
   await expect(seccion).toContainText('Solo la propietaria puede comprar packs de consultas. Pídeselo a ella.');
@@ -218,13 +218,13 @@ test('capturas: móvil y oscuro', async ({ page }) => {
   await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByTestId('sin-consultas').last()).toBeVisible();
   await captura(page, 'chat-sin-consultas-1280-oscuro');
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await expect(page.getByTestId('consultas-tentare')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('consultas-tentare').scrollIntoViewIfNeeded();
   await captura(page, 'suscripcion-1280-oscuro');
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await expect(page.getByTestId('consultas-tentare')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('consultas-tentare').scrollIntoViewIfNeeded();
   await captura(page, 'suscripcion-390-oscuro');
@@ -244,7 +244,7 @@ test('capturas: móvil en claro', async ({ page }) => {
   await sugerencia(page, '¿Cuántos clientes activos tengo?').click();
   await expect(chat(page).getByTestId('sin-consultas').last()).toBeVisible();
   await captura(page, 'chat-sin-consultas-390-claro');
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await expect(page.getByTestId('consultas-tentare')).toBeVisible({ timeout: 60_000 });
   await page.getByTestId('consultas-tentare').scrollIntoViewIfNeeded();
   await captura(page, 'suscripcion-390-claro');

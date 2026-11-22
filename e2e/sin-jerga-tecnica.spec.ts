@@ -98,7 +98,7 @@ test.describe('Nada de jerga técnica en pantalla', () => {
   }
 
   test('Suscripción sin pagos configurados: le decimos qué hacer, no qué claves poner', async ({ page }) => {
-    await montar(page, '/suscripcion');
+    await montar(page, '/configuracion?tab=plan');
     // Titulares nuevos desde el rediseño de la pantalla (apertura al público).
     await expect(page.getByText(/Elige tu plan|Tu suscripción|Tu prueba ha terminado/)).toBeVisible({ timeout: 30_000 });
 

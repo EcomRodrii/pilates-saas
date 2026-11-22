@@ -65,7 +65,7 @@ test('sede secundaria: solo se ofrece Cadena, dice por qué, y es lo que se paga
   await conEstado(page, { ...SIN_PLAN, opcionesDePlan: { soloCadena: true, sueltosQueCancelaCadena: [] } });
   const planes = await checkout(page, { status: 200, body: { url: 'https://checkout.stripe.com/c/pay/cs_test_e2e' } });
   await page.route('https://checkout.stripe.com/**', route => route.fulfill({ status: 200, contentType: 'text/html', body: '<title>Stripe</title>' }));
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
 
   const porQue = page.locator('[data-solo-cadena]');
   await expect(porQue).toBeVisible({ timeout: 30_000 });
@@ -87,7 +87,7 @@ test('sede secundaria: solo se ofrece Cadena, dice por qué, y es lo que se paga
 test('sede secundaria con la principal pagando Founding Studio: antes de pagar, cuánto se deja de cobrar y que lo pagado no se devuelve', async ({ page }) => {
   await andamiaje(page);
   await conEstado(page, { ...SIN_PLAN, opcionesDePlan: { soloCadena: true, sueltosQueCancelaCadena: [PRINCIPAL_PAGA_SUELTO] } });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
 
   const aviso = page.getByRole('note', { name: 'Al activar Cadena' });
   await expect(aviso).toBeVisible({ timeout: 30_000 });
@@ -112,7 +112,7 @@ test('estudio en el plan gratis: el aviso sale solo al elegir Cadena, y con su p
     },
     opcionesDePlan: { soloCadena: false, sueltosQueCancelaCadena: [{ plan: 'BASE', otraSede: false, nombreSede: null, pagadoHasta: null, pagoEnCurso: true }] },
   });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
 
   await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true', { timeout: 30_000 });
   await expect(page.getByRole('note', { name: 'Al activar Cadena' })).toHaveCount(0);
@@ -141,7 +141,7 @@ test('estudio en el plan gratis sin planes sueltos vivos: elegir Cadena no avisa
     },
     opcionesDePlan: { soloCadena: false, sueltosQueCancelaCadena: [] },
   });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await page.getByRole('radio', { name: /^Cadena/ }).click({ timeout: 30_000 });
   await expect(page.getByRole('button', { name: 'Pasarme a Cadena · 249 €/mes' })).toBeVisible();
   await expect(page.locator('[data-aviso-cadena]')).toHaveCount(0);
@@ -150,7 +150,7 @@ test('estudio en el plan gratis sin planes sueltos vivos: elegir Cadena no avisa
 test('si el servidor no pudo leer las sedes, al elegir Cadena lo dice en condicional', async ({ page }) => {
   await andamiaje(page);
   await conEstado(page, { ...SIN_PLAN, plan: 'BASE', opcionesDePlan: null });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
   await page.getByRole('radio', { name: /^Plan Cadena/ }).click({ timeout: 30_000 });
   await expect(page.getByRole('note', { name: 'Al activar Cadena' })).toHaveText(
     'Si alguna de tus sedes paga ahora Founding Studio o Estudio, ese plan se cancela al activar Cadena, y el mes que ya está pagado no se devuelve.',
@@ -162,12 +162,12 @@ test('una petición de plan suelto desde una sede secundaria: el servidor dice q
   // Sin `opcionesDePlan` (un servidor anterior): la pantalla ofrece los tres y manda la petición.
   await conEstado(page, { ...SIN_PLAN, plan: 'BASE' });
   const planes = await checkout(page, { status: 409, body: { error: MENSAJE_SOLO_CADENA } });
-  await page.goto('/suscripcion');
+  await page.goto('/configuracion?tab=plan');
 
   await page.getByRole('radio', { name: /^Plan Founding Studio/ }).click({ timeout: 30_000 });
   await page.getByRole('button', { name: /Continuar con Founding Studio/ }).click();
   await expect(page.getByRole('alert').filter({ hasText: 'forma parte de tu cadena' })).toHaveText(MENSAJE_SOLO_CADENA);
   expect(planes.length).toBeGreaterThan(0);
   expect(planes).toEqual(['BASE']);
-  await expect(page).toHaveURL(/\/suscripcion$/);
+  await expect(page).toHaveURL(/\/configuracion\?tab=plan$/);
 });

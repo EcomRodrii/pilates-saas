@@ -132,8 +132,7 @@ function AvisoAlPasarACadena({ opciones }: { opciones: OpcionesDePlan | null | u
  * La suscripción del estudio a Tentare. Se pinta en dos sitios:
  *  - `embebida`: dentro de Configuración → «Plan» (el sitio normal, como Shopify);
  *  - suelta: `/suscripcion`, la pantalla a la que va un estudio BLOQUEADO y a la que
- *    vuelve Stripe tras pagar. Sigue viva para quien no está bloqueado (enlaces de correos,
- *    avisos de impago, e2e): no hay redirección, para no romper ninguno.
+ *    vuelve Stripe tras pagar. Con una visita a secas, quien no está bloqueado va a Configuración → Plan; con `?` o `#` (Stripe, avisos de impago, anclas) se queda.
  */
 export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
   const { session, loading } = useAuth();
@@ -176,6 +175,10 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
     const cargar = () => estadoBilling().then((e) => {
       if (!vivo) return;
       setEstado(e);
+      // Visita a secas a /suscripcion de un estudio que NO está bloqueado: su sitio es Configuración → Plan
+      // (fundador, 22-nov-2026). Con `?…` (vuelta de Stripe, ?tarjeta=1, ?pack=) o `#…` (#consultas,
+      // #exportar-datos) se queda aquí: son enlaces de correos, avisos y Stripe que dependen de esta pantalla.
+      if (!embebida && e && !e.bloqueado && !window.location.search && !window.location.hash) { router.replace('/configuracion?tab=plan'); return; }
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
@@ -192,7 +195,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
     });
     cargar();
     return () => { vivo = false; clearTimeout(espera); };
-  }, [session, retornoCheckout]);
+  }, [session, retornoCheckout, embebida, router]);
 
   // Cómo paga hoy (mensual o anual): solo si ya paga y solo la propietaria. Se lee
   // de Stripe una vez por visita; ante un fallo, «mensual» (lo de siempre).
