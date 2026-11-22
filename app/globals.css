@@ -2445,4 +2445,16 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='pildoras'] { background: transparent; padding: 0; gap: 8px; }
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='pildora'] { height: 36px; padding: 0 16px; border-radius: 9999px; background: #f1f1f1; color: #303030; font-size: 14px; box-shadow: none; }
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [data-vivo='pildora'][aria-pressed='true'] { background: #1a1a1a; color: #fff; }
+
+  /* Los chips ganan al `background: transparent !important` de las filas de Mensajería; el activo de Productos se reconoce por su estilo en línea. */
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button { background: #f1f1f1 !important; }
+  .panel-app[data-shell-nuevo][data-shell-nuevo] [data-vistas-en-menu]:not(:has(> button > span[aria-hidden])) > button:is([aria-selected='true'], [aria-current='page'], [style*='--card']) { background: #1a1a1a !important; color: #fff !important; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] button[aria-pressed='true'][class*='rounded-full'][class*='border']:not([data-vivo-boton]) { background: #1a1a1a !important; color: #fff !important; }
+
+  /* Las búsquedas de Clientes y Equipo llevan `bg-card rounded-xl`, y la regla genérica de cards les ganaba: se refuerza la especificidad. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] :is([data-clientas-buscar], [data-equipo-buscar]):is([data-clientas-buscar], [data-equipo-buscar]) input { height: 52px; font-size: 17px; background: #f4f4f4 !important; border: 0 !important; border-radius: 9999px !important; box-shadow: none !important; padding-left: 48px !important; }
+  /* Barras de pestañas y de estado de Clientes (segmentados grises): sin contenedor, chips sueltos; el activo, negro. */
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [role][class*='bg-muted'][class*='rounded-full'][class*='p-1'] { background: transparent !important; padding: 0 !important; gap: 8px !important; box-shadow: none !important; border-radius: 0 !important; overflow-x: auto; scrollbar-width: none; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [role][class*='bg-muted'][class*='rounded-full'][class*='p-1'] > button { background: #f1f1f1 !important; color: #303030 !important; box-shadow: none !important; height: 40px; padding: 0 16px !important; font-size: 14px !important; }
+  .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] [role][class*='bg-muted'][class*='rounded-full'][class*='p-1'] > button:is(.bg-card, [aria-selected='true'], [aria-pressed='true']) { background: #1a1a1a !important; color: #fff !important; }
 }
