@@ -1975,10 +1975,11 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 }
 
 /* ── Configuración como la de Shopify ─────────────────────────────────────────────────────────────────
-   Una sola columna centrada de 680 px (el contenido de `settings/*` mide ~682), título de 22/500, grupos
+   Una sola columna centrada de 784 px (la tarjeta de `settings/*` mide 784 a 1600 px de ventana), título de 22/500, grupos
    apilados en vez de en dos columnas y los iconos de fila sin baldosa de color (16 px, tinta). ───────── */
 @media (min-width: 768px) {
-  .panel-app[data-shell-nuevo] [data-config-raiz] { max-width: 680px; margin-inline: auto; padding-top: 12px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] { max-width: 784px; margin-inline: auto; padding-top: 32px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] #seccion-titulo { margin-bottom: 18px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] { margin-bottom: 8px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-title'] { font-size: 22px !important; line-height: 28px !important; font-weight: 500 !important; letter-spacing: -0.02em !important; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] > * { width: 28px !important; height: 28px !important; border-radius: 8px !important; background: var(--t-blue-500) !important; color: #fff !important; }
@@ -2495,5 +2496,128 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   /* Etiquetas de tarjeta como en Shopify: frase normal, 14/600, sin mayúsculas ni monoespaciada. */
   .panel-app[data-shell-nuevo]:not(.dark) [data-movil-hoja='pantalla'] [data-panel-contenido] p[class*='uppercase'] {
     text-transform: none !important; letter-spacing: 0 !important; font-family: inherit !important; font-size: 14px !important; font-weight: 600 !important; line-height: 1.35 !important; color: #616161 !important;
+  }
+}
+
+
+/* ── Diálogo de edición de Configuración (`SHELL_NUEVO`) ─────────────────────────────────────────────
+   Shopify abre lo que se edita en un diálogo centrado (620 px, radio 24, fondo en gris suave), no en un cajón: entra con
+   un fundido breve y no desliza. ───────── */
+@keyframes cajon-modal-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes cajon-modal-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.98); } }
+@media (min-width: 768px) {
+  .cajon-modal { animation: cajon-modal-in 140ms ease-out backwards !important; }
+  /* ⚠️ Al cerrar tiene que haber una animación de SALIDA: el panel se desmonta al acabar (`onAnimationEnd` de
+     DashboardDrawer). Con solo la de entrada forzada, nunca terminaba y el fondo gris se quedaba tapando la página. */
+  .cajon-modal.animate-drawer-sheet-out { animation: cajon-modal-out 120ms ease-in forwards !important; }
+}
+@media (min-width: 768px) {
+  /* Campos del diálogo como los de Shopify: 30 px, radio 8, 13 px, borde gris fino; etiquetas de 13 px y peso 500. */
+  .cajon-modal :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color']), select) {
+    height: 30px; min-height: 0; border-radius: 8px; font-size: 13px; line-height: 20px; padding-block: 4px; padding-inline: 8px;
+    border-color: rgba(0, 0, 0, 0.2);
+  }
+  .cajon-modal textarea { border-radius: 8px; font-size: 13px; line-height: 20px; border-color: rgba(0, 0, 0, 0.2); }
+  .cajon-modal label { font-size: 13px; line-height: 20px; font-weight: 500; color: #101010; }
+}
+
+/* Botones de Configuración como los de Shopify (`SHELL_NUEVO`): la acción principal es tinta en píldora de 28 px
+   (13 px, peso 400), no el color de marca del estudio. Dentro de la columna de Configuración y de sus diálogos. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(button, a).bg-brand,
+  .cajon-modal :is(button, a).bg-brand,
+  [data-accion-herramienta] :is(button, a) {
+    background-image: none; background-color: var(--primary); color: var(--primary-foreground); border-color: transparent;
+    border-radius: 9999px; min-height: 28px; height: 28px; padding-block: 0; padding-inline: 12px; font-size: 13px; line-height: 20px; font-weight: 400;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(button, a).bg-brand:hover,
+  .cajon-modal :is(button, a).bg-brand:hover,
+  [data-accion-herramienta] :is(button, a):hover { background-color: color-mix(in srgb, var(--primary) 90%, transparent); filter: none; }
+  /* El hover de una fila: un gris casi blanco, sin cambiar nada más. */
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-tarjeta-ajuste] > li > :is(a, button):hover { background-color: color-mix(in srgb, var(--foreground) 3%, transparent); }
+}
+
+/* Tablas y botones secundarios de Configuración como los de Idiomas en Shopify (`SHELL_NUEVO`):
+   cabecera gris de radio 10 con rótulos de 12/18 peso 500 en #4a4a4a, y el botón secundario en píldora gris de 28 px. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead th {
+    background-color: #f7f7f7; color: #4a4a4a; font-size: 12px; line-height: 18px; font-weight: 500; padding: 6px 8px; border: 0; letter-spacing: 0; text-transform: none;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead th:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead th:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead tr { background: transparent; border: 0; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table tbody td { font-size: 13px; line-height: 20px; padding: 12px 8px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] :has(> table) { padding: 8px 10px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-slot='button'][class*='border-border'][class*='bg-background'],
+  .cajon-modal [data-slot='button'][class*='border-border'][class*='bg-background'] {
+    background-color: #ebebeb; border-color: transparent; color: #101010; border-radius: 9999px; height: 28px; min-height: 28px; padding-block: 0; padding-inline: 12px; font-size: 12px; line-height: 16px; font-weight: 500;
+  }
+}
+
+/* Interruptor de Configuración como el de Shopify (`SHELL_NUEVO`): pista de 32×16 en tinta (#101010) con la bola
+   blanca de 12 px; apagado, pista gris. Medido en «Cuentas de cliente» (32×16, radio 9999). */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'],
+  .cajon-modal button[role='switch'] {
+    width: 32px !important; height: 16px !important; border-width: 0 !important; padding: 0;
+    background-color: color-mix(in srgb, var(--foreground) 22%, var(--card)) !important;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'],
+  .cajon-modal button[role='switch'][aria-checked='true'] { background-color: #101010 !important; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'] > span,
+  .cajon-modal button[role='switch'] > span { width: 12px !important; height: 12px !important; background-color: #fff !important; translate: none !important; transform: translateX(2px) !important; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'] > span,
+  .cajon-modal button[role='switch'][aria-checked='true'] > span { transform: translateX(18px) !important; }
+}
+
+/* Pastillas de estado de Configuración como las de Shopify (`SHELL_NUEVO`): relleno de color, sin borde ni icono,
+   radio 8, 12/16 peso 500. Colores de las insignias de Polaris (éxito, atención, crítico y neutro). */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste],
+  .cajon-modal [data-estado-ajuste] {
+    border: 0; border-radius: 8px; padding: 2px 8px; font-size: 12px; line-height: 16px; font-weight: 500; gap: 0;
+    background-color: #ebebeb; color: #303030;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste] > svg,
+  .cajon-modal [data-estado-ajuste] > svg { display: none; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste='activo'],
+  .cajon-modal [data-estado-ajuste='activo'] { background-color: #affebf; color: #0c5132; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste='pendiente'],
+  .cajon-modal [data-estado-ajuste='pendiente'] { background-color: #ffeb78; color: #4f4700; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-estado-ajuste='problema'],
+  .cajon-modal [data-estado-ajuste='problema'] { background-color: #fed1d7; color: #8e0b21; }
+}
+
+/* Motivación sin pasos numerados y desplegables como los de Shopify (`SHELL_NUEVO`).
+   Los bloques llevan su propio título (como en Shopify), así que el «1 Cómo se ganan» sobra. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-paso] > p:first-child { display: none; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] select,
+  .cajon-modal select {
+    -webkit-appearance: none; appearance: none; height: 30px; border-radius: 8px; background-color: #fff; color: #101010;
+    border: 1px solid rgba(0, 0, 0, 0.2); font-size: 13px; line-height: 20px; padding: 4px 28px 4px 8px;
+    background-repeat: no-repeat; background-position: right 8px center; background-size: 12px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23616161'%3E%3Cpath d='M6.3 8.3a1 1 0 0 1 1.4 0L10 10.6l2.3-2.3a1 1 0 1 1 1.4 1.4l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 0-1.4Z'/%3E%3C/svg%3E");
+  }
+}
+
+/* Botón secundario de Configuración (`btnSecondary`: «Copiar», «Marcar avería», las exportaciones…) como el de Shopify:
+   píldora gris de 28 px, 12/16 peso 500 (`SHELL_NUEVO`). */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] button.bg-card.border-border.rounded-lg,
+  .cajon-modal button.bg-card.border-border.rounded-lg {
+    background-color: #ebebeb; border-color: transparent; border-radius: 9999px; color: #101010;
+    min-height: 28px; height: 28px; padding: 0 12px; font-size: 12px; line-height: 16px; font-weight: 500;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] button.bg-card.border-border.rounded-lg:hover,
+  .cajon-modal button.bg-card.border-border.rounded-lg:hover { background-color: #e3e3e3; }
+}
+
+/* Anchura y campos de las herramientas (`SHELL_NUEVO`): todo el ancho de la columna de 784 px, como las tarjetas de
+   Shopify, y campos de texto de 30 px con radio 8 también fuera de los diálogos. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(.max-w-2xl, .max-w-3xl, .max-w-4xl) { max-width: 784px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(input:not([type]), input[type='text'], input[type='email'], input[type='url'], input[type='number'], input[type='tel'], input[type='search'], input[type='password']) {
+    height: 30px; min-height: 0; border-radius: 8px; font-size: 13px; line-height: 20px; padding-block: 4px; padding-inline: 8px; border-color: rgba(0, 0, 0, 0.2);
   }
 }

@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import type { SeccionId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
 import { useCajonAjuste } from './cajon-ajuste';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Algunos errores ya empiezan por «No se ha guardado:» (una fila que la RLS no
 // deja tocar, lib/db/actualizar-studio.ts): no se repite.
@@ -70,6 +71,7 @@ export function BarraGuardar({
 }) {
   const nav = useNavegacionConfig();
   const cajon = useCajonAjuste();
+  const sangre = useShellNuevo();
   const visible = cambios.length > 0;
   const enVuelo = useRef(false);
   const [guardando, setGuardando] = useState(false);
@@ -136,8 +138,39 @@ export function BarraGuardar({
     onDescartar();
   }
 
+  // Como Shopify: el diálogo de edición lleva SIEMPRE su pie, «Cancelar» y «Guardar» (apagado hasta que hay cambios).
+  const pie = Boolean(cajon && sangre);
+
   return (
     <>
+      {pie && cajon && (
+        <div
+          {...(visible ? { 'data-barra-guardar': '' } : {})}
+          role="region"
+          aria-label="Cambios sin guardar"
+          className="sticky bottom-0 z-10 -mx-4 mt-auto bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-5 md:px-5 md:pb-5"
+        >
+          {(error || bloqueo) && (
+            <p role="alert" className="mb-2 text-sm font-medium text-destructive text-pretty">
+              {error ? textoDeError(error) : bloqueo}
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button" onClick={cajon.cerrar} disabled={guardando}
+              className="h-7 rounded-full bg-white px-3 text-[13px] leading-5 text-[#101010] shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_2px_20px_rgba(0,0,0,0.03),0_5px_20px_rgba(0,0,0,0.03)] transition-colors hover:bg-[#f7f7f7] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button" onClick={alPulsarGuardar} disabled={!visible || guardando || !!bloqueo}
+              className="h-7 rounded-full bg-foreground px-3 text-[13px] leading-5 text-background transition-colors hover:bg-foreground/90 disabled:bg-foreground/[0.13] disabled:text-background focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              {guardando ? 'Guardando…' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      )}
       {/* Fuera de la barra: cuando se guarda, la barra desaparece y esto es lo
           que le dice a un lector de pantalla que ha ido bien. */}
       <p role="status" className="sr-only">{visible ? '' : anuncio}</p>
@@ -156,13 +189,13 @@ export function BarraGuardar({
           </p>
         </div>
       )}
-      {visible && (
+      {visible && !pie && (
         <div
           data-barra-guardar=""
           role="region"
           aria-label="Cambios sin guardar"
           className={cajon
-            ? 'sticky bottom-0 z-10 -mx-4 mt-auto border-t border-border bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-6 md:px-6'
+            ? cn('sticky bottom-0 z-10 -mx-4 mt-auto border-t border-border bg-card px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:-mx-6 md:px-6', sangre && 'md:-mx-5 md:border-0 md:px-5 md:pb-5')
             : 'sticky z-20 bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.5rem)] lg:bottom-4'}
         >
           <div className={cn(
@@ -180,14 +213,14 @@ export function BarraGuardar({
               </p>
             </div>
             <div className="grid shrink-0 grid-cols-2 gap-2 @sm/config:flex">
-              <Button type="button" variant="outline" size="lg" onClick={descartar} disabled={guardando}>
+              <Button type="button" variant="outline" size="lg" onClick={descartar} disabled={guardando} className={cn(sangre && 'md:h-7 md:rounded-full md:px-3 md:text-[13px] md:font-normal')}>
                 Descartar
               </Button>
               {/* Apagado (un plazo imposible) tiene que seguir leyéndose: la
                   opacidad del `Button` dejaba el oliva a medio fundir. */}
               <Button
                 type="button" size="lg" onClick={alPulsarGuardar} disabled={guardando || !!bloqueo}
-                className="disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+                className={cn('disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100', sangre && 'md:h-7 md:rounded-full md:border-transparent md:bg-foreground md:px-3 md:text-[13px] md:font-normal md:text-background md:hover:bg-foreground/90 md:disabled:bg-foreground/15 md:disabled:text-background')}
               >
                 {guardando ? 'Guardando…' : 'Guardar'}
               </Button>

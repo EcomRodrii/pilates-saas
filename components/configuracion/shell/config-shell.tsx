@@ -477,6 +477,7 @@ export function ConfigShell() {
       <div
         data-tour="configuracion-vista"
         data-config-raiz
+        data-sangre={shellNuevo ? '' : undefined}
         data-vista={herramienta ? 'herramienta' : permitida ? 'detalle' : 'inicio'}
         className="group/config config-tactil space-y-6"
       >
@@ -484,7 +485,8 @@ export function ConfigShell() {
           title="Configuración"
           description="Cómo está tu estudio y dónde se cambia cada cosa."
           data-config-cabecera
-          className="max-md:group-data-[vista=detalle]/config:sr-only max-md:group-data-[vista=herramienta]/config:sr-only"
+          // Marco a sangre: como Shopify, con una sección abierta el título es el de la sección (el <h1> se queda para lectores de pantalla).
+          className={cn('max-md:group-data-[vista=detalle]/config:sr-only max-md:group-data-[vista=herramienta]/config:sr-only', railEnMenu && 'md:group-data-[vista=detalle]/config:sr-only md:group-data-[vista=herramienta]/config:sr-only')}
         />
 
         {tab !== null && !permitida && (
@@ -495,7 +497,7 @@ export function ConfigShell() {
 
         {/* Una herramienta va a todo el ancho: sin la columna de secciones. */}
         <div className={cn(!herramienta && !railEnMenu && 'md:grid md:grid-cols-[13rem_minmax(0,1fr)] md:items-start md:gap-6')}>
-          {!herramienta && railEnMenu && hostMenu && createPortal(
+          {railEnMenu && hostMenu && createPortal(
             <ListaSecciones secciones={visibles} rol={rol} activa={mostrada} onElegir={id => irAPreguntando(id)} />,
             hostMenu,
           )}

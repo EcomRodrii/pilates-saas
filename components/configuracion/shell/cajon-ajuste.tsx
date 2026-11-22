@@ -6,6 +6,7 @@ import { DashboardDrawer } from '@/components/ui/dashboard-drawer';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { tarjetaPorId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { useNavegacionConfig } from './contexto';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { EstadoAjuste } from './estado-ajuste';
 import type { MostrarToast } from '@/components/ui/toast';
 
@@ -40,6 +41,8 @@ interface Cajon {
    * seguiría sucio y el navegador seguiría avisando al recargar.
    */
   marcarCambios: (descartar: () => void) => () => void;
+  /** «Cancelar» del pie: cierra el cajón (y pregunta si hay cambios sin guardar). */
+  cerrar: () => void;
 }
 
 const ContextoCajon = createContext<Cajon | null>(null);
@@ -114,8 +117,12 @@ export function CajonAjuste({
   const conCambios = useRef(new Map<number, () => void>());
   const ultimaMarca = useRef(0);
   const [preguntando, setPreguntando] = useState(false);
+  // Marco a sangre: como en Shopify, lo que se edita se abre en un diálogo centrado de 620 px (radio 24, con el fondo en gris suave como Shopify), no en un cajón lateral.
+  const sangre = useShellNuevo();
 
+  const pedirCerrarRef = useRef<() => void>(() => {});
   const cajon = useMemo<Cajon>(() => ({
+    cerrar: () => pedirCerrarRef.current(),
     marcarCambios: (descartar: () => void) => {
       const marca = ++ultimaMarca.current;
       conCambios.current.set(marca, descartar);
@@ -140,15 +147,21 @@ export function CajonAjuste({
     onCerrar();
   }
 
+  // La referencia se actualiza fuera del render (React no deja escribir una ref mientras se pinta).
+  useLayoutEffect(() => { pedirCerrarRef.current = pedirCerrar; });
+
   return (
     <ContextoCajon.Provider value={cajon}>
       <DashboardDrawer
         open={abierto}
         onClose={pedirCerrar}
         label={tarjeta.titulo}
-        sheetClassName="@container/config config-tactil relative flex h-full w-full flex-col bg-card shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] md:w-[28rem]"
+        backdropClassName={sangre ? 'fixed inset-0 z-50 flex justify-end bg-foreground/20 md:items-center md:justify-center md:bg-black/[0.17]' : undefined}
+        sheetClassName={sangre
+          ? '@container/config config-tactil cajon-modal relative flex h-full w-full flex-col bg-card shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] md:h-auto md:max-h-[calc(100dvh-64px)] md:w-[620px] md:overflow-hidden md:rounded-[24px] md:shadow-[0_2px_3px_-1px_rgba(0,0,0,0.06),0_4px_6px_-2px_rgba(0,0,0,0.06),0_8px_12px_-4px_rgba(0,0,0,0.06),0_16px_24px_-6px_rgba(0,0,0,0.06),0_0_0_1px_rgba(0,0,0,0.08)]'
+          : '@container/config config-tactil relative flex h-full w-full flex-col bg-card shadow-[-20px_0_60px_-20px_rgba(0,0,0,0.3)] md:w-[28rem]'}
       >
-        <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 md:pl-6 md:pr-3">
+        <div className={sangre ? 'flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 md:h-auto md:border-0 md:px-5 md:pb-1 md:pt-4' : 'flex h-14 shrink-0 items-center gap-1 border-b border-border px-2 md:pl-6 md:pr-3'}>
           <button type="button" onClick={pedirCerrar} aria-label="Volver" className={`flex md:hidden ${BOTON}`}>
             <ArrowLeft size={20} aria-hidden />
           </button>
@@ -156,17 +169,17 @@ export function CajonAjuste({
             id={`${id}-titulo`}
             ref={tituloRef}
             tabIndex={-1}
-            className="min-w-0 flex-1 truncate text-base font-semibold text-foreground outline-none md:text-lg"
+            className={sangre ? 'min-w-0 flex-1 truncate text-base font-semibold text-foreground outline-none md:text-[15px] md:leading-6' : 'min-w-0 flex-1 truncate text-base font-semibold text-foreground outline-none md:text-lg'}
           >
             {tarjeta.titulo}
           </h2>
-          <button type="button" onClick={pedirCerrar} aria-label="Cerrar" className={`hidden md:flex ${BOTON}`}>
+          <button type="button" onClick={pedirCerrar} aria-label="Cerrar" className={`hidden md:flex ${sangre ? 'size-7 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-black/[0.06] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50' : BOTON}`}>
             <X size={18} aria-hidden />
           </button>
         </div>
 
         {/* scroll-mb: un campo enfocado sube por encima de la barra de guardar. */}
-        <div className="flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 md:px-6 [&_:is(input,select,textarea)]:scroll-mb-32">
+        <div className={sangre ? 'flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 md:px-5 [&_:is(input,select,textarea)]:scroll-mb-32' : 'flex flex-1 flex-col overflow-y-auto overscroll-contain px-4 pt-4 md:px-6 [&_:is(input,select,textarea)]:scroll-mb-32'}>
           <p className="text-sm text-muted-foreground text-pretty">{tarjeta.frase}</p>
           {/* Casi todo lo que se abre aquí espera a «Guardar». Lo que no —una
               imagen, que se sube al elegirla— lo dice ANTES de tocar nada, con

@@ -1,5 +1,6 @@
 'use client';
 
+import { AccionHerramienta } from '@/components/configuracion/shell/accion-herramienta';
 import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import type { MostrarToast } from '@/components/ui/toast';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -582,10 +583,12 @@ export function TabClases({ showToast }: { showToast: MostrarToast }) {
             </p>
           )}
         </div>
-        <button data-tour="tipos-clase-nuevo" className={btnPrimary} onClick={openNueva}>
-          <Plus size={14} />
-          Nuevo tipo de clase
-        </button>
+        <AccionHerramienta>
+          <button data-tour="tipos-clase-nuevo" className={btnPrimary} onClick={openNueva}>
+            <Plus size={14} />
+            Nuevo tipo de clase
+          </button>
+        </AccionHerramienta>
       </div>
 
       {activos.length === 0 && <AyudaDelPaso paso="tipos" />}

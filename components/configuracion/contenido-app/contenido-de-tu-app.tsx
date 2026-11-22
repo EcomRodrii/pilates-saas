@@ -14,6 +14,7 @@
 // (`useGuardadoDiferido`, #2744). El mensaje NO: ahora sí lo leen todas sus alumnas en
 // cuanto se guarda, así que se guarda con su botón, nunca a medio escribir.
 
+import { AccionHerramienta } from '@/components/configuracion/shell/accion-herramienta';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronDown, ChevronUp, ExternalLink, Eye, Image as ImageIcon, Loader2, Megaphone, Plus, Trash2, Upload, X } from 'lucide-react';
@@ -425,9 +426,11 @@ function ListaTarjetas({ tarjetas, hoy, creando, moviendo, enfocar, posicion, on
           <h3 tabIndex={-1} className="text-[20px] font-semibold tracking-tight text-foreground outline-none">Tus tarjetas</h3>
           <p className="max-w-[46ch] text-[13px] text-muted-foreground">Salen en este orden, de izquierda a derecha, debajo de su próxima clase.</p>
         </div>
-        <button type="button" onClick={onNueva} disabled={creando} className={cn(BOTON_VIVO, 'h-10 px-4 text-[14px] disabled:opacity-60')}>
-          {creando ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Plus size={15} aria-hidden />} Nueva tarjeta
-        </button>
+        <AccionHerramienta>
+          <button type="button" onClick={onNueva} disabled={creando} className={cn(BOTON_VIVO, 'h-10 px-4 text-[14px] disabled:opacity-60')}>
+            {creando ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Plus size={15} aria-hidden />} Nueva tarjeta
+          </button>
+        </AccionHerramienta>
       </div>
       <ol className="space-y-2" aria-label="Tus tarjetas, en orden">
         {tarjetas.map((t, i) => {

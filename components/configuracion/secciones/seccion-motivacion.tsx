@@ -199,7 +199,7 @@ function Cabecera({ plan, cifras, moneda }: {
 
 function Paso({ n, titulo, children }: { n: number; titulo: string; children: ReactNode }) {
   return (
-    <section aria-label={titulo} className="space-y-3">
+    <section aria-label={titulo} data-paso="" className="space-y-3">
       <p className="flex items-center gap-2 px-1 text-sm font-semibold text-foreground">
         <span aria-hidden className="flex size-6 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background tabular-nums">{n}</span>
         {titulo}

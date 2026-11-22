@@ -9,7 +9,7 @@ import {
 import { cn } from '@/lib/utils';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import {
-  FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
+  FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, NOMBRE_CORTO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
 import { useMiWebNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
@@ -94,13 +94,14 @@ export function ListaSecciones({
   const miWebNueva = useMiWebNueva();
   // Marco a sangre: como el menú de Configuración de Shopify, una lista PLANA (sin títulos de grupo) de filas de 28 px.
   const sangre = useShellNuevo();
-  const filaNueva = sangre ? (actual: boolean) => cn(fila(actual), 'h-7 min-h-0 rounded-lg py-0 text-[13px] leading-5') : filaNuevaPorDefecto;
+  // Las medidas de la fila (30 px, píldora de vidrio, 13 px/450) las pone `#host-menu-configuracion` en globals.css, medidas sobre el real.
+  const filaNueva = sangre ? (actual: boolean) => cn(filaNuevaPorDefecto(actual), 'border-0 text-[13px] leading-5') : filaNuevaPorDefecto;
 
   // Panel nuevo: las secciones por grupos, cada uno con su título (como las
   // pestañas de Preferencias de Bonsai), en vez de quince filas seguidas.
   if (panelNuevo) {
     return (
-      <nav aria-label="Secciones de Configuración" className={sangre ? 'space-y-0.5' : 'space-y-3'}>
+      <nav aria-label="Secciones de Configuración" className={sangre ? 'space-y-0' : 'space-y-3'}>
         <Link id="rail-inicio" href="/configuracion" aria-current={enInicio ? 'page' : undefined} onClick={elegir(null)} className={filaNueva(enInicio)}>
           <Settings size={16} className={icono(enInicio)} aria-hidden />
           <span className="min-w-0 flex-1">Vista general</span>
@@ -114,15 +115,15 @@ export function ListaSecciones({
           return (
             <div key={grupo.id}>
               {!sinEncabezado && !sangre && <p id={`rail-grupo-${grupo.id}`} className="px-3 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{grupo.titulo}</p>}
-              <ul aria-labelledby={sinEncabezado || sangre ? undefined : `rail-grupo-${grupo.id}`} className="space-y-0.5">
+              <ul aria-labelledby={sinEncabezado || sangre ? undefined : `rail-grupo-${grupo.id}`} className={sangre ? 'space-y-0' : 'space-y-0.5'}>
                 {suyas.map(s => {
                   const Icono = ICONOS_SECCION[s.id];
                   const actual = activa === s.id;
                   return (
                     <li key={s.id}>
-                      <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} onClick={elegir(s.id)} className={filaNueva(actual)}>
+                      <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} title={s.titulo} onClick={elegir(s.id)} className={filaNueva(actual)}>
                         <Icono size={16} className={icono(actual)} aria-hidden />
-                        <span className="min-w-0 flex-1 truncate">{s.titulo}</span>
+                        <span className="min-w-0 flex-1 truncate">{sangre ? NOMBRE_CORTO[s.id] : s.titulo}</span>
                       </Link>
                     </li>
                   );

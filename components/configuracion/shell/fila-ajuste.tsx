@@ -10,7 +10,7 @@ import { Interruptor } from '@/components/ui/interruptor';
 import { tarjetaPorId, type SeccionId, type TarjetaId } from '@/lib/configuracion/secciones';
 import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import type { ResumenFila } from '@/lib/configuracion/resumenes';
-import { CajaValor, FILA, FILAS_COMO_TARJETAS, FILA_NUEVA, IconoFila } from './fila-herramienta';
+import { CajaValor, FILA, FILAS_COMO_TARJETAS, FILA_NUEVA, IconoFila, TARJETA_SANGRE } from './fila-herramienta';
 import { EstadoAjuste } from './estado-ajuste';
 import { esClicNormal, useNavegacionConfig } from './contexto';
 import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
@@ -32,9 +32,9 @@ export function GrupoFilas({ titulo, children }: { titulo: string; children: Rea
   // Como Shopify: título en frase normal y UNA tarjeta con las filas separadas por una línea fina.
   const sangre = useShellNuevo();
   return (
-    <section aria-labelledby={id} className={cn(sangre ? 'space-y-3' : 'space-y-2', panelNuevo ? 'max-w-3xl' : 'max-w-2xl')}>
-      <h3 id={id} className={sangre ? 'px-1 text-[15px] font-semibold text-foreground' : panelNuevo ? 'px-1 text-[12.5px] font-bold uppercase tracking-[0.07em] text-foreground/60' : 'px-1 text-sm font-semibold text-foreground'}>{titulo}</h3>
-      <ul data-tarjeta-ajuste="" className={sangre ? 'divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card' : panelNuevo ? cn('space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'divide-y divide-border overflow-hidden')}>
+    <section aria-labelledby={id} className={cn(sangre ? 'max-w-[784px] space-y-4' : 'space-y-2', !sangre && (panelNuevo ? 'max-w-3xl' : 'max-w-2xl'))}>
+      <h3 id={id} className={sangre ? 'text-[15px] font-medium leading-[22px] tracking-[-0.15px] text-[#101010]' : panelNuevo ? 'px-1 text-[12.5px] font-bold uppercase tracking-[0.07em] text-foreground/60' : 'px-1 text-sm font-semibold text-foreground'}>{titulo}</h3>
+      <ul data-tarjeta-ajuste="" className={sangre ? TARJETA_SANGRE : panelNuevo ? cn('space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'divide-y divide-border overflow-hidden')}>
         {children}
       </ul>
     </section>
@@ -46,7 +46,7 @@ export function TituloFila({ titulo, estado }: { titulo: string; estado?: Resume
   const sangre = useShellNuevo();
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className={sangre ? 'text-[13px] font-medium leading-5 text-foreground' : 'text-[15px] font-semibold text-foreground'}>{titulo}</span>
+      <span className={sangre ? 'text-[13px] font-normal leading-5 tracking-[-0.13px] text-[#101010]' : 'text-[15px] font-semibold text-foreground'}>{titulo}</span>
       {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
     </span>
   );
@@ -107,6 +107,7 @@ export function FilaAjuste({
 }) {
   const tarjeta = tarjetaPorId(id);
   const panelNuevo = usePanelNuevo();
+  const sangre = useShellNuevo();
   if (panelNuevo) {
     return (
       <li>
@@ -117,12 +118,13 @@ export function FilaAjuste({
           onClick={() => onAbrir(id)}
           className={cn(FILA_NUEVA, 'scroll-mt-32 scroll-mb-32')}
         >
+          {sangre && <IconoFila icono={icono} />}
           <span className="min-w-0 flex-1">
             <TituloFila titulo={tarjeta.titulo} estado={estado} />
-            <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{frase ?? tarjeta.frase}</span>
+            <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{sangre ? (valor ?? frase ?? tarjeta.frase) : (frase ?? tarjeta.frase)}</span>
             {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
           </span>
-          <span data-resumen={valor ? 'valor' : 'descripcion'} className="contents"><CajaValor valor={valor} /></span>
+          <span data-resumen={valor ? 'valor' : 'descripcion'} className="contents">{sangre ? <Flechita /> : <CajaValor valor={valor} />}</span>
         </button>
       </li>
     );
@@ -200,13 +202,13 @@ export function FilaInterruptor({
 
   const panelNuevo = usePanelNuevo();
   return (
-    <li id={id} className={cn('flex min-h-16 scroll-mt-32 scroll-mb-32 items-center', panelNuevo ? 'gap-5 px-5 py-4' : 'gap-3 px-4 py-3')}>
+    <li id={id} className={cn('flex min-h-16 scroll-mt-32 scroll-mb-32 items-center', panelNuevo ? 'gap-5 px-5 py-4' : 'gap-3 px-4 py-3', panelNuevo && 'group-data-[sangre]/config:gap-3 group-data-[sangre]/config:px-4 group-data-[sangre]/config:pb-4 group-data-[sangre]/config:pt-3')}>
       <IconoFila icono={icono} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-semibold text-foreground">{tarjeta.titulo}</span>
+        <span className={cn('block text-[15px] font-semibold text-foreground', 'group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:font-normal group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#101010]')}>{tarjeta.titulo}</span>
         {error
           ? <span role="alert" className="block text-sm font-medium text-destructive text-pretty">{textoDeError(error)}</span>
-          : <span className="block text-sm text-muted-foreground text-pretty">{tarjeta.frase}</span>}
+          : <span className="block text-sm text-muted-foreground text-pretty group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{tarjeta.frase}</span>}
       </span>
       <Interruptor
         on={pedido ?? on ?? false}
@@ -229,8 +231,8 @@ export function FilaInformativa({ icono, titulo, detalle }: { icono: LucideIcon;
     <li data-fila-informativa="" className="flex min-h-16 items-center gap-3 px-4 py-3">
       <IconoFila icono={icono} />
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px] font-medium text-foreground text-pretty">{titulo}</span>
-        {detalle && <span className="block text-sm text-muted-foreground text-pretty">{detalle}</span>}
+        <span className="block text-[15px] font-medium text-foreground text-pretty group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:font-normal group-data-[sangre]/config:leading-5 group-data-[sangre]/config:text-[#101010]">{titulo}</span>
+        {detalle && <span className="block text-sm text-muted-foreground text-pretty group-data-[sangre]/config:text-[13px] group-data-[sangre]/config:leading-5 group-data-[sangre]/config:text-[#4a4a4a]">{detalle}</span>}
       </span>
     </li>
   );
@@ -254,6 +256,7 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
 }) {
   const nav = useNavegacionConfig();
   const panelNuevo = usePanelNuevo();
+  const sangre = useShellNuevo();
   return (
     <li>
       <a
@@ -270,11 +273,11 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
           {panelNuevo
-            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{descripcion ?? valor ?? ''}</span>
+            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{sangre ? (valor ?? descripcion ?? '') : (descripcion ?? valor ?? '')}</span>
             : <ValorFila valor={valor} descripcion={descripcion ?? valor ?? ''} />}
         </span>
         {panelNuevo
-          ? <CajaValor valor={valor ?? 'Abrir'} />
+          ? (sangre ? <Flechita /> : <CajaValor valor={valor ?? 'Abrir'} />)
           : <Flechita />}
       </a>
     </li>
@@ -291,6 +294,7 @@ export function FilaExterna({ id, icono, titulo, valor, descripcion, href }: {
   href: string;
 }) {
   const panelNuevo = usePanelNuevo();
+  const sangre = useShellNuevo();
   return (
     <li>
       <Link id={id} href={href} className={cn(panelNuevo ? FILA_NUEVA : FILA, 'scroll-mt-32 scroll-mb-32')}>
@@ -298,11 +302,11 @@ export function FilaExterna({ id, icono, titulo, valor, descripcion, href }: {
         <span className="min-w-0 flex-1">
           <TituloFila titulo={titulo} />
           {panelNuevo
-            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{descripcion}</span>
+            ? <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{sangre ? (valor ?? descripcion) : descripcion}</span>
             : <ValorFila valor={valor} descripcion={descripcion} />}
         </span>
         {panelNuevo
-          ? <CajaValor valor={valor ?? 'Abrir'} externo />
+          ? (sangre ? <ArrowUpRight size={16} className="shrink-0 text-muted-foreground" aria-hidden /> : <CajaValor valor={valor ?? 'Abrir'} externo />)
           : <ArrowUpRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
       </Link>
     </li>

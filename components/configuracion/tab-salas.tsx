@@ -1,5 +1,6 @@
 'use client';
 
+import { AccionHerramienta } from '@/components/configuracion/shell/accion-herramienta';
 import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import { useCallback, useEffect, useState } from 'react';
 import { ColorInput, ColorSwatch, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
@@ -224,10 +225,12 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
         <p className="text-[13px] text-muted-foreground">
           {salas.length === 1 ? '1 sala configurada' : `${salas.length} salas configuradas`}
         </p>
-        <button className={btnPrimary} onClick={openNueva}>
-          <Plus size={14} />
-          Nueva sala
-        </button>
+        <AccionHerramienta>
+          <button className={btnPrimary} onClick={openNueva}>
+            <Plus size={14} />
+            Nueva sala
+          </button>
+        </AccionHerramienta>
       </div>
 
       {salas.length === 0 && <AyudaDelPaso paso="salas" />}
