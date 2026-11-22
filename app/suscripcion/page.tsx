@@ -24,6 +24,7 @@ import { TZ_ESTUDIO } from '@/lib/utils';
 import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
+import { PantallaBloqueo } from '@/components/billing/pantalla-bloqueo';
 import { cn } from '@/lib/utils';
 import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -258,6 +259,13 @@ export default function SuscripcionPage() {
 
   const fecha = fechaLarga;
 
+  // Prueba terminada o límite del gratis pasado: la pantalla de bloqueo, con la
+  // forma de la de Shopify. Debajo sigue la lista completa de planes de siempre.
+  const bloqueo = !cargando && !yaPaga && (pruebaAgotada || seHaPasado);
+  const periodoBloqueo = estado?.anual ? intervalo : 'mensual';
+  const sufijoBloqueo = estado?.anual && intervalo === 'anual' ? '/año' : '/mes';
+  const planesBloqueo = (soloCadena ? ['CADENA'] : ['BASE', 'ESTUDIO', 'CADENA']) as Array<'BASE' | 'ESTUDIO' | 'CADENA'>;
+
   return (
     <div className="min-h-dvh bg-background">
       <div className="mx-auto max-w-4xl px-4 pb-20 pt-10 sm:px-6 sm:pt-14">
@@ -269,7 +277,7 @@ export default function SuscripcionPage() {
         </Link>
 
         {/* ── Encabezado: una sola frase que dice dónde está ─────────────── */}
-        <header className="mb-7">
+        <header className={cn('mb-7', bloqueo && 'sr-only')}>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[27px] font-extrabold leading-tight tracking-tight text-foreground sm:text-[34px]">
               {gratis ? 'Tu plan' : yaPaga ? 'Tu suscripción' : pruebaAgotada ? 'Tu prueba ha terminado' : 'Elige tu plan'}
@@ -343,6 +351,36 @@ export default function SuscripcionPage() {
             )}
           </div>
         )}
+
+        {bloqueo && (
+          <PantallaBloqueo
+            titulo={pruebaAgotada ? 'Tu prueba ha terminado' : 'Has pasado el límite de tu plan gratis'}
+            frase={pruebaAgotada
+              ? 'Tus datos están intactos: no se ha borrado nada. Elige un plan y sigues justo donde lo dejaste.'
+              : 'Founding Studio no tiene límite de alumnas ni de reservas. Elige cómo seguir.'}
+            pildoras={['Sin permanencia', 'Cancela cuando quieras']}
+            planes={planesBloqueo.map(p => ({
+              id: p,
+              nombre: PLAN_INFO[p].nombre,
+              precio: `${euros(importeDe(PLAN_INFO[p].precioMes, periodoBloqueo))} €${sufijoBloqueo}`,
+              descripcion: p === 'BASE'
+                ? 'Sin límite de clientes ni de reservas. Centro de Control, sustituciones automáticas y redacción con IA, aparte.'
+                : p === 'ESTUDIO'
+                  ? `Todo lo de Founding Studio con Centro de Control, sustituciones automáticas y redacción con IA incluidos, y ${PLAN_ENTITLEMENTS.ESTUDIO.consultasAsistenteMes} consultas al asistente al mes.`
+                  : 'Varias sedes, cada una con lo suyo, en una sola cuenta.',
+            }))}
+            elegido={elegido}
+            onElegir={(id) => setElegido(id as typeof elegido)}
+            textoBoton={`Continuar con ${PLAN_INFO[elegido].nombre} · ${euros(importeDe(PLAN_INFO[elegido].precioMes, periodoBloqueo))} €${sufijoBloqueo}`}
+            onPagar={suscribir}
+            pagando={accion === 'suscribir'}
+            puedePagar={stripeListo}
+            esPropietaria={esPropietaria}
+            notaPie="Puedes cancelar cuando quieras desde esta misma pantalla."
+            anclaPlanes="planes"
+          />
+        )}
+        <div id="planes" className="scroll-mt-6" />
 
         {cargando ? (
           <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-5 py-8 text-[14px] text-muted-foreground">
