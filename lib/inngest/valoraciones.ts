@@ -5,7 +5,6 @@
 // aunque el barrido se solape o reintente.
 import { inngest, EVENTS, enviarFanOutEnLotes } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
-import { idsEstudios } from './estudios.ts';
 import { fetchAllRows } from '@/lib/supabase-data';
 import { firmarTokenValoracion } from '@/lib/valoraciones/token';
 import { destinatariasValoracion } from '@/lib/valoraciones/destinatarias';
@@ -15,6 +14,8 @@ import { marcaCorreoDesde } from '@/lib/emails/estudio/marca-correo';
 import { emitirValorarClase } from '@/lib/notifications/emit';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { appUrl } from '@/lib/app-url';
+import { limitesDeBarrido } from '@/lib/valoraciones/momento';
+import { estudiosConValoracionesPendientes } from '@/lib/valoraciones/estudios-pendientes';
 
 function cuandoTexto(inicio: string): string {
   const d = new Date(inicio);
@@ -23,13 +24,12 @@ function cuandoTexto(inicio: string): string {
   return `${fecha.charAt(0).toUpperCase()}${fecha.slice(1)} · ${hora}`;
 }
 
-/** Cuánto hacia atrás se miran clases terminadas. La comparten el dispatcher y el worker. */
-const VENTANA_VALORACION_MS = 48 * 60 * 60 * 1000;
-
-// Dispatcher: cada 12 h (a las 00:15 y 12:15 UTC para no chocar con dunning 08:30
-// / decision 06:30·14:30 / automatizaciones 07:00). Una clase recién terminada
-// recibe la petición en <12 h. Auditoría #3 (2026-08-25): reducido de cada 6h
-// porque las valoraciones son nice-to-have, no críticas. Ahorro: ~240/mes.
+// Dispatcher: cada 12 h, ahora solo RED DE SEGURIDAD. La petición normal sale unos
+// 20-30 min tras la clase por `/api/cron/valoraciones` (pg_cron cada 10 min, migración
+// 20261122004106). Si ese cron falla o se retrasa, este barrido recoge las clases de
+// las últimas 48 h; lo que ya se pidió está marcado (`valoracion_pedida_en`) y no se
+// repite. (00:15 y 12:15 UTC para no chocar con dunning 08:30 / decision 06:30·14:30 /
+// automatizaciones 07:00.)
 export const valoracionesDispatcher = inngest.createFunction(
   { id: 'valoraciones-dispatcher', triggers: [{ cron: '15 */12 * * *' }] },
   async ({ step }) => {
@@ -40,30 +40,7 @@ export const valoracionesDispatcher = inngest.createFunction(
       const nowISO = new Date().toISOString();
       const admin = getSupabaseAdmin();
       if (!admin) throw new Error('Service role no configurada');
-      // `suspendido_en`: un estudio suspendido no debe seguir pidiendo
-      // valoraciones a sus socias en su nombre.
-      const activos = await idsEstudios(admin);
-
-      // Solo abre evento para los estudios con alguna clase que el worker vaya a
-      // mirar: las mismas condiciones que su consulta `clases-terminadas`, para
-      // todos los estudios a la vez. Un estudio sin clases terminadas en 48 h
-      // gastaba un run y un step cada 12 h para no encontrar nada.
-      const desdeISO = new Date(new Date(nowISO).getTime() - VENTANA_VALORACION_MS).toISOString();
-      const { data: clases, error } = await fetchAllRows<{ studio_id: string }>(
-        '(global)', 'sesiones',
-        (from, to) => admin.from('sesiones').select('studio_id')
-          .eq('cancelada', false)
-          .not('instructor_id', 'is', null)
-          .is('valoracion_pedida_en', null)
-          .lt('fin', nowISO)
-          .gt('fin', desdeISO)
-          // Orden estable: paginar sin ORDER BY puede saltarse filas pasadas las 1.000.
-          .order('id')
-          .range(from, to),
-      );
-      if (error) throw new Error(error.message);
-      const conClases = new Set(clases.map(c => c.studio_id));
-      return { nowISO, studios: activos.filter(s => conClases.has(s.id)) };
+      return { nowISO, studios: await estudiosConValoracionesPendientes(admin, nowISO) };
     });
 
     await enviarFanOutEnLotes(step, 'fan-out-valoraciones', EVENTS.VALORACIONES_ESTUDIO, studios, (s: { id: string }) => ({ studioId: s.id, nowISO }));
@@ -82,7 +59,8 @@ export const procesarValoracionesEstudio = inngest.createFunction(
   },
   async ({ event, step }) => {
     const { studioId, nowISO } = event.data as { studioId: string; nowISO: string };
-    const desdeISO = new Date(new Date(nowISO).getTime() - VENTANA_VALORACION_MS).toISOString();
+    // Las clases que ya toca pedir: terminadas hace más de 20 min y menos de 48 h.
+    const { desdeISO, hastaISO } = limitesDeBarrido(Date.parse(nowISO));
 
     const clases = await step.run('clases-terminadas', async () => {
       const admin = getSupabaseAdmin();
@@ -94,7 +72,7 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         .eq('cancelada', false)
         .not('instructor_id', 'is', null)
         .is('valoracion_pedida_en', null)
-        .lt('fin', nowISO)
+        .lt('fin', hastaISO)
         .gt('fin', desdeISO)
         .limit(200);
       if (error) throw new Error(error.message);

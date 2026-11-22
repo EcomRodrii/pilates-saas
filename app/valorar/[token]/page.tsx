@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { verificarTokenValoracion } from '@/lib/valoraciones/token';
 import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 import { ValorarForm } from './valorar-form';
+import { extrasDeValoracion } from '@/lib/valoraciones/premio-servidor';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,9 @@ export default async function ValorarPage({ params }: { params: Promise<{ token:
     admin.from('valoraciones').select('id').eq('socio_id', claim.socioId).eq('sesion_id', claim.sesionId).maybeSingle(),
   ]);
 
+  // Ya valorada: el premio que ya tenía y el enlace de reseñas, SOLO lectura (pintar esta página no crea nada).
+  const extras = previa ? await extrasDeValoracion(admin, claim.studioId, claim.socioId, { crear: false }) : {};
+
   return (
     <ValorarForm
       token={token}
@@ -44,6 +48,8 @@ export default async function ValorarPage({ params }: { params: Promise<{ token:
       claseNombre={tipo?.nombre ?? 'Clase'}
       cuando={ses.inicio ? cuandoTexto(ses.inicio) : ''}
       yaValorada={!!previa}
+      premioInicial={extras.premio ?? null}
+      enlaceInicial={extras.enlaceResenas ?? null}
     />
   );
 }

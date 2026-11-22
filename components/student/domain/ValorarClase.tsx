@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { useAsync } from '@/lib/student/useAsync';
-import { enviarValoracion, getValoracionClase, type EstadoValoracion } from '@/lib/student/valorar';
+import { enviarValoracion, getValoracionClase, type EstadoValoracion, type ExtrasValoracion } from '@/lib/student/valorar';
+import { PremioValoracion } from '@/components/student/domain/PremioValoracion';
 import { useToast } from '@/components/student/ui/Toast';
 import { Button } from '@/components/student/ui/Button';
 import { Icono } from '@/components/student/ui/Icono';
@@ -25,6 +26,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
   const [comentario, setComentario] = useState('');
   const [editando, setEditando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [extras, setExtras] = useState<ExtrasValoracion>({});
 
   if (estado !== 'ready' || !data || !data.puedeValorar) return null;
 
@@ -38,6 +40,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
     setEnviando(false);
     if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
     toast(r.actualizada ? 'Valoración actualizada. ¡Gracias!' : '¡Gracias por tu valoración!');
+    setExtras({ premio: r.premio, enlaceResenas: r.enlaceResenas });
     setEditando(false);
     setPuntuacion(0);
     setComentario('');
@@ -47,6 +50,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
   const soloLectura = !!previa && !editando;
 
   return (
+    <>
     <section className="card" style={{ padding: '14px 15px' }} data-testid="valorar-clase" aria-label="Valorar la clase">
       <p className="t-label" style={{ margin: 0 }}>{soloLectura ? 'Tu valoración' : 'Valorar la clase'}</p>
       <p style={{ margin: '4px 0 0', fontSize: 'var(--t-body)', fontWeight: 800 }}>
@@ -94,5 +98,7 @@ export function ValorarClase({ studioId, sesionId, instructora }: { studioId: st
         </>
       )}
     </section>
+    <PremioValoracion premio={extras.premio} enlace={extras.enlaceResenas} />
+    </>
   );
 }

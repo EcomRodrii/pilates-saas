@@ -6,6 +6,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { errorInterno } from '@/lib/errores-servidor';
 import { normalizarValoracion, puedeValorarReserva } from '@/lib/valoraciones/reglas';
 import { guardarValoracion } from '@/lib/valoraciones/guardar';
+import { extrasDeValoracion } from '@/lib/valoraciones/premio-servidor';
 import { elegirClaseParaValorar, VENTANA_VALORAR_MS } from '@/lib/valoraciones/pendiente';
 
 // Valorar una clase DESDE LA APP de la alumna (la otra puerta es el deep link
@@ -96,7 +97,10 @@ export async function POST(req: NextRequest) {
       if (r.status === 500) return errorInterno('public/valorar-clase:POST', r.detalle, r.error);
       return NextResponse.json({ error: r.error }, { status: r.status });
     }
-    return NextResponse.json({ ok: true, actualizada: r.actualizada, yaValorada: r.yaValorada === true });
+    // El premio (si el estudio lo ofrece) y su enlace de reseñas. También con «ya valorada»:
+    // es idempotente y devuelve el mismo código (si la primera vez no llegó a verlo).
+    const extras = await extrasDeValoracion(admin, body.studioId, socioId, { crear: true });
+    return NextResponse.json({ ok: true, actualizada: r.actualizada, yaValorada: r.yaValorada === true, ...extras });
   } catch (err) {
     return errorInterno('public/valorar-clase:POST', err, 'No se ha podido guardar tu valoración.');
   }

@@ -391,6 +391,34 @@ así que todo lo que se versiona lo lee cualquiera:
   servicio; «Te echamos de menos» es comercial también con la cuota activa. Se descartó ampararse en
   el art. 21.2 LSSI: exige ofrecer la oposición al recoger los datos y el producto no lo hace.
   ⚠️ Un tipo nuevo con mensaje para la alumna declara su clase (lo vigila `mensajes-socia.test.ts`).
+- **Reseñas con premio (21-nov-2026, decisión del fundador; `lib/valoraciones/premio.ts` y `momento.ts`, migr `20261122004106`).** El estudio pone
+  el enlace de su página de reseñas (Google u otra) y, si quiere, regala un código de descuento (% 1–50 o € 1–200, de un solo uso) a la
+  clienta que VALORA una clase en Tentare. Se gestiona en Configuración → Cómo me comunico → «Reseñas y premio» (`/api/estudio/resenas`,
+  solo propietaria; **no** en Marketing, que está desactivado por `MARKETING_MODULE_ENABLED`).
+  - ⚠️ **El premio es por la valoración INTERNA (la de `valoraciones`, solo de quien asistió), NUNCA por la reseña externa, y NO depende de la
+    nota.** Google lo dice en su política de reseñas: no se puede ofrecer nada a cambio de una reseña ni «solicitar selectivamente reseñas
+    positivas». Premiarla tampoco se puede comprobar (solo se sabe que pinchó el enlace) y la normativa de consumo exige declarar las
+    incentivadas. Lo fija `lib/valoraciones/premio-contrato.test.ts`: no reintroducir «te damos X si dejas una reseña», ni esconder o
+    adelantar el enlace según la nota, ni que el bloque del enlace hable del premio.
+  - **Cuándo se pide (cómo lo hacen los grandes: justo tras la clase, un toque, y se mide).** El aviso de valorar sale unos 20-30 min tras la clase
+    (pg_cron `valoraciones-pedir` cada 10 min → `/api/cron/valoraciones` → worker de Inngest; el barrido de 12 h queda de red de seguridad) y
+    solo si hay una clase terminada hace más de 20 min con alguien que asistió (mismo patrón `where exists` que el resto de crons). Los números
+    viven en SQL y en `momento.ts`: el contrato test los cruza; un predicado del cron más estrecho que la consulta de la ruta dejaría clases sin pedir.
+  - **A quién se le enseña el enlace: lo decide la ASISTENCIA, nunca la nota** (`reclamar_pedido_resena`, atómica y sin parámetro de nota): 3 clases
+    ASISTIDAS y como mucho una vez cada 180 días (`socios.resena_pedida_en`), justo tras valorar. En la app va como botón PRINCIPAL y el
+    agradecimiento del premio, debajo; las dos cosas no se mencionan entre sí. El enlace que ve la clienta es siempre la ruta propia
+    `/resena/<slug>` (cuenta el toque en `resenas_clics`, por día y origen app|qr, sin datos personales, y redirige al enlace que guardó el
+    estudio). Nunca con el destino por parámetro: sería una redirección abierta. El mismo `/resena/<slug>` va en el cartel con QR de recepción.
+  - **Se mide, con su salvedad:** Configuración enseña valoraciones, enlaces mostrados y toques (app y QR) de los últimos 30 días. Un toque NO es una
+    reseña publicada: Google no dice quién publica.
+  - El premio es una fila de `codigos_descuento` con prefijo `GRACIAS-` e id hash por (estudio, clienta): una por clienta, idempotente, sin tabla
+    nueva. `otorgar_premio_resena`, `reclamar_pedido_resena` y `registrar_clic_resena` son solo del servidor. El premio se canjea en la Caja y al
+    comprar un bono o un plan (la hoja de compra de la app y `/reservar`); el pago de una clase suelta NO tiene campo de código, así que no se
+    promete. Los `GRACIAS-` no salen en la lista de Configuración → Cobros → Códigos (uno por clienta taparía el catálogo).
+  - Un `CHECK` que da NULL se da por válido: el del premio lleva `coalesce(…, false)`.
+  - ⚠️ El ranking público de estudios (Top por ciudad) NO está construido: con 6 de 50 estudios con 30 o más reservas en 90 días no hay masa
+    para un Top 10. Cuando la haya, solo con valoraciones verificadas y un mínimo por ciudad; las insignias «Top N» son promesas de marca que
+    decide el fundador.
 - **Gmail retirado (1-oct-2026).** Solo traía la agenda personal de la dueña como fichas de
   clientas, y choca con «las interesadas viven en consultas, no en fichas». Ya no se puede
   conectar; quien la tenía conectada la ve en Configuración solo para desconectarla, y eso

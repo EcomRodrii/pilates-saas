@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Heart } from 'lucide-react';
 import { IconoDesenlace } from '@/components/publico/icono-desenlace';
+import { esRutaDeResenas, leerPremio, type PremioResena } from '@/lib/valoraciones/premio';
+import { PremioResena as BloquePremio } from './premio-resena';
 
 // La alumna valora la clase que ha recibido: 1-5 estrellas + comentario opcional.
 // Un tap, sin login. El servidor valida el token del deep link e inserta la
@@ -10,7 +12,7 @@ import { IconoDesenlace } from '@/components/publico/icono-desenlace';
 type Estado = 'idle' | 'enviando' | 'enviada' | 'error';
 
 export function ValorarForm({
-  token, instructorNombre, estudioNombre, claseNombre, cuando, yaValorada,
+  token, instructorNombre, estudioNombre, claseNombre, cuando, yaValorada, premioInicial = null, enlaceInicial = null,
 }: {
   token: string;
   instructorNombre: string;
@@ -18,6 +20,9 @@ export function ValorarForm({
   claseNombre: string;
   cuando: string;
   yaValorada: boolean;
+  /** Si ya había valorado: el premio que ya tenía (solo lectura) y el enlace de reseñas del estudio. */
+  premioInicial?: PremioResena | null;
+  enlaceInicial?: string | null;
 }) {
   const [estado, setEstado] = useState<Estado>(yaValorada ? 'enviada' : 'idle');
   const [puntuacion, setPuntuacion] = useState(0);
@@ -26,6 +31,8 @@ export function ValorarForm({
   // Auditoría 2026-09-16 (FE-8): el servidor manda el motivo (enlace caducado,
   // puntuación no válida) y se descartaba para enseñar siempre el mismo texto.
   const [motivoError, setMotivoError] = useState<string | null>(null);
+  const [premio, setPremio] = useState<PremioResena | null>(premioInicial);
+  const [enlace, setEnlace] = useState<string | null>(enlaceInicial);
 
   async function enviar() {
     if (puntuacion < 1) return;
@@ -43,6 +50,10 @@ export function ValorarForm({
         setEstado('error');
         return;
       }
+      // Cualquier cosa rara del cuerpo deja la pantalla como antes (sin premio): la nota ya está guardada.
+      const j = (await res.json().catch(() => null)) as { premio?: unknown; enlaceResenas?: unknown } | null;
+      setPremio(leerPremio(j?.premio));
+      setEnlace(esRutaDeResenas(j?.enlaceResenas) ? j.enlaceResenas : null);
       setEstado('enviada');
     } catch {
       setEstado('error');
@@ -60,6 +71,7 @@ export function ValorarForm({
               ? 'Ya habías valorado esta clase. ¡Gracias!'
               : `Le viene genial a ${estudioNombre || 'tu estudio'} para cuidar sus clases.`}
           </p>
+          <BloquePremio premio={premio} enlace={enlace} />
         </div>
       </main>
     );

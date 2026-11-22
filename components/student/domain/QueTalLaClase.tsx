@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { useAsync } from '@/lib/student/useAsync';
-import { enviarValoracion, getValoracionPendiente, type ValoracionPendiente } from '@/lib/student/valorar';
+import { enviarValoracion, getValoracionPendiente, type ExtrasValoracion, type ValoracionPendiente } from '@/lib/student/valorar';
+import { PremioValoracion } from '@/components/student/domain/PremioValoracion';
 import { haceCuanto } from '@/lib/student/momento-inicio';
 import { useAhoraMs } from '@/lib/student/use-ahora';
 import { useToast } from '@/components/student/ui/Toast';
@@ -59,6 +60,8 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
   const [comentada, setComentada] = useState(false);
   // Ya estaba valorada de antes: no se ofrece el comentario (lo pisaría).
   const [yaValorada, setYaValorada] = useState(false);
+  // El premio del estudio y su enlace de reseñas, tal cual los devuelve el servidor tras valorar.
+  const [extras, setExtras] = useState<ExtrasValoracion>({});
   // Lo que se anuncia. El contenedor `role="status"` está SIEMPRE montado: si
   // apareciera junto con el texto, VoiceOver no lo leería (y al desaparecer el
   // botón tocado, el foco se pierde). Así «¡Gracias!» se oye al enviarlo.
@@ -72,6 +75,7 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
     const r = await enviarValoracion(studioId, p.sesionId, puntuacion, '', { soloSiNueva: true });
     setEnviando(false);
     if (!r.ok) { toast(r.error, { variant: 'error' }); return; }
+    setExtras({ premio: r.premio, enlaceResenas: r.enlaceResenas });
     if (r.yaValorada) {
       setYaValorada(true);
       setEnviada(puntuacion);
@@ -130,6 +134,8 @@ function Tarjeta({ studioId, p }: { studioId: string; p: ValoracionPendiente }) 
       <p role="status" className="t-card-title" style={anuncio ? undefined : { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)' }}>
         {anuncio}
       </p>
+
+      {enviada !== null && <PremioValoracion premio={extras.premio} enlace={extras.enlaceResenas} />}
 
       {enviada !== null && !comentada && !yaValorada && (
         <>

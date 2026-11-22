@@ -5,6 +5,7 @@ import { enforceRateLimit } from '@/lib/rate-limit';
 import { verificarTokenValoracion } from '@/lib/valoraciones/token';
 import { normalizarValoracion } from '@/lib/valoraciones/reglas';
 import { guardarValoracion } from '@/lib/valoraciones/guardar';
+import { extrasDeValoracion } from '@/lib/valoraciones/premio-servidor';
 
 // Endpoint PÚBLICO (sin login): la alumna envía su valoración desde el deep link.
 // Idempotente por (alumna, clase): reenviar el link o cambiar la nota no duplica.
@@ -30,5 +31,7 @@ export async function POST(req: NextRequest) {
     if (r.status === 500) return errorInterno('public:valorar', r.detalle, r.error);
     return NextResponse.json({ error: r.error }, { status: r.status });
   }
-  return NextResponse.json(r.actualizada ? { ok: true, actualizada: true } : { ok: true });
+  // El premio (si el estudio lo ofrece) y su enlace de reseñas; nunca hace fallar la valoración.
+  const extras = await extrasDeValoracion(admin, claim.studioId, claim.socioId, { crear: true });
+  return NextResponse.json(r.actualizada ? { ok: true, actualizada: true, ...extras } : { ok: true, ...extras });
 }
