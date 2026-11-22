@@ -98,7 +98,7 @@ test.describe('En el portátil', () => {
     }
     // «Plan de Tentare» es lo que el estudio le paga a Tentare: de la
     // propietaria. «Mi cuenta» es su propio perfil, y sí.
-    await expect(page.locator('#inicio-plan')).toHaveCount(0);
+    await expect(page.locator('#inicio-seccion-plan')).toHaveCount(0);
     await expect(page.locator('#inicio-mi-cuenta')).toBeVisible();
     // La guía («Pon tu estudio a punto») es de la propietaria: sus pasos son el
     // NIF, Stripe y la marca, ninguno suyo.

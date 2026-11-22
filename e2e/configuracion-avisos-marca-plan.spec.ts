@@ -16,7 +16,7 @@ import { CATEGORIAS_POR_ROL, CATEGORIA_ETIQUETA } from '../lib/notifications/cat
 //   · cambiar un aviso manda la MISMA petición que mandaba la pantalla de antes;
 //   · si el servidor dice que no, se dice y el interruptor vuelve atrás. Con
 //     contador: sin él, «no dijo que sí» podría ser «no llegó a intentarlo»;
-//   · «Plan de Tentare» enseña el estado que da el servidor y lleva a /suscripcion.
+//   · «Plan de Tentare» enseña el estado que da el servidor y se abre en Configuración.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const json = (r: Route, b: unknown, s = 200) =>
@@ -104,7 +104,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     const cuenta = page.getByRole('region', { name: 'Tu cuenta' });
     await expect(cuenta.locator('#inicio-seccion-avisos')).toBeVisible({ timeout: 30_000 });
     await expect(cuenta.locator('#inicio-seccion-panel')).toBeVisible();
-    await expect(cuenta.locator('#inicio-plan')).toBeVisible();
+    await expect(cuenta.locator('#inicio-seccion-plan')).toBeVisible();
     await expect(cuenta.locator('#inicio-mi-cuenta')).toBeVisible();
 
     await cuenta.locator('#inicio-seccion-avisos').click();
@@ -252,7 +252,7 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     await expect(page.getByRole('button', { name: /Subir favicon/ })).toBeVisible();
   });
 
-  test('«Plan de Tentare» dice cómo va la prueba y lleva a /suscripcion', async ({ page }) => {
+  test('«Plan de Tentare» dice cómo va la prueba y se abre dentro de Configuración', async ({ page }) => {
     await panel(page, {
       billing: {
         plan: 'ESTUDIO', subscriptionStatus: 'trialing', activo: true, configurado: true,
@@ -262,14 +262,14 @@ test.describe('Avisos, marca, tu panel y tu plan, dentro de Configuración', () 
     });
     await ir(page, 'configuracion');
 
-    const plan = page.locator('#inicio-plan');
+    const plan = page.locator('#inicio-seccion-plan');
     await expect(plan.locator('[data-resumen="valor"]')).toHaveText('Estudio en prueba · quedan 5 días', { timeout: 30_000 });
-    await expect(plan).toHaveAttribute('href', '/suscripcion');
+    await expect(plan).toHaveAttribute('href', /tab=plan/);
     await expect(plan.locator('[data-estado-ajuste]')).toHaveCount(0);
 
     // Y el buscador lo encuentra, con el mismo destino.
     await page.getByRole('searchbox', { name: 'Buscar un ajuste' }).fill('plan');
-    const resultado = page.getByRole('list', { name: 'Resultados de la búsqueda' }).getByRole('link', { name: /Plan de Tentare/ });
-    await expect(resultado).toHaveAttribute('href', '/suscripcion');
+    const resultado = page.getByRole('list', { name: 'Resultados de la búsqueda' }).getByRole('link', { name: /Plan de Tentare/ }).first();
+    await expect(resultado).toHaveAttribute('href', /tab=plan/);
   });
 });

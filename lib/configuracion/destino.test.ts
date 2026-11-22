@@ -268,8 +268,8 @@ test('las pantallas sueltas de antes llevan a su sección, y sus páginas rediri
   }
 });
 
-test('la propietaria ve las catorce secciones; la gerencia, dos y solo con sus tarjetas; recepción e instructora, ninguna', () => {
-  assert.equal(seccionesVisibles('PROPIETARIO').length, 14);
+test('la propietaria ve las quince secciones; la gerencia, dos y solo con sus tarjetas; recepción e instructora, ninguna', () => {
+  assert.equal(seccionesVisibles('PROPIETARIO').length, 15);
   assert.deepEqual(seccionesVisibles('RECEPCION'), []);
   assert.deepEqual(seccionesVisibles('INSTRUCTOR'), []);
 

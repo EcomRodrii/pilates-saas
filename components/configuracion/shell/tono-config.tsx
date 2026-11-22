@@ -21,6 +21,7 @@ export const TONO_SECCION_CONFIG: Record<SeccionId, Tono> = {
   motivacion: 'magenta',
   conexiones: 'indigo',
   datos: 'verde',
+  plan: 'verde',
   avisos: 'azul',
   panel: 'indigo',
 };

@@ -16,8 +16,8 @@ import { TARJETAS_REGLAS } from './reglas-reserva.ts';
 
 const todas = SECCIONES.flatMap(s => s.tarjetas as readonly TarjetaConfiguracion[]);
 
-test('catorce secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
-  assert.equal(SECCIONES.length, 14);
+test('quince secciones, y ningún id repetido: ni entre secciones ni entre tarjetas de secciones distintas', () => {
+  assert.equal(SECCIONES.length, 15);
   const ids = [...SECCIONES.map(s => s.id), ...todas.map(t => t.id)];
   assert.deepEqual(ids.filter((id, i) => ids.indexOf(id) !== i), [], 'ids repetidos');
   for (const t of todas) assert.match(t.id, /^[a-z0-9][a-z0-9_-]*$/, `«${t.id}» no sirve como ancla de URL`);
@@ -82,8 +82,7 @@ test('una herramienta se abre si este rol ve alguna de sus tarjetas', () => {
 });
 
 test('«Plan de Tentare» es de la propietaria; a «Mi cuenta» llega todo el personal del panel', () => {
-  assert.equal(externaVisible(FILAS_EXTERNAS.plan, 'PROPIETARIO'), true);
-  assert.equal(externaVisible(FILAS_EXTERNAS.plan, 'MANAGER'), false);
+  assert.deepEqual(seccionPorId('plan').roles, ['PROPIETARIO']);
   for (const rol of ['PROPIETARIO', 'MANAGER', 'RECEPCION'] as const) {
     assert.equal(externaVisible(FILAS_EXTERNAS['mi-cuenta'], rol), true, rol);
   }
@@ -157,16 +156,15 @@ test('«Marca» junta logo, color y textos; «Tu cuenta», avisos, panel, plan y
   // Ni el logo ni los textos se quedan también en «Mi app y mi web».
   assert.equal(seccionDeTarjeta('textos-de-tu-app'), 'marca');
   const cuenta = GRUPOS.find(g => g.id === 'tu-cuenta')!;
-  assert.deepEqual(cuenta.secciones, ['avisos', 'panel']);
-  assert.deepEqual(cuenta.externas, ['plan', 'mi-cuenta']);
+  assert.deepEqual(cuenta.secciones, ['plan', 'avisos', 'panel']);
+  assert.deepEqual(cuenta.externas, ['mi-cuenta']);
   assert.deepEqual(GRUPOS.find(g => g.id === 'tu-imagen')!.secciones, ['marca', 'web']);
   // Claro u oscuro es de este navegador: se guarda al pulsar, nunca con la barra del menú.
   assert.equal(tarjetaPorId('claro-u-oscuro').guardado, 'al-pulsar');
   for (const id of ['menu-del-panel', 'inicio-del-panel', 'posicion-del-menu'] as const) assert.equal(tarjetaPorId(id).guardado, 'barra');
 });
 
-test('las filas que llevan a otra pantalla: «Plan de Tentare» a /suscripcion y «Mi cuenta» a /mi-perfil', () => {
-  assert.equal(FILAS_EXTERNAS.plan.href, '/suscripcion');
+test('la fila que lleva a otra pantalla: «Mi cuenta» a /mi-perfil', () => {
   assert.equal(FILAS_EXTERNAS['mi-cuenta'].href, MI_CUENTA.href);
   for (const [id, f] of Object.entries(FILAS_EXTERNAS)) {
     assert.equal(f.id, id);

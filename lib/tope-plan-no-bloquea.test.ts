@@ -46,7 +46,7 @@ const LEEN_EL_TOPE: Record<string, string> = {
   'lib/billing/catalogo-planes.ts': 'la comparativa de planes y el resumen corto del alta',
   'lib/billing/uso-tope.ts': '«N de 150 clientes activos»',
   'app/precios/page.tsx': 'el tope de cada tarjeta de /precios',
-  'app/suscripcion/page.tsx': 'enseña cuántas lleva el estudio',
+  'components/billing/suscripcion-vista.tsx': 'enseña cuántas lleva el estudio',
 };
 
 test('el tope del plan solo se lee para enseñarlo', () => {

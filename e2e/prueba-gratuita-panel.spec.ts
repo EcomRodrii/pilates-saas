@@ -146,7 +146,7 @@ test.describe('La píldora de la prueba dice la verdad en cada estado', () => {
 
 test.describe('La pantalla de suscripción, que es donde se convierte', () => {
   test('en prueba: dice cuántos días quedan y deja elegir plan', async ({ page }) => {
-    await montarPanel(page, { fase: 'AVISO', diasRestantes: 3 }, '/suscripcion');
+    await montarPanel(page, { fase: 'AVISO', diasRestantes: 3 }, '/suscripcion#tu-plan');
 
     await expect(page.getByRole('heading', { name: 'Elige tu plan', level: 1 })).toBeVisible();
     await expect(page.getByText(/Te quedan 3 días de prueba/)).toBeVisible();
@@ -156,7 +156,7 @@ test.describe('La pantalla de suscripción, que es donde se convierte', () => {
   });
 
   test('prueba agotada: promete que no se ha borrado nada', async ({ page }) => {
-    await montarPanel(page, { fase: 'EXPIRADA', diasRestantes: 0 }, '/suscripcion');
+    await montarPanel(page, { fase: 'EXPIRADA', diasRestantes: 0 }, '/suscripcion#tu-plan');
 
     await expect(page.getByRole('heading', { name: 'Tu prueba ha terminado', level: 1 })).toBeVisible();
     await expect(page.getByText(/no se ha borrado nada/)).toBeVisible();
@@ -164,13 +164,13 @@ test.describe('La pantalla de suscripción, que es donde se convierte', () => {
   });
 
   test('⚠️ estudio anterior a la apertura: «Elige tu plan», no «tu prueba ha terminado»', async ({ page }) => {
-    await montarPanel(page, { fase: 'SIN_PRUEBA', diasRestantes: 0 }, '/suscripcion');
+    await montarPanel(page, { fase: 'SIN_PRUEBA', diasRestantes: 0 }, '/suscripcion#tu-plan');
     await expect(page.getByRole('heading', { name: 'Elige tu plan', level: 1 })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Tu prueba ha terminado' })).toHaveCount(0);
   });
 
   test('ya paga: no se le vuelve a vender, se le enseña su plan', async ({ page }) => {
-    await montarPanel(page, { fase: 'SUSCRITO', diasRestantes: 0 }, '/suscripcion');
+    await montarPanel(page, { fase: 'SUSCRITO', diasRestantes: 0 }, '/suscripcion#tu-plan');
 
     await expect(page.getByRole('heading', { name: 'Tu suscripción', level: 1 })).toBeVisible();
     await expect(page.getByRole('radiogroup', { name: 'Plan' })).toHaveCount(0);
@@ -182,7 +182,7 @@ test.describe('La pantalla de suscripción, que es donde se convierte', () => {
     // la plantilla anterior al cambio de identidad, pintando el botón
     // principal y la etiqueta «POPULAR». Es el caso que motivó la auditoría de
     // color: un botón que parecía de otra aplicación.
-    await montarPanel(page, { fase: 'AVISO', diasRestantes: 3 }, '/suscripcion');
+    await montarPanel(page, { fase: 'AVISO', diasRestantes: 3 }, '/suscripcion#tu-plan');
     await expect(page.getByRole('radiogroup', { name: 'Plan' })).toBeVisible();
 
     const rosas = await page.evaluate(() => {

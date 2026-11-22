@@ -117,7 +117,7 @@ export function PildoraPrueba({ className = '' }: { className?: string }) {
     const margen = gratis.fase === 'MARGEN';
     return (
       <Link
-        href="/suscripcion"
+        href="/configuracion?tab=plan"
         className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${margen ? 'border-destructive/30 bg-destructive/10 text-destructive' : 'border-warning/30 bg-warning/10 text-warning'} ${className}`}
       >
         <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${margen ? 'bg-destructive' : 'bg-warning'}`} />
@@ -234,7 +234,7 @@ export function PildoraPrueba({ className = '' }: { className?: string }) {
 
           {estado?.esPropietaria ? (
             <Link
-              href="/suscripcion"
+              href="/configuracion?tab=plan"
               onClick={() => setAbierto(false)}
               className="mt-4 flex w-full items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-[14px] font-bold text-brand-foreground transition-all hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none"
             >

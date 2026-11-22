@@ -48,7 +48,7 @@ async function montar(page: Page, fase: FaseMock, ruta: string) {
 }
 
 test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas frente a cada límite', async ({ page }) => {
-  await montar(page, 'DENTRO', '/suscripcion');
+  await montar(page, 'DENTRO', '/suscripcion#tu-plan');
   await expect(page.getByRole('heading', { level: 1, name: 'Tu plan' })).toBeVisible({ timeout: 30_000 });
   const plan = page.getByRole('region', { name: 'Tu plan' });
   await expect(plan).toContainText('Founding Studio');
@@ -71,7 +71,7 @@ test('Tu plan: Founding Studio gratis, con la frase del fundador y lo que usas f
 });
 
 test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vuelve a bajar', async ({ page }) => {
-  await montar(page, 'MARGEN', '/suscripcion');
+  await montar(page, 'MARGEN', '/suscripcion#tu-plan');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Te quedan 12 días en Founding Studio', { timeout: 30_000 });
   await expect(aviso).toContainText('150 reservas al mes');
@@ -87,7 +87,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
 });
 
 test('pasado solo de reservas: toca Founding Studio de pago a 29 €, y es lo que sale elegido', async ({ page }) => {
-  await montar(page, 'MARGEN_RESERVAS', '/suscripcion');
+  await montar(page, 'MARGEN_RESERVAS', '/suscripcion#tu-plan');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
   await expect(aviso).toContainText('sin límites');
@@ -96,7 +96,7 @@ test('pasado solo de reservas: toca Founding Studio de pago a 29 €, y es lo qu
 });
 
 test('margen agotado: dice que la app de los clientes sigue funcionando', async ({ page }) => {
-  await montar(page, 'CERRADO', '/suscripcion');
+  await montar(page, 'CERRADO', '/suscripcion#tu-plan');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)', { timeout: 30_000 });
   await expect(aviso).toContainText('La app de tus clientes sigue funcionando');
@@ -120,7 +120,7 @@ test('en el panel, la píldora sale cerca del límite y en el margen; dentro, no
   await page.reload();
   const pildora = page.getByRole('link', { name: /Te quedan 12 días para pasarte a Founding Studio de pago/ }).first();
   await expect(pildora).toBeVisible({ timeout: 30_000 });
-  await expect(pildora).toHaveAttribute('href', '/suscripcion');
+  await expect(pildora).toHaveAttribute('href', '/configuracion?tab=plan');
 });
 
 test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un clic, una sola vez', async ({ page }) => {

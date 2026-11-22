@@ -62,13 +62,10 @@ test('«avisos», «color» y «plan» llevan a lo que se trajo dentro de Config
   assert.ok(ids('color').includes('tarjeta-color-de-marca'));
   assert.equal(buscarAjustes('color').find(r => r.id === 'tarjeta-color-de-marca')!.seccion, 'marca');
   assert.ok(ids('modo oscuro').includes('tarjeta-claro-u-oscuro'));
-  // «Plan de Tentare» no es una sección: lleva a /suscripcion, desde «Tu cuenta».
-  const plan = buscarAjustes('plan').find(r => r.id === 'externa-plan')!;
-  assert.deepEqual(
-    { seccion: plan.seccion, href: plan.href, donde: plan.donde },
-    { seccion: null, href: '/suscripcion', donde: 'Tu cuenta' },
-  );
-  assert.ok(ids('suscripcion').includes('externa-plan'));
+  // «Plan de Tentare» es una sección de «Tu cuenta» (ya no lleva a /suscripcion).
+  const plan = buscarAjustes('plan').find(r => r.id === 'seccion-plan')!;
+  assert.equal(plan.seccion, 'plan');
+  assert.ok(ids('suscripcion').includes('seccion-plan'));
 });
 
 test('solo busca en las secciones que se le pasan', () => {
@@ -168,8 +165,8 @@ test('⌘K: quien no entra en Configuración no ve ningún ajuste', () => {
 });
 
 test('⌘K: sin filas de otra pantalla, y cada enlace abre la tarjeta que dice', () => {
-  // «Plan de Tentare» ya lo encuentra ⌘K por «Suscripción», su entrada del menú.
-  assert.deepEqual(ajustesParaBuscadorGlobal('suscripción', PROPIETARIA), []);
+  // «Plan de Tentare» ya no tiene entrada de menú: ⌘K lo encuentra como sección de Configuración.
+  assert.ok(ajustesParaBuscadorGlobal('suscripción', PROPIETARIA).some(a => a.id === 'seccion-plan'));
   for (const consulta of ['a', 'e', 'o', 'iva', 'horario', 'sedes']) {
     for (const a of ajustesParaBuscadorGlobal(consulta, { ...PROPIETARIA, haySedes: true, esCadena: true })) {
       const destino = resolverHref(a.href);

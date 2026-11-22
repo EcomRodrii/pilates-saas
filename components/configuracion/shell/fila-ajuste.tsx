@@ -1,8 +1,9 @@
 'use client';
 
+import { Flechita } from './flechita';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, ChevronRight, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { cardCls } from '@/components/configuracion/estilos';
 import { Interruptor } from '@/components/ui/interruptor';
@@ -12,7 +13,7 @@ import type { ResumenFila } from '@/lib/configuracion/resumenes';
 import { CajaValor, FILA, FILAS_COMO_TARJETAS, FILA_NUEVA, IconoFila } from './fila-herramienta';
 import { EstadoAjuste } from './estado-ajuste';
 import { esClicNormal, useNavegacionConfig } from './contexto';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 
 // Una sección de Configuración como grupos de filas, no como formularios
 // apilados (§4.2). Cada fila dice qué es y cómo está HOY —«L-V 8:00–22:00 · D
@@ -28,10 +29,12 @@ import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 export function GrupoFilas({ titulo, children }: { titulo: string; children: ReactNode }) {
   const id = useId();
   const panelNuevo = usePanelNuevo();
+  // Como Shopify: título en frase normal y UNA tarjeta con las filas separadas por una línea fina.
+  const sangre = useShellNuevo();
   return (
-    <section aria-labelledby={id} className={cn('space-y-2', panelNuevo ? 'max-w-3xl' : 'max-w-2xl')}>
-      <h3 id={id} className={panelNuevo ? 'px-1 text-[12.5px] font-bold uppercase tracking-[0.07em] text-foreground/60' : 'px-1 text-sm font-semibold text-foreground'}>{titulo}</h3>
-      <ul data-tarjeta-ajuste="" className={panelNuevo ? cn('space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'divide-y divide-border overflow-hidden')}>
+    <section aria-labelledby={id} className={cn(sangre ? 'space-y-3' : 'space-y-2', panelNuevo ? 'max-w-3xl' : 'max-w-2xl')}>
+      <h3 id={id} className={sangre ? 'px-1 text-[15px] font-semibold text-foreground' : panelNuevo ? 'px-1 text-[12.5px] font-bold uppercase tracking-[0.07em] text-foreground/60' : 'px-1 text-sm font-semibold text-foreground'}>{titulo}</h3>
+      <ul data-tarjeta-ajuste="" className={sangre ? 'divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card' : panelNuevo ? cn('space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'divide-y divide-border overflow-hidden')}>
         {children}
       </ul>
     </section>
@@ -40,9 +43,10 @@ export function GrupoFilas({ titulo, children }: { titulo: string; children: Rea
 
 /** El título de una fila y, si lo lleva, su ÚNICO estado. */
 export function TituloFila({ titulo, estado }: { titulo: string; estado?: ResumenFila['estado'] }) {
+  const sangre = useShellNuevo();
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="text-[15px] font-semibold text-foreground">{titulo}</span>
+      <span className={sangre ? 'text-[13px] font-medium leading-5 text-foreground' : 'text-[15px] font-semibold text-foreground'}>{titulo}</span>
       {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
     </span>
   );
@@ -138,7 +142,7 @@ export function FilaAjuste({
           <ValorFila valor={valor} descripcion={frase ?? tarjeta.frase} entero={entero || !!estado} />
           {extra && <span className="mt-1.5 flex flex-wrap gap-1.5">{extra}</span>}
         </span>
-        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+        <Flechita />
       </button>
     </li>
   );
@@ -271,7 +275,7 @@ export function FilaOtraSeccion({ id, icono, titulo, valor, descripcion, seccion
         </span>
         {panelNuevo
           ? <CajaValor valor={valor ?? 'Abrir'} />
-          : <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />}
+          : <Flechita />}
       </a>
     </li>
   );

@@ -7,7 +7,7 @@ import {
   Clock, Megaphone, Play,
   Bot, Package, Store, Inbox,
   UserCog, Users2, Compass, Replace, Network,
-  Calculator, Notebook, DownloadCloud, Wallet, PartyPopper, Blocks,
+  Calculator, Notebook, DownloadCloud, PartyPopper, Blocks,
 } from 'lucide-react';
 // Relativos y con extensión: `npm test` corre `node --test
 // --experimental-strip-types`, que no resuelve ni el alias `@/` ni las
@@ -176,10 +176,7 @@ const allSections: NavSection[] = [
       { href: '/libreta', label: 'Libreta de clientes', icon: Notebook },
       // «Actualizaciones» ya no está en el menú (fundador, 12-nov-2026). La pantalla sigue en /actualizaciones: la abre
       // «Ver todas las novedades» del botón de ayuda de la esquina.
-      // Wallet y no CreditCard: CreditCard ya es /cobros (dinero de las socias)
-      // y repetirlo aquí hacía indistinguibles dos conceptos opuestos — cobrar
-      // tú vs pagar tu cuota de Tentare (auditoría 2026-08-20).
-      { href: '/suscripcion', label: 'Plan de Tentare', icon: Wallet, alias: ['suscripcion', 'mi plan', 'facturacion de tentare', 'pagar tentare'] },
+      // «Plan de Tentare» ya no es una entrada del menú: vive en Configuración → Plan (fundador, 22-nov-2026).
     ],
   },
 ];

@@ -1,5 +1,6 @@
 'use client';
 
+import { Flechita } from './flechita';
 import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { useEffect, useId, useState, type ElementType, type MouseEvent } from 'react';
@@ -57,7 +58,7 @@ const TITULO_GRUPO = 'px-1 text-sm font-semibold text-foreground';
 const CAJA_ICONO = 'flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground';
 
 /** Panel nuevo: el icono de cada fila en la baldosa del color de su sección, como en la home. */
-const TONO_EXTERNA: Record<string, Tono> = { plan: 'verde', cuenta: 'azul' };
+const TONO_EXTERNA: Record<string, Tono> = { cuenta: 'azul' };
 
 function CajaIcono({ Icono, tono, nuevo }: { Icono: ElementType; tono: Tono; nuevo: boolean }) {
   if (!nuevo) return <span className={CAJA_ICONO}><Icono size={20} aria-hidden /></span>;
@@ -212,7 +213,7 @@ export function InicioConfiguracion({
                       <span className="block text-[15px] font-semibold text-foreground">{r.titulo}</span>
                       <span className="block text-sm text-muted-foreground">{r.donde ?? 'Sección de Configuración'}</span>
                     </span>
-                    <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+                    <Flechita />
                   </Link>
                 </li>
               );
@@ -235,7 +236,7 @@ export function InicioConfiguracion({
                           <Icono size={18} aria-hidden />
                         </span>
                         <span className="min-w-0 flex-1 text-[15px] font-medium text-foreground">{a.texto}</span>
-                        <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+                        <Flechita />
                       </Link>
                     </li>
                   );
@@ -291,7 +292,7 @@ export function InicioConfiguracion({
                 <ul className={panelNuevo ? 'divide-y divide-border' : LISTA} data-tarjeta-ajuste="">
                   {suyas.map(s => {
                     const Icono = ICONOS_SECCION[s.id];
-                    const resumen = resumenes?.[s.id];
+                    const resumen = s.id === 'plan' ? resumenPlan(fuera?.plan) : resumenes?.[s.id];
                     const id = `inicio-seccion-${s.id}`;
                     return (
                       <li key={s.id}>
@@ -310,7 +311,7 @@ export function InicioConfiguracion({
                               </span>
                             )}
                           </span>
-                          <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+                          <Flechita />
                         </Link>
                       </li>
                     );
@@ -318,7 +319,6 @@ export function InicioConfiguracion({
                   {externasDelGrupo.map(idFila => {
                     const f = FILAS_EXTERNAS[idFila];
                     const Icono = ICONOS_EXTERNAS[idFila];
-                    const resumen = idFila === 'plan' ? resumenPlan(fuera?.plan) : null;
                     return (
                       <li key={idFila}>
                         <Link id={`inicio-${idFila}`} href={f.href} className={FILA}>
@@ -326,13 +326,12 @@ export function InicioConfiguracion({
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <span className="text-[15px] font-semibold text-foreground">{f.titulo}</span>
-                              {resumen?.estado && <EstadoAjuste tono={resumen.estado.tono}>{resumen.estado.etiqueta}</EstadoAjuste>}
                             </span>
-                            <span data-resumen={resumen?.valor ? 'valor' : 'descripcion'} className="line-clamp-2 block text-sm text-muted-foreground">
-                              {resumen?.valor ?? f.resumen}
+                            <span data-resumen="descripcion" className="line-clamp-2 block text-sm text-muted-foreground">
+                              {f.resumen}
                             </span>
                           </span>
-                          <ChevronRight size={18} className="shrink-0 text-muted-foreground" aria-hidden />
+                          <Flechita />
                         </Link>
                       </li>
                     );

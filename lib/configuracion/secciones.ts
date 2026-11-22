@@ -20,7 +20,7 @@
 
 export type SeccionId =
   | 'estudio' | 'clases' | 'reservas' | 'cobros' | 'altas' | 'comunicacion'
-  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'avisos' | 'panel';
+  | 'motivacion' | 'marca' | 'web' | 'equipo' | 'conexiones' | 'datos' | 'plan' | 'avisos' | 'panel';
 
 /**
  * Cómo se guarda lo que hay dentro. Solo `al-pulsar` se anuncia en pantalla
@@ -339,6 +339,20 @@ export const SECCIONES = [
       { id: 'redaccion-ia', titulo: 'Redactar con IA', frase: 'Las sugerencias del Centro de Control y los mensajes de tus automatizaciones se redactan con IA. Si lo apagas, salen con su texto de serie y no se envía ningún dato de tus clientes a la IA.', guardado: 'al-pulsar', palabras: ['inteligencia artificial', 'ia', 'anthropic', 'privacidad', 'rgpd'] },
     ],
   },
+  // «Plan de Tentare» vivía en /suscripcion, fuera de Configuración (fundador, 22-nov-2026: «bórralo del menú y
+  // ponlo en Configuración como Shopify»). Es la misma vista (`SuscripcionVista`, embebida); /suscripcion queda
+  // solo para el estudio bloqueado y para la vuelta de Stripe.
+  {
+    id: 'plan',
+    titulo: 'Plan de Tentare',
+    resumen: 'Lo que pagas tú a Tentare, no tus clientes',
+    frase: 'Tu plan de Tentare, tus facturas, tu tarjeta y los complementos: lo que pagas tú, no lo que cobras a tus clientes.',
+    roles: SOLO_PROPIETARIA,
+    palabras: ['suscripción', 'suscripcion', 'prueba gratuita', 'precio', 'facturas', 'tarjeta', 'complementos'],
+    tarjetas: [
+      { id: 'plan-de-tentare', titulo: 'Plan de Tentare', frase: 'Tu plan, tus facturas, tu tarjeta y los complementos.', guardado: 'accion', ancho: 'amplio', palabras: ['suscripción', 'pagar tentare', 'cambiar de plan', 'cancelar'] },
+    ],
+  },
   // «Mis avisos» y «Tu panel» eran pantallas sueltas que no enlazaba nadie
   // (/configuracion/notificaciones) o que se abrían desde Apariencia
   // (/configuracion/apariencia/panel). Sus URLs siguen llevando aquí (destino.ts).
@@ -369,7 +383,7 @@ export const SECCIONES = [
     // (`studio_layout`), así que cada cajón manda solo el suyo gracias a que solo
     // se abre uno a la vez y cerrar sin guardar descarta (seccion-panel.tsx).
     tarjetas: [
-      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Resumen, Configuración y Suscripción no se esconden.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
+      { id: 'menu-del-panel', titulo: 'Tu menú', frase: 'Ordena los módulos dentro de su grupo y esconde los que no uses. Resumen y Configuración no se esconden.', guardado: 'barra', palabras: ['módulos', 'ocultar', 'orden'] },
       { id: 'inicio-del-panel', titulo: 'Tu Resumen', frase: 'Ordena y esconde las secciones de tu pantalla de Resumen. Los avisos de estado van siempre arriba.', guardado: 'barra', palabras: ['secciones', 'pantalla principal', 'inicio'] },
       { id: 'posicion-del-menu', titulo: 'Dónde va el menú', frase: 'A la izquierda o arriba, en el ordenador. En el móvil el menú no cambia.', guardado: 'barra', palabras: ['izquierda', 'arriba'] },
       { id: 'claro-u-oscuro', titulo: 'Claro u oscuro', frase: 'Solo para ti y en este navegador: no cambia nada a nadie más de tu equipo.', guardado: 'al-pulsar', palabras: ['modo oscuro', 'noche'] },
@@ -383,7 +397,7 @@ export type TarjetaId = (typeof SECCIONES)[number]['tarjetas'][number]['id'];
 /** «Mi cuenta» no es una sección: es la última fila, que lleva a /mi-perfil. */
 export const MI_CUENTA = { titulo: 'Mi cuenta', resumen: 'Tu nombre, tu foto y cómo entras.', href: '/mi-perfil' } as const;
 
-export type FilaExternaId = 'plan' | 'mi-cuenta';
+export type FilaExternaId = 'mi-cuenta';
 
 /** Una fila del inicio que lleva a OTRA pantalla del panel, no a una sección. */
 export interface FilaExterna {
@@ -398,13 +412,10 @@ export interface FilaExterna {
 }
 
 /**
- * «Plan de Tentare» enseña cómo está tu suscripción y lleva a /suscripcion, que
- * se queda como pantalla propia: a ella vuelve Stripe tras pagar, y su entrada
- * del menú no se puede esconder (`NO_OCULTABLES`).
+ * Solo «Mi cuenta»: «Plan de Tentare» ya es una sección (`plan`). /suscripcion
+ * se queda solo para el estudio bloqueado y la vuelta de Stripe.
  */
 export const FILAS_EXTERNAS: Readonly<Record<FilaExternaId, FilaExterna>> = {
-  // Lo que paga el estudio a Tentare: la cuenta es de la propietaria.
-  plan: { id: 'plan', titulo: 'Plan de Tentare', resumen: 'Lo que pagas tú a Tentare, no tus clientes', href: '/suscripcion', palabras: ['suscripción', 'prueba gratuita', 'precio'] },
   // Su propio perfil: a /mi-perfil llega todo el personal del panel.
   'mi-cuenta': { id: 'mi-cuenta', ...MI_CUENTA, resumen: 'Tu nombre, tu foto y cómo entras', palabras: ['perfil', 'foto'], roles: ['PROPIETARIO', 'MANAGER', 'RECEPCION'] },
 };
@@ -454,7 +465,7 @@ export const GRUPOS: readonly GrupoConfiguracion[] = [
   { id: 'tu-imagen', titulo: 'Tu imagen', secciones: ['marca', 'web'] },
   { id: 'equipo', titulo: 'Equipo', secciones: ['equipo'] },
   { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', secciones: ['conexiones', 'datos'] },
-  { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
+  { id: 'tu-cuenta', titulo: 'Tu cuenta', secciones: ['plan', 'avisos', 'panel'], externas: ['mi-cuenta'] },
 ];
 
 /**
@@ -478,7 +489,7 @@ export const GRUPOS_PANEL_NUEVO: readonly GrupoPanelNuevo[] = [
   { id: 'tus-alumnas', titulo: 'Tus clientes', frase: 'Cómo se dan de alta, qué les llega y lo que las anima a volver.', secciones: ['altas', 'comunicacion', 'motivacion'] },
   { id: 'tu-app-y-tu-web', titulo: 'Tu app y tu web', frase: 'Tu logo, cómo se ve tu app y dónde te encuentran.', secciones: ['marca', 'web'] },
   { id: 'conexiones-y-datos', titulo: 'Conectar y proteger', frase: 'Todo lo que conectas con otras herramientas, tus datos y la seguridad.', secciones: ['conexiones', 'datos'] },
-  { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['avisos', 'panel'], externas: ['plan', 'mi-cuenta'] },
+  { id: 'tu-cuenta', titulo: 'Tu cuenta', frase: 'Tu plan de Tentare, los avisos que te llegan a ti y cómo ves tu panel.', secciones: ['plan', 'avisos', 'panel'], externas: ['mi-cuenta'] },
 ];
 
 /** El grupo del panel nuevo al que pertenece una sección. */
