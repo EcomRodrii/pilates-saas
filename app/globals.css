@@ -2519,3 +2519,20 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   /* El hover de una fila: un gris casi blanco, sin cambiar nada más. */
   .panel-app[data-shell-nuevo] [data-config-raiz] [data-tarjeta-ajuste] > li > :is(a, button):hover { background-color: color-mix(in srgb, var(--foreground) 3%, transparent); }
 }
+
+/* Tablas y botones secundarios de Configuración como los de Idiomas en Shopify (`SHELL_NUEVO`):
+   cabecera gris de radio 10 con rótulos de 12/18 peso 500 en #4a4a4a, y el botón secundario en píldora gris de 28 px. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead th {
+    background-color: #f7f7f7; color: #4a4a4a; font-size: 12px; line-height: 18px; font-weight: 500; padding: 6px 8px; border: 0; letter-spacing: 0; text-transform: none;
+  }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead th:first-child { border-top-left-radius: 10px; border-bottom-left-radius: 10px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead th:last-child { border-top-right-radius: 10px; border-bottom-right-radius: 10px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table thead tr { background: transparent; border: 0; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] table tbody td { font-size: 13px; line-height: 20px; padding: 12px 8px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] :has(> table) { padding: 8px 10px; }
+  .panel-app[data-shell-nuevo] [data-config-raiz] [data-slot='button'][class*='border-border'][class*='bg-background'],
+  .cajon-modal [data-slot='button'][class*='border-border'][class*='bg-background'] {
+    background-color: #ebebeb; border-color: transparent; color: #101010; border-radius: 9999px; height: 28px; min-height: 28px; padding-block: 0; padding-inline: 12px; font-size: 12px; line-height: 16px; font-weight: 500;
+  }
+}
