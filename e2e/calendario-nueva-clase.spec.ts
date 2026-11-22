@@ -172,7 +172,7 @@ test.describe('Nueva clase: lo que se lee es lo que pasa', () => {
     await expect(alLlenarse).not.toContainText('entran en lista de espera');
     // Las plazas, las del tipo de clase y con la sala al lado.
     await expect(cajon.getByRole('spinbutton', { name: 'Plazas' })).toHaveValue('8');
-    await expect(cajon.getByText('las del tipo de clase · la sala tiene 10')).toBeVisible();
+    await expect(cajon.getByText('La sala tiene 10 sitios · plazas por defecto de este tipo de clase')).toBeVisible();
   });
 
   test('un tipo sin lista de espera lo dice él, y sus reglas propias se ven en el plegable', async ({ page }) => {

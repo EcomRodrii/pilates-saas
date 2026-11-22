@@ -782,6 +782,8 @@ export interface PlanTarifa {
   // para ids que estén en `tiposClaseIds`.
   limitePorTipo?: Record<string, number | null>;
   activo: boolean;
+  /** Retirado con historial: no se muestra en el panel ni se vende, pero sus suscripciones siguen. */
+  archivadoEn?: string | null;
   // P2 (auditoría "Veredicto de Marta"): fecha de fin de una oferta temporal
   // sobre `precio` — PURAMENTE informativa, no cambia ningún cálculo de
   // dinero. La propietaria sigue fijando el precio rebajado a mano en
