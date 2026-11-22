@@ -52,7 +52,7 @@ async function montar(page: Page, plan: string) {
   await page.route('**/rest/v1/planes_tarifa**', route => json(route, PLANES));
   await page.route('**/rest/v1/suscripciones**', route => json(route, SUSCRIPCIONES));
 
-  await page.goto('/configuracion?tab=plan');
+  await page.goto('/suscripcion#tu-plan');
 }
 
 test.describe('Suscripción · cuántas cuentan para el tope del plan', () => {

@@ -59,7 +59,7 @@ async function montar(page: Page, opts: {
   await page.route('**/api/billing/baja', async (route) => { m.baja.push(route.request().postDataJSON()); await (opts.baja ?? ((r) => json(r, { ok: true })))(route); });
   await page.route('**/api/billing/cambio-periodo', async (route) => { m.periodo.push(route.request().postDataJSON()); await (opts.periodo ?? ((r) => json(r, { ok: true })))(route); });
   await page.route('**/rest/v1/**', (route) => json(route, []));
-  await page.goto('/configuracion?tab=plan');
+  await page.goto('/suscripcion#tu-plan');
   await expect(page.getByRole('heading', { name: 'Mi suscripción' })).toBeVisible({ timeout: 30_000 });
   return m;
 }

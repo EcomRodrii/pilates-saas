@@ -150,6 +150,9 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
   // servidor), así que no hay HTML que pueda desajustarse con esto.
   const [retornoCheckout] = useState(() =>
     typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('suscripcion'));
+  // Se mira al montar: el efecto de abajo quita `?suscripcion=` de la URL en cuanto lo lee, y después ya no se vería.
+  const [visitaASecas] = useState(() =>
+    typeof window === 'undefined' ? false : !window.location.search && !window.location.hash);
   const [confirmacionAgotada, setConfirmacionAgotada] = useState(false);
   // El botón «Actualizar la tarjeta» de los avisos de impago llega con ?tarjeta=1: abre derecho el
   // cambio de tarjeta (una vez), sin que la propietaria tenga que buscar el botón.
@@ -178,7 +181,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
       // Visita a secas a /suscripcion de la PROPIETARIA de un estudio que NO está bloqueado (la gerencia no ve Plan en Configuración): su sitio es Configuración → Plan
       // (fundador, 22-nov-2026). Con `?…` (vuelta de Stripe, ?tarjeta=1, ?pack=) o `#…` (#consultas,
       // #exportar-datos, #tu-plan) se queda aquí: son enlaces de correos, avisos y Stripe que dependen de esta pantalla.
-      if (!embebida && e && !e.bloqueado && e.esPropietaria && !window.location.search && !window.location.hash) { router.replace('/configuracion?tab=plan'); return; }
+      if (!embebida && e && !e.bloqueado && e.esPropietaria && visitaASecas) { router.replace('/configuracion?tab=plan'); return; }
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que
@@ -195,7 +198,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
     });
     cargar();
     return () => { vivo = false; clearTimeout(espera); };
-  }, [session, retornoCheckout, embebida, router]);
+  }, [session, retornoCheckout, embebida, router, visitaASecas]);
 
   // Cómo paga hoy (mensual o anual): solo si ya paga y solo la propietaria. Se lee
   // de Stripe una vez por visita; ante un fallo, «mensual» (lo de siempre).

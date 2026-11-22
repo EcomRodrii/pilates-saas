@@ -1,7 +1,7 @@
 'use client';
 
 import { Flechita } from './flechita';
-import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import Link from 'next/link';
 import { ArrowUpRight, BellRing, CalendarRange, ChevronRight, Code2, DoorOpen, Gift, Mail, Newspaper, Smartphone, Ticket, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -55,6 +55,18 @@ export const FILA_NUEVA = 'flex w-full flex-col gap-3 px-5 py-4 text-left transi
 
 /** La caja de la derecha: el valor de hoy, como el campo de Bonsai, y la flecha de que se abre. */
 export function CajaValor({ valor, externo = false }: { valor: string | null; externo?: boolean }) {
+  const shellNuevo = useShellNuevo();
+  // Como Shopify: el valor va en gris, sin caja, y la flecha al final.
+  if (shellNuevo) {
+    return (
+      <span className="flex w-full shrink-0 items-center justify-between gap-2 text-[13px] text-muted-foreground sm:w-auto sm:max-w-[46%]">
+        <span className="truncate">{valor ?? 'Configurar'}</span>
+        {externo
+          ? <ArrowUpRight size={16} className="shrink-0" aria-hidden />
+          : <ChevronRight size={16} className="shrink-0" aria-hidden />}
+      </span>
+    );
+  }
   return (
     <span className="flex min-h-10 w-full shrink-0 items-center justify-between gap-2 rounded-[10px] border border-border bg-background/60 px-3 py-2 text-[13.5px] font-medium text-foreground sm:w-auto sm:max-w-[46%]">
       <span className="truncate">{valor ?? 'Configurar'}</span>
@@ -83,6 +95,7 @@ export function IconoFila({ icono: Icono }: { icono: LucideIcon }) {
 export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valor: string | null; estado?: ResumenFila['estado'] }) {
   const nav = useNavegacionConfig();
   const h = herramientaPorId(id);
+  const sangre = useShellNuevo();
   const panelNuevo = usePanelNuevo();
   if (panelNuevo) {
     return (
@@ -99,7 +112,7 @@ export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valo
         >
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-[15px] font-semibold text-foreground">{h.titulo}</span>
+              <span className={sangre ? 'text-[13px] font-medium leading-5 text-foreground' : 'text-[15px] font-semibold text-foreground'}>{h.titulo}</span>
               {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
             </span>
             <span data-resumen={valor ? 'valor' : 'descripcion'} className="mt-0.5 block text-[13px] text-muted-foreground text-pretty">{h.resumen}</span>
@@ -124,7 +137,7 @@ export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valo
         <IconoFila icono={ICONOS_HERRAMIENTA[id]} />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="text-[15px] font-semibold text-foreground">{h.titulo}</span>
+            <span className={sangre ? 'text-[13px] font-medium leading-5 text-foreground' : 'text-[15px] font-semibold text-foreground'}>{h.titulo}</span>
             {estado && <EstadoAjuste tono={estado.tono}>{estado.etiqueta}</EstadoAjuste>}
           </span>
           <span data-resumen={valor ? 'valor' : 'descripcion'} className="block text-sm text-muted-foreground text-pretty">
@@ -138,9 +151,10 @@ export function FilaHerramienta({ id, valor, estado }: { id: HerramientaId; valo
 }
 
 export function FilasHerramienta({ filas }: { filas: readonly { id: HerramientaId; valor: string | null }[] }) {
+  const sangre = useShellNuevo();
   const panelNuevo = usePanelNuevo();
   return (
-    <ul className={panelNuevo ? cn('max-w-3xl space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'max-w-2xl divide-y divide-border overflow-hidden')} data-tarjeta-ajuste="">
+    <ul className={sangre ? 'max-w-3xl divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card' : panelNuevo ? cn('max-w-3xl space-y-2.5', FILAS_COMO_TARJETAS) : cn(cardCls, 'max-w-2xl divide-y divide-border overflow-hidden')} data-tarjeta-ajuste="">
       {filas.map(f => <FilaHerramienta key={f.id} {...f} />)}
     </ul>
   );

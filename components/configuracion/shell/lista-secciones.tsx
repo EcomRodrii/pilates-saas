@@ -11,7 +11,7 @@ import { hrefDeSeccion } from '@/lib/configuracion/destino';
 import {
   FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
-import { useMiWebNueva, usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useMiWebNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { esClicNormal } from './contexto';
 
@@ -67,7 +67,7 @@ const fila = (actual: boolean) => cn(
 );
 // Panel nuevo: 36 px por fila (más de los 24 que pide WCAG 2.2): con los títulos
 // de grupo, la columna entera cabe a la vista en un portátil.
-const filaNueva = (actual: boolean) => cn(fila(actual), 'min-h-9 py-1.5');
+const filaNuevaPorDefecto = (actual: boolean) => cn(fila(actual), 'min-h-9 py-1.5');
 const icono = (actual: boolean) => cn('shrink-0', actual ? 'text-brand-foreground' : 'text-muted-foreground');
 
 export function ListaSecciones({
@@ -92,12 +92,15 @@ export function ListaSecciones({
   const enInicio = activa === null;
   const panelNuevo = usePanelNuevo();
   const miWebNueva = useMiWebNueva();
+  // Marco a sangre: como el menú de Configuración de Shopify, una lista PLANA (sin títulos de grupo) de filas de 28 px.
+  const sangre = useShellNuevo();
+  const filaNueva = sangre ? (actual: boolean) => cn(fila(actual), 'h-7 min-h-0 rounded-lg py-0 text-[13px] leading-5') : filaNuevaPorDefecto;
 
   // Panel nuevo: las secciones por grupos, cada uno con su título (como las
   // pestañas de Preferencias de Bonsai), en vez de quince filas seguidas.
   if (panelNuevo) {
     return (
-      <nav aria-label="Secciones de Configuración" className="space-y-3">
+      <nav aria-label="Secciones de Configuración" className={sangre ? 'space-y-0.5' : 'space-y-3'}>
         <Link id="rail-inicio" href="/configuracion" aria-current={enInicio ? 'page' : undefined} onClick={elegir(null)} className={filaNueva(enInicio)}>
           <Settings size={16} className={icono(enInicio)} aria-hidden />
           <span className="min-w-0 flex-1">Vista general</span>
@@ -110,8 +113,8 @@ export function ListaSecciones({
           const sinEncabezado = otras.length === 0 && suyas.length === 1 && grupoEsLaSeccion(grupo, suyas[0]);
           return (
             <div key={grupo.id}>
-              {!sinEncabezado && <p id={`rail-grupo-${grupo.id}`} className="px-3 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{grupo.titulo}</p>}
-              <ul aria-labelledby={sinEncabezado ? undefined : `rail-grupo-${grupo.id}`} className="space-y-0.5">
+              {!sinEncabezado && !sangre && <p id={`rail-grupo-${grupo.id}`} className="px-3 pb-0.5 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{grupo.titulo}</p>}
+              <ul aria-labelledby={sinEncabezado || sangre ? undefined : `rail-grupo-${grupo.id}`} className="space-y-0.5">
                 {suyas.map(s => {
                   const Icono = ICONOS_SECCION[s.id];
                   const actual = activa === s.id;
@@ -119,7 +122,7 @@ export function ListaSecciones({
                     <li key={s.id}>
                       <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} onClick={elegir(s.id)} className={filaNueva(actual)}>
                         <Icono size={16} className={icono(actual)} aria-hidden />
-                        <span className="min-w-0 flex-1">{s.titulo}</span>
+                        <span className="min-w-0 flex-1 truncate">{s.titulo}</span>
                       </Link>
                     </li>
                   );

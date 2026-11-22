@@ -36,7 +36,7 @@ async function montarSuscripcion(page: Page, estado: Record<string, unknown>) {
   await page.route('**/api/billing/status**', route => json(route, estado));
   await page.route('**/rest/v1/**', route => json(route, []));
 
-  await page.goto('/configuracion?tab=plan');
+  await page.goto('/suscripcion#tu-plan');
 }
 
 test.describe('Pantalla de suscripción', () => {
