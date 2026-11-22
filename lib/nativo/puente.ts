@@ -498,3 +498,42 @@ export async function brilloAlMaximo(): Promise<() => Promise<void>> {
     return nada;
   }
 }
+
+// ─── Widget «Mi próxima clase» ────────────────────────────────────────────
+//
+// La app guarda las próximas clases de la alumna en el grupo de apps de iOS y
+// el widget de la pantalla de inicio las lee sin red (`ProximaClasePlugin`,
+// ios/App/App/). Lo que se guarda lo arma `lib/nativo/widget-clases.ts`.
+
+interface PluginProximaClase {
+  guardar(o: { json: string }): Promise<void>;
+  borrar(): Promise<void>;
+}
+let pluginProximaClase: PluginProximaClase | null = null;
+
+async function proximaClase(): Promise<PluginProximaClase> {
+  if (!pluginProximaClase) {
+    const { registerPlugin } = await import('@capacitor/core');
+    pluginProximaClase = registerPlugin<PluginProximaClase>('ProximaClase');
+  }
+  return pluginProximaClase;
+}
+
+/** Guarda las próximas clases para el widget. `false` fuera de la app o si el plugin no está. */
+export async function guardarClasesParaElWidget(json: string): Promise<boolean> {
+  if (!esAppNativa()) return false;
+  try {
+    await (await proximaClase()).guardar({ json });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Al cerrar sesión: nada de la alumna se queda en la pantalla de inicio. No hace nada fuera de la app. */
+export async function borrarClasesDelWidget(): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    await (await proximaClase()).borrar();
+  } catch { /* sin plugin: no hay widget que limpiar */ }
+}

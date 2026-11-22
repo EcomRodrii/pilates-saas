@@ -8,6 +8,8 @@ import Capacitor
 class TentareBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(SignInWithApplePlugin())
+        // Las próximas clases para el widget de la pantalla de inicio.
+        bridge?.registerPluginInstance(ProximaClasePlugin())
         // Deslizar desde el borde izquierdo para volver, como en cualquier app
         // del iPhone. La web navega con `history.pushState`, así que cada
         // pantalla deja su entrada y el gesto vuelve a la anterior (Next lo

@@ -18,6 +18,7 @@ import { estaEnCurso, yaTermino } from '@/lib/student/estado-clase';
 import { ErrorState, OfflineState, Skeleton } from '@/components/student/ui/States';
 import { LoTuyo } from '@/components/student/domain/LoTuyo';
 import { TarjetaProximaClase } from '@/components/student/domain/TarjetaProximaClase';
+import { useWidgetProximasClases } from '@/components/nativo/useWidgetProximasClases';
 import { BaldosasInicio } from '@/components/student/domain/BaldosasInicio';
 import { CitaManuscrita } from '@/components/student/domain/CitaManuscrita';
 import { Descubre } from '@/components/student/domain/Descubre';
@@ -114,6 +115,9 @@ export default function InicioPage() {
     .filter((x) => x.c.fecha >= hoy)
     .filter((x) => !yaTermino(x.c, ahoraMs))
     .sort((a, b) => (a.c.fecha + a.c.hora).localeCompare(b.c.fecha + b.c.hora))[0];
+
+  // El widget de iOS «Mi próxima clase» (en la web no hace nada): con lo que Inicio ya cargó.
+  useWidgetProximasClases(data ?? null, estudio.nombre);
 
   // «Huecos de hoy» es un atajo para RESERVAR, así que una clase ya empezada no
   // es un hueco: el servidor la rechaza (`sesionYaEmpezada`). Antes salía toda la
