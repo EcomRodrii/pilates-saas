@@ -189,7 +189,7 @@ export function BarraGuardar({
                   opacidad del `Button` dejaba el oliva a medio fundir. */}
               <Button
                 type="button" size="lg" onClick={alPulsarGuardar} disabled={guardando || !!bloqueo}
-                className={cn('disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100', sangre && 'md:h-7 md:rounded-full md:border-transparent md:bg-[#303030] md:px-3 md:text-[13px] md:font-normal md:text-white md:hover:bg-[#1a1a1a] md:disabled:bg-black/[0.13] md:disabled:text-white')}
+                className={cn('disabled:border-border disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100', sangre && 'md:h-7 md:rounded-full md:border-transparent md:bg-foreground md:px-3 md:text-[13px] md:font-normal md:text-background md:hover:bg-foreground/90 md:disabled:bg-foreground/15 md:disabled:text-background')}
               >
                 {guardando ? 'Guardando…' : 'Guardar'}
               </Button>
