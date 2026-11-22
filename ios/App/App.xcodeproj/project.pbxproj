@@ -19,7 +19,37 @@
 		7E47A2E10000000000000002 /* TentareBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E10000000000000001 /* TentareBridgeViewController.swift */; };
 		7E47A2E10000000000000004 /* SignInWithApplePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E10000000000000003 /* SignInWithApplePlugin.swift */; };
 		7E47A2E10000000000000008 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7E47A2E10000000000000007 /* PrivacyInfo.xcprivacy */; };
+		7E47A2E20000000000000002 /* ProximasClases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000001 /* ProximasClases.swift */; };
+		7E47A2E20000000000000004 /* ProximasClases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000001 /* ProximasClases.swift */; };
+		7E47A2E20000000000000006 /* ProximaClasePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000003 /* ProximaClasePlugin.swift */; };
+		7E47A2E20000000000000008 /* TentareWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E47A2E20000000000000005 /* TentareWidget.swift */; };
+		7E47A2E2000000000000000A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7E47A2E2000000000000000B /* PrivacyInfo.xcprivacy */; };
+		7E47A2E2000000000000000C /* TentareWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7E47A2E2000000000000000D /* TentareWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		7E47A2E20000000000000019 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7E47A2E20000000000000010;
+			remoteInfo = TentareWidget;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7E47A2E20000000000000017 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				7E47A2E2000000000000000C /* TentareWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
@@ -38,6 +68,13 @@
 		7E47A2E10000000000000005 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		7E47A2E10000000000000007 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		7E47A2E10000000000000006 /* tentare.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = tentare.xcconfig; path = ../tentare.xcconfig; sourceTree = SOURCE_ROOT; };
+		7E47A2E20000000000000001 /* ProximasClases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximasClases.swift; sourceTree = "<group>"; };
+		7E47A2E20000000000000003 /* ProximaClasePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximaClasePlugin.swift; sourceTree = "<group>"; };
+		7E47A2E20000000000000005 /* TentareWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TentareWidget.swift; sourceTree = "<group>"; };
+		7E47A2E20000000000000007 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		7E47A2E20000000000000009 /* TentareWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TentareWidget.entitlements; sourceTree = "<group>"; };
+		7E47A2E2000000000000000B /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7E47A2E2000000000000000D /* TentareWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TentareWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +83,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7E47A2E20000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -58,6 +102,8 @@
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				7E47A2E10000000000000006 /* tentare.xcconfig */,
 				504EC3061FED79650016851F /* App */,
+				7E47A2E2000000000000001A /* Compartido */,
+				7E47A2E2000000000000001B /* TentareWidget */,
 				504EC3051FED79650016851F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,6 +112,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				7E47A2E2000000000000000D /* TentareWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -76,6 +123,7 @@
 				9582B6822FE993A50072D4E8 /* SceneDelegate.swift */,
 				7E47A2E10000000000000001 /* TentareBridgeViewController.swift */,
 				7E47A2E10000000000000003 /* SignInWithApplePlugin.swift */,
+				7E47A2E20000000000000003 /* ProximaClasePlugin.swift */,
 				7E47A2E10000000000000005 /* App.entitlements */,
 				7E47A2E10000000000000007 /* PrivacyInfo.xcprivacy */,
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
@@ -90,6 +138,25 @@
 			path = App;
 			sourceTree = "<group>";
 		};
+		7E47A2E2000000000000001A /* Compartido */ = {
+			isa = PBXGroup;
+			children = (
+				7E47A2E20000000000000001 /* ProximasClases.swift */,
+			);
+			path = Compartido;
+			sourceTree = "<group>";
+		};
+		7E47A2E2000000000000001B /* TentareWidget */ = {
+			isa = PBXGroup;
+			children = (
+				7E47A2E20000000000000005 /* TentareWidget.swift */,
+				7E47A2E20000000000000007 /* Info.plist */,
+				7E47A2E20000000000000009 /* TentareWidget.entitlements */,
+				7E47A2E2000000000000000B /* PrivacyInfo.xcprivacy */,
+			);
+			path = TentareWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -100,10 +167,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				7E47A2E20000000000000017 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7E47A2E20000000000000018 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -112,6 +181,23 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		7E47A2E20000000000000010 /* TentareWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7E47A2E20000000000000014 /* Build configuration list for PBXNativeTarget "TentareWidget" */;
+			buildPhases = (
+				7E47A2E20000000000000011 /* Sources */,
+				7E47A2E20000000000000012 /* Frameworks */,
+				7E47A2E20000000000000013 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TentareWidget;
+			productName = TentareWidget;
+			productReference = 7E47A2E2000000000000000D /* TentareWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -125,6 +211,10 @@
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
 						LastSwiftMigration = 1100;
+						ProvisioningStyle = Automatic;
+					};
+					7E47A2E20000000000000010 = {
+						CreatedOnToolsVersion = 15.0;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -146,6 +236,7 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				7E47A2E20000000000000010 /* TentareWidget */,
 			);
 		};
 /* End PBXProject section */
@@ -165,6 +256,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7E47A2E20000000000000013 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7E47A2E2000000000000000A /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -176,10 +275,29 @@
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
 				7E47A2E10000000000000002 /* TentareBridgeViewController.swift in Sources */,
 				7E47A2E10000000000000004 /* SignInWithApplePlugin.swift in Sources */,
+				7E47A2E20000000000000006 /* ProximaClasePlugin.swift in Sources */,
+				7E47A2E20000000000000002 /* ProximasClases.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7E47A2E20000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7E47A2E20000000000000008 /* TentareWidget.swift in Sources */,
+				7E47A2E20000000000000004 /* ProximasClases.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7E47A2E20000000000000018 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7E47A2E20000000000000010 /* TentareWidget */;
+			targetProxy = 7E47A2E20000000000000019 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -359,6 +477,55 @@
 			};
 			name = Release;
 		};
+		7E47A2E20000000000000015 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = TentareWidget/TentareWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "$(TENTARE_TEAM_ID)";
+				INFOPLIST_FILE = TentareWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TENTARE_BUNDLE_ID).widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+			};
+			name = Debug;
+		};
+		7E47A2E20000000000000016 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = TentareWidget/TentareWidget.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "$(TENTARE_TEAM_ID)";
+				INFOPLIST_FILE = TentareWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(TENTARE_BUNDLE_ID).widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -376,6 +543,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7E47A2E20000000000000014 /* Build configuration list for PBXNativeTarget "TentareWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7E47A2E20000000000000015 /* Debug */,
+				7E47A2E20000000000000016 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

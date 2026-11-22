@@ -33,6 +33,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>TentareAppGroup</key>
+	<string>group.$(TENTARE_BUNDLE_ID)</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>

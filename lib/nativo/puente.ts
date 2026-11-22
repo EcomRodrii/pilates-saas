@@ -35,6 +35,7 @@ export { esVueltaDeOAuth } from './enlaces.ts';
 
 const ESPERA_PUSH_MS = 20_000;
 const ESPERA_OAUTH_MS = 10 * 60_000;
+const ESPERA_WIDGET_MS = 2_500;
 
 /** `true` solo dentro de la app nativa (Capacitor de verdad), nunca en la web. */
 export function esAppNativa(): boolean {
@@ -497,4 +498,47 @@ export async function brilloAlMaximo(): Promise<() => Promise<void>> {
   } catch {
     return nada;
   }
+}
+
+// ─── Widget «Mi próxima clase» ────────────────────────────────────────────
+//
+// La app guarda las próximas clases de la alumna en el grupo de apps de iOS y
+// el widget de la pantalla de inicio las lee sin red (`ProximaClasePlugin`,
+// ios/App/App/). Lo que se guarda lo arma `lib/nativo/widget-clases.ts`.
+
+interface PluginProximaClase {
+  guardar(o: { json: string }): Promise<void>;
+  borrar(): Promise<void>;
+}
+let pluginProximaClase: PluginProximaClase | null = null;
+
+async function proximaClase(): Promise<PluginProximaClase> {
+  if (!pluginProximaClase) {
+    const { registerPlugin } = await import('@capacitor/core');
+    pluginProximaClase = registerPlugin<PluginProximaClase>('ProximaClase');
+  }
+  return pluginProximaClase;
+}
+
+/** Guarda las próximas clases para el widget. `false` fuera de la app o si el plugin no está. */
+export async function guardarClasesParaElWidget(json: string): Promise<boolean> {
+  if (!esAppNativa()) return false;
+  try {
+    await (await proximaClase()).guardar({ json });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Al cerrar sesión: nada de la alumna se queda en la pantalla de inicio. No hace nada fuera de la app. */
+export async function borrarClasesDelWidget(): Promise<void> {
+  if (!esAppNativa()) return;
+  try {
+    // Con tope: si el puente nativo no contesta, esto no se queda esperando para siempre.
+    await Promise.race([
+      proximaClase().then((p) => p.borrar()),
+      new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
+    ]);
+  } catch { /* sin plugin: no hay widget que limpiar */ }
 }

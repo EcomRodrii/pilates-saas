@@ -10,6 +10,10 @@
 		<string>applinks:tentare.app</string>
 		<string>webcredentials:www.tentare.app</string>
 	</array>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.$(TENTARE_BUNDLE_ID)</string>
+	</array>
 	<key>com.apple.developer.applesignin</key>
 	<array>
 		<string>Default</string>
