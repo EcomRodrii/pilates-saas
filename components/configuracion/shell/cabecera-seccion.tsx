@@ -56,7 +56,7 @@ export function CabeceraSeccion({
             id="seccion-titulo"
             ref={tituloRef}
             tabIndex={-1}
-            className={cn('min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-balance', sangre ? 'md:text-[22px] md:font-medium md:leading-7 md:tracking-[-0.02em] md:text-[#101010]' : 'md:text-xl')}
+            className={cn('min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-balance', sangre ? 'md:text-[26px] md:font-medium md:leading-8 md:tracking-normal md:text-[#101010]' : 'md:text-xl')}
           >
             {seccion.titulo}
           </h2>
@@ -64,7 +64,7 @@ export function CabeceraSeccion({
         {/* El «?» del tutorial de esta vista (P1.1): su clave es la URL canónica. */}
         <BotonTutorial ruta={hrefDeLugar({ tab: seccion.id })} />
       </div>
-      <p className="-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3">{seccion.frase}</p>
+      <p className={cn('-mt-2 max-w-2xl text-sm text-muted-foreground text-pretty md:-mt-3', sangre && 'sr-only')}>{seccion.frase}</p>
     </>
   );
 }

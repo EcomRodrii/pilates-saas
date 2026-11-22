@@ -107,6 +107,7 @@ export function FilaAjuste({
 }) {
   const tarjeta = tarjetaPorId(id);
   const panelNuevo = usePanelNuevo();
+  const sangre = useShellNuevo();
   if (panelNuevo) {
     return (
       <li>
@@ -117,6 +118,7 @@ export function FilaAjuste({
           onClick={() => onAbrir(id)}
           className={cn(FILA_NUEVA, 'scroll-mt-32 scroll-mb-32')}
         >
+          {sangre && <IconoFila icono={icono} />}
           <span className="min-w-0 flex-1">
             <TituloFila titulo={tarjeta.titulo} estado={estado} />
             <span className="mt-0.5 block text-[13px] text-muted-foreground text-pretty group-data-[sangre]/config:mt-0 group-data-[sangre]/config:leading-5 group-data-[sangre]/config:tracking-[-0.13px] group-data-[sangre]/config:text-[#4a4a4a]">{frase ?? tarjeta.frase}</span>
