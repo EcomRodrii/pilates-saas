@@ -170,6 +170,8 @@ test.describe('tras el paso 5: «Tus primeros pasos», y la primera clase en el 
     const { pet } = await montar(page, { pantalla: 'marca' });
     await expect(page.getByRole('heading', { name: 'Que se vea tu estudio' })).toBeVisible({ timeout: 30_000 });
     await page.getByRole('button', { name: 'Más tarde' }).first().click();
+    await expect(page.getByRole('heading', { name: '¿En qué te podemos ayudar?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Omitir' }).first().click();
     await expect(page.getByRole('heading', { name: 'Ahora, tus primeros pasos' })).toBeVisible();
     const pasos = page.getByTestId('primeros-pasos-alta').locator('li');
     await expect(pasos).toHaveCount(4);

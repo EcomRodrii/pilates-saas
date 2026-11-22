@@ -40,12 +40,12 @@ export const LINEA_DE_PASOS: readonly PasoDeLaLinea[] = [
  * primeros pasos», la introducción breve de lo que viene en el panel, la última:
  * con el alta ya hecha (la línea, entera).
  */
-export const PANTALLAS_ALTA = ['estudio', 'horario', 'importar', 'marca', 'pasos'] as const;
+export const PANTALLAS_ALTA = ['estudio', 'horario', 'importar', 'marca', 'foco', 'pasos'] as const;
 export type PantallaAlta = (typeof PANTALLAS_ALTA)[number];
 
 /** El paso de la línea en que está cada pantalla. «Tus primeros pasos», ya después del último. */
 export const PASO_DE_PANTALLA: Readonly<Record<PantallaAlta, number>> = {
-  estudio: 3, horario: 3, importar: 4, marca: 5, pasos: 6,
+  estudio: 3, horario: 3, importar: 4, marca: 5, foco: 6, pasos: 6,
 };
 
 /**

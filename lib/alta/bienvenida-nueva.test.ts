@@ -32,15 +32,17 @@ test('«Tus primeros pasos» cuenta las tareas que vienen, con los nombres de «
 });
 
 test('las pantallas van en orden; el alta acaba en «Tus primeros pasos», tras la marca', () => {
-  assert.deepEqual([...PANTALLAS_ALTA], ['estudio', 'horario', 'importar', 'marca', 'pasos']);
-  assert.deepEqual(PANTALLAS_ALTA.map(p => PASO_DE_PANTALLA[p]), [3, 3, 4, 5, 6]);
+  assert.deepEqual([...PANTALLAS_ALTA], ['estudio', 'horario', 'importar', 'marca', 'foco', 'pasos']);
+  assert.deepEqual(PANTALLAS_ALTA.map(p => PASO_DE_PANTALLA[p]), [3, 3, 4, 5, 6, 6]);
   assert.equal(siguientePantalla('estudio'), 'horario');
   // Fundador, 21-oct: tras la marca, nunca el Calendario vacío; primero lo que viene.
-  assert.equal(siguientePantalla('marca'), 'pasos', 'después de la marca, «Tus primeros pasos»');
+  assert.equal(siguientePantalla('marca'), 'foco', 'después de la marca, «¿En qué te ayudamos?» (opcional)');
+  assert.equal(siguientePantalla('foco'), 'pasos', 'y luego «Tus primeros pasos»');
   assert.equal(siguientePantalla('pasos'), null, 'y ahí se sale al panel');
   assert.equal(anteriorPantalla('estudio'), null);
   assert.equal(anteriorPantalla('importar'), 'horario');
-  assert.equal(anteriorPantalla('pasos'), 'marca');
+  assert.equal(anteriorPantalla('pasos'), 'foco');
+  assert.equal(anteriorPantalla('foco'), 'marca');
   assert.equal(ENTRADA_PRIMERA_CLASE, '/calendario?primera=1');
   assert.equal(pidePrimeraClase('?primera=1'), true);
   assert.equal(pidePrimeraClase('?nueva=1'), false);
