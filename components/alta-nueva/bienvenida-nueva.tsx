@@ -46,6 +46,7 @@ import { limpiarAltaEnCurso } from '@/lib/alta/alta-en-curso';
 import { PasoCuando, PasoDonde } from './paso-tu-estudio';
 import { PasoImportar } from './paso-importar';
 import { PasoMarca } from './paso-marca';
+import { PasoFoco } from './paso-foco';
 import { PasoPrimerosPasos } from './paso-primeros-pasos';
 import { guardarPantalla, leerPantalla, olvidarPantalla } from './pantalla-guardada';
 
@@ -147,6 +148,9 @@ export function BienvenidaNueva({ studio }: { studio: Studio }) {
       )}
       {pantalla === 'marca' && (
         <PasoMarca studio={studio} saliendo={saliendo} onAtras={() => atras('marca')} onListo={() => seguir('marca')} />
+      )}
+      {pantalla === 'foco' && (
+        <PasoFoco studio={studio} onAtras={() => atras('foco')} onListo={() => seguir('foco')} />
       )}
       {pantalla === 'pasos' && (
         <PasoPrimerosPasos

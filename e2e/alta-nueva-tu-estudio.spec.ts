@@ -16,7 +16,7 @@ async function montarAltaNueva(page: Page, { estudio = {}, horarioFalla = false,
   estudio?: Record<string, unknown>;
   horarioFalla?: boolean;
   /** Empezar en esta pantalla, como si se hubiera quedado ahí en este navegador. */
-  pantalla?: 'estudio' | 'horario' | 'importar' | 'marca' | 'pasos';
+  pantalla?: 'estudio' | 'horario' | 'importar' | 'marca' | 'foco' | 'pasos';
 } = {}) {
   const escrito = {
     usuario: [] as Record<string, unknown>[],
@@ -195,7 +195,11 @@ test.describe('el alta nueva en el panel', () => {
     // «Más tarde»: no publica el color y sigue a «Tus primeros pasos», la última
     // pantalla del alta (fundador, 21-oct): todavía no se sella.
     await page.getByRole('button', { name: 'Más tarde' }).first().click();
+    // …precedida de «¿En qué te podemos ayudar?», opcional: «Omitir» no guarda nada.
+    await expect(page.getByRole('heading', { name: '¿En qué te podemos ayudar?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Omitir' }).first().click();
     await expect(page.getByRole('heading', { name: 'Ahora, tus primeros pasos' })).toBeVisible();
+    expect(pet.patches.some((p) => 'onb_prioridad' in p)).toBe(false);
     expect(escrito.publicar).toEqual([]);
     expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
   });
@@ -206,8 +210,22 @@ test.describe('el alta nueva en el panel', () => {
     await page.getByRole('radio', { name: 'Océano' }).click();
     await page.getByRole('button', { name: 'Siguiente' }).click();
     await expect.poll(() => escrito.publicar).toEqual([{ campos: { primary: '#2F6F8F' } }]);
+    await expect(page.getByRole('heading', { name: '¿En qué te podemos ayudar?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Omitir' }).first().click();
     await expect(page.getByRole('heading', { name: 'Ahora, tus primeros pasos' })).toBeVisible();
     expect(pet.patches.some((p) => 'bienvenida_vista_en' in p)).toBe(false);
+  });
+
+  test('«¿En qué te podemos ayudar?» guarda las píldoras elegidas (varias) y sigue a los primeros pasos', async ({ page }) => {
+    const { pet } = await montarAltaNueva(page, { pantalla: 'foco' });
+    await expect(page.getByRole('heading', { name: '¿En qué te podemos ayudar?' })).toBeVisible({ timeout: 30_000 });
+    const gestionar = page.getByRole('button', { name: 'Gestionar reservas' });
+    await gestionar.click();
+    await page.getByRole('button', { name: 'Cobros', exact: true }).click();
+    await expect(gestionar).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+    await expect(page.getByRole('heading', { name: 'Ahora, tus primeros pasos' })).toBeVisible();
+    expect(pet.patches).toContainEqual({ onb_prioridad: ['Gestionar reservas', 'Cobros'] });
   });
 
   test('si recarga, vuelve a la pantalla en que estaba', async ({ page }) => {

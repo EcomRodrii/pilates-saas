@@ -123,7 +123,7 @@ export function CabeceraPaso({ etiqueta, titulo, sub, masTarde, tituloRef }: {
   etiqueta: string;
   titulo: string;
   sub?: React.ReactNode;
-  masTarde?: { onClick: () => void; disabled?: boolean };
+  masTarde?: { onClick: () => void; disabled?: boolean; texto?: string };
   tituloRef?: React.Ref<HTMLHeadingElement>;
 }) {
   const { foco, hueco } = useContext(FocoContext);
@@ -134,7 +134,7 @@ export function CabeceraPaso({ etiqueta, titulo, sub, masTarde, tituloRef }: {
         <h1 ref={tituloRef} tabIndex={-1} className="ob-h1">{titulo}</h1>
         {sub && <p className="ob-sub">{sub}</p>}
         {masTarde && (
-          <button type="button" onClick={masTarde.onClick} disabled={masTarde.disabled} className="ob-mas-tarde ob-pulsable">Más tarde</button>
+          <button type="button" onClick={masTarde.onClick} disabled={masTarde.disabled} className="ob-mas-tarde ob-pulsable">{masTarde.texto ?? 'Más tarde'}</button>
         )}
       </div>,
       hueco,
@@ -151,7 +151,7 @@ export function CabeceraPaso({ etiqueta, titulo, sub, masTarde, tituloRef }: {
       </div>
       {masTarde && (
         <button type="button" onClick={masTarde.onClick} disabled={masTarde.disabled} className={cn(BOTON_BORDE, 'mt-6 shrink-0 disabled:opacity-60')}>
-          Más tarde
+          {masTarde.texto ?? 'Más tarde'}
         </button>
       )}
     </div>
@@ -168,7 +168,7 @@ export function NavPaso({ onAtras, trabajando, textoSiguiente = 'Siguiente', mas
   onAtras?: () => void;
   trabajando: boolean;
   textoSiguiente?: string;
-  masTarde?: { onClick: () => void };
+  masTarde?: { onClick: () => void; texto?: string };
 }) {
   const { foco } = useContext(FocoContext);
   if (foco) {
@@ -181,7 +181,7 @@ export function NavPaso({ onAtras, trabajando, textoSiguiente = 'Siguiente', mas
         )}
         <div className="ob-nav-der">
           {masTarde && (
-            <button type="button" onClick={masTarde.onClick} disabled={trabajando} className="ob-secundario ob-pulsable">Más tarde</button>
+            <button type="button" onClick={masTarde.onClick} disabled={trabajando} className="ob-secundario ob-pulsable">{masTarde.texto ?? 'Más tarde'}</button>
           )}
           <button type="submit" disabled={trabajando} className="ob-principal ob-pulsable">
             {trabajando
