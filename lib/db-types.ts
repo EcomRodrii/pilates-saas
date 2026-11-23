@@ -4588,6 +4588,12 @@ export interface RowResenasClics {
   n: number;
 }
 
+export interface RowAvisosInactividad {
+  studio_id: string;
+  avisado_en: string;
+  dias_sin_actividad: number;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -12697,6 +12703,18 @@ export type ResenasClicsUpdate = {
   n?: number | null;
 }
 
+export type AvisosInactividadInsert = {
+  studio_id?: string | null;
+  avisado_en?: string | null;
+  dias_sin_actividad?: number | null;
+}
+
+export type AvisosInactividadUpdate = {
+  studio_id?: string | null;
+  avisado_en?: string | null;
+  dias_sin_actividad?: number | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -14124,6 +14142,11 @@ export type Database = {
         Row: RowResenasClics;
         Insert: ResenasClicsInsert;
         Update: ResenasClicsUpdate;
+      };
+      avisos_inactividad: {
+        Row: RowAvisosInactividad;
+        Insert: AvisosInactividadInsert;
+        Update: AvisosInactividadUpdate;
       };
     };
   };
