@@ -8,6 +8,7 @@ import { requireSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { barrerAlertasApertura } from '@/lib/opening/alertas-cron';
 import { revisarAppsSinPlan } from '@/lib/app-nativa/apps-sin-plan-cron';
 import { registrarSituacionDiaria } from '@/lib/retencion/situacion-diaria';
+import { avisarEstudiosInactivos } from '@/lib/retencion/aviso-inactividad';
 import { medirGratisEnSeco } from '@/lib/retencion/gratis-en-seco-servidor';
 import { barrerImpagos } from '@/lib/billing/impagos/servidor';
 import Stripe from 'stripe';
@@ -86,6 +87,16 @@ export async function POST(req: NextRequest) {
     errorAvisos = err;
   }
 
+  // «Llevas 30 días sin usar Tentare» (solo con AVISO_INACTIVIDAD=on): un aviso por estudio, como mucho 5 por
+  // pasada. Solo avisa; no borra ni cambia el estado de ningún estudio.
+  let avisoInactividad: unknown;
+  try {
+    avisoInactividad = await avisarEstudiosInactivos(requireSupabaseAdmin());
+  } catch (err) {
+    Sentry.captureException(err, { tags: { cron: 'notif-trial', area: 'retencion' } });
+    avisoInactividad = { error: 'Error avisando a los estudios inactivos.' };
+  }
+
   // El informe diario de bajas (solo con BAJAS_AUTOMATICAS=informe), el último.
   let situacionDiaria: unknown;
   try {
@@ -108,5 +119,5 @@ export async function POST(req: NextRequest) {
   if (errorAvisos || !resumen) {
     return errorInterno('cron/notif-trial:POST', errorAvisos, 'Error avisando de prueba gratuita a punto de acabar.');
   }
-  return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, impagosSaas, situacionDiaria, gratisEnSeco });
+  return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen, cicloEstudiosVencidos, alertasApertura, appsSinPlan, impagosSaas, avisoInactividad, situacionDiaria, gratisEnSeco });
 }
