@@ -845,6 +845,23 @@ export function Sidebar() {
     return () => ro.disconnect();
   }, [horizontal]);
 
+  // La entrada del menú al cargar, como la del admin de Shopify (medida en vivo el 23-nov-2026 con `document.getAnimations()`): cada
+  // fila llega desde la izquierda (−60 px → 0) con fundido y desenfoque de 2 px, 400 ms con `cubic-bezier(.2,.8,0,1)`, y cada una 10 ms
+  // después de la anterior; las del pie suben desde abajo. Una vez por carga de la página (el menú vive en el layout: pasar de una
+  // pantalla a otra no la repite). Solo DOM (atributo + `--i` por fila): sin estado, sin repintar el menú. Las reglas, en `globals.css`.
+  useEffect(() => {
+    if (!sangre || horizontal) return;
+    const el = barraRef.current;
+    if (!el || el.dataset.yaEntro) return;
+    el.dataset.yaEntro = '1';
+    if (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (navigator.webdriver) return;
+    el.querySelectorAll<HTMLElement>('a, [data-tour="buscador"]').forEach((fila, i) => fila.style.setProperty('--i', String(i)));
+    el.dataset.entra = '';
+    const t = setTimeout(() => { delete el.dataset.entra; }, 1600);
+    return () => clearTimeout(t);
+  }, [sangre, horizontal]);
+
   // ⚠️ La columna se desplaza, pero nada lo decía. En un portátil (800 px de
   // alto) con «Todo», el menú acababa a media lista y el resto quedaba debajo
   // sin barra a la vista — macOS la esconde hasta que haces scroll — así que
