@@ -6,8 +6,11 @@ import { AyudaArticleStructuredData, AyudaBreadcrumbStructuredData } from './Ayu
 import { AyudaRelacionados } from './AyudaRelacionados';
 import { AyudaFeedback } from './AyudaFeedback';
 import { AyudaCTASoporte } from './AyudaCTASoporte';
+import { AyudaIndice } from './AyudaIndice';
+import { AyudaContenidoMenu } from './AyudaContenidoMenu';
+import { AyudaPregunta } from './AyudaPregunta';
 import { VideoDeGuia } from './VideoDeGuia';
-import { categoriaDe, relacionadosDe, urlArticulo, type ArticuloAyuda } from '@/lib/ayuda/registro';
+import { articulosPublicadosDe, categoriaDe, relacionadosDe, urlArticulo, type ArticuloAyuda } from '@/lib/ayuda/registro';
 import type { VideoAyuda } from '@/lib/ayuda/videos';
 
 const fecha = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -35,23 +38,30 @@ export function ArticuloShell({ articulo, video = null, children }: { articulo: 
       <AyudaBreadcrumbStructuredData items={migas} />
       <AyudaArticleStructuredData titulo={articulo.titulo} descripcion={articulo.descripcion} path={urlArticulo(articulo)} actualizado={articulo.actualizado} />
 
-      <AyudaMarco>
-        <AyudaBreadcrumbs items={migas} />
+      <AyudaMarco conPregunta>
+        <div className="ay-cabecera-guia">
+          <AyudaContenidoMenu
+            categoria={categoriaDe(articulo.categoria)?.titulo ?? articulo.categoria}
+            entradas={articulosPublicadosDe(articulo.categoria).map((a) => ({ titulo: a.titulo, href: urlArticulo(a) }))}
+            actual={urlArticulo(articulo)}
+          />
+          <AyudaBreadcrumbs items={migas} />
+        </div>
         <h1 className="ay-h1">{articulo.titulo}</h1>
         <p className="ay-intro">{articulo.descripcion}</p>
         <div className="ay-meta">
-          <span>Equipo Tentare</span>
-          <span>·</span>
           <span>Actualizado el {fecha(articulo.actualizado)}</span>
         </div>
 
         <VideoDeGuia clave={clave} video={video} />
+        <AyudaIndice />
 
         <div className="ay-cuerpo">{children}</div>
 
         <AyudaCTASoporte />
         <AyudaRelacionados articulos={relacionadosDe(articulo)} />
         <AyudaFeedback categoria={articulo.categoria} articulo={articulo.slug} />
+        <AyudaPregunta categoria={articulo.categoria} actual={urlArticulo(articulo)} />
       </AyudaMarco>
     </PageShell>
   );

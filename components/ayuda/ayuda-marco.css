@@ -8,7 +8,8 @@
 .ay-lienzo { background: #fff; border-radius: 16px 16px 0 0; flex: 1; padding: clamp(40px, 9vh, 120px) clamp(16px, 3.4vw, 48px) 120px; }
 .ay-lienzo--portada { padding-top: clamp(56px, 14vh, 180px); }
 .ay-contenido { max-width: var(--ay-ancho, 1024px); margin: 0 auto; }
-.ay-chat { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000d; font-size: 14px; font-weight: 500; color: #303030; text-decoration: none; transition: transform .35s cubic-bezier(.2,.8,0,1), box-shadow .35s; }
+.ay-chat-caja { position: fixed; right: 16px; bottom: 16px; z-index: 30; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.ay-chat { cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 16px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 1px 2px #0000000a, 0 4px 14px #0000000d; font-size: 14px; font-weight: 500; color: #303030; text-decoration: none; transition: transform .35s cubic-bezier(.2,.8,0,1), box-shadow .35s; }
 .ay-chat:hover { transform: translateY(-2px); box-shadow: 0 1px 2px #0000000a, 0 8px 22px #00000014; }
 @media (max-width: 600px) { .ay-lienzo--portada { padding-top: 40px; } }
 @media (prefers-reduced-motion: reduce) { .ay-chat, .ay-entrar { transition: none; } .ay-chat:hover { transform: none; } }
@@ -30,3 +31,111 @@ a.ay-fila:hover { background: #fafafa; padding-inline: 12px; }
 .ay-fila span { display: block; margin-top: 4px; font-size: 14px; line-height: 1.5; color: #616161; }
 .ay-pronto { flex: none; font-size: 12px; color: #8a8a8a; background: #f1f1f1; padding: 4px 10px; border-radius: 999px; }
 @media (prefers-reduced-motion: reduce) { .ay-fila { transition: none; } }
+
+/* ── Interior de una guía (forma de help.shopify.com) ───────────────────── */
+.ay-cabecera-guia { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 0 0 28px; }
+.ay-cabecera-guia .ay-migas { margin: 0; }
+.ay-contenido-menu { position: relative; }
+.ay-contenido-boton { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border: 1px solid #d4d4d4; border-radius: 8px; background: #fff; font: 500 14px Inter, system-ui, sans-serif; color: #1a1a1a; cursor: pointer; }
+.ay-contenido-boton:hover { background: #fafafa; }
+.ay-contenido-panel { position: absolute; z-index: 20; top: 42px; left: 0; width: min(420px, 90vw); max-height: 60vh; overflow: auto; padding: 8px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 8px 28px #0000001f; }
+.ay-contenido-panel p { margin: 6px 10px 6px; font-size: 12px; color: #8a8a8a; }
+.ay-contenido-panel ul { list-style: none; margin: 0; padding: 0; }
+.ay-contenido-panel a { display: block; padding: 9px 10px; border-radius: 8px; font-size: 14px; line-height: 1.35; color: #303030; text-decoration: none; }
+.ay-contenido-panel a:hover { background: #f5f5f5; }
+.ay-contenido-panel a[aria-current='page'] { background: #eef1ff; font-weight: 600; box-shadow: inset 3px 0 0 #3d4bd6; }
+.ay-meta { margin: 0 0 24px; padding-bottom: 0; border-bottom: 0; }
+.ay-indice { margin: 0 0 40px; padding: 0 0 24px; border-bottom: 1px solid #ebebeb; }
+.ay-indice h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+.ay-indice ul { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.ay-indice a { color: #303030; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #c9c9c9; }
+.ay-indice a:hover { text-decoration-color: currentColor; }
+.ay-cuerpo { padding-bottom: 8px; }
+.ay-cuerpo h2 { margin: 44px 0 14px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; scroll-margin-top: 24px; }
+.ay-cuerpo p { margin: 0 0 14px; }
+.ay-cuerpo a { color: #1a1a1a; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #b5b5b5; }
+.ay-cuerpo a:hover { text-decoration-color: currentColor; }
+.ay-paso { display: flex; gap: 10px; margin: 18px 0; }
+.ay-paso-n { flex: none; width: 22px; font-size: 15px; color: #8a8a8a; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.ay-paso-cuerpo { flex: 1; min-width: 0; }
+.ay-paso-cuerpo h3 { margin: 0 0 6px; font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
+.ay-paso-cuerpo > div { font-size: 15px; line-height: 1.65; color: #303030; }
+.ay-paso-cuerpo > div p:last-child { margin-bottom: 0; }
+.ay-caja { margin: 22px 0; padding: 16px 18px; border-radius: 12px; font-size: 14.5px; line-height: 1.6; }
+.ay-caja p { margin: 0; }
+.ay-caja > div p + p { margin-top: 8px; }
+.ay-caja-t { display: flex !important; align-items: center; gap: 8px; margin-bottom: 4px !important; font-weight: 600; font-size: 14.5px; }
+.ay-caja--azul { background: #eaf3ff; color: #1b4a7a; }
+.ay-caja--azul a { color: inherit; }
+.ay-caja--verde { background: linear-gradient(180deg, #ccffd2 0%, #e6ffe9 100%); color: #14502a; }
+.ay-soporte { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 40px 0 8px; padding: 18px 20px; border-radius: 12px; background: #f5f5f5; }
+.ay-soporte-t { margin: 0; font-size: 15px; font-weight: 600; }
+.ay-soporte-s { margin: 2px 0 0; font-size: 14px; color: #616161; }
+.ay-soporte-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.ay-soporte-acciones a { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid #d4d4d4; background: #fff; color: #1a1a1a; font-size: 13.5px; font-weight: 500; text-decoration: none; }
+.ay-soporte-acciones a:hover { background: #fafafa; }
+.ay-feedback { margin: 36px 0 0; padding-top: 24px; border-top: 1px solid #ebebeb; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 14px; color: #303030; }
+.ay-feedback-botones { display: flex; gap: 8px; }
+.ay-feedback-link { display: inline-flex; align-items: center; text-decoration: none; }
+.ay-feedback-botones button, .ay-feedback-link { height: 34px; padding: 0 14px; border-radius: 8px; border: 1px solid #d4d4d4; background: #fff; color: #1a1a1a; font: 500 13.5px Inter, system-ui, sans-serif; cursor: pointer; }
+.ay-feedback-botones button:hover, .ay-feedback-link:hover { background: #fafafa; }
+.ay-feedback-botones button:disabled { opacity: .6; cursor: default; }
+.ay-feedback-desact { width: 100%; margin: 0; font-size: 13px; color: #8a8a8a; }
+.ay-feedback-desact button { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ay-pregunta { position: fixed; z-index: 31; left: 50%; bottom: 16px; transform: translateX(-50%); width: min(730px, calc(100vw - 32px)); }
+.ay-pregunta form { display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 8px 0 14px; background: #fff; border: 1px solid #d4d4d4; border-radius: 12px; box-shadow: 0 2px 10px #0000001a; color: #616161; }
+.ay-pregunta form:focus-within { border-color: #303030; }
+.ay-pregunta input { flex: 1; border: 0; outline: 0; background: transparent; font: 14px Inter, system-ui, sans-serif; color: #1a1a1a; }
+.ay-pregunta form button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: #303030; color: #fff; cursor: pointer; }
+.ay-pregunta form button:disabled { background: #ececec; color: #b5b5b5; cursor: default; }
+.ay-pregunta-panel { margin-bottom: 8px; padding: 10px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 8px 28px #0000001f; max-height: 50vh; overflow: auto; }
+.ay-pregunta-cab { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 8px; font-size: 12.5px; color: #8a8a8a; }
+.ay-pregunta-cab button { border: 0; background: none; color: #616161; cursor: pointer; display: grid; place-items: center; }
+.ay-pregunta-panel ul { list-style: none; margin: 0; padding: 0; }
+.ay-pregunta-panel li a { display: block; padding: 9px 8px; border-radius: 8px; font-size: 14px; color: #1a1a1a; text-decoration: none; }
+.ay-pregunta-panel li a:hover { background: #f5f5f5; }
+.ay-pregunta-panel small { display: block; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #8a8a8a; margin-bottom: 2px; }
+.ay-pregunta-panel > p { margin: 0; padding: 4px 8px 8px; font-size: 14px; color: #616161; }
+.ay-chat-menu { list-style: none; margin: 0; padding: 6px; min-width: 250px; background: #fff; border: 1px solid #e3e3e3; border-radius: 12px; box-shadow: 0 8px 28px #0000001f; }
+.ay-chat-menu a { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #1a1a1a; text-decoration: none; }
+.ay-chat-menu a:hover { background: #f5f5f5; }
+.ay-chat-menu small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: #8a8a8a; }
+.ay-chat-menu svg { margin-top: 2px; }
+.ay-con-pregunta .ay-chat-caja { bottom: 76px; }
+.ay-con-pregunta .ay-lienzo { padding-bottom: 160px; }
+@media (max-width: 760px) { .ay-con-pregunta .ay-chat-caja { bottom: 74px; } }
+
+/* ── Novedades: la forma del changelog de Shopify ───────────────────────── */
+.nv-sobre { margin: 0 0 8px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #616161; }
+.nv-h1 { margin: 0 0 32px; font-size: clamp(32px, 4.4vw, 46px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.05; }
+.nv-edicion { margin-bottom: 56px; }
+.nv-grid { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 56px; align-items: start; }
+.nv-linea { list-style: none; margin: 0; padding: 0; }
+.nv-item { position: relative; display: grid; grid-template-columns: 120px 20px minmax(0, 1fr); gap: 0 14px; padding-bottom: 40px; scroll-margin-top: 24px; }
+.nv-item::before { content: ''; position: absolute; left: 141px; top: 18px; bottom: -4px; width: 1px; background: #e3e3e3; }
+.nv-item:last-child::before { display: none; }
+.nv-fecha { padding-top: 1px; font-size: 12.5px; font-weight: 600; letter-spacing: .02em; color: #303030; }
+.nv-punto { width: 14px; height: 14px; margin: 2px 0 0 0; border-radius: 50%; background: #fff; border: 1.5px solid #8a8a8a; position: relative; z-index: 1; }
+.nv-cuerpo h2 { margin: 0 0 10px; font-size: 17px; font-weight: 500; line-height: 1.35; letter-spacing: -0.01em; }
+.nv-cuerpo h2 a { color: #1a1a1a; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #b5b5b5; }
+.nv-cuerpo h2 a:hover { text-decoration-color: currentColor; }
+.nv-cambios { margin: 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.55; color: #616161; }
+.nv-mas { margin: 10px 0 0; padding: 0; border: 0; background: none; font: 500 13.5px Inter, system-ui, sans-serif; color: #1a1a1a; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.nv-etiquetas { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 0; }
+.nv-version { font: 400 12px ui-monospace, SFMono-Regular, Menlo, monospace; color: #8a8a8a; margin-right: 4px; }
+.nv-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 999px; background: #eef5ee; color: #1f5a37; font-size: 12px; font-weight: 500; }
+.nv-vacio { color: #616161; font-size: 14px; }
+.nv-filtro { position: sticky; top: 24px; padding: 18px 20px; border-radius: 12px; background: #f5f5f5; }
+.nv-filtro > p { margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.nv-filtro [role='radiogroup'] { display: flex; flex-direction: column; gap: 10px; }
+.nv-filtro label { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #303030; cursor: pointer; }
+.nv-filtro input { width: 16px; height: 16px; accent-color: #1a1a1a; }
+@media (max-width: 860px) {
+  .nv-grid { grid-template-columns: 1fr; gap: 28px; }
+  .nv-filtro { position: static; order: -1; }
+  .nv-item { grid-template-columns: 14px minmax(0, 1fr); }
+  .nv-item::before { left: 6px; }
+  .nv-fecha { grid-column: 2; grid-row: 1; margin-bottom: 4px; }
+  .nv-punto { grid-column: 1; grid-row: 1; }
+  .nv-cuerpo { grid-column: 2; }
+}
