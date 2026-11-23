@@ -31,4 +31,18 @@ valores de movimiento que Tentare reproduce a mano.
 
 - Menú: `shell-menu-fila` y `shell-menu-pie` en `app/globals.css`, activados una vez por carga (`data-entra`, `components/layout/sidebar.tsx`).
 - Bienvenida del Inicio: `components/dashboard/bienvenida-inicio.tsx` (sobre el vídeo del fundador).
-- Ampliar y reducir el menú: la transición de vista de #2955, con `--motion-ventana: 400ms` y `--motion-ease-ventana`.
+- Ampliar y reducir el menú: la transición de vista de #2955, con `--motion-ventana: 250ms` (el ancho del menú y el margen del lienzo de Shopify animan en 0,25 s con `cubic-bezier(.2,.8,0,1)`) y `--motion-ease-ventana`.
+
+## Transiciones del marco (medidas el 23-nov-2026)
+
+| Elemento | Propiedad | Duración | Curva |
+|---|---|---|---|
+| Menú (`Navigation`) | `inline-size`, `min-/max-inline-size` | 0,25 s | `cubic-bezier(.2,.8,0,1)` |
+| Marco (`Frame`) | `width` | 0,25 s | `cubic-bezier(.25,.1,.25,1)` |
+| Lienzo (`Main`) | `margin-inline-start` | 0,25 s | `cubic-bezier(.2,.8,0,1)` |
+| Lienzo (`Main`) | `margin-block-start` | 0,4 s | idem |
+| Lienzo (`Main`) | `padding-inline-end`, `margin-inline-end` | 0,5 s | idem |
+| Resplandor (`Glow`) | `opacity` | 0,2 s | `cubic-bezier(.19,.91,.38,1)` |
+
+Filas del menú: 198×30 px a 12 px del borde, radio 12, relleno `1px 4px 1px 8px`, hueco 2 px, 13/20 px con peso **450** (también la activa),
+color `#fcfcfc` la activa y `#dcdcdc` el resto.

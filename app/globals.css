@@ -1710,7 +1710,13 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 .shell-vidrio-busqueda { background-color: rgba(255, 255, 255, 0.19); }
 
 /* El resplandor de abajo del menú, con el color de Tentare (turquesa → magenta en el haz). */
-.shell-brillo { height: 400px; }
+.shell-brillo {
+  height: 400px;
+  /* La misma máscara horizontal que el resplandor de ancho completo (medida en Shopify): el del menú también baja hacia su borde derecho
+     (a 224 px de 1440, ~70 %), y así enlaza sin corte con la franja y la esquina de debajo del lienzo. */
+  -webkit-mask-image: linear-gradient(90deg, #000 8.08vw, transparent 36.19vw);
+  mask-image: linear-gradient(90deg, #000 8.08vw, transparent 36.19vw);
+}
 .shell-brillo-base {
   position: absolute; inset: 0;
   background: linear-gradient(rgba(62, 106, 130, 0) 81.93%, rgba(62, 106, 130, 0.68) 96.87%, rgba(76, 156, 176, 0.68) 100%);
@@ -1798,7 +1804,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 /* Ampliar / reducir con el marco a sangre: la curva y la duración que mide Shopify en su lienzo (0,4 s, cubic-bezier(0.2, 0.8, 0, 1):
    sale rápido y frena al final, en vez del arranque lento de 0,5 s). El resto del panel conserva las suyas. */
 :root:has(.panel-app[data-shell-nuevo]) {
-  --motion-ventana: 400ms;
+  --motion-ventana: 250ms;
   --motion-ease-ventana: cubic-bezier(0.2, 0.8, 0, 1);
 }
 
@@ -2143,26 +2149,27 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 @media (prefers-reduced-motion: reduce) { .panel-app[data-shell-nuevo] [data-marco-vivo] { transition: none; } }
 @media print { .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; } }
 
-/* (El radio de la máscara es ~1 px menor que el de la esquina del lienzo: el resplandor solapa su borde antialiasado y no
-   queda el aro negro de la cabecera de abajo a la izquierda.) */
-/* El resplandor del menú sigue por debajo del lienzo: por la franja de 4 px del marco y por la esquina redondeada de abajo a la
-   izquierda, desvaneciéndose hacia la derecha, como en Shopify. Estático y de 20 px de alto (la versión anterior clonaba el
-   resplandor ANIMADO y desenfocado del menú a 400 px de alto, que se repintaba sin parar). La máscara deja solo lo que queda
-   FUERA del panel (la franja y el hueco de la esquina), así que no tapa el contenido. */
+/* El resplandor por debajo del lienzo, con la receta del de Shopify (medida el 23-nov-2026 en el DOM del admin): una capa fija de ancho
+   COMPLETO (`_FrameGlow`, z-index 0) con una máscara horizontal que la deja opaca hasta el 8,08 vw y la desvanece hasta el 36,19 vw,
+   y el mismo degradado vertical que el del menú (transparente al 81,93 % → .68 al 96,87 % → .68). Detrás de un lienzo con radio 16, eso
+   hace que la esquina de abajo a la izquierda y la franja de 4 px enseñen la MISMA luz que el menú, sin corte.
+   Aquí el lienzo se desplaza bajo un marco negro, así que la capa solo se ve donde el marco deja ventana: la franja de 4 px (desde el borde
+   del menú hacia la derecha) y el hueco de la esquina. (El radio de la máscara es ~1 px menor que el de la esquina del lienzo: el resplandor
+   solapa su borde antialiasado y no queda el aro negro.) */
 .panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; }
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-marco-brillo] {
     display: block; position: fixed; z-index: 26; pointer-events: none; contain: strict;
-    left: var(--sidebar-w, 224px); bottom: 0; width: 560px; height: 20px;
-    background: linear-gradient(90deg, rgba(76, 156, 176, 0.66) 0%, rgba(76, 156, 176, 0.4) 35%, rgba(76, 156, 176, 0.12) 70%, rgba(76, 156, 176, 0) 100%);
+    left: 0; bottom: 0; width: 100%; height: 20px;
+    background: linear-gradient(90deg, rgba(76, 156, 176, 0.68) 8.08vw, rgba(76, 156, 176, 0) 36.19vw);
     -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
-    -webkit-mask-size: 16px 16px, 100% 4px;
-    -webkit-mask-position: 0 0, 0 100%;
+    -webkit-mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
+    -webkit-mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-composite: source-over;
     mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
-    mask-size: 16px 16px, 100% 4px;
-    mask-position: 0 0, 0 100%;
+    mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
+    mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
     mask-repeat: no-repeat;
     mask-composite: add;
   }

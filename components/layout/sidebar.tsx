@@ -154,7 +154,7 @@ const NavItem = memo(function NavItem({ href, label, Icon, onClick, collapsed, n
         // encogiendo a todos. Lo correcto es que la fila SE DESPLACE.
         horizontal && 'shrink-0 whitespace-nowrap',
         active
-          ? (sangre ? 'shell-vidrio text-[#fcfcfc] font-medium' : 'bg-brand text-brand-foreground font-semibold')
+          ? (sangre ? 'shell-vidrio text-[#fcfcfc] font-[450]' : 'bg-brand text-brand-foreground font-semibold')
           : (sangre ? 'text-[#dcdcdc] font-[450] hover:text-white hover:bg-white/[0.06]' : 'text-white/45 hover:text-white/80 hover:bg-card/5')
       )}
     >
