@@ -3,6 +3,7 @@
 import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
 import { Suspense, useState, useId, useEffect, useRef, useMemo } from 'react';
 import { Toast, type ToastVariante } from '@/components/ui/toast';
+import { Interruptor as InterruptorUI } from '@/components/ui/interruptor';
 import { useTutorial } from '@/lib/tutorial-context';
 import { EJEMPLOS, type Ejemplo } from '@/lib/ayuda/ejemplos';
 import { avisoCoberturaFallida } from '@/lib/planes/cobertura-fallida';
@@ -158,17 +159,7 @@ function cajaCls(error?: string) {
 function Interruptor({ activo, onChange, labelledBy, describedBy }: {
   activo: boolean; onChange: (v: boolean) => void; labelledBy: string; describedBy?: string;
 }) {
-  return (
-    <button
-      type="button" role="switch" aria-checked={activo}
-      aria-labelledby={labelledBy} aria-describedby={describedBy}
-      onClick={() => onChange(!activo)}
-      className="w-10 h-6 shrink-0 rounded-full transition-colors flex items-center px-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-2 focus:ring-offset-[var(--card)]"
-      style={{ backgroundColor: activo ? 'var(--brand)' : 'var(--muted-foreground)' }}>
-      <span className="w-5 h-5 bg-card rounded-full shadow transition-transform"
-        style={{ transform: activo ? 'translateX(16px)' : 'translateX(0)' }} />
-    </button>
-  );
+  return <InterruptorUI on={activo} onChange={onChange} labelledBy={labelledBy} describedBy={describedBy} />;
 }
 
 /**

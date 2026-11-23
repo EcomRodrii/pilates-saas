@@ -11,6 +11,7 @@ import {
   UserX, UserPlus, Repeat, BadgeCheck, Cake, ArrowDown, ListOrdered, Ticket, RefreshCw, Star,
 } from 'lucide-react';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { Interruptor } from '@/components/ui/interruptor';
 import { PageHeader } from '@/components/ui/page-header';
 import { Baldosa, CabeceraTarjeta, PantallaVacia, Pildoras, TONOS, TarjetaCifra, fondoTenido, type Tono } from '@/components/dashboard/vivo';
 import { cn, formatFechaHora as formatFecha } from '@/lib/utils';
@@ -443,28 +444,17 @@ function RuleCard({
               WhatsApps a clientas eso no vale. Mismo switch relleno que
               components/decision/piloto-automatico.tsx: color de fondo + bolita
               blanca sólida + desplazamiento, tres señales en vez de una. */}
-          <button
-            type="button"
-            role="switch"
+          <Interruptor
             id={idInterruptor}
-            aria-checked={soloLectura ? false : rule.activa}
-            aria-label={soloLectura
+            on={soloLectura ? false : rule.activa}
+            onChange={() => onToggle()}
+            ariaLabel={soloLectura
               ? `${textoAnadir} ${rule.nombre}`
               : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
             title={soloLectura
               ? tituloAnadir
               : rule.activa ? 'Activada — desactivar' : 'Desactivada — activar'}
-            onClick={onToggle}
-            className="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors"
-            style={{ background: rule.activa ? 'var(--brand)' : 'var(--muted-foreground)' }}
-          >
-            <span
-              className={cn(
-                'inline-block h-5 w-5 rounded-full bg-white shadow transition-transform',
-                rule.activa ? 'translate-x-5' : 'translate-x-0'
-              )}
-            />
-          </button>
+          />
         </div>
       </div>
 
@@ -994,19 +984,14 @@ function RuleCardNueva({
             <ChevronRight size={14} className={cn('transition-transform', expanded && 'rotate-90')} aria-hidden />
           </button>
         </div>
-        <button
-          type="button"
-          role="switch"
+        <Interruptor
           id={idInterruptor}
-          aria-checked={soloLectura ? false : rule.activa}
-          aria-label={soloLectura ? `${textoAnadir} ${rule.nombre}` : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
+          on={soloLectura ? false : encendida}
+          onChange={() => onToggle()}
+          ariaLabel={soloLectura ? `${textoAnadir} ${rule.nombre}` : `${rule.activa ? 'Desactivar' : 'Activar'} la automatización ${rule.nombre}`}
           title={soloLectura ? tituloAnadir : rule.activa ? 'Encendida — apagar' : 'Apagada — encender'}
-          onClick={onToggle}
-          className="zona-tactil relative mt-1 inline-flex h-7 w-12 shrink-0 rounded-full border-2 border-transparent transition-colors"
-          style={{ background: encendida ? 'var(--success)' : 'color-mix(in srgb, var(--muted-foreground) 55%, transparent)' }}
-        >
-          <span className={cn('inline-block size-6 rounded-full bg-white shadow transition-transform', encendida ? 'translate-x-5' : 'translate-x-0')} />
-        </button>
+          className="mt-1"
+        />
       </div>
 
       {expanded && (
