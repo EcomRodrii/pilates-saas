@@ -37,13 +37,14 @@ test('un solo botón; el segundo destino va como enlace', () => {
   assert.match(html, /Descargar los datos<\/a>/);
 });
 
-test('la cabecera es la misma que la de los correos de acceso de Supabase', () => {
-  // Una propietaria recibe los dos tipos: tienen que reconocerse como del
-  // mismo remitente.
+test('el logo va en su pastilla blanca: es una imagen pensada para fondo claro', () => {
+  // Sobre el fondo oscuro del correo se perdería. Mismo logo y medidas que los
+  // correos de acceso de Supabase.
   const html = correoTentare(BASICO);
   assert.ok(html.includes(`src="${LOGO_TENTARE_URL}" width="132" height="35" alt="Tentare"`));
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.blanco}"[^>]*>\\s*<img src="${LOGO_TENTARE_URL.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}"`), 'el logo tiene que ir sobre una placa blanca');
   assert.match(LOGO_TENTARE_URL, /^https:\/\/www\./, 'sin www hay proxys de imágenes que no siguen el 308 del ápice');
-  assert.ok(html.includes(TENTARE.dorado), 'falta la regla dorada de la marca');
+  assert.ok(html.includes(TENTARE.realce), 'falta la regla de color de la marca');
 });
 
 test('la marca es la de Tentare y no se tiñe con la de ningún estudio', () => {
@@ -57,25 +58,39 @@ test('la marca es la de Tentare y no se tiñe con la de ningún estudio', () => 
 test('todo lo que es texto sobre un fondo se lee (AA)', () => {
   const t = TENTARE;
   const pares: [string, string, string][] = [
-    ['tinta sobre papel', t.tinta, t.papel],
-    ['texto suave sobre papel', t.tintaSuave, t.papel],
-    ['pie sobre el fondo', t.tintaSuave, t.fondo],
-    ['antetítulo sobre papel', t.olivaMedio, t.papel],
-    ['texto del botón', t.dorado, t.oliva],
-    ['cifras sobre arena', t.oliva, t.arena],
-    ['etiqueta de cifra sobre arena', t.tintaSuave, t.arena],
-    ['enlace secundario', t.olivaMedio, t.papel],
+    ['titular sobre la tarjeta', t.texto, t.tarjeta],
+    ['cuerpo sobre la tarjeta', t.cuerpo, t.tarjeta],
+    ['letra pequeña sobre la tarjeta', t.suave, t.tarjeta],
+    ['pie sobre el fondo', t.suave, t.fondo],
+    ['antetítulo y enlaces sobre la tarjeta', t.realce, t.tarjeta],
+    ['texto del botón sobre el botón', t.fondo, t.texto],
+    ['cifras sobre su panel', t.texto, t.panel],
+    ['etiqueta de cifra sobre su panel', t.cuerpo, t.panel],
+    ['destacado sobre su panel', t.cuerpo, t.panel],
+    ['enlace sobre el panel', t.realce, t.panel],
   ];
   for (const [que, color, fondo] of pares) {
     assert.ok(ratioContraste(color, fondo)! >= 4.5, `${que}: ${ratioContraste(color, fondo)?.toFixed(2)}:1`);
   }
+  // La regla de alerta es decoración (2 px), no texto: basta que se distinga del fondo (3:1).
+  assert.ok(ratioContraste(t.alerta, t.tarjeta)! >= 3, 'la regla roja se pierde sobre la tarjeta');
 });
 
-test('preheader oculto con su relleno, modo claro declarado y peso bajo el recorte de Gmail', () => {
+test('el correo es oscuro de verdad: declara el esquema y pone bgcolor en cada fondo (Outlook ignora el CSS)', () => {
+  const html = correoTentare(BASICO);
+  assert.match(html, /name="color-scheme" content="dark"/);
+  assert.match(html, /name="supported-color-schemes" content="dark"/);
+  assert.match(html, new RegExp(`<body[^>]*bgcolor="${TENTARE.fondo}"`));
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.tarjeta}"`));
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.panel}"`));
+  // El botón es una píldora clara con texto oscuro, con el alto fijado para Outlook.
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.texto}"[^>]*mso-padding-alt`));
+});
+
+test('preheader oculto con su relleno y peso bajo el recorte de Gmail', () => {
   const html = correoTentare(BASICO);
   assert.match(html, /display:none;font-size:1px[^"]*mso-hide:all/);
   assert.match(html, /(&nbsp;&zwnj;){10,}/);
-  assert.match(html, /name="color-scheme" content="light"/);
   assert.ok(Buffer.byteLength(html, 'utf8') < 60_000);
 });
 

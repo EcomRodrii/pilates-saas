@@ -17,7 +17,7 @@ export function correoAltaSinTerminar(c: ContenidoRecordatorio): string {
     parrafos: c.parrafos,
     boton: c.boton,
     nota: c.nota,
-    acento: TENTARE.dorado,
+    acento: TENTARE.realce,
     motivo: 'Te escribimos porque empezaste a dar de alta un estudio en Tentare con esta dirección.',
   });
 }
