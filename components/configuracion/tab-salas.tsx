@@ -391,6 +391,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
                 className={inputCls}
                 value={form.nombre}
                 onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+                onKeyDown={e => { if (e.key === 'Enter' && canGuardar && !guardando) { e.preventDefault(); guardar(); } }}
                 placeholder="Ej: Sala Reformer"
               />
             </Field>
@@ -580,7 +581,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
       <ConfirmDialog
         open={!!confirmDel}
         onOpenChange={open => !open && setConfirmDel(null)}
-        titulo="¿Eliminar sala?"
+        titulo={`¿Eliminar «${salas.find(s => s.id === confirmDel)?.nombre ?? 'esta sala'}»?`}
         descripcion="Se eliminará esta sala de forma permanente. Esta acción no se puede deshacer."
         textoConfirmar="Eliminar"
         destructivo
