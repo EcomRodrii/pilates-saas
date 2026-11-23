@@ -62,7 +62,7 @@ export function correoImpagoSaas(p: {
       titular: 'Tu suscripción está al día',
       parrafos: [`Hemos podido cobrar la suscripción de ${p.estudioNombre} al plan ${p.plan}${importe}. No tienes que hacer nada más.`],
       boton: null,
-      acento: TENTARE.dorado,
+      acento: TENTARE.realce,
       motivo: `Te escribimos porque eres la propietaria de ${p.estudioNombre} en Tentare.`,
     });
   }

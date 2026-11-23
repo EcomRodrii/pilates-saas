@@ -46,14 +46,14 @@ export function preheaderHtml(texto: string): string {
  * query de móvil. `estiloMso` es CSS que solo lee Outlook de Windows (va dentro
  * de un condicional): cada familia decide ahí sus fuentes.
  */
-export function cabezaHtml(titulo: string, fondo: string, enlace: string, ancho = 600, estiloMso = ''): string {
+export function cabezaHtml(titulo: string, fondo: string, enlace: string, ancho = 600, estiloMso = '', esquema: 'light' | 'light dark' = 'light', cssExtra = ''): string {
   return `<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
+<meta name="color-scheme" content="${esquema}">
+<meta name="supported-color-schemes" content="${esquema}">
 <title>${escaparHtml(titulo)}</title>
 <!--[if mso]>
 <noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript>
@@ -68,7 +68,7 @@ ${estiloMso ? `<style>${estiloMso}</style>\n` : ''}<![endif]-->
     .w-full { width: 100% !important; }
     .px-mobile { padding-left: 20px !important; padding-right: 20px !important; }
   }
-</style>
+${cssExtra}</style>
 </head>`;
 }
 

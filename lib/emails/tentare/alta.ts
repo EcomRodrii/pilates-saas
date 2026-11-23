@@ -69,11 +69,11 @@ export function correoCuentaActiva(p: {
   const estudio = p.estudioNombre.trim() || 'Tu estudio';
   const preheader = 'Tu cuenta está activa. Te queda un paso para recibir reservas: tu primera clase.';
   const parrafo = (html: string, extra = '') =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;${extra}">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;${extra}">${html}</div>`;
   const etiqueta = (texto: string) =>
-    `<div style="font-family:${PILA};font-size:10.5px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${t.olivaMedio};margin:0 0 8px;">${escaparHtml(texto)}</div>`;
+    `<div style="font-family:${PILA};font-size:10.5px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${t.realce};margin:0 0 8px;">${escaparHtml(texto)}</div>`;
   const caja = (contenido: string) => `<tr><td class="px-mobile" style="padding:0 32px 14px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.arena}" style="background:${t.arena};border-radius:8px;"><tr><td style="padding:14px 16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-radius:8px;"><tr><td style="padding:14px 16px;">
 ${contenido}
 </td></tr></table>
 </td></tr>`;
@@ -82,22 +82,22 @@ ${contenido}
   const pasos = PRIMEROS_PASOS_ALTA.map((paso, i) => {
     const hecho = i === 0;
     return `<tr>
-<td width="22" valign="top" style="padding:4px 0;font-family:${PILA};font-size:14px;line-height:1.5;font-weight:bold;color:${hecho ? t.oliva : t.tintaSuave};">${hecho ? '&#10003;' : `${i + 1}.`}</td>
-<td valign="top" style="padding:4px 0;font-family:${PILA};font-size:14px;line-height:1.5;color:${hecho ? t.oliva : t.tinta};${hecho ? 'font-weight:bold;' : ''}">${escaparHtml(paso)}</td>
+<td width="22" valign="top" style="padding:4px 0;font-family:${PILA};font-size:14px;line-height:1.5;font-weight:bold;color:${hecho ? t.texto : t.suave};">${hecho ? '&#10003;' : `${i + 1}.`}</td>
+<td valign="top" style="padding:4px 0;font-family:${PILA};font-size:14px;line-height:1.5;color:${hecho ? t.texto : t.cuerpo};${hecho ? 'font-weight:bold;' : ''}">${escaparHtml(paso)}</td>
 </tr>`;
   }).join('');
 
   const bloques = [
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Tu cuenta está activa</div>
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">Tu cuenta está activa</div>
 ${parrafo(`<b>${escaparHtml(estudio)}</b> ya tiene la app de sus clientes:`)}
-<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
+<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.texto};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
 ${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus clientes podrán entrar con su email y reservar desde el móvil, sin descargarse nada.')}
 </td></tr>`,
     botonTentare({ href: p.urlPrimeraClase, texto: 'Crear mi primera clase' }),
     caja(`${etiqueta('Primeros pasos · 1 de 5')}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${pasos}</table>`),
-    caja(`${etiqueta('Tu plan')}<div style="font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};">${escaparHtml(textoPlanAlta(p.foundingGratis))}</div>`),
+    caja(`${etiqueta('Tu plan')}<div style="font-family:${PILA};font-size:14px;line-height:1.55;color:${t.cuerpo};">${escaparHtml(textoPlanAlta(p.foundingGratis))}</div>`),
     '<tr><td style="padding:0 0 14px;font-size:0;line-height:0;">&nbsp;</td></tr>',
   ].join('');
 
@@ -113,8 +113,8 @@ function pieDelAlta(estudio: string): string {
   const t = TENTARE;
   const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.tintaSuave};text-align:center;">
-¿Te atascas? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.tintaSuave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'}: <b>te responde una persona</b>.<br>Tentare · Software para estudios de Pilates · Hecho en España
+<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.suave};text-align:center;">
+¿Te atascas? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.suave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'}: <b>te responde una persona</b>.<br>Tentare · Software para estudios de Pilates · Hecho en España
 </td></tr></table>`;
 }
 
@@ -142,17 +142,17 @@ export function correoRecibirReservas(p: {
   const estudio = p.estudioNombre.trim() || 'Tu estudio';
   const preheader = 'Tu enlace y tu QR, para tenerlos a mano.';
   const parrafo = (html: string) =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${html}</div>`;
 
   const bloques = [
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Ya puedes recibir reservas</div>
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">Ya puedes recibir reservas</div>
 ${parrafo(`Tu clase <b>${escaparHtml(p.claseNombre.trim() || 'de hoy')}</b> está publicada (${escaparHtml(p.cuando)}). Copia este enlace y mándalo:`)}
-<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.oliva};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.arena}" style="background:${t.arena};border-radius:8px;margin:0 0 14px;"><tr>
-<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus clientes" style="display:block;border:0;width:120px;height:120px;background:${t.papel};"></td>
-<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.tinta};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus clientes.</td>
+<div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.texto};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-radius:8px;margin:0 0 14px;"><tr>
+<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus clientes" style="display:block;border:0;width:120px;height:120px;background:${t.placa};"></td>
+<td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.cuerpo};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus clientes.</td>
 </tr></table>
 ${parrafo('Pégalo en tu Instagram o en el grupo de WhatsApp de tus clientes. Entran con su email, sin descargarse nada.')}
 ${parrafo('Si quieres que reserven desde tu propia web, lo preparas en Configuración › Mi app y mi web.')}
@@ -194,7 +194,7 @@ export function correoPrimeraClase(p: {
   const nombre = p.nombre?.trim();
   const preheader = `Es lo único que le falta a ${estudio} para recibir reservas.`;
   const parrafo = (html: string) =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${html}</div>`;
 
   const cuerpo = p.variante.tipo === 'sin_clase'
     ? [
@@ -209,7 +209,7 @@ export function correoPrimeraClase(p: {
   const bloques = [
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">Te falta un paso${nombre ? `, ${escaparHtml(nombre)}` : ''}</div>
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">Te falta un paso${nombre ? `, ${escaparHtml(nombre)}` : ''}</div>
 ${cuerpo}
 </td></tr>`,
     botonTentare({ href: p.urlBoton, texto: p.variante.tipo === 'sin_clase' ? 'Crear mi primera clase' : 'Ver qué falta' }),
@@ -230,8 +230,8 @@ function pieDelRecordatorio(estudio: string): string {
   const t = TENTARE;
   const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.tintaSuave};text-align:center;">
-¿Te atascas en algo? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.tintaSuave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'} y te ayuda <b>una persona del equipo</b>.<br>Es el único recordatorio que te mandamos sobre esto.<br>Tentare · Software para estudios de Pilates · Hecho en España
+<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.suave};text-align:center;">
+¿Te atascas en algo? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.suave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'} y te ayuda <b>una persona del equipo</b>.<br>Es el único recordatorio que te mandamos sobre esto.<br>Tentare · Software para estudios de Pilates · Hecho en España
 </td></tr></table>`;
 }
 
@@ -257,9 +257,9 @@ export function correoEmpuje(p: {
   const estudio = p.estudioNombre.trim() || 'Tu estudio';
   const nombre = p.nombre?.trim();
   const parrafo = (html: string) =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${html}</div>`;
   const lista = (items: string[]) =>
-    `<ul style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.tinta};margin:0 0 14px;padding-left:20px;">${items.map(i => `<li style="margin:0 0 6px;">${i}</li>`).join('')}</ul>`;
+    `<ul style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;padding-left:20px;">${items.map(i => `<li style="margin:0 0 6px;">${i}</li>`).join('')}</ul>`;
 
   const contenido = p.variante === 'compartir'
     ? {
@@ -296,7 +296,7 @@ export function correoEmpuje(p: {
   const bloques = [
     cabeceraTentare(),
     `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.oliva};margin:0 0 14px;">${contenido.titular}</div>
+<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">${contenido.titular}</div>
 ${contenido.cuerpo}
 </td></tr>`,
     botonTentare({ href: p.urlBoton, texto: contenido.boton }),
