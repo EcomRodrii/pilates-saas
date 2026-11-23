@@ -268,7 +268,7 @@ test('lista de espera: una oferta caducada llama aunque no haya plataformas; una
 test('los cinco jobs conservan nombre y cadencia, y llaman solo si la guarda lo dice', async () => {
   const [{ hay }] = await sql`select to_regclass('cron.job') is not null as hay`;
   if (!hay) return; // sin pg_cron en esta base no hay jobs que mirar
-  // Mismo ritmo, minuto distinto: 20261122120000 los escalona para que no arranquen todos a la vez.
+  // Mismo ritmo, minuto distinto: 20261123122236 los escalona para que no arranquen todos a la vez.
   const esperados: Record<string, [string, string]> = {
     'notif-recordatorios': ['6-51/15 * * * *', 'cron_hay_recordatorios_de_clase()'],
     'checkin-automatico': ['9,39 * * * *', 'cron_hay_checkin_automatico()'],
