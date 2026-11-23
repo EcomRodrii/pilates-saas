@@ -13,14 +13,15 @@ import { cn } from '@/lib/utils';
 import { useGuiaPasoAPaso } from './use-guia-paso-a-paso';
 import { BarraTramos, ICONOS_PASO, TONO_PASO } from './guia-paso-a-paso-vista';
 
-export function TarjetaGuiaResumen() {
+/** `siempre`: el Inicio del panel nuevo la enseña aunque la propietaria la cerrara alguna vez (como la guía de arranque de Shopify, no se esconde mientras quede algo). */
+export function TarjetaGuiaResumen({ siempre = false }: { siempre?: boolean } = {}) {
   const { studio, updateStudio } = useStudio();
   const { ruta, ocultada, saltar } = useGuiaPasoAPaso();
   const [ocultando, setOcultando] = useState(false);
   const [fallo, setFallo] = useState(false);
   // La hora de entrar, una vez: el render no puede leer el reloj (react-hooks/purity).
   const [alMontar] = useState(() => Date.now());
-  if (!studio || !ruta || ocultada) return null;
+  if (!studio || !ruta || (ocultada && !siempre)) return null;
 
   async function ocultar() {
     if (ocultando) return;
