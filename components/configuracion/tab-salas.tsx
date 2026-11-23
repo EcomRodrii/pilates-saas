@@ -2,7 +2,7 @@
 
 import { AccionHerramienta } from '@/components/configuracion/shell/accion-herramienta';
 import { AyudaDelPaso } from '@/components/guia/ayuda-del-paso';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ColorInput, ColorSwatch, Field, btnPrimary, btnSecondary, cardCls, inputCls } from '@/components/configuracion/estilos';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -49,6 +49,9 @@ function salaToForm(s: Sala): SalaForm {
 
 export function TabSalas({ showToast }: { showToast: MostrarToast }) {
   const { salas, sesiones, reservas, addSala, updateSala, updateSesion, deleteSala, bloqueosMaquina, marcarAveria, quitarAveria } = useStudio();
+
+  // Orden estable: sin él la lista cambiaba de sitio al recargar.
+  const salasOrdenadas = useMemo(() => [...salas].sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')), [salas]);
 
   const [modal, setModal] = useState<'nueva' | 'editar' | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
@@ -264,7 +267,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
                 </tr>
               </thead>
               <tbody>
-                {salas.map(sala => (
+                {salasOrdenadas.map(sala => (
                   <tr
                     key={sala.id}
                     className="border-b border-background last:border-0 hover:bg-muted transition-colors"
@@ -302,7 +305,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
 
             {/* Mobile cards */}
             <div className="@xl/config:hidden divide-y divide-background">
-              {salas.map(sala => (
+              {salasOrdenadas.map(sala => (
                 <div key={sala.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <ColorSwatch color={sala.color} size="sm" />
