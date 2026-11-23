@@ -14,14 +14,17 @@ import { TarjetasDeArranque } from './tarjetas-de-arranque';
 import { usePonEnMarcha } from './use-pon-en-marcha';
 import { useGuiaActiva } from './use-guia-paso-a-paso';
 import { PonEnMarchaTarjeta } from './pon-en-marcha';
+import { TarjetaGuiaResumen } from './tarjeta-guia-resumen';
 
 const CompartirEnlace = dynamic(() => import('./compartir-enlace').then(m => m.CompartirEnlace), { ssr: false });
 
 export function EmpiezaTarjetas() {
   const guia = useGuiaActiva();
   const tarjetas = useOnboardingNuevo();
-  // La guía paso a paso y la lista de siempre (sin `ONBOARDING_NUEVO`) siguen siendo lo que eran.
-  if (guia.activo === true || !tarjetas) return <PonEnMarchaTarjeta />;
+  // La guía paso a paso (12 pasos) va siempre visible en el Inicio nuevo, aunque se hubiera cerrado; la lista de siempre (sin
+  // `ONBOARDING_NUEVO`) sigue siendo lo que era.
+  if (guia.activo === true) return <TarjetaGuiaResumen siempre />;
+  if (!tarjetas) return <PonEnMarchaTarjeta />;
   return <EmpiezaTarjetasVista />;
 }
 
