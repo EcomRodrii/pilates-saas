@@ -234,7 +234,7 @@ test.describe('Borrar una sala', () => {
     await page.getByRole('button', { name: 'Eliminar sala' }).first().click();
 
     // Diálogo destructivo con texto honesto: sin la falsa promesa de antes.
-    await expect(page.getByText('¿Eliminar sala?')).toBeVisible();
+    await expect(page.getByText('¿Eliminar «Sala Vacía»?')).toBeVisible();
     await expect(page.getByText(/de forma permanente/)).toBeVisible();
     await expect(page.getByText(/no se verán afectadas automáticamente/)).toHaveCount(0);
 
