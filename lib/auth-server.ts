@@ -114,6 +114,56 @@ export async function verificarSesionStaff(req: NextRequest): Promise<SesionStaf
   return r && r.paso === 'ok' ? r.sesion : null;
 }
 
+// ── Lecturas de equipo con caché corta (23-nov-2026) ────────────────────────
+// `resolverConUsuario` es la primera línea de CADA ruta de staff y hacía cinco
+// lecturas por petición; una carga del panel dispara varias rutas a la vez y la
+// base de datos (compute pequeño) se quedaba sin CPU. Cuatro de las cinco
+// (fichas, estudios propios y qué estudios exigen la verificación en dos pasos)
+// cambian casi nunca, así que se guardan 10 s por usuario en la propia
+// instancia y las peticiones simultáneas comparten una sola consulta.
+// ⚠️ NO entra `sesion_activa`: cambiar de sede tiene que verse en la petición
+// siguiente. ⚠️ Un error NO se cachea (y falla cerrado como antes). El precio:
+// una baja de ficha o activar «exigir verificación» tarda hasta 10 s en
+// notarse en las rutas de API (la RLS de la base de datos las aplica al
+// instante); no se alarga más de TTL_EQUIPO_MS.
+const TTL_EQUIPO_MS = 10_000;
+const MAX_ENTRADAS_EQUIPO = 500;
+type LecturasEquipo = {
+  instructores: unknown; studios: unknown;
+  exigenPropios: { data: unknown; error: { message?: string } | null };
+  exigenFichas: { data: unknown; error: { message?: string } | null };
+};
+const cacheEquipo = new Map<string, { hasta: number; p: Promise<LecturasEquipo & { fallo: boolean }> }>();
+
+function lecturasDeEquipoCacheadas(db: NonNullable<ReturnType<typeof getSupabaseAdmin>> | typeof supabase, userId: string): Promise<LecturasEquipo> {
+  const ahora = Date.now();
+  const hit = cacheEquipo.get(userId);
+  if (hit && hit.hasta > ahora) return hit.p;
+  const p = (async () => {
+    const [i, st, ep, ef] = await Promise.all([
+      db.from('instructores').select('studio_id, rol, nombre, activo')
+        .eq('auth_user_id', userId).order('studio_id', { ascending: true }),
+      db.from('studios').select('id, nombre')
+        .eq('owner_auth_user_id', userId).order('id', { ascending: true }),
+      db.from('studios').select('id').eq('owner_auth_user_id', userId).eq('exigir_doble_factor', true),
+      db.from('instructores').select('studio_id, studios!inner(id)').eq('auth_user_id', userId).eq('studios.exigir_doble_factor', true),
+    ]);
+    const fallo = !!(i.error || st.error || ep.error || ef.error);
+    return {
+      instructores: i.data, studios: st.data,
+      exigenPropios: { data: ep.data, error: ep.error }, exigenFichas: { data: ef.data, error: ef.error },
+      fallo,
+    };
+  })();
+  if (cacheEquipo.size >= MAX_ENTRADAS_EQUIPO) cacheEquipo.clear();
+  const entrada = { hasta: ahora + TTL_EQUIPO_MS, p };
+  cacheEquipo.set(userId, entrada);
+  // Un fallo (o una promesa que rechaza) no se queda en la caché.
+  p.then(r => { if (r.fallo && cacheEquipo.get(userId) === entrada) cacheEquipo.delete(userId); },
+    () => { if (cacheEquipo.get(userId) === entrada) cacheEquipo.delete(userId); });
+  return p;
+}
+
 async function resolverConUsuario(
   token: string,
   user: {
@@ -174,16 +224,12 @@ async function resolverConUsuario(
   // service-role: sin él no se puede leer y la sesión sigue sin verificar.
   const nivelToken = nivelAutenticacion(token);
   const admin = getSupabaseAdmin();
-  const [{ data: activa }, { data: instructores }, { data: studios }, exigenPropios, exigenFichas, listaFactores] = await Promise.all([
+  const [{ data: activa }, lecturas, listaFactores] = await Promise.all([
     db.from('sesion_activa').select('studio_id').eq('auth_user_id', user.id).maybeSingle(),
-    db.from('instructores').select('studio_id, rol, nombre, activo')
-      .eq('auth_user_id', user.id).order('studio_id', { ascending: true }),
-    db.from('studios').select('id, nombre')
-      .eq('owner_auth_user_id', user.id).order('id', { ascending: true }),
-    db.from('studios').select('id').eq('owner_auth_user_id', user.id).eq('exigir_doble_factor', true),
-    db.from('instructores').select('studio_id, studios!inner(id)').eq('auth_user_id', user.id).eq('studios.exigir_doble_factor', true),
+    lecturasDeEquipoCacheadas(db, user.id),
     Promise.resolve(user.factors),
   ]);
+  const { instructores, studios, exigenPropios, exigenFichas } = lecturas;
   // Depende de cuántos factores tiene, así que va después de leerlos. Solo se
   // pregunta con la verificación activada y la sesión en `aal1`.
   const factores = factoresVerificados(listaFactores);
