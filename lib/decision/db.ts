@@ -819,6 +819,25 @@ export async function dbSemanaFueSilenciosa(studioId: string, lunes: string, dom
   return (count ?? 0) === 0;
 }
 
+// ¿Hubo uso real del estudio en [lunes, domingo] (YYYY-MM-DD, ambos inclusive)? Al menos
+// una reserva viva (confirmada, asistida o no asistida) en una clase de esa semana. Un
+// estudio sin ninguna no tiene una «semana tranquila»: tiene una semana vacía, y decirle
+// «sin nada pendiente» solo gasta un envío del tope diario de Resend (100/día) justo
+// cuando hacen falta los códigos de acceso. `true` en error: ante un fallo de la propia
+// consulta se envía como siempre, nunca se calla un resumen por no haber podido medir.
+export async function dbSemanaTuvoActividad(studioId: string, lunes: string, domingo: string): Promise<boolean> {
+  const dia = (d: string, mas: number) => { const x = new Date(`${d}T00:00:00.000Z`); x.setUTCDate(x.getUTCDate() + mas); return x.toISOString(); };
+  const { count, error } = await db()
+    .from('reservas')
+    .select('id, sesiones!inner(inicio)', { count: 'exact', head: true })
+    .eq('studio_id', studioId)
+    .in('estado', ['CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO'])
+    .gte('sesiones.inicio', dia(lunes, 0))
+    .lt('sesiones.inicio', dia(domingo, 1));
+  if (error) { reportError('[dbSemanaTuvoActividad]', error); return true; }
+  return (count ?? 0) > 0;
+}
+
 // Suma de ingresos cobrados en [desde, hasta] (YYYY-MM-DD, ambos inclusive)
 // para UN estudio. Base de la "prueba comparativa" del resumen semanal
 // (lib/decision/resumen-semanal-cron.ts): comparar la semana silenciosa contra la
