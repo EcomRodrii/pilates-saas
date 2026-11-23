@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { correoFalloPagoSaas, correoImpagoSaas, correoEstudioVencido, correoAccesoActivado, correoResumenSemanal, correoDatosBorrados } from './cuenta.ts';
-import { TENTARE } from './plantilla.ts';
+import { TENTARE, COLORES_TENTARE } from './plantilla.ts';
+
+/** ¿La regla bajo el logo es la de alerta? (El color también sale en el CSS del modo oscuro de todos los correos.) */
+const conReglaAlerta = (html: string) => html.includes(`font-size:0;background:${TENTARE.alerta};`);
 
 const URL = 'https://app.example.com';
 
@@ -12,7 +15,7 @@ test('el fallo de pago manda a la pantalla que existe, no a una que no', () => {
   assert.match(html, /Suscripción → «Facturas, tarjeta y cambio de plan»/);
   assert.ok(html.includes(`${URL}/suscripcion`));
   assert.match(html, /19 de septiembre/);
-  assert.ok(html.includes(TENTARE.alerta), 'un cobro fallido lleva la regla roja');
+  assert.ok(conReglaAlerta(html), 'un cobro fallido lleva la regla roja');
 });
 
 test('sin fecha de reintento no se inventa una agenda', () => {
@@ -27,14 +30,14 @@ test('el aviso final no promete un borrado que no está armado', () => {
   assert.match(armado, /Ese día borraremos/);
   assert.ok(!desarmado.includes('borraremos'), 'con el interruptor apagado ese día solo se calcula un informe');
   assert.match(desarmado, /quedan listos para borrarse/);
-  assert.ok(armado.includes(TENTARE.alerta));
+  assert.ok(conReglaAlerta(armado));
 });
 
 test('el primer aviso de vencido no habla de borrar', () => {
   const html = correoEstudioVencido({ fase: 'aviso_30', estudioNombre: 'Casa Pilates', fechaPurga: '24 de noviembre de 2026', purgaArmada: true, urlSuscripcion: `${URL}/s`, urlExportar: `${URL}/e` });
   assert.ok(!html.includes('borraremos'));
   assert.match(html, /Conservamos sus datos hasta ese día/);
-  assert.ok(!html.includes(TENTARE.alerta), 'el primer aviso no es una alarma');
+  assert.ok(!conReglaAlerta(html), 'el primer aviso no es una alarma');
   assert.match(html, /Descargar los datos del estudio/);
 });
 
@@ -50,7 +53,7 @@ test('la baja de un estudio de pago lleva primero a descargar, y solo promete bo
   assert.match(armado, /Después borraremos/);
   assert.ok(!desarmado.includes('borraremos'), 'con el interruptor apagado ese día solo se calcula un informe');
   assert.match(desarmado, /para que puedas descargarlos/);
-  assert.ok(!armado.includes(TENTARE.alerta), 'el primer aviso no es una alarma');
+  assert.ok(!conReglaAlerta(armado), 'el primer aviso no es una alarma');
 });
 
 test('la descarga que se anuncia ya lleva la salud: nadie dice «sin ficha clínica»', () => {
@@ -101,7 +104,7 @@ test('ninguno de estos correos lleva la marca de un estudio', () => {
     correoResumenSemanal({ propietariaNombre: 'Carmen', estudioNombre: 'Casa Pilates', rangoTexto: 'x', urlCentroDeControl: URL }),
     correoDatosBorrados({ estudioNombre: 'Casa Pilates', fecha: '4 de noviembre de 2026' }),
   ];
-  const kit = new Set(Object.values(TENTARE).map(c => c.toUpperCase()));
+  const kit = new Set(COLORES_TENTARE.map(c => c.toUpperCase()));
   for (const html of correos) {
     const fuera = [...new Set([...html.matchAll(/#[0-9A-Fa-f]{6}\b/g)].map(m => m[0].toUpperCase()))].filter(h => !kit.has(h));
     assert.deepEqual(fuera, []);
@@ -130,7 +133,7 @@ test('el primer aviso dice el importe y lo que dijo el banco, y lleva a cambiar 
   assert.match(html, /La tarjeta ha caducado\./);
   assert.ok(html.includes(`${URL}/suscripcion?tarjeta=1`));
   assert.match(html, /19 de noviembre/);
-  assert.ok(html.includes(TENTARE.alerta));
+  assert.ok(conReglaAlerta(html));
 });
 
 test('sin motivo conocido no se inventa uno: dice lo habitual', () => {
@@ -155,5 +158,5 @@ test('«ya está al día» no lleva botón ni la regla roja', () => {
   const html = correoImpagoSaas({ ...impago, fase: 'recuperado' });
   assert.match(html, /Tu suscripción está al día/);
   assert.ok(!html.includes(`${URL}/suscripcion?tarjeta=1`));
-  assert.ok(!html.includes(TENTARE.alerta));
+  assert.ok(!conReglaAlerta(html));
 });

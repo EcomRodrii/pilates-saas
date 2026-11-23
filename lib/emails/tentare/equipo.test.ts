@@ -4,7 +4,10 @@ import {
   correoInvitacionEquipo, correoSolicitudDisponibilidad, correoContactoSustituta,
   correoAlertaPropietaria, correoCierreGestoria, correoReferenciaSolicitud,
 } from './equipo.ts';
-import { TENTARE } from './plantilla.ts';
+import { TENTARE, COLORES_TENTARE } from './plantilla.ts';
+
+/** ¿La regla bajo el logo es la de alerta? (El color también sale en el CSS del modo oscuro de todos los correos.) */
+const conReglaAlerta = (html: string) => html.includes(`font-size:0;background:${TENTARE.alerta};`);
 
 const URL = 'https://app.example.com/x';
 
@@ -45,10 +48,10 @@ test('una baja recién avisada no se pinta como alarma; una clase sin cubrir sí
   const baja = correoAlertaPropietaria({ ...base, tipo: 'baja', yaContactando: true });
   const agotada = correoAlertaPropietaria({ ...base, tipo: 'agotada', nNetwork: 2 });
   const sinCubrir = correoAlertaPropietaria({ ...base, tipo: 'sin_sustituta' });
-  assert.ok(!baja.includes(TENTARE.alerta), 'si todo pinta urgente, nada lo parece');
+  assert.ok(!conReglaAlerta(baja), 'si todo pinta urgente, nada lo parece');
   assert.match(baja, /no tienes que hacer nada ahora mismo/);
-  assert.ok(agotada.includes(TENTARE.alerta));
-  assert.ok(sinCubrir.includes(TENTARE.alerta));
+  assert.ok(conReglaAlerta(agotada));
+  assert.ok(conReglaAlerta(sinCubrir));
 });
 
 test('Network solo se menciona cuando se agotó el ranking, y solo con el número', () => {
@@ -95,7 +98,7 @@ test('la referencia de Network no obliga a crear cuenta', () => {
 });
 
 test('ningún correo al equipo lleva colores de un estudio', () => {
-  const kit = new Set(Object.values(TENTARE).map(c => c.toUpperCase()));
+  const kit = new Set(COLORES_TENTARE.map(c => c.toUpperCase()));
   const correos = [
     correoInvitacionEquipo({ nombre: 'M', propietariaNombre: 'C', estudioNombre: 'E', rol: 'INSTRUCTOR', url: URL }),
     correoSolicitudDisponibilidad({ nombre: 'M', propietariaNombre: 'C', estudioNombre: 'E', url: URL }),

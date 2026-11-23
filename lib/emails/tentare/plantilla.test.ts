@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { correoTentare, TENTARE, LOGO_TENTARE_URL } from './plantilla.ts';
+import { correoTentare, cssModoOscuro, TENTARE, TENTARE_OSCURO, COLORES_TENTARE, LOGO_TENTARE_URL } from './plantilla.ts';
 import { ratioContraste } from '../../wcag-contrast.ts';
 
 // Lo que se comprueba es el HTML que LLEGA A LA BANDEJA de una propietaria: las
@@ -37,54 +37,92 @@ test('un solo botón; el segundo destino va como enlace', () => {
   assert.match(html, /Descargar los datos<\/a>/);
 });
 
-test('el logo va en su pastilla blanca: es una imagen pensada para fondo claro', () => {
-  // Sobre el fondo oscuro del correo se perdería. Mismo logo y medidas que los
-  // correos de acceso de Supabase.
+test('el logo lleva su placa: en claro no se nota y en oscuro se queda blanca (es una imagen para fondo claro)', () => {
   const html = correoTentare(BASICO);
   assert.ok(html.includes(`src="${LOGO_TENTARE_URL}" width="132" height="35" alt="Tentare"`));
-  assert.match(html, new RegExp(`bgcolor="${TENTARE.blanco}"[^>]*>\\s*<img src="${LOGO_TENTARE_URL.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}"`), 'el logo tiene que ir sobre una placa blanca');
   assert.match(LOGO_TENTARE_URL, /^https:\/\/www\./, 'sin www hay proxys de imágenes que no siguen el 308 del ápice');
-  assert.ok(html.includes(TENTARE.realce), 'falta la regla de color de la marca');
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.placa}"`));
+  // La placa NO puede ser el mismo hex que la tarjeta: el modo oscuro cambia por valor y se llevaría la placa por delante.
+  assert.notEqual(TENTARE.placa.toUpperCase(), TENTARE.tarjeta.toUpperCase());
+  assert.equal(TENTARE_OSCURO.placa, TENTARE.placa, 'la placa no se oscurece');
+  assert.ok(html.includes(TENTARE.regla), 'falta la regla de color de la marca');
 });
 
 test('la marca es la de Tentare y no se tiñe con la de ningún estudio', () => {
   const html = correoTentare(BASICO);
   const hex = new Set([...html.matchAll(/#[0-9A-Fa-f]{6}\b/g)].map(m => m[0].toUpperCase()));
-  const kit = new Set(Object.values(TENTARE).map(c => c.toUpperCase()));
+  const kit = new Set(COLORES_TENTARE.map(c => c.toUpperCase()));
   const fuera = [...hex].filter(h => !kit.has(h));
   assert.deepEqual(fuera, [], `colores fuera del kit de Tentare: ${fuera.join(', ')}`);
 });
 
-test('todo lo que es texto sobre un fondo se lee (AA)', () => {
-  const t = TENTARE;
-  const pares: [string, string, string][] = [
-    ['titular sobre la tarjeta', t.texto, t.tarjeta],
-    ['cuerpo sobre la tarjeta', t.cuerpo, t.tarjeta],
-    ['letra pequeña sobre la tarjeta', t.suave, t.tarjeta],
-    ['pie sobre el fondo', t.suave, t.fondo],
-    ['antetítulo y enlaces sobre la tarjeta', t.realce, t.tarjeta],
-    ['texto del botón sobre el botón', t.fondo, t.texto],
-    ['cifras sobre su panel', t.texto, t.panel],
-    ['etiqueta de cifra sobre su panel', t.cuerpo, t.panel],
-    ['destacado sobre su panel', t.cuerpo, t.panel],
-    ['enlace sobre el panel', t.realce, t.panel],
-  ];
-  for (const [que, color, fondo] of pares) {
-    assert.ok(ratioContraste(color, fondo)! >= 4.5, `${que}: ${ratioContraste(color, fondo)?.toFixed(2)}:1`);
+const PARES: [string, keyof typeof TENTARE, keyof typeof TENTARE][] = [
+  ['titular sobre la tarjeta', 'texto', 'tarjeta'],
+  ['cuerpo sobre la tarjeta', 'cuerpo', 'tarjeta'],
+  ['letra pequeña sobre la tarjeta', 'suave', 'tarjeta'],
+  ['pie sobre el fondo', 'suave', 'fondo'],
+  ['antetítulo y enlaces sobre la tarjeta', 'realce', 'tarjeta'],
+  ['texto del botón sobre el botón', 'botonTexto', 'boton'],
+  ['cifras sobre su panel', 'texto', 'panel'],
+  ['etiqueta de cifra y destacado sobre su panel', 'cuerpo', 'panel'],
+  ['enlace sobre el panel', 'realce', 'panel'],
+];
+
+test('todo lo que es texto sobre un fondo se lee (AA), en claro Y en oscuro', () => {
+  for (const [modo, kit] of [['claro', TENTARE], ['oscuro', TENTARE_OSCURO]] as const) {
+    for (const [que, color, fondo] of PARES) {
+      const r = ratioContraste(kit[color], kit[fondo])!;
+      assert.ok(r >= 4.5, `${modo} · ${que}: ${r.toFixed(2)}:1`);
+    }
+    // La regla de alerta es decoración (2 px), no texto: basta que se distinga de la tarjeta (3:1).
+    assert.ok(ratioContraste(kit.alerta, kit.tarjeta)! >= 3, `${modo} · la regla de alerta se pierde sobre la tarjeta`);
   }
-  // La regla de alerta es decoración (2 px), no texto: basta que se distinga del fondo (3:1).
-  assert.ok(ratioContraste(t.alerta, t.tarjeta)! >= 3, 'la regla roja se pierde sobre la tarjeta');
 });
 
-test('el correo es oscuro de verdad: declara el esquema y pone bgcolor en cada fondo (Outlook ignora el CSS)', () => {
+test('dentro de cada propiedad, dos roles no comparten hex (el modo oscuro cambia por valor)', () => {
+  const grupos: Record<string, (keyof typeof TENTARE)[]> = {
+    fondos: ['fondo', 'tarjeta', 'panel', 'boton', 'alerta', 'regla', 'placa'],
+    textos: ['texto', 'cuerpo', 'suave', 'realce', 'botonTexto'],
+    bordes: ['borde', 'realce'],
+  };
+  for (const [nombre, roles] of Object.entries(grupos)) {
+    const claros = roles.map(r => TENTARE[r].toUpperCase());
+    assert.equal(new Set(claros).size, claros.length, `${nombre}: dos roles claros con el mismo hex`);
+  }
+});
+
+test('⚠️ el modo oscuro solo actúa en modo oscuro: cada selector va dentro de la media query o con el prefijo de Outlook.com', () => {
+  const css = cssModoOscuro();
+  const fuera = css.replace(/@media \(prefers-color-scheme: dark\) \{[\s\S]*?\n  \}\n/, '');
+  // Lo que queda fuera de la media query son las reglas de Outlook.com: TODOS sus selectores llevan data-ogs*.
+  for (const regla of fuera.split('}').map(r => r.trim()).filter(Boolean)) {
+    for (const sel of regla.split('{')[0].split(',').map(x => x.trim()).filter(Boolean)) {
+      assert.match(sel, /^\[data-ogs[bc]\] /, `selector que se aplicaría siempre, también en modo claro: ${sel}`);
+    }
+  }
+  assert.ok(fuera.includes('[data-ogsb] [bgcolor='), 'sin la versión de Outlook.com para los fondos por atributo');
+});
+
+test('el modo oscuro: esquema declarado y reglas para cada color claro que lleva el correo', () => {
   const html = correoTentare(BASICO);
-  assert.match(html, /name="color-scheme" content="dark"/);
-  assert.match(html, /name="supported-color-schemes" content="dark"/);
+  assert.match(html, /name="color-scheme" content="light dark"/);
+  assert.match(html, /name="supported-color-schemes" content="light dark"/);
+  assert.match(html, /@media \(prefers-color-scheme: dark\)/);
+  // Outlook.com y su app no usan la media query.
+  assert.match(html, /\[data-ogsb\] \[style\*="background:/);
+  assert.match(html, /\[data-ogsc\] \[style\*="color:/);
+  const css = cssModoOscuro();
+  // Cada color de fondo y de texto que se pinta en claro tiene su pareja oscura.
+  for (const r of ['fondo', 'tarjeta', 'panel', 'boton'] as const) {
+    assert.ok(css.includes(`background:${TENTARE[r]}"`) && css.includes(`background: ${TENTARE_OSCURO[r]} !important`), `sin regla oscura para el fondo ${r}`);
+  }
+  for (const r of ['texto', 'cuerpo', 'suave', 'realce', 'botonTexto'] as const) {
+    assert.ok(css.includes(`color:${TENTARE[r]}"`) && css.includes(`color: ${TENTARE_OSCURO[r]} !important`), `sin regla oscura para el texto ${r}`);
+  }
+  // Y lo que el correo pinta en línea es claro: lo que ve quien no sabe de modos.
   assert.match(html, new RegExp(`<body[^>]*bgcolor="${TENTARE.fondo}"`));
   assert.match(html, new RegExp(`bgcolor="${TENTARE.tarjeta}"`));
-  assert.match(html, new RegExp(`bgcolor="${TENTARE.panel}"`));
-  // El botón es una píldora clara con texto oscuro, con el alto fijado para Outlook.
-  assert.match(html, new RegExp(`bgcolor="${TENTARE.texto}"[^>]*mso-padding-alt`));
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.boton}"[^>]*mso-padding-alt`));
 });
 
 test('preheader oculto con su relleno y peso bajo el recorte de Gmail', () => {

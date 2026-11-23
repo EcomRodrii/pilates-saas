@@ -151,7 +151,7 @@ export function correoRecibirReservas(p: {
 ${parrafo(`Tu clase <b>${escaparHtml(p.claseNombre.trim() || 'de hoy')}</b> está publicada (${escaparHtml(p.cuando)}). Copia este enlace y mándalo:`)}
 <div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.texto};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-radius:8px;margin:0 0 14px;"><tr>
-<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus clientes" style="display:block;border:0;width:120px;height:120px;background:${t.blanco};"></td>
+<td width="132" valign="middle" style="padding:12px 0 12px 12px;"><img src="${hrefSeguro(p.urlQr)}" width="120" height="120" alt="QR de la app de tus clientes" style="display:block;border:0;width:120px;height:120px;background:${t.placa};"></td>
 <td valign="middle" style="padding:12px 14px;font-family:${PILA};font-size:14px;line-height:1.55;color:${t.cuerpo};"><b>Tu QR.</b> Imprímelo y ponlo en recepción: al escanearlo, se abre la app de tus clientes.</td>
 </tr></table>
 ${parrafo('Pégalo en tu Instagram o en el grupo de WhatsApp de tus clientes. Entran con su email, sin descargarse nada.')}
