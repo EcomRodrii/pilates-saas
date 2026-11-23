@@ -1,5 +1,6 @@
 'use client';
 
+import { salaHabitualDelTipo } from '@/lib/calendario/sala-habitual';
 import { ETIQUETA_INSTRUCTORA_NO_DISPONIBLE, nombreInstructoraDeClase } from '@/lib/equipo/clases-sin-instructora';
 import * as Sentry from '@sentry/nextjs';
 import { useState, useMemo, useEffect, useRef, useCallback, useId, useSyncExternalStore } from 'react';
@@ -325,7 +326,7 @@ function ModalClasesRecurrentes({
   ausencias?: AusenciaInstructora[];
   salas: { id: string; nombre: string; capacidad: number }[];
   onCrear: (sesiones: Omit<Sesion, 'id' | 'studioId'>[]) => void;
-  sesionesExistentes: SlotSesion[];
+  sesionesExistentes: (SlotSesion & { tipoClaseId?: string | null })[];
   /** "Duplicar serie": arranca con los valores derivados de la serie de
    *  origen en vez de los defaults en blanco. Sigue siendo editable — es
    *  solo el punto de partida, no un valor fijo. */
@@ -343,7 +344,7 @@ function ModalClasesRecurrentes({
   const emptyForm = (): RecurringFormData => initial ?? {
     tipoClaseId: programables[0]?.id ?? '',
     instructorId: instructores[0]?.id ?? '',
-    salaId: salas[0]?.id ?? '',
+    salaId: salaHabitualDelTipo(sesionesExistentes, programables[0]?.id ?? '', salas),
     horaInicio: '10:00',
     // La duración del TIPO de clase, no un 60 fijo. El aforo ya se heredaba de
     // la sala y de `aforoPorDefecto`; la duración era la única que se ignoraba,
@@ -473,16 +474,25 @@ function ModalClasesRecurrentes({
             <select className={s2} value={form.tipoClaseId} onChange={e => {
               const tipoClaseId = e.target.value;
               const tc = tiposClase.find(x => x.id === tipoClaseId);
-              setForm(f => ({
+              setForm(f => {
+                // La sala sigue al tipo solo si no la había elegido a propósito:
+                // si era la propuesta del tipo anterior, pasa a la del nuevo.
+                const salaId = f.salaId === salaHabitualDelTipo(sesionesExistentes, f.tipoClaseId, salas)
+                  ? salaHabitualDelTipo(sesionesExistentes, tipoClaseId, salas)
+                  : f.salaId;
+                const cap = salas.find(x => x.id === salaId)?.capacidad;
+                return {
                 ...f,
                 tipoClaseId,
+                salaId,
                 // Mismo criterio que el cambio de sala de abajo: si ya tocó el
                 // aforo a mano, se respeta.
                 aforoMaximo: f.aforoTocado
                   ? f.aforoMaximo
-                  : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, salas.find(x => x.id === f.salaId)?.capacidad, f.aforoMaximo),
+                  : aforoPorDefectoDeSesion(tc?.aforoPorDefecto, cap, f.aforoMaximo),
                 duracion: f.duracionTocada ? f.duracion : (tc?.duracionMinutos ?? f.duracion),
-              }));
+                };
+              });
             }}>
               {tiposParaProgramar(tiposClase, form.tipoClaseId).map(t => (
                 <option key={t.id} value={t.id} disabled={estaArchivado(t)}>{t.nombre}{estaArchivado(t) ? ' · archivado' : ''}</option>
