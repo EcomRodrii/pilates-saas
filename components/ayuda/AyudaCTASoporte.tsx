@@ -1,30 +1,21 @@
-import { LifeBuoy } from 'lucide-react';
-import { ACC } from '@/components/landing/theme';
+import { SOPORTE_WHATSAPP } from '@/lib/soporte';
+import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 
-export function AyudaCTASoporte({ titulo = '¿No encuentras lo que buscas?', texto = 'Escríbenos y te respondemos nosotros, no un bot.' }: {
+// «¿No encuentras lo que buscas?» con la forma sobria de Shopify: una caja gris clara, sin color de marca, con las dos vías a una persona.
+export function AyudaCTASoporte({ titulo = '¿No encuentras lo que buscas?', texto = 'Escríbenos y te responde una persona, no un bot.' }: {
   titulo?: string; texto?: string;
 }) {
+  const chat = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, tengo una duda sobre Tentare:');
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'space-between',
-      background: '#0F0F0F', color: '#E8E8E4', borderRadius: 20, padding: '22px 26px', margin: '32px 0',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(255,255,255,.08)', display: 'grid', placeItems: 'center', flex: 'none' }}>
-          <LifeBuoy size={18} />
-        </span>
-        <div>
-          <p style={{ fontWeight: 700, fontSize: 14.5, margin: 0 }}>{titulo}</p>
-          <p style={{ fontSize: 13, color: '#A6A69E', margin: '2px 0 0' }}>{texto}</p>
-        </div>
+    <div className="ay-soporte">
+      <div>
+        <p className="ay-soporte-t">{titulo}</p>
+        <p className="ay-soporte-s">{texto}</p>
       </div>
-      <a
-        href="mailto:soporte@tentare.app"
-        className="hover:brightness-110"
-        style={{ flex: 'none', fontSize: 13.5, fontWeight: 700, color: '#fff', background: ACC, borderRadius: 10, padding: '11px 18px', whiteSpace: 'nowrap' }}
-      >
-        Contactar con soporte
-      </a>
+      <div className="ay-soporte-acciones">
+        {chat && <a href={chat} target="_blank" rel="noreferrer">Chat humano</a>}
+        <a href="mailto:soporte@tentare.app">Escribir un correo</a>
+      </div>
     </div>
   );
 }

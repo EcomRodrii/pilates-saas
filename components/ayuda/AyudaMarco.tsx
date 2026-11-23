@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
-import { WhatsAppIcon } from '@/components/icons/brand-icons';
+import { ChatHumano } from './ChatHumano';
 import { PieWeb } from '@/components/web/PieWeb';
 import { enlaceWhatsApp } from '@/lib/decision/mensajes-socia';
 import { SOPORTE_WHATSAPP } from '@/lib/soporte';
@@ -12,11 +12,11 @@ import './ayuda-marco.css';
  * «Ayuda»), lienzo blanco con las esquinas de arriba redondeadas y «Chat humano» (el WhatsApp de soporte: una persona, no
  * un robot) flotando. Sustituye a la isla de la web en estas páginas. El pie legal sigue siendo el de toda la web pública.
  */
-export function AyudaMarco({ children, ancho = 760, portada = false }: { children: ReactNode; ancho?: number; portada?: boolean }) {
+export function AyudaMarco({ children, ancho = 730, portada = false, conPregunta = false }: { children: ReactNode; ancho?: number; portada?: boolean; conPregunta?: boolean }) {
   const chat = enlaceWhatsApp(SOPORTE_WHATSAPP, 'Hola, tengo una duda sobre Tentare:');
   return (
     <>
-      <div className="ay-marco">
+      <div className={`ay-marco${conPregunta ? ' ay-con-pregunta' : ''}`}>
         <header className="ay-barra">
           <Link href="/ayuda" className="ay-logo" aria-label="Centro de ayuda de Tentare">
             <LogoTentare formato="isotipo" tinta="auto" alto={26} titulo="Tentare" />
@@ -27,11 +27,7 @@ export function AyudaMarco({ children, ancho = 760, portada = false }: { childre
         <main className={`ay-lienzo${portada ? ' ay-lienzo--portada' : ''}`}>
           <div className="ay-contenido" style={{ '--ay-ancho': `${ancho}px` } as CSSProperties}>{children}</div>
         </main>
-        {chat && (
-          <a href={chat} target="_blank" rel="noreferrer" className="ay-chat">
-            <WhatsAppIcon size={15} /> Chat humano
-          </a>
-        )}
+        <ChatHumano whatsapp={chat} />
       </div>
       <PieWeb />
     </>

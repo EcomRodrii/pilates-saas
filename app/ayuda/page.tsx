@@ -6,6 +6,7 @@ import { ArrowRight, Search } from 'lucide-react';
 import { PageShell } from '@/components/recursos/PageShell';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { AyudaMarco } from '@/components/ayuda/AyudaMarco';
+import { BannerEdicion } from '@/components/edicion/banner-edicion';
 import { CATEGORIAS, articulosPublicadosDe, urlArticulo } from '@/lib/ayuda/registro';
 import { buscarArticulos, categoriasSugeridas } from '@/lib/ayuda/busqueda';
 import { crearRegistroDeBusquedas } from '@/lib/ayuda/registrar-busqueda';
@@ -82,6 +83,7 @@ export default function AyudaHomePage() {
               </div>
             ) : (
               <section aria-labelledby="ay-temas">
+                <BannerEdicion className="ay-edicion" />
                 <h2 id="ay-temas" className="ay-titulo-temas">Explorar por tema</h2>
                 <div className="ay-temas">
                   {temas.map(({ categoria, guias }) => (
@@ -111,6 +113,7 @@ export default function AyudaHomePage() {
         .ay-buscador:focus-within { border-color: #303030; box-shadow: 0 0 0 3px #30303014; }
         .ay-buscador input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; line-height: 20px; color: #303030; }
         .ay-buscador input::placeholder { color: #616161; }
+        .ay-edicion { margin-top: 40px; }
         .ay-titulo-temas { margin: 56px 0 24px; font-size: 20px; font-weight: 600; letter-spacing: -0.02em; }
         .ay-temas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 48px; }
         .ay-tema h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }

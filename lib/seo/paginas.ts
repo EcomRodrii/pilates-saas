@@ -826,6 +826,17 @@ export const PAGINAS: PaginaSeo[] = [
     actualizado: '2026-08-28',
   },
   {
+    path: '/edicion/invierno-26',
+    titulo: 'Tentare Edición Invierno 26 | Todo lo nuevo en Tentare',
+    descripcion: 'Más de 250 actualizaciones de Tentare desde la versión 1.0: la app de tus alumnas, el calendario, los cobros, tu web y tu equipo.',
+    grupo: 'ayuda',
+    etiqueta: 'Tentare Edición Invierno 26',
+    prioridad: 0.6,
+    changeFrequency: 'monthly',
+    actualizado: '2026-11-23',
+    relacionadas: ['/ayuda/novedades', '/ayuda'],
+  },
+  {
     path: '/ayuda/novedades',
     titulo: 'Novedades de Tentare | Centro de Ayuda',
     descripcion: 'Nuevas funcionalidades, mejoras y correcciones publicadas en Tentare, versión a versión.',

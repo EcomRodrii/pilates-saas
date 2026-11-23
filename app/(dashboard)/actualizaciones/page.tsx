@@ -28,6 +28,7 @@ import {
   type FiltroActualizaciones, type VersionPublicada, type CambioVersion,
 } from '@/lib/actualizaciones/version';
 import { PreviewActualizacion, EscenaDestacada } from '@/components/actualizaciones/previews';
+import { BannerEdicion } from '@/components/edicion/banner-edicion';
 
 const PAGINA = 8;
 
@@ -155,6 +156,9 @@ export default function ActualizacionesPage() {
           </Button>
         }
       />
+
+      {/* La edición, también dentro del panel (23-nov-2026): el mismo banner que en el Centro de ayuda y en las novedades públicas. */}
+      <BannerEdicion />
 
       {/* Filtros. `aria-pressed` y no un radiogroup: son alternadores de una
           lista que ya está debajo, no un formulario. */}

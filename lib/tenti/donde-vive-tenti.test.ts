@@ -1089,7 +1089,7 @@ test('ningún Tenti en la marca blanca, la web comercial, el soporte, el dinero 
 // El otro lado del trato. Si algún día `Sparkles` deja de significar «novedad»,
 // este test cae y obliga a revisar la regla entera en vez de dejarla a medias.
 test('«Sparkles» sigue siendo el icono del changelog', () => {
-  const src = leerCodigo('app/ayuda/novedades/page.tsx');
+  const src = leerCodigo('components/ayuda/lista-novedades.tsx');
   assert.match(src, /NUEVA_FUNCIONALIDAD[\s\S]{0,120}Sparkles/,
     'Si esto cambia, Tenti deja de tener con qué contrastar y hay que replantear el criterio.');
 });
