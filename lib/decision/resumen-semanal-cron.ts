@@ -13,7 +13,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { idsEstudios } from '@/lib/inngest/estudios.ts';
-import { dbSemanaFueSilenciosa, dbListFeatureFlagRows, dbIngresosEnRango } from '@/lib/decision/db';
+import { dbSemanaFueSilenciosa, dbSemanaTuvoActividad, dbListFeatureFlagRows, dbIngresosEnRango } from '@/lib/decision/db';
 import { enviarEmailResumenSemanal } from '@/lib/emails/resumen-semanal-server';
 import { semanaAnterior, semanaPrevia } from '@/lib/inngest/resumen-semanal-fechas.ts';
 import { calcularVariacionPct } from '@/lib/informes/ventas-por-tipo';
@@ -63,6 +63,12 @@ async function procesarEstudio(admin: AdminClient, studioId: string) {
   const { lunes, domingo, rangoTexto } = semanaAnterior(new Date());
   const silenciosa = await dbSemanaFueSilenciosa(studioId, lunes, domingo);
   if (!silenciosa) return { skipped: 'semana con mensaje' };
+
+  // Sin ninguna reserva esa semana no hay «semana tranquila» que contar: el estudio no ha
+  // usado Tentare. Se queda sin el correo (el envío es del tope diario de Resend, que
+  // comparten los códigos de acceso y los avisos de pago) y sin reclamar la fila de dedup,
+  // así que si la semana se llena de actividad tardía el resumen sigue pudiendo salir.
+  if (!(await dbSemanaTuvoActividad(studioId, lunes, domingo))) return { skipped: 'semana sin actividad' };
 
   // Mismo criterio de resolución de "propietaria" que
   // lib/notifications/recipients.ts (`emailDeLaPropietaria`): el email PÚBLICO

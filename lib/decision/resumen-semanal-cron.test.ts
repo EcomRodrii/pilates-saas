@@ -35,3 +35,28 @@ test('resumen-semanal: un choque de la reclamación (23505) no reenvía', () => 
     'si el INSERT choca por PRIMARY KEY (studio_id, semana_lunes) ya repetido, debe saltarse el envío, no reintentar ni lanzar',
   );
 });
+
+// ── Sin actividad no hay «semana tranquila» (tope diario de Resend: 100/día) ──
+const fuenteDb = readFileSync(join(import.meta.dirname, 'db.ts'), 'utf8');
+
+test('resumen-semanal: mira la actividad ANTES de reclamar la fila de dedup (un estudio vacío no la gasta)', () => {
+  const idxActividad = fuente.indexOf('dbSemanaTuvoActividad(studioId');
+  const idxInsert = fuente.indexOf(".from('resumen_semanal_envios')");
+  assert.ok(idxActividad > 0, 'no encuentro la comprobación de actividad en el barrido');
+  assert.ok(idxActividad < idxInsert, 'la actividad se comprueba antes de reclamar: si no, el resumen de esa semana se perdería para siempre');
+});
+
+test('dbSemanaTuvoActividad: ante un fallo de la consulta devuelve true (se envía como siempre, nunca se calla por no poder medir)', () => {
+  const i = fuenteDb.indexOf('export async function dbSemanaTuvoActividad(');
+  assert.ok(i > 0, 'no encuentro dbSemanaTuvoActividad');
+  const cuerpo = fuenteDb.slice(i, fuenteDb.indexOf('\n}\n', i));
+  assert.match(cuerpo, /if \(error\) \{[^}]*return true;/);
+});
+
+test('dbSemanaTuvoActividad: cuenta los estados de reserva que existen (ASISTIDA, no ASISTIO)', () => {
+  const i = fuenteDb.indexOf('export async function dbSemanaTuvoActividad(');
+  const cuerpo = fuenteDb.slice(i, fuenteDb.indexOf('\n}\n', i));
+  assert.match(cuerpo, /'CONFIRMADA', 'ASISTIDA', 'NO_ASISTIO'/);
+  assert.doesNotMatch(cuerpo, /'ASISTIO'/);
+  assert.match(cuerpo, /sesiones!inner\(inicio\)/);
+});
