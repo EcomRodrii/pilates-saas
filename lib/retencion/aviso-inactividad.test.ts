@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 const fuente = readFileSync(join(import.meta.dirname, 'aviso-inactividad.ts'), 'utf8');
 const ruta = readFileSync(join(import.meta.dirname, '../../app/api/cron/notif-trial/route.ts'), 'utf8');
-const migracion = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261123224500_avisos_inactividad_30_dias.sql'), 'utf8');
+const migracion = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261123230827_avisos_inactividad_30_dias.sql'), 'utf8');
 
 test('apagado por defecto: lo primero que hace el barrido es comprobar AVISO_INACTIVIDAD', () => {
   const i = fuente.indexOf('avisoInactividadActivo(entorno)');
