@@ -50,27 +50,20 @@ test.describe('Configuración · peticiones de clase fija desde la app', () => {
     await expect(page.getByText(/pueden hacer suya una clase que se repite/)).toBeVisible();
     await expect(page.getByText(/con bono se reserva clase a clase/)).toBeVisible();
 
-    const vista = page.getByTestId('vista-previa-plaza-fija');
-    await expect(vista).toContainText('Así lo ve tu cliente');
-    await expect(vista).toContainText('¿Vienes los martes a las 10:00?');
-    await expect(vista).toContainText('se te reserva sola cada semana');
-    await expect(vista).toContainText('Tu estudio tiene que confirmarla');
-    await expect(vista).toContainText('Clase fija');
-    await expect(vista).toContainText('Los martes a las 10:00, reservada cada semana');
-    await expect(vista).not.toContainText('Ahora tus clientes no lo ven');
+    // El interruptor de pedir clase fija viene encendido.
+    await expect(page.getByRole('switch', { name: /Pueden pedir clase fija/ })).toHaveAttribute('aria-checked', 'true');
   });
 
-  test('apagado a mano, se ve atenuado con el aviso de que no lo ven', async ({ page }) => {
+  test('apagado a mano, el interruptor sale apagado', async ({ page }) => {
     await abrirAjuste(page, { plaza_fija_solicitar_desde_app: false });
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('¿Vienes los martes a las 10:00?');
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus clientes no lo ven');
+    await expect(page.getByRole('switch', { name: /Pueden pedir clase fija/ })).toHaveAttribute('aria-checked', 'false');
   });
 
   test('apagarlo (de serie viene encendido) manda solo sus columnas al guardar', async ({ page }) => {
     const { patches } = await abrirAjuste(page);
     await page.getByRole('switch', { name: /Pueden pedir clase fija/ }).click();
 
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Ahora tus clientes no lo ven');
+    await expect(page.getByRole('switch', { name: /Pueden pedir clase fija/ })).toHaveAttribute('aria-checked', 'false');
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect.poll(() => patches.length, { timeout: 15_000 }).toBe(1);
     // La tarjeta manda TODAS sus columnas: también quién aprueba y el tope (sin tocar: manual y 50 %, lo de siempre).
@@ -88,7 +81,6 @@ test.describe('Configuración · peticiones de clase fija desde la app', () => {
     await expect(grupo.getByRole('radio', { name: /La apruebo yo/ })).toBeChecked();
     await expect(grupo.getByRole('radio', { name: /Se da sola si cumple mis reglas/ })).not.toBeChecked();
     await expect(page.getByTestId('tope-plaza-fija')).toHaveCount(0);
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Tu estudio tiene que confirmarla');
   });
 
   test('con las pedidas apagadas no hay nada que aprobar: el selector no sale', async ({ page }) => {
@@ -99,10 +91,8 @@ test.describe('Configuración · peticiones de clase fija desde la app', () => {
   test('⚠️ pasar a «se da sola» PREGUNTA qué se comprueba antes de guardar, y solo entonces manda la columna', async ({ page }) => {
     const { patches } = await abrirAjuste(page);
     await page.getByRole('radio', { name: /Se da sola si cumple mis reglas/ }).check();
-    // El tope aparece con su valor de serie, y la vista previa cambia a lo que dirá la app de la alumna.
+    // El tope aparece con su valor de serie.
     await expect(page.getByTestId('tope-plaza-fija').getByRole('radio', { name: '50 %' })).toBeChecked();
-    await expect(page.getByTestId('vista-previa-plaza-fija')).toContainText('Si cumples las reglas de tu estudio, se te da al momento');
-    await expect(page.getByTestId('vista-previa-plaza-fija')).not.toContainText('Tu estudio tiene que confirmarla:');
 
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(page.getByText('¿Dar las clases fijas sin que las apruebes?')).toBeVisible();
