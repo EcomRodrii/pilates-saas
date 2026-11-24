@@ -1,12 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowUpRight, BarChart3, CalendarDays, CreditCard, LayoutTemplate, ShieldCheck, Smartphone, Sparkles, Users, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { LogoTentare } from '@/components/marca/logo-tentare';
 import { PieWeb } from '@/components/web/PieWeb';
-import { HeroParticulas } from '@/components/edicion/hero-particulas';
+import { HeroWebGL } from '@/components/edicion/hero-webgl';
 import { NavCapitulos } from '@/components/edicion/nav-capitulos';
 import { Revelar } from '@/components/edicion/revelar';
-import { CAPITULOS, EDICION, anclaVersion, type TarjetaEdicion } from '@/lib/edicion/invierno-26';
+import { EscenaTarjeta } from '@/components/edicion/escenas';
+import { CAPITULOS, EDICION, anclaVersion } from '@/lib/edicion/invierno-26';
 import { urlDe } from '@/lib/seo/paginas';
 import '@/components/edicion/edicion.css';
 
@@ -18,11 +19,6 @@ export const metadata: Metadata = {
     siteName: 'Tentare', type: 'website', title: `${EDICION.nombre} ${EDICION.temporada}`,
     description: `Más de ${EDICION.actualizaciones} actualizaciones de Tentare.`, url: urlDe(EDICION.ruta),
   },
-};
-
-const ICONOS: Record<TarjetaEdicion['icono'], LucideIcon> = {
-  app: Smartphone, calendario: CalendarDays, cobros: CreditCard, web: LayoutTemplate,
-  seguridad: ShieldCheck, tenti: Sparkles, equipo: Users, informes: BarChart3,
 };
 
 export default function EdicionInvierno26() {
@@ -43,7 +39,7 @@ export default function EdicionInvierno26() {
 
         <section className="ed-hero" aria-labelledby="ed-h1">
           <h1 id="ed-h1" className="ed-sr">{EDICION.nombre} {EDICION.temporada}</h1>
-          <div className="ed-hero-lienzo"><HeroParticulas palabra={EDICION.temporada} /></div>
+          <div className="ed-hero-lienzo"><HeroWebGL palabra={EDICION.temporada} /></div>
           <div className="ed-hero-pie">
             <p className="ed-hero-texto">
               <span className="ed-hero-cifra">{EDICION.actualizaciones}+</span> actualizaciones para gestionar tu estudio, a tus alumnas y tu web en un solo sitio.
@@ -62,12 +58,11 @@ export default function EdicionInvierno26() {
             </Revelar>
             <ul className="ed-tarjetas">
               {c.tarjetas.map((t) => {
-                const Icono = ICONOS[t.icono];
                 return (
                   <li key={t.titulo}>
                     <Revelar>
                       <Link href={anclaVersion(t.version)} className="ed-tarjeta">
-                        <span className={`ed-tile ed-tile--${c.id}`} aria-hidden="true"><Icono size={44} strokeWidth={1.25} /></span>
+                        <span className={`ed-tile ed-tile--${c.id}`} aria-hidden="true"><EscenaTarjeta tipo={t.escena} muestra={t.muestra} /></span>
                         <span className="ed-tarjeta-titulo">{t.titulo}</span>
                         <span className="ed-tarjeta-texto">{t.texto}</span>
                         <span className="ed-tarjeta-version">Versión {t.version}</span>
