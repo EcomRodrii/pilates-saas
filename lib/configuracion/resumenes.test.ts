@@ -975,3 +975,10 @@ test('la fila de congelación: sin cargar no dice nada; con la política dice si
   assert.equal(resumenCongelacion({ congelacionPermitida: true, congelacionMaxDias: 30 }), 'alarga hasta 30 días');
   assert.equal(resumenCongelacion({ congelacionPermitida: false, congelacionMaxDias: 30 }), 'no se puede congelar');
 });
+
+test('plataformas sin conexión todavía (ClassPass, Wellhub): «Próximamente» si no se vende allí, «Manual» si se apunta a mano', () => {
+  assert.equal(resumenPlataformaVenta({ activa: false, conexionDisponible: false, conectada: false, proximamente: true }).estado?.etiqueta, 'Próximamente');
+  assert.equal(resumenPlataformaVenta({ activa: true, conexionDisponible: false, conectada: false, proximamente: true }).estado?.etiqueta, 'Manual');
+  // Urban Sports Club (conexión disponible) nunca es «Próximamente».
+  assert.equal(resumenPlataformaVenta({ activa: false, conexionDisponible: true, conectada: false, proximamente: false }).estado?.etiqueta, 'Sin conectar');
+});

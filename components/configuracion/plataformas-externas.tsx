@@ -10,6 +10,7 @@ import { NOMBRE_PLATAFORMA, PLATAFORMAS, type Plataforma } from '@/lib/plataform
 import { uscPublicaPorApi } from '@/lib/plataformas/usc/horario';
 import { porQueSinVentaExterna, type MotivoSinVentaExterna } from '@/lib/plataformas/venta-externa';
 import { PLATAFORMAS_QUE_APARTAN } from '@/lib/plataformas/apartadas';
+import { esProximamente } from '@/lib/plataformas/pedir-acceso';
 import { dbGuardarLiberarHorasPlataforma, dbLeerLiberarHorasPlataforma } from '@/lib/supabase-data';
 import { resumenPlataformaVenta } from '@/lib/configuracion/resumenes';
 import { ClassPassIcon, UrbanSportsClubIcon, WellhubIcon } from '@/components/icons/brand-icons';
@@ -136,6 +137,7 @@ export function FilasPlataformas({ onAbrir, enlace, solo }: {
         const resumen = resumenPlataformaVenta({
           activa: activas.includes(p), conexionDisponible: c.disponible, conectada: c.conectada,
           ventaCortada: p === USC ? usc?.ventaCortada : null,
+          proximamente: esProximamente(p),
         });
         const id = `plataformas-externas-${p.toLowerCase()}`;
         const clase = cn(FILA, 'w-full scroll-mt-32 scroll-mb-32 text-left');
@@ -208,6 +210,8 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-foreground">
                   {NOMBRE_PLATAFORMA[p]}
+                  {esProximamente(p) && <ChapaProximamente texto="Próximamente" />}
+                  {p === USC && usc?.apiDisponible && !porApi && <ChapaProximamente texto="Beta" />}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {!activa ? 'No vendo aquí'
@@ -235,7 +239,7 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
             {activa && !porApi && (PLATAFORMAS_QUE_APARTAN as readonly Plataforma[]).includes(p) && (
               <LiberarApartadas plataforma={p} preguntar={recienActivada === p} showToast={showToast} />
             )}
-            {p === USC && activa && usc?.apiDisponible && (
+            {p === USC && usc?.apiDisponible && (
               <ConexionUsc
                 config={usc.config}
                 ventaCortada={usc.ventaCortada}
@@ -244,6 +248,24 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
               />
             )}
             {p === 'WELLHUB' && !porApi && <PedirConexionWellhub />}
+            {esProximamente(p) && (
+              <PedirAcceso
+                plataforma={p}
+                titulo={`Todavía no hay conexión automática con ${NOMBRE_PLATAFORMA[p]}`}
+                texto="Mientras tanto puedes apuntar sus reservas a mano desde la clase. Pide acceso y te avisamos en cuanto esté lista: cuantos más estudios la piden, antes la abrimos."
+                boton="Pedir acceso"
+                showToast={showToast}
+              />
+            )}
+            {p === USC && usc?.apiDisponible && !porApi && (
+              <PedirAcceso
+                plataforma={p}
+                titulo="Beta de la conexión con Urban Sports Club"
+                texto="Estamos probando la conexión con estudios reales. Si quieres ser uno, pídelo y te contamos los pasos; si ya tienes tus IDs de proveedor y de ubicación, pégalos arriba."
+                boton="Quiero probar la beta"
+                showToast={showToast}
+              />
+            )}
             </li>
           );
         })}
@@ -437,5 +459,65 @@ function ConexionUsc({ config, ventaCortada, onGuardada, showToast }: {
         {guardando ? 'Guardando…' : 'Guardar conexión'}
       </button>
     </form>
+  );
+}
+
+function ChapaProximamente({ texto }: { texto: string }) {
+  return (
+    <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">{texto}</span>
+  );
+}
+
+/**
+ * «Pedir acceso» (ClassPass, Wellhub) o «Quiero probar la beta» (Urban Sports
+ * Club): le dice a Tentare que el estudio la quiere. Se enseña lo que CONTESTA el
+ * servidor: «enviada» solo si el correo salió; si ya la había pedido hoy, lo dice.
+ */
+function PedirAcceso({ plataforma, titulo, texto, boton, showToast }: {
+  plataforma: Plataforma; titulo: string; texto: string; boton: string; showToast: MostrarToast;
+}) {
+  const [estado, setEstado] = useState<'inicial' | 'enviando' | 'enviada'>('inicial');
+  const nombre = NOMBRE_PLATAFORMA[plataforma];
+
+  async function pedir() {
+    if (estado !== 'inicial') return;
+    setEstado('enviando');
+    try {
+      const r = await fetch('/api/plataformas/pedir-acceso', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plataforma }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { error?: string; yaPedida?: boolean };
+      if (r.ok || j.yaPedida) {
+        setEstado('enviada');
+        showToast(r.ok ? `Petición enviada: te avisamos cuando haya novedades de ${nombre}` : `Ya nos pediste ${nombre} hoy`);
+        return;
+      }
+      setEstado('inicial');
+      showToast(j.error ?? 'No hemos podido enviar la petición', { variant: 'error' });
+    } catch {
+      setEstado('inicial');
+      showToast('No hemos podido enviar la petición. Revisa tu conexión.', { variant: 'error' });
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2 rounded-xl bg-muted/50 px-3 py-3" data-testid={`pedir-acceso-${plataforma.toLowerCase()}`}>
+      <p className="text-xs font-semibold text-foreground">{titulo}</p>
+      <p className="text-xs text-muted-foreground">{texto}</p>
+      {estado === 'enviada' ? (
+        <p role="status" className="text-xs font-semibold text-foreground">Petición enviada. Te avisamos por correo.</p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => void pedir()}
+          disabled={estado === 'enviando'}
+          aria-busy={estado === 'enviando'}
+          className="rounded-lg px-3 py-1.5 text-xs font-semibold text-brand-foreground disabled:opacity-50"
+          style={{ background: 'var(--brand)' }}
+        >
+          {estado === 'enviando' ? 'Enviando…' : boton}
+        </button>
+      )}
+    </div>
   );
 }
