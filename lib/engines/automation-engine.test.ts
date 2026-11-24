@@ -442,7 +442,7 @@ test('NUEVA_SOCIA: ya asistió → sin candidatos', () => {
 test('RENOVACION_COBRADA: recibo cobrado con suscripción → confirma, y no se repite para el mismo recibo', () => {
   const r = rule({ trigger: 'RENOVACION_COBRADA', condicion: { hitoMeses: 6 } });
   const s = socio({ id: 'a', fechaAlta: diasAntes(400) }); // no cae justo en un múltiplo de 6 meses
-  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1', fechaCobro: diasAntes(0) });
+  const rec = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1', esRenovacion: true, fechaCobro: diasAntes(0) });
   const c1 = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec] }), NOW);
   assert.equal(c1.length, 1);
   assert.equal(c1[0].accion, 'ENVIAR_EMAIL');
@@ -450,6 +450,16 @@ test('RENOVACION_COBRADA: recibo cobrado con suscripción → confirma, y no se 
   const logYaConfirmado = log({ ruleId: r.id, socioId: 'a', accion: 'ENVIAR_EMAIL', resultado: 'EJECUTADO', reciboId: rec.id });
   const c2 = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [rec], automationLogs: [logYaConfirmado] }), NOW);
   assert.equal(c2.length, 0, 'no debe repetirse para el mismo recibo ya confirmado');
+});
+
+test('RENOVACION_COBRADA: una VENTA (bono, clase suelta, plaza fija) con suscripción no es una renovación → no manda «Renovación confirmada»', () => {
+  // 24-nov-2026: 476 de 484 correos de este tipo en 30 días eran ventas, que ya reciben su «Pago confirmado».
+  const r = rule({ trigger: 'RENOVACION_COBRADA', condicion: {} });
+  const s = socio({ id: 'a' });
+  const venta = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-1', esRenovacion: false, fechaCobro: diasAntes(0) });
+  const sinMarcar = recibo({ socioId: 'a', estado: 'COBRADO', suscripcionId: 'sus-2', fechaCobro: diasAntes(0) });
+  const c = computeAutomationCandidatos(input({ automationRules: [r], socios: [s], recibos: [venta, sinMarcar] }), NOW);
+  assert.equal(c.length, 0);
 });
 
 test('RENOVACION_COBRADA: recibo sin suscripcionId (venta suelta) → no genera candidato', () => {

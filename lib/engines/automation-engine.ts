@@ -589,7 +589,11 @@ export function computeAutomationCandidatos(
       const diasRecencia = 3;
       recibos
         .filter(r =>
-          r.estado === 'COBRADO' && r.suscripcionId && r.fechaCobro &&
+          // Solo una RENOVACIÓN (`es_renovacion`): una venta (bono, clase suelta, plaza
+          // fija, alta) también lleva suscripción, y de ella ya sale «Pago confirmado».
+          // Sin esta condición, 476 de 484 correos de este tipo en 30 días eran ventas,
+          // más de la mitad de la cuota mensual de Resend (24-nov-2026).
+          r.estado === 'COBRADO' && r.suscripcionId && r.esRenovacion === true && r.fechaCobro &&
           (now.getTime() - new Date(r.fechaCobro).getTime()) < diasRecencia * 86400000,
         )
         .forEach(recibo => {
