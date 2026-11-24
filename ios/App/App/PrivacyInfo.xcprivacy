@@ -3,7 +3,9 @@
 <!--
   Manifiesto de privacidad de la app (docs/APP-IOS.md, «Manifiesto de privacidad»).
 
-  API «required reason»: solo la fecha de los ficheros, que lee @capacitor/filesystem
+  API «required reason»: UserDefaults (1C8F.1, el grupo de apps que comparte con el
+  widget; CA92.1, el ajuste propio de la app: si el bloqueo con Face ID está
+  encendido, BloqueoPlugin) y la fecha de los ficheros, que lee @capacitor/filesystem
   (su librería IONFilesystemLib, sin manifiesto propio) sobre lo que la app guarda en
   su caché para compartirlo. Capacitor y Cordova traen su manifiesto, vacío.
 
@@ -27,6 +29,7 @@
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>1C8F.1</string>
+				<string>CA92.1</string>
 			</array>
 		</dict>
 		<dict>

@@ -17,7 +17,8 @@ public class ProximaClasePlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "ProximaClase"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "guardar", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "borrar", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "borrar", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "leer", returnType: CAPPluginReturnPromise)
     ]
 
     /// `{ json: string }` con las clases en el formato de `ProximasClases`.
@@ -32,6 +33,20 @@ public class ProximaClasePlugin: CAPPlugin, CAPBridgedPlugin {
         }
         WidgetCenter.shared.reloadAllTimelines()
         call.resolve()
+    }
+
+    /// Lo guardado, para la página «Sin conexión» (movil/www/index.html): sin red,
+    /// la app enseña las próximas clases en vez de solo un error. `{ json }` o
+    /// `{ json: null }` si no hay nada, es de otra versión o está caducado
+    /// (`ProximasClasesAlmacen.leer`, la misma regla que el widget).
+    @objc func leer(_ call: CAPPluginCall) {
+        guard let guardado = ProximasClasesAlmacen.leer(),
+              let datos = try? ProximasClasesAlmacen.codificador().encode(guardado),
+              let json = String(data: datos, encoding: .utf8) else {
+            call.resolve(["json": NSNull()])
+            return
+        }
+        call.resolve(["json": json])
     }
 
     /// Al cerrar sesión: nada de la alumna se queda en la pantalla de inicio.
