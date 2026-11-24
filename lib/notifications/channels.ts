@@ -315,11 +315,9 @@ const push: Canal = {
 // EMAIL: correo genérico de notificación con la marca del estudio, vía Resend.
 // Opt-in (off por defecto en preferencias). Sin RESEND o sin email → SKIPPED.
 // Import perezoso de `resend` para no cargarlo salvo cuando de verdad se envía.
-const esc = (s: string) => s.replace(/[<>&]/g, (c) => (c === '<' ? '&lt;' : c === '>' ? '&gt;' : '&amp;'));
-
 const email: Canal = {
   nombre: 'EMAIL',
-  async enviar({ admin, notificacion, destinatario }) {
+  async enviar({ notificacion, destinatario }) {
     if (!destinatario.email) return { status: 'SKIPPED', error: 'destinatario sin email' };
     // En un const: el estrechamiento de `destinatario.email` se pierde dentro
     // del callback de `conReintentoResend` (TS no puede saber que nadie lo ha
@@ -328,20 +326,24 @@ const email: Canal = {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey || apiKey.startsWith('re_XXXX')) return { status: 'SKIPPED', error: 'email no configurado' };
 
-    const { data: st } = await admin.from('studios')
-      .select('nombre, color_primario, logo_url, email').eq('id', notificacion.studioId).maybeSingle();
-    const color = (st?.color_primario as string | null) || '#343825';
-    const estudio = (st?.nombre as string | null) || 'Tentare';
-    const logo = st?.logo_url as string | null;
+    // El mismo correo que todos los demás (24-nov-2026): a la clienta, el de SU estudio; al equipo, el de Tentare.
+    // Antes era un HTML propio, con «enviado con Tentare» también en lo que le llegaba a una clienta.
+    // Import perezoso: `plantillas-server` es de servidor y solo hace falta cuando de verdad se envía.
+    const [{ resolverMarcaEstudio }, { marcaCorreoDesde }, { correoEstudio }, { correoTentare }] = await Promise.all([
+      import('../emails/plantillas-server.ts'),
+      import('../emails/estudio/marca-correo.ts'),
+      import('../emails/estudio/plantilla.ts'),
+      import('../emails/tentare/plantilla.ts'),
+    ]);
+    const marcaEstudio = await resolverMarcaEstudio(notificacion.studioId);
+    const marca = marcaCorreoDesde(marcaEstudio, 'Tu estudio');
+    const estudio = marca.estudioNombre;
     const base = process.env.NEXT_PUBLIC_APP_URL || LEGAL.url;
-    const cta = notificacion.deepLink
-      ? `<a href="${base}${notificacion.deepLink}" style="display:inline-block;margin-top:20px;padding:11px 20px;background:${color};color:#fff;border-radius:10px;text-decoration:none;font-weight:700">Ver detalles</a>`
-      : '';
-    const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#1a1a1a">`
-      + (logo ? `<img src="${logo}" alt="${esc(estudio)}" style="height:40px;margin-bottom:20px"/>` : `<p style="font-weight:800;color:${color};margin:0 0 20px">${esc(estudio)}</p>`)
-      + `<h1 style="font-size:20px;margin:0 0 8px">${esc(notificacion.title)}</h1>`
-      + `<p style="font-size:15px;line-height:1.5;color:#444;margin:0">${esc(notificacion.body)}</p>${cta}`
-      + `<p style="font-size:12px;color:#999;margin-top:28px">${esc(estudio)} · enviado con Tentare</p></div>`;
+    const boton = notificacion.deepLink ? { href: `${base}${notificacion.deepLink}`, texto: 'Ver detalles' } : null;
+    const comun = { preheader: notificacion.body, titular: notificacion.title, parrafos: [notificacion.body], boton };
+    const html = destinatario.role === 'SOCIA'
+      ? correoEstudio({ ...comun, marca })
+      : correoTentare({ ...comun, antetitulo: estudio, motivo: `Te escribimos porque formas parte del equipo de ${estudio}.` });
 
     try {
       const { Resend } = await import('resend');
@@ -354,7 +356,7 @@ const email: Canal = {
       // Reply-To solo cuando quien recibe es una SOCIA, por el mismo motivo
       // que el remitente: si el aviso es para el equipo del estudio, poner su
       // propia dirección como respuesta les haría escribirse a sí mismos.
-      const replyTo = destinatario.role === 'SOCIA' ? ((st?.email as string | null) ?? '').trim() : '';
+      const replyTo = destinatario.role === 'SOCIA' ? (marcaEstudio.replyTo ?? '').trim() : '';
       // ⚠️ Auditoría 2026-09-23 (AUT-7): este `send` iba a pelo, sin
       // `conReintentoResend` — el helper que existe justo para esto («un 429 de
       // "10 req/s" se registraba como FALLIDO para siempre»). Un aviso a todo un

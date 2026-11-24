@@ -63,6 +63,10 @@ export const TENTARE = {
    * la tarjeta y dejar la placa en blanco.
    */
   placa: '#FEFEFE',
+  /** La banda de arriba y el pie: negros en claro y en oscuro, como en el correo de referencia. */
+  banda: '#000000',
+  /** El texto sobre la banda y el pie. No es `#FFFFFF`: el modo oscuro cambia por valor y se llevaría el del botón. */
+  sobreBanda: '#FFFFFE',
 } as const;
 
 /** La pareja de cada color para quien tiene el modo oscuro puesto (`semantic.dark` del Brand OS). */
@@ -80,6 +84,8 @@ export const TENTARE_OSCURO: Record<keyof typeof TENTARE, string> = {
   regla: '#D8CDBB',
   alerta: '#EF6B5E',
   placa: '#FEFEFE',
+  banda: '#000000',
+  sobreBanda: '#FFFFFE',
 };
 
 /** Todos los hex que puede llevar un correo de esta familia (claros y oscuros). Lo usan las pruebas. */
@@ -115,13 +121,18 @@ export function cssModoOscuro(): string {
 /** El lockup horizontal que ya usan los correos de acceso. Sale de docs/marca con `node scripts/regenerar-marca.mjs`. */
 export const LOGO_TENTARE_URL = `${LEGAL.url}/logo-horizontal.png`;
 
-const ANCHO = 600;
+const ANCHO = 620;
+/** En el móvil el titular baja de 44 a 32 px. */
+const CSS_MOVIL = `  @media screen and (max-width: 620px) {
+    .h1-mobile { font-size: 32px !important; line-height: 38px !important; }
+  }
+`;
 /**
  * Sin serif en esta familia, así que la pila acaba siempre en Arial. ⚠️ Outlook
  * de Windows NO baja por la pila si la primera fuente no está instalada: cae a
  * Times New Roman. Por eso además va el condicional `mso` que fuerza Arial.
  */
-const PILA = "'Plus Jakarta Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
+const PILA = "InterVariable, Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 /** La misma pila, para los correos de esta familia que montan sus propios bloques (alta.ts). */
 export const PILA_TENTARE = PILA;
 
@@ -156,9 +167,8 @@ export interface CorreoTentareOpts {
 }
 
 export function correoTentare(o: CorreoTentareOpts): string {
-  const regla = o.acento?.trim() || TENTARE.regla;
   const bloques = [
-    cabecera(regla),
+    cabecera(o.antetitulo, o.acento),
     titular(o),
     o.agenda && o.agenda.filas.length > 0 ? agenda(o.agenda) : '',
     o.cifras && o.cifras.length > 0 ? cifras(o.cifras) : '',
@@ -181,16 +191,16 @@ export function marcoTentare(preheader: string, bloques: string, pieHtml: string
   const t = TENTARE;
   return `<!doctype html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-${cabezaHtml('Tentare', t.fondo, t.realce, ANCHO, '* { font-family: Arial, Helvetica, sans-serif !important; }', 'light dark', cssModoOscuro())}
+${cabezaHtml('Tentare', t.fondo, t.realce, ANCHO, '* { font-family: Arial, Helvetica, sans-serif !important; }', 'light dark', CSS_MOVIL + cssModoOscuro())}
 <body style="margin:0;padding:0;background:${t.fondo};" bgcolor="${t.fondo}">
 ${preheaderHtml(preheader)}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.fondo}" style="background:${t.fondo};">
-<tr><td align="center" style="padding:32px 12px;">
+<tr><td align="center" style="padding:0;">
 <!--[if mso | IE]>
 <table role="presentation" width="${ANCHO}" align="center" cellpadding="0" cellspacing="0" border="0" style="width:${ANCHO}px;"><tr><td>
 <![endif]-->
 <div class="w-full" style="max-width:${ANCHO}px;margin:0 auto;text-align:left;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.tarjeta}" style="background:${t.tarjeta};border:1px solid ${t.borde};border-radius:16px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.tarjeta}" style="background:${t.tarjeta};">
 ${bloques}
 </table>
 ${pieHtml}
@@ -204,9 +214,9 @@ ${pieHtml}
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
-/** El logo y la regla de color: la misma cabecera en todos los correos de Tentare. */
-export function cabeceraTentare(regla: string = TENTARE.regla): string {
-  return cabecera(regla);
+/** La banda, el logo y, si el correo trae un aviso con significado propio, su filete. La misma en todos. */
+export function cabeceraTentare(antetitulo?: string | null, acento?: string | null): string {
+  return cabecera(antetitulo, acento);
 }
 
 /** El botón de la marca (un correo, una llamada a la acción). */
@@ -214,32 +224,49 @@ export function botonTentare(b: { href: string; texto: string }): string {
   return boton(b);
 }
 
-function cabecera(regla: string): string {
+/** El titular: 44 px y peso ligero, centrado. Lo usa también el correo del alta (`alta.ts`). */
+export function tituloTentare(texto: string): string {
+  return `<h1 class="h1-mobile" style="font-family:${PILA};font-weight:300;font-size:44px;line-height:48px;color:${TENTARE.texto};text-align:center;margin:0 0 16px;">${escaparHtml(texto)}</h1>`;
+}
+
+/** El pie negro. Recibe HTML ya escapado: cada correo dice por qué llega. */
+export function pieNegro(html: string): string {
   const t = TENTARE;
-  // El logo del kit es para fondo claro. En claro la placa es del color de la tarjeta (no se nota); en
-  // oscuro la tarjeta se oscurece y la placa se queda blanca, como el logo de Shopify en su correo. Mismas
-  // medidas de imagen que en supabase/templates/*.html (132×35). Con las imágenes bloqueadas —el caso por
-  // defecto en media bandeja— el `alt` dice de quién es.
-  return `<tr><td class="px-mobile" style="padding:28px 32px 22px;">
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.banda}" style="background:${t.banda};"><tr>
+<td class="px-mobile" align="center" style="padding:40px;font-family:${PILA};font-size:14px;line-height:20px;color:${t.sobreBanda};text-align:center;">
+${html}
+</td></tr></table>`;
+}
+
+// ── Piezas ───────────────────────────────────────────────────────────────────
+
+function cabecera(antetitulo?: string | null, acento?: string | null): string {
+  const t = TENTARE;
+  // La banda dice de qué va el correo («Tu suscripción»). El logo del kit es para fondo claro: en claro su placa es
+  // del color de la tarjeta (no se nota); en oscuro la tarjeta se oscurece y la placa se queda blanca, como el logo de
+  // Shopify en su correo. Mismas medidas de imagen que en supabase/templates/*.html (132×35). Con las imágenes
+  // bloqueadas —el caso por defecto en media bandeja— el `alt` dice de quién es.
+  const filete = acento?.trim()
+    ? `\n<tr><td style="padding:0;"><div style="height:4px;line-height:4px;font-size:0;background:${acento.trim()};">&nbsp;</div></td></tr>`
+    : '';
+  return `<tr><td align="center" bgcolor="${t.banda}" style="background:${t.banda};padding:4px 24px;font-family:${PILA};font-size:12px;line-height:14px;color:${t.sobreBanda};text-align:center;">${escaparHtml(antetitulo?.trim() || 'Tentare')}</td></tr>${filete}
+<tr><td class="px-mobile" style="padding:16px 40px 8px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-left:-10px;"><tr>
 <td bgcolor="${t.placa}" style="background:${t.placa};border-radius:12px;padding:11px 14px;">
 <img src="${LOGO_TENTARE_URL}" width="132" height="35" alt="Tentare" style="display:block;border:0;width:132px;height:35px;">
 </td></tr></table>
-</td></tr>
-<tr><td style="padding:0 32px;"><div style="height:2px;line-height:2px;font-size:0;background:${regla};">&nbsp;</div></td></tr>`;
+</td></tr>`;
 }
 
 function titular(o: CorreoTentareOpts): string {
   const t = TENTARE;
-  const ante = o.antetitulo?.trim()
-    ? `<div style="font-family:${PILA};font-size:11px;font-weight:bold;letter-spacing:1.6px;text-transform:uppercase;color:${t.realce};margin:0 0 14px;">${escaparHtml(o.antetitulo.trim())}</div>`
-    : '';
   const parrafos = (o.parrafos ?? [])
     .filter((p): p is string => !!p && p.trim() !== '')
-    .map(p => `<div style="font-family:${PILA};font-size:16px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${escaparHtml(p)}</div>`)
+    // El primero es la entradilla (18 px); el resto, texto (16 px).
+    .map((p, i) => `<div style="font-family:${PILA};font-size:${i === 0 ? 18 : 16}px;line-height:${i === 0 ? 25 : 22}px;color:${t.cuerpo};margin:0 0 16px;">${escaparHtml(p)}</div>`)
     .join('');
-  return `<tr><td class="px-mobile" align="center" style="padding:40px 32px 12px;text-align:center;">
-${ante}<div style="font-family:${PILA};font-weight:800;font-size:34px;line-height:1.15;letter-spacing:-0.025em;color:${t.texto};margin:0 0 18px;">${escaparHtml(o.titular)}</div>
+  return `<tr><td class="px-mobile" align="center" style="padding:24px 40px 8px;text-align:center;">
+${tituloTentare(o.titular)}
 ${parrafos}
 </td></tr>`;
 }
@@ -257,7 +284,7 @@ function agenda(a: NonNullable<CorreoTentareOpts['agenda']>): string {
 <td width="${anchoCuando}" valign="top" style="padding:11px 12px 11px 0;border-top:1px solid ${t.borde};font-family:${PILA};font-weight:bold;font-size:13px;color:${t.texto};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.cuando)}</td>
 <td valign="top" style="padding:11px 0;border-top:1px solid ${t.borde};font-family:${PILA};font-size:14px;line-height:1.5;color:${t.cuerpo};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.que)}</td>
 </tr>`).join('');
-  return `<tr><td class="px-mobile" style="padding:8px 32px 20px;">
+  return `<tr><td class="px-mobile" style="padding:8px 40px 20px;">
 ${titulo}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${filas}</table>
 </td></tr>`;
 }
@@ -276,7 +303,7 @@ function cifras(cs: { valor: string; etiqueta: string }[]): string {
 <div style="font-family:${PILA};font-weight:800;font-size:${cuerpo}px;line-height:1.15;color:${t.texto};margin:0 0 6px;white-space:nowrap;">${escaparHtml(c.valor)}</div>
 <div style="font-family:${PILA};font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:${t.cuerpo};">${escaparHtml(c.etiqueta)}</div>
 </td>`).join('');
-  return `<tr><td class="px-mobile" style="padding:6px 32px 20px;">
+  return `<tr><td class="px-mobile" style="padding:6px 40px 20px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-radius:12px;"><tr>${celdas}</tr></table>
 </td></tr>`;
 }
@@ -286,7 +313,7 @@ function destacado(d: NonNullable<CorreoTentareOpts['destacado']>): string {
   const texto = d.texto?.trim()
     ? `<div style="font-family:${PILA};font-size:13.5px;line-height:1.55;color:${t.cuerpo};margin:4px 0 0;word-break:break-word;">${escaparHtml(d.texto.trim())}</div>`
     : '';
-  return `<tr><td class="px-mobile" style="padding:6px 32px 20px;">
+  return `<tr><td class="px-mobile" style="padding:6px 40px 20px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-left:3px solid ${t.realce};border-radius:4px;"><tr><td style="padding:16px 18px;">
 <div style="font-family:${PILA};font-weight:bold;font-size:14px;color:${t.texto};word-break:break-word;">${escaparHtml(d.titulo)}</div>${texto}
 </td></tr></table>
@@ -298,10 +325,10 @@ function boton(b: { href: string; texto: string }, enlace?: { href: string; text
   // El botón de la referencia: una píldora de tinta con texto blanco (al revés en modo oscuro). `mso-padding-alt` le
   // da el alto en Outlook, que no entiende el padding de un `<a>` (y que dibuja las
   // esquinas rectas: sigue siendo un botón legible).
-  return `<tr><td class="px-mobile" align="center" style="padding:10px 32px 32px;text-align:center;">
+  return `<tr><td class="px-mobile" align="center" style="padding:8px 40px 32px;text-align:center;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
-<td align="center" bgcolor="${t.boton}" style="border-radius:999px;background:${t.boton};mso-padding-alt:16px 34px;">
-<a href="${hrefSeguro(b.href)}" style="display:inline-block;padding:16px 34px;font-family:${PILA};font-weight:bold;font-size:15px;color:${t.botonTexto};text-decoration:none;border-radius:999px;line-height:1.15;">${escaparHtml(b.texto)}</a>
+<td align="center" bgcolor="${t.boton}" style="border-radius:30px;background:${t.boton};mso-padding-alt:12px 24px;">
+<a href="${hrefSeguro(b.href)}" style="display:inline-block;padding:12px 24px;font-family:${PILA};font-weight:500;font-size:16px;color:${t.botonTexto};text-decoration:none;border-radius:30px;line-height:24px;">${escaparHtml(b.texto)}</a>
 </td></tr></table>${enlace ? `
 <div style="font-family:${PILA};font-size:13px;margin:16px 0 0;"><a href="${hrefSeguro(enlace.href)}" style="color:${t.realce};text-decoration:underline;">${escaparHtml(enlace.texto)}</a></div>` : ''}
 </td></tr>`;
@@ -309,7 +336,7 @@ function boton(b: { href: string; texto: string }, enlace?: { href: string; text
 
 function nota(texto: string): string {
   const t = TENTARE;
-  return `<tr><td class="px-mobile" align="center" style="padding:0 32px 32px;text-align:center;">
+  return `<tr><td class="px-mobile" align="center" style="padding:0 40px 32px;text-align:center;">
 <div style="font-family:${PILA};font-size:12.5px;line-height:1.6;color:${t.suave};">${escaparHtml(texto)}</div>
 </td></tr>`;
 }
@@ -317,8 +344,5 @@ function nota(texto: string): string {
 function pie(motivo?: string | null): string {
   const t = TENTARE;
   const porQue = motivo?.trim() ? `${escaparHtml(motivo.trim())}<br>` : '';
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:20px 8px 0;font-family:${PILA};font-size:11px;line-height:1.6;color:${t.suave};text-align:center;">
-${porQue}Tentare · software para estudios de Pilates · <a href="mailto:${LEGAL.email}" style="color:${t.suave};text-decoration:underline;">${LEGAL.email}</a>
-</td></tr></table>`;
+  return pieNegro(`${porQue}© Tentare · software para estudios de Pilates · <a href="mailto:${LEGAL.email}" style="color:${t.sobreBanda};font-weight:bold;text-decoration:underline;">${LEGAL.email}</a>`);
 }

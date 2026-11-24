@@ -8,7 +8,7 @@
 /** `socio_id` null: reserva de ClassPass/USC, que no es socia y no recibe la petición. */
 export interface ReservaMin { id: string; socio_id: string | null; estado: string }
 export interface SocioMin { id: string; nombre: string; apellidos: string | null; email: string | null; borrado_en: string | null; auth_user_id?: string | null }
-export interface Destinataria { socio_id: string; reserva_id: string; nombre: string; email: string | null; /** Sin cuenta reclamada no hay bandeja in-app ni push que ver. */ conCuenta: boolean }
+export interface Destinataria { socio_id: string; reserva_id: string; nombre: string; email: string | null; /** Sin cuenta reclamada no hay bandeja in-app ni push que ver. */ conCuenta: boolean; authUserId: string | null }
 
 export function destinatariasValoracion(reservas: ReservaMin[], socios: SocioMin[]): Destinataria[] {
   const porId = new Map(socios.map((s) => [s.id, s]));
@@ -19,7 +19,7 @@ export function destinatariasValoracion(reservas: ReservaMin[], socios: SocioMin
     const s = porId.get(r.socio_id);
     if (!s || s.borrado_en) continue;
     vistas.add(r.socio_id);
-    out.push({ socio_id: s.id, reserva_id: r.id, nombre: `${s.nombre} ${s.apellidos ?? ''}`.trim(), email: s.email, conCuenta: !!s.auth_user_id });
+    out.push({ socio_id: s.id, reserva_id: r.id, nombre: `${s.nombre} ${s.apellidos ?? ''}`.trim(), email: s.email, conCuenta: !!s.auth_user_id, authUserId: s.auth_user_id ?? null });
   }
   return out;
 }

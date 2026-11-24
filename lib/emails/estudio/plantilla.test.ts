@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { correoEstudio, correoEstudioLibre, escaparHtml, type MarcaCorreo } from './plantilla.ts';
-import { ACENTO, paletaCorreoEstudio } from './paleta.ts';
+import { ACENTO } from './paleta.ts';
 import { ratioContraste } from '../../wcag-contrast.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
