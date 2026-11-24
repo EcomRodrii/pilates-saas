@@ -18,6 +18,8 @@ export function EscenaTarjeta({ tipo, muestra: [a, b] }: Props) {
           <small>{a}</small>
           <span className="ed-tel-anillo"><svg viewBox="0 0 36 36"><circle cx="18" cy="18" r="15" /><circle cx="18" cy="18" r="15" className="ed-tel-arco" /></svg><b>7</b></span>
           <em>{b}</em>
+          <span className="ed-tel-fila"><i /><span><u /><u /></span></span>
+          <span className="ed-tel-fila"><i /><span><u /><u /></span></span>
         </span>
       )}
       {tipo === 'semana' && (

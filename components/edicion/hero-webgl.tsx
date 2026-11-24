@@ -29,7 +29,7 @@ void main() {
   if (dd < R && uPtr.x > -1000.0) { float k = 1.0 - dd / R; pos += normalize(dp + 0.001) * k * k * 38.0; }
   vec2 clip = (pos / uRes) * 2.0 - 1.0;
   gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-  gl_PointSize = (1.6 + aSeed * 2.2 + (1.0 - e) * 2.0) * uDpr;
+  gl_PointSize = (2.4 + aSeed * 2.4 + (1.0 - e) * 2.0) * uDpr;
   vColor = aColor;
   vBrillo = 0.55 + 0.45 * e + (1.0 - e) * 0.4;
 }`;
@@ -40,7 +40,7 @@ varying vec3 vColor; varying float vBrillo;
 void main() {
   vec2 q = gl_PointCoord - 0.5; float r = length(q) * 2.0;
   if (r > 1.0) discard;
-  float a = pow(1.0 - r, 1.6) * vBrillo;
+  float a = pow(1.0 - r, 0.8) * vBrillo * 1.25;
   gl_FragColor = vec4(vColor * a, a);
 }`;
 
@@ -60,8 +60,8 @@ export function HeroWebGL({ palabra, className }: { palabra: string; className?:
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const gl = canvas.getContext('webgl', { alpha: true, antialias: false, premultipliedAlpha: true });
-    if (!gl) { setRespaldo(true); return; } // eslint-disable-line react-hooks/set-state-in-effect -- sin WebGL: respaldo 2D
+    const gl = canvas.getContext('webgl', { alpha: true, antialias: false, premultipliedAlpha: true, failIfMajorPerformanceCaveat: true });
+    if (!gl) { setRespaldo(true); return; } // sin WebGL: respaldo 2D
     const vs = compilar(gl, gl.VERTEX_SHADER, VERT), fs = compilar(gl, gl.FRAGMENT_SHADER, FRAG);
     const prog = gl.createProgram();
     if (!vs || !fs || !prog) { setRespaldo(true); return; }
@@ -95,7 +95,9 @@ export function HeroWebGL({ palabra, className }: { palabra: string; className?:
       o.textAlign = 'center'; o.textBaseline = 'middle'; o.fillStyle = '#fff';
       o.fillText(palabra, ow / 2, oh * 0.5);
       const datos = o.getImageData(0, 0, ow, oh).data;
-      const paso = Math.max(2, Math.round(tam / 78));
+      // Tope de puntos: sin él, un lienzo enorme o una pantalla de mucha densidad dibujan decenas de miles.
+      let paso = Math.max(2, Math.round(tam / 78));
+      while ((ow * oh) / (paso * paso) > 90000 && paso < 12) paso += 1;
       const filas: number[] = [];
       const rad = Math.hypot(ow, oh) * 0.5;
       for (let y = 0; y < oh; y += paso) {
@@ -133,12 +135,18 @@ export function HeroWebGL({ palabra, className }: { palabra: string; className?:
     const mover = (e: PointerEvent) => { const r = canvas.getBoundingClientRect(); ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top; if (ptr.sx < -1000) { ptr.sx = ptr.x; ptr.sy = ptr.y; } };
     const salir = () => { ptr.x = ptr.y = ptr.sx = ptr.sy = -9999; };
     canvas.addEventListener('pointermove', mover); canvas.addEventListener('pointerleave', salir);
-    const ro = new ResizeObserver(() => { if (vivo) arrancar(); }); ro.observe(canvas);
+    let anchoPrev = 0, altoPrev = 0;
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect;
+      if (!vivo || (Math.abs(width - anchoPrev) < 1 && Math.abs(height - altoPrev) < 1)) return; // sin esto, fijar el tamaño del lienzo se mide a sí mismo en bucle
+      anchoPrev = width; altoPrev = height; arrancar();
+    }); ro.observe(canvas);
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible && !raf && !quieto) raf = requestAnimationFrame(bucle); }); io.observe(canvas);
     return () => {
       vivo = false; if (raf) cancelAnimationFrame(raf); ro.disconnect(); io.disconnect();
       canvas.removeEventListener('pointermove', mover); canvas.removeEventListener('pointerleave', salir);
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      // ⚠️ Sin `WEBGL_lose_context`: React monta dos veces en desarrollo y el lienzo se reutiliza; un contexto «perdido» devolvía el mismo
+      // objeto muerto al segundo montaje y la entrada caía siempre al respaldo 2D.
     };
   }, [palabra]);
 
