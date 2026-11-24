@@ -27,7 +27,7 @@ export default function Contenido() {
       <h2 style={{ fontSize: 18, fontWeight: 700, margin: '28px 0 12px' }}>Si vienes de otro software</h2>
       <p>
         Para dar de alta a todas tus clientes de golpe al migrar, usa la{' '}
-        <Link href="/ayuda/clientas/importar-clientes" style={{ color: 'inherit', textDecoration: 'underline' }}>importación por archivo</Link> en vez de crearlas una a una.
+        <Link href="/ayuda/clientes/importar-clientes" style={{ color: 'inherit', textDecoration: 'underline' }}>importación por archivo</Link> en vez de crearlas una a una.
       </p>
 
       <AyudaResultado>

@@ -84,6 +84,35 @@ for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 375, 8
   });
 }
 
+// En móvil la tabla medía 418 px en 333: «Cadena» quedaba cortada, y la cabecera
+// no se pegaba, así que al bajar no se sabía qué columna era de qué plan.
+for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 375, 812]] as const) {
+  test(`/precios: los tres planes caben y su cabecera sigue a la vista al bajar · ${nombre}`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: alto });
+    await abrir(page, '/precios');
+
+    const medida = await page.evaluate(async () => {
+      document.documentElement.style.scrollBehavior = 'auto';
+      const primera = document.querySelector('details')!;
+      const tabla = primera.parentElement!;
+      const cabecera = tabla.firstElementChild as HTMLElement;
+      window.scrollTo(0, tabla.getBoundingClientRect().top + window.scrollY + 1500);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const columnas = [...cabecera.children].filter((c) => (c as HTMLElement).offsetWidth > 0);
+      return {
+        sobra: tabla.scrollWidth - tabla.clientWidth,
+        cabeceraArriba: Math.round(cabecera.getBoundingClientRect().top),
+        ultimaDerecha: columnas.at(-1)!.getBoundingClientRect().right,
+        ancho: document.documentElement.clientWidth,
+      };
+    });
+    expect(medida.sobra).toBeLessThanOrEqual(0);
+    expect(medida.ultimaDerecha).toBeLessThanOrEqual(medida.ancho);
+    // Justo debajo de la isla (`--cmp-tope`), no escondida detrás ni arrastrada fuera.
+    expect(medida.cabeceraArriba).toBe(80);
+  });
+}
+
 test('el schema.org de la home y el de /precios dan lo mismo: Founding Studio a 0 €', async ({ page }) => {
   await abrir(page, '/precios');
   const enPrecios = await ofertas(page);
