@@ -103,31 +103,6 @@ export function HerramientaAvisosDelMovil({ showToast }: { showToast: MostrarToa
 }
 
 /**
- * Panel nuevo: el aviso como le llega a la alumna, con la forma de una
- * notificación del móvil (como el «Así lo recibirá» de los recordatorios de
- * Bonsai, b-60): la inicial y el nombre del estudio, «ahora», el título y el texto.
- */
-function NotificacionMovil({ title, body }: { title: string; body: string }) {
-  const { studio } = useStudio();
-  const nombre = studio?.nombre ?? 'Tu estudio';
-  return (
-    <div className="flex max-w-md items-start gap-3 rounded-[18px] border border-border bg-card px-3.5 py-3 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.25)]">
-      <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-primary text-[15px] font-bold text-primary-foreground">
-        {nombre.trim().charAt(0).toUpperCase()}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[11px] font-semibold uppercase tracking-[0.04em] text-muted-foreground">{nombre}</span>
-          <span className="shrink-0 text-[11px] text-muted-foreground">ahora</span>
-        </div>
-        <p className="mt-0.5 text-[13.5px] font-semibold leading-snug text-foreground">{title || '—'}</p>
-        <p className="text-[13px] leading-snug text-foreground text-pretty">{body || '—'}</p>
-      </div>
-    </div>
-  );
-}
-
-/**
  * Panel nuevo: los dos recordatorios de clase, cada uno en SU tarjeta y con SU interruptor. Encender o apagar uno no
  * toca al otro (p. ej. solo el de 1 hora): apagado, el barrido no manda NADA de él por ningún canal
  * (lib/notificaciones/recordatorio-clase.ts). Todo se guarda al tocar; si el servidor dice que no, vuelve atrás y lo
@@ -144,7 +119,6 @@ function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos:
   const [largoActivo, setLargoActivo] = useState(studio?.recordatorioLargoActivo !== false);
   const [cortoActivo, setCortoActivo] = useState(studio?.recordatorioCortoActivo !== false);
   const [guardando, setGuardando] = useState(false);
-  const datosDe = useDatosDe();
 
   async function guardar(cambio: { recordatorioLargoHoras?: number; recordatorioCortoMinutos?: number; recordatorioLargoActivo?: boolean; recordatorioCortoActivo?: boolean }, aviso: string) {
     const antes = { largo, corto, largoActivo, cortoActivo };
@@ -234,7 +208,7 @@ function Recordatorios({ showToast, textos }: { showToast: MostrarToast; textos:
                 ? <p className="mt-4 text-[13px] text-destructive">No hemos podido cargar el texto. Recarga la página.</p>
                 : !textos.propios
                   ? <p className="mt-4 text-[13px] text-muted-foreground">Cargando el texto…</p>
-                  : <TextoEnLinea evento={r.evento} textos={textos} datos={datosDe(r.evento)} />}
+                  : <TextoEnLinea evento={r.evento} textos={textos} />}
             </>
           ) : (
             <p className="mt-4 rounded-[10px] bg-muted/60 px-3 py-2 text-[13px] text-muted-foreground">
@@ -259,7 +233,7 @@ const SELECT_CORTO = 'h-10 rounded-[10px] border border-border bg-card px-3 text
  * vivo. Se guarda al salir del campo, solo si cambió y vale; si el servidor dice
  * que no, lo escrito se queda y se dice por qué.
  */
-function TextoEnLinea({ evento, textos, datos }: { evento: string; textos: TextosPropios; datos: Record<string, string> }) {
+function TextoEnLinea({ evento, textos }: { evento: string; textos: TextosPropios }) {
   const { studio } = useStudio();
   const fabrica = textoDeFabrica(evento)!;
   const propio = textos.propios?.[evento] ?? null;
@@ -271,7 +245,6 @@ function TextoEnLinea({ evento, textos, datos }: { evento: string; textos: Texto
   const [ocupado, setOcupado] = useState(false);
   const cuerpoRef = useRef<HTMLTextAreaElement>(null);
   const efectivo = { title: title.trim() || fabrica.title, body: body.trim() || fabrica.body };
-  const muestra = previsualizar(efectivo, datos, evento);
   const variables = variablesPermitidas(evento);
   const esPropio = !!textos.propios?.[evento];
   const enLista = textoEnLista(evento, textos.propios?.[evento]);
@@ -373,8 +346,6 @@ function TextoEnLinea({ evento, textos, datos }: { evento: string; textos: Texto
         </span>
         <span className="tabular-nums">{Math.max(0, CUERPO_MAX - efectivo.body.length)} caracteres libres</span>
       </div>
-      <p className="mt-3 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá</p>
-      <div className="mt-1.5"><NotificacionMovil title={muestra.title} body={muestra.body} /></div>
     </>
   );
 }
@@ -488,7 +459,6 @@ function Textos({ showToast, textos, sinRecordatorios = false }: { showToast: Mo
                     nombre={t.titulo}
                     propio={propios[t.evento] ?? null}
                     studioId={studioId}
-                    datos={datosDe(t.evento)}
                     onCerrar={() => setAbierto(null)}
                     onGuardado={(texto, msg) => {
                       setPropios(p => {
@@ -548,8 +518,8 @@ function Fila({ evento, nombre, enLista, datos, onEditar, encendido, ocupado, on
   );
 }
 
-function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado }: {
-  evento: string; nombre: string; propio: TextoAviso | null; studioId: string; datos: Record<string, string>;
+function Editor({ evento, nombre, propio, studioId, onCerrar, onGuardado }: {
+  evento: string; nombre: string; propio: TextoAviso | null; studioId: string;
   onCerrar: () => void; onGuardado: (t: TextoAviso | null, msg: string) => void;
 }) {
   const inicial = propio ?? textoDeFabrica(evento)!;
@@ -561,9 +531,7 @@ function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado 
   // no que haya llegado — «aceptado» no es «entregado» (lo vimos el 21-sep).
   const [prueba, setPrueba] = useState<string | null>(null);
   const error = validarTexto(evento, { title, body });
-  const muestra = previsualizar({ title, body }, datos, evento);
   const variables = variablesPermitidas(evento);
-  const panelNuevo = usePanelNuevo();
 
   async function guardar() {
     if (error) return;
@@ -621,18 +589,6 @@ function Editor({ evento, nombre, propio, studioId, datos, onCerrar, onGuardado 
             ))}
           </div>
         </div>
-      )}
-      {panelNuevo ? (
-        <div aria-label="Así lo verá el cliente">
-          <p className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-foreground/55">Así lo recibirá (con datos de ejemplo)</p>
-          <NotificacionMovil title={muestra.title} body={muestra.body} />
-        </div>
-      ) : (
-      <div className="rounded-xl border border-border bg-card p-3" aria-label="Así lo verá el cliente">
-        <p className="text-[11px] text-muted-foreground mb-1">Así lo verá (con datos de ejemplo)</p>
-        <p className="text-[13px] font-semibold">{muestra.title || '—'}</p>
-        <p className="text-[13px]">{muestra.body || '—'}</p>
-      </div>
       )}
       {(error || errorServidor) && <p role="alert" className="text-xs text-destructive">{errorServidor ?? error}</p>}
       {prueba && !errorServidor && <p role="status" className="text-xs text-muted-foreground">{prueba}</p>}

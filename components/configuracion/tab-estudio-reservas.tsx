@@ -14,7 +14,6 @@ import { obtenerConfirmacionRiesgo, actualizarConfirmacionRiesgo } from '@/lib/a
 import { hrefDeHerramienta } from '@/lib/configuracion/destino';
 import { tarjetaPorId } from '@/lib/configuracion/secciones';
 import { claseDeEjemplo, instante, lineaDeTiempoReserva, reglasEfectivasDeTipo, type PasoReserva } from '@/lib/configuracion/linea-de-tiempo-reserva';
-import { TEXTOS_PLAZA_FIJA } from '@/lib/student/plaza-fija-textos';
 import {
   antelacionImposible, confirmarAprobacionAutomatica, confirmarPenalizacion, confirmarPlazaFijaSinCuota, consecuenciaRegla,
   EXPLICACION_PAUSA_PLAZA_FIJA, EXPLICACION_PLAZA_FIJA_DESDE_APP, EXPLICACION_PLAZA_FIJA_SIN_CUOTA, formularioReglas,
@@ -864,37 +863,6 @@ export function FormSinCuota(props: PropsCajonRegla) {
 // (components/dashboard/plazas-fijas-por-decidir.tsx). Encenderlas no cambia nada
 // de lo que ya hay, así que no pregunta.
 
-/**
- * Lo que ve la alumna, con el MISMO texto que su app (`TEXTOS_PLAZA_FIJA`): es lo
- * que responde a «¿cómo se marcan ellas?» sin tener que probarlo desde un móvil.
- * Apagado, se enseña atenuado y se dice que ahora no lo ve.
- */
-function VistaPreviaPlazaFija({ activa, automatica }: { activa: boolean; automatica: boolean }) {
-  return (
-    <div data-testid="vista-previa-plaza-fija" className="rounded-xl border border-border bg-muted/40 p-3">
-      <p className="text-[12px] font-semibold text-muted-foreground">
-        Así lo ve tu cliente, en la ficha de cada clase que se repite. En su app se llama «clase fija».
-      </p>
-      <div className={cn('mt-2 flex flex-col gap-2 rounded-lg border border-border bg-card p-3', !activa && 'opacity-50')}>
-        <div className="flex items-center gap-3">
-          <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-bold text-foreground">{TEXTOS_PLAZA_FIJA.autoTitulo}</span>
-            <span className="block text-[12px] text-muted-foreground">{TEXTOS_PLAZA_FIJA.autoPuede(2, '10:00')}</span>
-          </span>
-          <span aria-hidden className="h-6 w-10 shrink-0 rounded-full bg-muted ring-1 ring-border" />
-        </div>
-        <p className="text-[13px] text-foreground text-pretty">{TEXTOS_PLAZA_FIJA.ofrecer(2, '10:00')}</p>
-        <p className="text-[13px] text-muted-foreground text-pretty">{automatica ? TEXTOS_PLAZA_FIJA.quePasaAutomatica : TEXTOS_PLAZA_FIJA.quePasa}</p>
-      </div>
-      {!activa && (
-        <p className="mt-2 text-[12px] text-muted-foreground text-pretty">
-          Ahora tus clientes no lo ven. Enciende «Pueden pedir clase fija» para que aparezca.
-        </p>
-      )}
-    </div>
-  );
-}
-
 export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
   const r = useRegla('plaza-fija-desde-la-app', props);
   const { form, cambiar, enPantalla } = r;
@@ -962,7 +930,6 @@ export function FormPlazaFijaDesdeApp(props: PropsCajonRegla) {
             )}
           </fieldset>
         )}
-        <VistaPreviaPlazaFija activa={form.plazaFijaSolicitarDesdeApp} automatica={form.plazaFijaSolicitarDesdeApp && form.plazaFijaAprobacion === 'AUTOMATICA'} />
         <InterruptorCampo
           titulo="Pueden pedir una pausa"
           detalle="De su clase fija, con las fechas que elijan."

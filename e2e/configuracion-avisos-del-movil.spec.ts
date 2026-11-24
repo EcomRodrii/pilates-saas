@@ -50,7 +50,6 @@ test('reescribir un aviso guarda título y texto, y lo marca como suyo', async (
   await page.getByRole('button', { name: 'Editar «Clase cancelada»' }).click({ timeout: 30_000 });
   await page.getByLabel(/^Título/).fill('Hoy no hay {clase}');
   await page.getByLabel(/^Texto/).fill('La de {cuando} no se da. Te devolvemos la sesión.');
-  await expect(page.getByText('Hoy no hay Reformer')).toBeVisible();
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
 
   await expect.poll(() => plantillas.length).toBe(1);

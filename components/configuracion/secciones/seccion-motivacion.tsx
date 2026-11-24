@@ -23,7 +23,6 @@ import { TabLogros } from '@/components/configuracion/tab-logros';
 import { TabNiveles } from '@/components/configuracion/tab-niveles';
 import { EditorNiveles } from '@/components/configuracion/niveles/editor-niveles';
 import { TabRetos } from '@/components/configuracion/tab-retos';
-import { VistaPreviaAlumna } from '@/components/configuracion/motivacion/vista-previa-alumna';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { EstadoAjuste } from '@/components/configuracion/shell/estado-ajuste';
 import { FilaAjuste, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
@@ -36,7 +35,6 @@ import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramien
 //   cabecera   el plan y tres cifras contadas en la base (motivacion-cifras.ts)
 //   aviso      los canjes por entregar, con su pantalla (son trabajo, no ajuste)
 //   1–5        cómo se ganan → en qué se gastan → qué desbloquean → niveles → retos
-//   al lado    lo que ve la alumna con lo guardado (vista-previa-alumna.tsx)
 //
 // Los códigos de descuento pasaron a Cobros: son dinero y no dependen del plan.
 // El plan no tapa la sección: lo que tu plan no incluye se ve, pero no se toca.
@@ -90,7 +88,7 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
       : null;
 
   return (
-    <div className="@4xl/config:grid @4xl/config:grid-cols-[minmax(0,1fr)_300px] @4xl/config:items-start @4xl/config:gap-8">
+    <div>
       <div className="min-w-0 space-y-8">
         <Cabecera plan={plan} cifras={cifras} moneda={moneda} />
 
@@ -133,10 +131,6 @@ export function SeccionMotivacion({ showToast }: { showToast: (m: string) => voi
           </GrupoFilas>
         )}
       </div>
-
-      <aside className="mt-10 @4xl/config:sticky @4xl/config:top-24 @4xl/config:mt-0">
-        <VistaPreviaAlumna />
-      </aside>
 
       <CajonAjuste id="reglas" abierto={cajon === 'reglas'} onCerrar={cerrar}>
         {conPlan(<FormReglasCreditos onGuardado={guardado} />)}

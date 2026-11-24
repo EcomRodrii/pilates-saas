@@ -36,6 +36,8 @@ import { PageHeader } from '@/components/ui/page-header';
 import { CifraPrivada } from '@/components/ui/cifra-privada';
 import { HoyEnElEstudio } from '@/components/dashboard/hoy-en-el-estudio';
 import { ProximasClases } from '@/components/dashboard/proximas-clases';
+import { InicioConfiguracion } from '@/components/dashboard/inicio-configuracion';
+import { useGuiaPasoAPaso } from '@/components/guia/use-guia-paso-a-paso';
 import { PrimerosPasosTarjeta } from '@/components/guia/primeros-pasos-tarjeta';
 import { CompositorInicio } from '@/components/asistente/compositor-inicio';
 import { EmpiezaTarjetas } from '@/components/guia/empieza-tarjetas';
@@ -461,6 +463,16 @@ function ResumenLimpio(props: ResumenNuevoProps & {
   const conGraficas = visible('kpis');
   const bienvenida = useBienvenidaInicio();
   const palabrasTitulo = bienvenida ? props.titulo.split(' ').length : 0;
+  // El Inicio de configuración: mientras la guía de puesta en marcha no esté terminada, la pantalla es la de Shopify antes de
+  // configurar la tienda (saludo, caja de Tenti y tarjetas de pasos) y nada más; al terminarla vuelve la de siempre.
+  const guia = useGuiaPasoAPaso();
+  if (guia.activo === true && guia.ruta && !guia.ruta.terminada && conPrimerosPasos) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-8 pb-12 pt-1" data-testid="resumen-nuevo" data-resumen-limpio data-inicio-configuracion data-bienvenida={bienvenida ? 'on' : undefined}>
+        <InicioConfiguracion ruta={guia.ruta} saltar={guia.saltar} estado={guia.estado} bienvenida={bienvenida} />
+      </div>
+    );
+  }
   return (
     <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-10 pb-12 pt-1" data-testid="resumen-nuevo" data-resumen-limpio data-bienvenida={bienvenida ? 'on' : undefined}>
       <header className="text-center">

@@ -4,13 +4,11 @@ import { useId, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { authHeader } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { SEMAFORO_META } from '@/lib/ficha-clinica';
 import {
-  ALUMNA_DE_MUESTRA, DE_SERIE, esDeSerie, piezasDeTarjeta, saludVisible, tarjetaClaseDe,
+  DE_SERIE, esDeSerie, tarjetaClaseDe,
   type SaludTarjeta, type TarjetaClase,
 } from '@/lib/calendario/tarjeta-clienta';
 import { Interruptor } from '@/components/ui/interruptor';
-import { PiezasFila } from '@/components/calendario/piezas-fila';
 import { btnPrimary, btnSecondary, cardCls } from '@/components/configuracion/estilos';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,11 +84,6 @@ export function QuienVieneACadaClase({ showToast }: { showToast: (m: string) => 
     }
   }
 
-  // La vista previa, como la vería la propietaria (la que está aquí).
-  const rol = { verSemaforo: true, verFichaClinica: true };
-  const piezas = piezasDeTarjeta(borrador, ALUMNA_DE_MUESTRA.datos, rol);
-  const conColor = saludVisible(borrador, rol).color;
-
   return (
     <section aria-labelledby={idTitulo} className="max-w-2xl space-y-2" data-testid="tarjeta-clase">
       <div className="space-y-1 px-1">
@@ -153,26 +146,6 @@ export function QuienVieneACadaClase({ showToast }: { showToast: (m: string) => 
             </p>
           </li>
         </ul>
-
-        <div className="space-y-2 bg-muted/40 px-4 py-3">
-          <p className="text-[12.5px] font-medium text-foreground">Así se verá (con un cliente inventado)</p>
-          <div role="group" className="rounded-lg border border-border bg-card px-3 py-2.5" data-testid="vista-previa-tarjeta" aria-label="Vista previa de una fila">
-            <div className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-[12.5px] font-semibold text-foreground" aria-hidden>
-                LM
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="flex min-w-0 items-center gap-1.5 text-[14px] font-medium text-foreground">
-                  {conColor && <span className="size-2 shrink-0 rounded-full" title={SEMAFORO_META.AMBAR.label} style={{ background: SEMAFORO_META.AMBAR.color }} />}
-                  <span className="truncate">{ALUMNA_DE_MUESTRA.nombre}</span>
-                </p>
-                <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">{ALUMNA_DE_MUESTRA.sitio} · Reserva</p>
-              </div>
-            </div>
-            {/* Igual que en la lista de verdad: debajo y alineado con el nombre. */}
-            <PiezasFila piezas={piezas} className="pl-[52px]" />
-          </div>
-        </div>
 
         <div className="flex flex-wrap items-center gap-2 px-4 py-3">
           <button type="button" className={btnPrimary} disabled={!sucio || guardando} onClick={() => void guardar()}>
