@@ -110,7 +110,7 @@ export function PanelAyuda({ ruta, pestana, conTentare, onPestana, onCerrar, onN
         {actual === 'ayuda' && <Categorias />}
       </div>
 
-      <div role="tablist" aria-label="Secciones de la ayuda" className="flex border-t border-border bg-card">
+      <div role="tablist" data-sin-estilo-shell="" aria-label="Secciones de la ayuda" className="flex border-t border-border bg-card">
         {pestanas.map(p => {
           const { titulo, Icono } = PESTANA[p];
           const activa = p === actual;
@@ -129,7 +129,7 @@ export function PanelAyuda({ ruta, pestana, conTentare, onPestana, onCerrar, onN
               )}
             >
               {activa && <span aria-hidden className="absolute inset-x-[28%] -top-px h-0.5 rounded-full" style={{ backgroundColor: 'var(--t-magenta-500)' }} />}
-              {p === 'tentare' ? <TentiIcono ancho={22} /> : <Icono size={21} aria-hidden />}
+              <span className="flex h-6 items-center">{p === 'tentare' ? <TentiIcono ancho={22} /> : <Icono size={21} aria-hidden />}</span>
               {titulo}
             </button>
           );
