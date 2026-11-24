@@ -51,7 +51,7 @@ export const FILA = 'flex min-h-16 items-center gap-3 px-4 py-3 transition-color
  * derecha, su control: el interruptor si es un sí/no, y si no, una caja con el
  * valor de hoy que abre su editor de siempre (que se guarda con «Guardar»).
  */
-export const FILA_NUEVA = 'flex w-full flex-col gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 sm:flex-row sm:items-center sm:gap-5 group-data-[sangre]/config:sm:gap-3 group-data-[sangre]/config:px-4 group-data-[sangre]/config:pt-3 group-data-[sangre]/config:pb-4';
+export const FILA_NUEVA = 'flex w-full flex-col gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 sm:flex-row sm:items-center sm:gap-5 group-data-[sangre]/config:flex-row group-data-[sangre]/config:items-center group-data-[sangre]/config:gap-3 group-data-[sangre]/config:sm:gap-3 group-data-[sangre]/config:px-4 group-data-[sangre]/config:pt-3 group-data-[sangre]/config:pb-4';
 
 /** La tarjeta de lista de Shopify: 784 px, radio 16 y un aro de 1 px con sombra apilada (la misma de las tarjetas de Inicio, `globals.css`). */
 export const TARJETA_SANGRE = "max-w-[784px] overflow-hidden rounded-[16px] [&>li]:relative [&>li+li]:before:absolute [&>li+li]:before:left-12 [&>li+li]:before:right-4 [&>li+li]:before:top-0 [&>li+li]:before:h-px [&>li+li]:before:bg-border [&>li+li]:before:content-[''] bg-card shadow-[0_5px_5px_-2.5px_#00000008,0_3px_3px_-1.5px_#00000005,0_2px_2px_-1px_#00000005,0_1px_1px_-0.5px_#00000008,0_0.5px_0.5px_0_#0000000a,0_0_0_1px_#0000000f]";

@@ -39,7 +39,7 @@ export function CabeceraSeccion({
   const grupo = gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva).find(g => g.secciones.includes(seccion.id));
   return (
     <>
-      <div className="sticky top-12 z-20 -mx-4 flex h-14 items-center gap-1 border-b border-border bg-background/95 px-2 backdrop-blur md:static md:mx-0 md:h-auto md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none">
+      <div className={cn('sticky z-20 -mx-4 flex items-center gap-1 border-b border-border px-2 md:static', sangre ? 'top-0 h-[calc(3.5rem+env(safe-area-inset-top,0px))] bg-background pt-[env(safe-area-inset-top,0px)] md:pt-0' : 'top-12 h-14 bg-background/95 backdrop-blur', 'md:static md:mx-0 md:h-auto md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none')}>
         <button
           type="button"
           onClick={onVolver}
