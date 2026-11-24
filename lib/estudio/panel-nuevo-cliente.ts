@@ -19,6 +19,16 @@ export function useShellNuevo(): boolean {
   return useInterruptor('shellNuevo', studio?.id);
 }
 
+/**
+ * `useShellNuevo` con TRES estados: `null` mientras todavía no se sabe (la primera pregunta de esta carga va de camino y no hay nada
+ * recordado). El marco del panel lo usa para NO pintar un instante el panel antiguo y saltar al nuevo (24-nov-2026: «al cargar el panel
+ * sale el antiguo 1 s»): con `null` espera con un fondo neutro.
+ */
+export function useShellNuevoConEspera(): boolean | null {
+  const { studio } = useCore();
+  return useInterruptorConEspera('shellNuevo', studio?.id);
+}
+
 /** ¿Ve este estudio el onboarding al estilo Shopify (interruptor `ONBOARDING_NUEVO`, 19-nov-2026)? */
 export function useOnboardingNuevo(): boolean {
   const { studio } = useCore();

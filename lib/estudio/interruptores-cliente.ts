@@ -34,7 +34,9 @@ function leerGuardado(studioId: string): Guardado | null {
   const m = memoria.get(studioId);
   if (m) return m;
   try {
-    const v = JSON.parse(sessionStorage.getItem(CLAVE(studioId)) ?? 'null') as Guardado | null;
+    // Primero lo recordado entre visitas (localStorage): el panel se pinta ya con lo último que dijo el servidor y se revalida detrás, en vez
+    // de enseñar un instante el panel antiguo cada vez que se abre una pestaña nueva (24-nov-2026). Después, lo de la pestaña.
+    const v = JSON.parse(localStorage.getItem(CLAVE(studioId)) ?? sessionStorage.getItem(CLAVE(studioId)) ?? 'null') as Guardado | null;
     if (v && typeof v.t === 'number' && v.d && typeof v.d === 'object') {
       memoria.set(studioId, v);
       return v;
@@ -47,9 +49,11 @@ function guardar(studioId: string, d: Valores | null) {
   if (d) {
     const g = { d, t: Date.now() };
     memoria.set(studioId, g);
+    try { localStorage.setItem(CLAVE(studioId), JSON.stringify(g)); } catch { /* solo en memoria */ }
     try { sessionStorage.setItem(CLAVE(studioId), JSON.stringify(g)); } catch { /* solo en memoria */ }
   } else {
     memoria.delete(studioId);
+    try { localStorage.removeItem(CLAVE(studioId)); } catch { /* nada que borrar */ }
     try { sessionStorage.removeItem(CLAVE(studioId)); } catch { /* nada que borrar */ }
   }
   avisar();
