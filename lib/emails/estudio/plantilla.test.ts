@@ -33,12 +33,12 @@ const BASICO = {
   conPortada: true,
 };
 
-test('Outlook recibe una tabla de 600 px fija, no un max-width que ignora', () => {
+test('Outlook recibe una tabla de 620 px fija, no un max-width que ignora', () => {
   const html = correoEstudio(BASICO);
   assert.match(html, /<!--\[if mso \| IE\]>/, 'falta el condicional de Outlook');
-  assert.match(html, /<table[^>]*width="600"/, 'Outlook no tiene ancho fijo: el correo saldrá a toda la ventana');
+  assert.match(html, /<table[^>]*width="620"/, 'Outlook no tiene ancho fijo: el correo saldrá a toda la ventana');
   assert.match(html, /<!\[endif\]-->/);
-  assert.match(html, /max-width:600px/, 'el resto de clientes necesitan el max-width');
+  assert.match(html, /max-width:620px/, 'el resto de clientes necesitan el max-width');
   // Escalado de imágenes a 120 ppp en Windows.
   assert.match(html, /<o:PixelsPerInch>96<\/o:PixelsPerInch>/);
 });
@@ -47,7 +47,7 @@ test('el botón lleva el padding que Outlook entiende, y solo hay uno', () => {
   const html = correoEstudio(BASICO);
   const padding = html.match(/mso-padding-alt/g) ?? [];
   assert.equal(padding.length, 1, 'un correo tiene UNA llamada a la acción, no varias');
-  assert.match(html, /border-radius:999px/, 'el botón debería ser una píldora');
+  assert.match(html, /border-radius:30px/, 'el botón es una píldora, como en la referencia');
 });
 
 test('el preheader está, va oculto y no deja que Gmail siga leyendo el cuerpo', () => {
@@ -60,7 +60,7 @@ test('el preheader está, va oculto y no deja que Gmail siga leyendo el cuerpo',
 test('todo el estilo va en línea: las clases solo sirven para el móvil', () => {
   const html = correoEstudio(BASICO);
   const clases = new Set([...html.matchAll(/class="([^"]+)"/g)].flatMap(m => m[1].split(/\s+/)));
-  assert.deepEqual([...clases].sort(), ['f-serif', 'px-mobile', 'w-full'],
+  assert.deepEqual([...clases].sort(), ['h1-mobile', 'px-mobile', 'w-full'],
     'una clase nueva en el HTML es estilo que Gmail descarta al reenviar el correo');
   for (const clase of clases) {
     assert.ok(html.includes(`.${clase} {`), `.${clase} se usa pero ningún estilo la define`);
@@ -193,17 +193,17 @@ test('el dato destacado se ve más grande y del color del acento', () => {
       { label: 'Importe', value: '45,00 €', destacado: true },
     ] },
   });
-  assert.match(html, /font-size:20px;font-weight:bold;[^"]*color:#065F46[^"]*">45,00/);
+  assert.match(html, /font-size:28px;font-weight:300;[^"]*color:#065F46[^"]*">45,00/);
   // Y lo que no está destacado sigue como siempre.
-  assert.match(html, /font-size:13\.5px;font-weight:normal;[^"]*">Cuota de agosto/);
+  assert.match(html, /font-size:16px;font-weight:400;[^"]*">Cuota de agosto/);
 });
 
-test('el dato destacado se lee sobre el arena de cualquier estudio', () => {
+test('el dato destacado se lee sobre el blanco con cualquier acento', () => {
   // El acento se eligió como FILETE de 5 px, donde el contraste no importa. En
   // cuanto pinta texto sí importa, y medido: el ámbar del primer aviso de
   // impago se queda en 4,2:1 sobre el arena de un estudio rosa.
   for (const color of ['#F7A6C4', '#FFE066', '#343825', '#C2185B', '#7C9A82']) {
-    const { arena } = paletaCorreoEstudio(color);
+    const arena = '#FFFFFF';
     for (const [nombre, acento] of Object.entries(ACENTO)) {
       const html = correoEstudio({
         ...BASICO,
@@ -211,7 +211,7 @@ test('el dato destacado se lee sobre el arena de cualquier estudio', () => {
         acento,
         detalle: { filas: [{ label: 'Importe', value: '45,00 €', destacado: true }] },
       });
-      const usado = html.match(/font-size:20px;font-weight:bold;[^"]*color:(#[0-9A-Fa-f]{6})/)?.[1];
+      const usado = html.match(/font-size:28px;font-weight:300;[^"]*color:(#[0-9A-Fa-f]{6})/)?.[1];
       assert.ok(usado, `no se encontró el color del dato destacado (${nombre}/${color})`);
       assert.ok(ratioContraste(usado, arena)! >= 4.5, `el acento «${nombre}» no se lee sobre el arena de ${color}`);
     }
@@ -224,9 +224,7 @@ test('Outlook no pinta el cuerpo en Times New Roman', () => {
   const html = correoEstudio(BASICO);
   const mso = html.match(/<!--\[if mso\]>[\s\S]*?<!\[endif\]-->/)?.[0] ?? '';
   assert.match(mso, /td, div, p, a, li, span \{ font-family: Arial/);
-  // El titular sigue en serif: Georgia sí está instalada en Windows.
-  assert.match(mso, /\.f-serif \{ font-family: Georgia/);
-  assert.match(html, /class="f-serif"[^>]*>Tu plaza está reservada/);
+  assert.match(html, />Tu plaza está reservada</);
 });
 
 test('si la fuente elegida existe en Windows, Outlook la respeta', () => {
@@ -237,18 +235,28 @@ test('si la fuente elegida existe en Windows, Outlook la respeta', () => {
   assert.match(conJakarta, /td, div, p, a, li, span \{ font-family: Arial/);
 });
 
-test('el logo va arriba, antes que la foto, y cabe entero sea cual sea su forma', () => {
+test('el logo va arriba, la foto después del texto, y cabe entero sea cual sea su forma', () => {
   const html = correoEstudio(BASICO);
   const logo = html.indexOf('cdn.example.com/logo.png');
+  const boton = html.indexOf('mso-padding-alt');
   const foto = html.indexOf('cdn.example.com/portada.jpg');
-  assert.ok(logo > 0 && foto > 0 && logo < foto, 'el membrete va antes que la foto');
-  // A 30 px fijos, un logo cuadrado se quedaba en un sello ilegible.
-  assert.match(html, /max-width:200px;max-height:72px;/);
-  assert.match(html, /<!--\[if mso\]><img src="https:\/\/cdn\.example\.com\/logo\.png" height="56"/,
+  assert.ok(logo > 0 && boton > logo && foto > boton, 'logo, texto y botón, foto: el orden de la referencia');
+  assert.match(html, /max-width:160px;max-height:53px;/);
+  assert.match(html, /<!--\[if mso\]><img src="https:\/\/cdn\.example\.com\/logo\.png" height="48"/,
     'Outlook ignora max-height: necesita su propia copia con alto fijo');
 });
 
-test('el titular no se pega a la foto', () => {
-  assert.match(correoEstudio(BASICO), /padding:26px 28px 20px;[^>]*>\s*<div class="f-serif"/);
-  assert.match(correoEstudio({ ...BASICO, conPortada: false }), /padding:6px 28px 20px;[^>]*>\s*<div class="f-serif"/);
+test('banda arriba con el nombre del estudio, titular ligero centrado y pie negro', () => {
+  const html = correoEstudio(BASICO);
+  assert.match(html, /bgcolor="#7C9A82"[^>]*padding:4px 24px;[^>]*>Casa Pilates/);
+  assert.match(html, /<h1 class="h1-mobile"[^>]*font-size:44px;font-weight:300;[^>]*>Tu plaza está reservada<\/h1>/);
+  assert.match(html, /bgcolor="#000000" style="background:#000000;padding:40px/);
+  // Un aviso con significado propio tiñe la banda.
+  assert.match(correoEstudio({ ...BASICO, acento: '#B91C1C' }), /bgcolor="#B91C1C"[^>]*padding:4px 24px/);
+});
+
+test('la acción repetida arriba solo en un correo comercial', () => {
+  const veces = (html: string) => html.split('Ver mis clases').length - 1;
+  assert.equal(veces(correoEstudio(BASICO)), 1);
+  assert.equal(veces(correoEstudio({ ...BASICO, bajaUrl: 'https://app.example.com/baja' })), 2);
 });
