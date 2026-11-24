@@ -96,7 +96,7 @@ const ESCENAS: Record<IdTarjetaInicio, () => ReactNode> = {
     <rect x={172} y={36} width={38} height={20} rx={10} fill={AZUL} /><rect x={172} y={84} width={38} height={20} rx={10} fill={GRIS2} />
     <Capa dx={-18} sombra={false}><circle cx={200} cy={46} r={7} fill="#fff" /></Capa>
     <Capa dx={18} sombra={false}><circle cx={182} cy={94} r={7} fill="#fff" /></Capa>
-    <Capa dx={6} dy={-6} rot={10}><circle cx={64} cy={26} r={14} fill={MAG} /><path d="M64 19v8l5 3" stroke="#fff" strokeWidth={2.5} fill="none" strokeLinecap="round" /></Capa>
+    <Capa dx={6} dy={-6} rot={10}><circle cx={236} cy={104} r={14} fill={MAG} /><path d="M236 97v8l5 3" stroke="#fff" strokeWidth={2.5} fill="none" strokeLinecap="round" /></Capa>
   </>),
   // Tarifas: etiqueta de precio y bono de clases.
   tarifas: () => (<>

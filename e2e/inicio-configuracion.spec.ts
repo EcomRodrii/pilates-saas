@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { json, montarAlta } from './onboarding-andamio';
+import { RESPUESTA, SALDO, ndjson } from './asistente-andamiaje';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // El Inicio de configuración (24-nov-2026, `SHELL_NUEVO` + alta nueva + guía paso a paso): el saludo, la caja «Trabaja con Tenti» y la
@@ -16,15 +17,26 @@ const RECIEN = {
   recorridoVisto: true, planEnsenado: false, sedesAbiertas: 1, foundingGratis: true,
 };
 
+const preguntas: unknown[] = [];
+
 async function montar(page: Page, ancho = 1440, alto = 900) {
+  preguntas.length = 0;
+  page.on('pageerror', (e) => console.log('PAGEERROR', e.message.slice(0, 400)));
   await page.setViewportSize({ width: ancho, height: alto });
   await montarAlta(page, {
-    estudio: { bienvenida_vista_en: '2026-10-21T08:00:00Z', creado_en: new Date().toISOString(), nombre: 'Estudio Prueba' },
+    estudio: { bienvenida_vista_en: '2026-10-21T08:00:00Z', creado_en: new Date().toISOString(), nombre: 'Estudio Prueba', plan: 'BASE', subscription_status: 'gratis' },
     antes: async (p) => {
       await p.route((u) => u.pathname === '/api/estudio/interruptores', (r) => json(r, {
         altaNueva: true, panelNuevo: true, shellNuevo: true, guiaPasoAPaso: true, onboardingNuevo: true,
       }));
       await p.route('**/api/alta/estado', (r) => json(r, RECIEN));
+      // El asistente disponible para el estudio sembrado, con POST /api/asistente mockeado (nunca se llama a Anthropic).
+      await p.route((u) => u.pathname === '/api/asistente/saldo', (r) => json(r, new URL(r.request().url()).searchParams.get('solo') === 'disponible' ? { disponible: true } : SALDO));
+      await p.route((u) => u.pathname === '/api/asistente/conversaciones', (r) => json(r, { conversaciones: [] }));
+      await p.route((u) => u.pathname === '/api/asistente', (r) => {
+        preguntas.push(r.request().postDataJSON());
+        return r.fulfill({ status: 200, contentType: 'application/x-ndjson', body: ndjson(RESPUESTA) });
+      });
       await p.route('**/api/billing/status**', (r) => json(r, { bloqueado: false, activo: true, plan: 'BASE', configurado: true, subscriptionStatus: 'gratis' }));
     },
   });
@@ -49,11 +61,11 @@ test('«Trabaja con Tenti» abre de verdad el asistente (y cuenta cuántas veces
   await montar(page);
   await expect(rejilla(page)).toBeVisible({ timeout: 240_000 });
   const caja = page.getByPlaceholder('Trabaja con Tenti');
-  // Si el asistente no está disponible para el estudio sembrado, la caja no sale: se dice en vez de pasar en falso.
-  test.skip(await caja.count() === 0, 'el asistente no está disponible en el estudio sembrado');
+  await expect(caja).toBeVisible({ timeout: 30_000 });
   await caja.fill('¿Cómo creo mi primera clase?');
   await caja.press('Enter');
   await expect(page.getByText('¿Cómo creo mi primera clase?').first()).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => preguntas.length, { timeout: 30_000 }).toBeGreaterThan(0);
   expect(new URL(page.url()).search).not.toContain('Cómo');
 });
 
