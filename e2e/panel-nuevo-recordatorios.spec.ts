@@ -34,7 +34,6 @@ test('cada recordatorio en su tarjeta, con cuándo, por dónde, su texto y cómo
   await expect(page.getByRole('combobox', { name: 'Cuándo se envía el recordatorio previo' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Cuándo se envía el último aviso' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: 'Texto del aviso' })).toHaveCount(2);
-  await expect(page.getByText('Así lo recibirá').first()).toBeVisible();
 
   // «Otros avisos»: la lista de siempre, sin los recordatorios (ya tienen su pestaña).
   await page.getByRole('tab', { name: 'Otros avisos' }).click();

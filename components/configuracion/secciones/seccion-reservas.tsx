@@ -10,7 +10,6 @@ import { MAX_RESUMEN_REGLA, resumenContrato, resumenRegla } from '@/lib/configur
 import { resumenClasesPorSemana } from '@/lib/configuracion/linea-de-tiempo-reserva';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaExterna, FilaInterruptor, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
-import { AsiLoViveTuAlumna } from './asi-lo-vive-tu-alumna';
 import { hayAlgoQueContratar } from '@/lib/bono-logic';
 import { tiposConVida } from '@/lib/tipos-clase/orden-y-archivo';
 import {
@@ -30,9 +29,7 @@ import {
 // único escritor (`/api/sustituciones`, el mismo que usa Sustituciones), y
 // vuelve atrás si dice que no.
 //
-// Arriba, «Así lo vive tu alumna»: las reglas contadas sobre una clase de verdad,
-// con horas (asi-lo-vive-tu-alumna.tsx). Debajo, las filas agrupadas por MOMENTO
-// de la alumna (antes de reservar, si cambia de planes, el día de la clase, plaza
+// Las filas, agrupadas por MOMENTO de la alumna (antes de reservar, si cambia de planes, el día de la clase, plaza
 // fija), cada una con los tipos de clase que la cambian y QUÉ cambian. Lo que
 // decide cómo reserva y vive en otra pantalla —clases por semana de cada plan,
 // recordatorios— tiene aquí su fila-enlace.
@@ -125,8 +122,6 @@ export function SeccionReservas({ showToast }: { showToast: (m: string) => void 
 
   return (
     <>
-      <AsiLoViveTuAlumna reglas={reglas} tipos={tipos} sesiones={dataLoaded ? sesiones : []} planes={dataLoaded ? planesTarifa : []} />
-
       <GrupoFilas titulo="Antes de reservar">
         {fila('reservar')}
         {fila('lista-de-espera')}

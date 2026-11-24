@@ -248,17 +248,14 @@ async function abrirConfiguracion(page: Page, respuesta: { status: number; body:
 test.describe('Configuración · Quién viene a cada clase (P3.11)', () => {
   test.describe.configure({ timeout: 180_000 });
 
-  test('se elige con la vista previa delante y se guarda lo que contesta el servidor', async ({ page }) => {
+  test('se elige y se guarda lo que contesta el servidor', async ({ page }) => {
     const elegida = { conQueViene: true, confirmacion: false, cumpleanos: false, notaFijada: false, primeraVez: false, salud: 'color' };
     const { tarjeta, envios } = await abrirConfiguracion(page, { status: 200, body: { tarjeta: elegida } });
-    const previa = tarjeta.getByTestId('vista-previa-tarjeta');
 
-    // Lo de serie: nada debajo del nombre, y el punto de color.
-    await expect(previa.locator('[data-pieza]')).toHaveCount(0);
+    // Lo de serie: nada que guardar.
     await expect(tarjeta.getByRole('button', { name: 'Guardar' })).toBeDisabled();
 
     await tarjeta.getByRole('switch', { name: 'Con qué viene' }).click();
-    await expect(previa.locator('[data-pieza="con-que-viene"]')).toHaveText('Bono 10 clases · le quedan 3');
     expect(envios).toHaveLength(0);
 
     await tarjeta.getByRole('button', { name: 'Guardar' }).click();
