@@ -21,13 +21,14 @@
 // hace es venderla mientras no se pueda usar.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { ADDONS, PLAN_ENTITLEMENTS, addonDeFeature, type Entitlements, type Plan } from './entitlements.ts';
+import { ADDONS, PLAN_ENTITLEMENTS, addonDeFeature, type Addon, type Entitlements, type Plan } from './entitlements.ts';
 
 /** Cómo se pinta una fila para un plan concreto. */
 export type ValorPlan =
   | { tipo: 'si' }
   | { tipo: 'no' }
-  | { tipo: 'texto'; texto: string };
+  /** `complemento`: cuál se contrata, cuando la fila va aparte en el plan de pago. */
+  | { tipo: 'texto'; texto: string; complemento?: Addon };
 
 const SI: ValorPlan = { tipo: 'si' };
 const NO: ValorPlan = { tipo: 'no' };
@@ -52,8 +53,29 @@ const porFeature =
   (p: Plan, e: Entitlements = PLAN_ENTITLEMENTS[p]): ValorPlan => {
     if (e.features[feature]) return SI;
     const addon = p === 'BASE' && e === PLAN_ENTITLEMENTS.BASE ? addonDeFeature(feature) : null;
-    return addon ? txt(textoComplemento(ADDONS[addon].precioMes)) : NO;
+    if (!addon) return NO;
+    return { tipo: 'texto', texto: textoComplemento(ADDONS[addon].precioMes), complemento: addon };
   };
+
+/** Lo que está incluido en el Founding gratis y se paga aparte en el de pago. */
+// ⚠️ Con el NOMBRE del complemento: tres filas van en el mismo, y «+22 €/mes» a
+// secas en cada una se lee como tres cobros.
+export const textoGratisYComplemento = (addon: Addon) =>
+  `En el gratis. De pago, con ${ADDONS[addon].nombre} (+${ADDONS[addon].precioMes} €/mes)`;
+
+/**
+ * La celda de Founding Studio en la web, que enseña el nivel GRATIS. Una columna
+ * sola no puede decir «Incluido» de algo que se pierde al pasar a pagar el mismo
+ * plan: ahí se dicen las dos cosas. `gratis` son los entitlements del gratis.
+ */
+export function valorFoundingGratis(fila: FilaPlan, gratis: Entitlements): ValorPlan {
+  const enGratis = fila.valor('BASE', gratis);
+  const dePago = fila.valor('BASE');
+  if (enGratis.tipo === 'si' && dePago.tipo === 'texto' && dePago.complemento) {
+    return txt(textoGratisYComplemento(dePago.complemento));
+  }
+  return enGratis;
+}
 
 export interface FilaPlan {
   /** Identificador estable para las filas a las que hay que referirse desde

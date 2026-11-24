@@ -46,7 +46,7 @@ export const metadata: Metadata = {
 const FAQ = [
   {
     q: '¿Hay permanencia?',
-    a: 'No. Se paga mes a mes y se cancela cuando quieras. Tus datos son tuyos: puedes exportar alumnas, historial y facturas en cualquier momento, también al irte.',
+    a: 'No. Puedes pagar mes a mes o por años, y cancelar cuando quieras. Tus datos son tuyos: puedes exportar alumnas, historial y facturas en cualquier momento, también al irte.',
   },
   {
     q: '¿Os lleváis una comisión de lo que cobro a mis alumnas?',
@@ -181,7 +181,7 @@ export default function PreciosPage() {
           </div>
           <p style={{ fontSize: 15, color: 'var(--w-texto-2)', margin: '18px 0 0' }}>
             Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
-            por punto — incluido lo que ellos hacen mejor.
+            por punto.
           </p>
         </section>
       </div>
