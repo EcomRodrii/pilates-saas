@@ -34,7 +34,8 @@ import { debeObservar } from '@/lib/analitica/hitos';
 import { cn, finDelDiaEstudio, hoyEnEstudio, inicioDelDiaEstudio } from '@/lib/utils';
 import { seccionesDelMenu } from '@/lib/nav-panel-nuevo';
 import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
-import { useAltaNueva, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { useAltaNueva, useShellNuevoConEspera } from '@/lib/estudio/panel-nuevo-cliente';
+import { AvisoEdicion } from '@/components/edicion/aviso-edicion';
 import { ColumnaAsistenteProvider, useColumnaAsistente } from '@/lib/asistente-columna';
 import { ColumnaAsistente, PildoraAsistente } from '@/components/asistente/columna-asistente';
 import { esRutaDelAlta } from '@/lib/alta/bienvenida-nueva';
@@ -151,7 +152,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const panelNuevo = useInterruptor('panelNuevo', studio?.id);
   // Marco a sangre (`SHELL_NUEVO`): fondo oscuro, barra fija arriba y el contenido como un lienzo
   // claro redondeado. Solo en escritorio (`lg:`): en móvil el panel sigue como estaba.
-  const shellNuevo = useShellNuevo();
+  const shellNuevoEspera = useShellNuevoConEspera();
+  const shellNuevo = shellNuevoEspera === true;
   // El alta nueva (21-oct-2026): TRES estados, `null` mientras se pregunta. Elige
   // qué bienvenida se enseña (más abajo), y con `null` se espera con el esqueleto
   // en vez de pintar un instante la de siempre.
@@ -512,6 +514,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Aún no se sabe si este estudio ve el panel nuevo: ni el antiguo ni el nuevo, un fondo neutro (la pregunta tarda unas décimas y solo
+  // pasa la primera vez; después se pinta con lo recordado). Sin esto se enseñaba un instante el panel antiguo.
+  if (shellNuevoEspera === null) {
+    return <PanelThemeProvider className="panel-app min-h-dvh bg-background" />;
+  }
+
   return (
     <PanelPrivacyProvider>
       <PanelThemeProvider className="panel-app min-h-dvh bg-background" panelNuevo={panelNuevo} shellNuevo={shellNuevo}>
@@ -556,6 +564,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
                         aquí?» encima de un esqueleto de carga es hablarle a
                         una pantalla que todavía no existe. */}
                     {conSiguientePaso && <SiguientePaso key={studio?.id} />}
+                    {shellNuevo && <AvisoEdicion />}
                     {conPrimeraVez && <PrimeraVezAqui />}
                     {children}
                   </>

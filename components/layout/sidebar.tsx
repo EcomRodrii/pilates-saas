@@ -740,7 +740,9 @@ export function Sidebar() {
     raiz.toggleAttribute('data-menu-con-vistas', lleva);
     return () => raiz.removeAttribute('data-menu-con-vistas');
   }, [sangre, collapsed]);
-  const enConfiguracion = sangre && (pathnameMenu ?? '').startsWith('/configuracion');
+  // ⚠️ Con el menú PLEGADO no hay sitio para la columna de Configuración (buscador, estudio, secciones): se desbordaba sobre la pantalla
+  // blanca (24-nov-2026). Plegado, Configuración se ve como cualquier otro módulo: la tira de iconos.
+  const enConfiguracion = sangre && !collapsed && (pathnameMenu ?? '').startsWith('/configuracion');
   useEffect(() => {
     let vivo = true;
     function cargar() {

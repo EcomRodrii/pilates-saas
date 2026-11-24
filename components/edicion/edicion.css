@@ -154,3 +154,8 @@
 .ed-tel-fila span { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .ed-tel-fila u { display: block; height: 4px; border-radius: 3px; background: #d8d8e0; text-decoration: none; }
 .ed-tel-fila u + u { width: 60%; background: #e8e8ee; }
+/* Dentro del panel: sin el logo (arriba a la derecha va la X de cerrar) y algo más bajo. */
+.ed-banner--aviso { min-height: 150px; }
+.ed-banner--aviso .ed-banner-logo { display: none; }
+.ed-banner--aviso .ed-banner-l1, .ed-banner--aviso .ed-banner-l2 { font-size: 36px; }
+.ed-banner--aviso .ed-banner-mono { font-size: 15px; }
