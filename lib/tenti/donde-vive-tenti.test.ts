@@ -211,6 +211,9 @@ const CON_TENTI: Record<string, { usos: number; motivo: string }> = {
   // La píldora flotante «Pregúntale a Tentare» (fundador, 21-nov-2026): el icono de destellos «era muy IA»; en su lugar, la mascota, como el
   // avatar del campo de Sidekick en Shopify. Va dentro de un botón: no se toca, solo mira y parpadea.
   'components/asistente/columna-asistente.tsx': { usos: 1, motivo: 'la píldora flotante que abre el asistente: Tenti es su avatar (pedido del fundador)' },
+  // El Inicio de configuración (24-nov-2026, `SHELL_NUEVO`): la caja «Trabaja con Tenti», como la «Trabaja con Sidekick» de la home de Shopify. Tenti
+  // es el avatar del campo (no va dentro de un botón: se deja tocar) y no hay ningún cobro cerca; solo donde el asistente está disponible.
+  'components/asistente/compositor-tenti.tsx': { usos: 1, motivo: 'la caja «Trabaja con Tenti» del Inicio de configuración: su avatar, que abre el asistente (pedido del fundador)' },
   'components/ayuda/panel-ayuda.tsx': { usos: 2, motivo: 'el panel de ayuda: la pestaña «Tentare» (su icono) y el saludo de Inicio, donde se le pregunta al asistente' },
   // La demo personalizada de la landing (/demo, 28-oct-2026): la propietaria que aún no es clienta habla con Tenti, que entiende
   // su duda y le prepara un recorrido. UN solo Tenti, en la cabecera del chat (no uno por mensaje: cada uno monta un canvas),
