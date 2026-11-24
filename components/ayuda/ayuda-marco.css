@@ -139,3 +139,12 @@ a.ay-fila:hover { background: #fafafa; padding-inline: 12px; }
   .nv-punto { grid-column: 1; grid-row: 1; }
   .nv-cuerpo { grid-column: 2; }
 }
+
+/* Pestañas Escritorio / Móvil dentro de un paso */
+.ay-plat { margin: 10px 0 6px; }
+.ay-plat-lista { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: #f1f1f1; }
+.ay-plat-lista button { height: 28px; padding: 0 14px; border: 0; border-radius: 8px; background: transparent; font: 500 13px Inter, system-ui, sans-serif; color: #616161; cursor: pointer; transition: background .2s, color .2s; }
+.ay-plat-lista button[aria-selected='true'] { background: #fff; color: #1a1a1a; box-shadow: 0 1px 2px #0000001f; }
+.ay-plat-panel { padding-top: 10px; }
+.ay-plat-panel p { margin: 0; }
+@media (prefers-reduced-motion: reduce) { .ay-plat-lista button { transition: none; } }

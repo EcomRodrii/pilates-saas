@@ -2584,10 +2584,18 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   }
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'],
   .cajon-modal button[role='switch'][aria-checked='true'] { background-color: #101010 !important; }
+  .dark .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'],
+  .dark .cajon-modal button[role='switch'][aria-checked='true'] { background-color: var(--foreground) !important; }
+  /* La bola: blanca con una sombra fina (así se ve también sobre una pista clara), y centrada. ⚠️ Con el interruptor encendido la pista
+     es el color de la TINTA, que en oscuro es claro: la bola lleva entonces el color de la tarjeta, no blanco, o desaparecería (23-nov-2026:
+     «al activar se vuelve todo negro»). `translate: 0 0` y no `none`: Tailwind lleva su propio `translate` en la bola y `none` no lo
+     anulaba, así que la bola salía 2 px corrida. */
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'] > span,
-  .cajon-modal button[role='switch'] > span { width: 12px !important; height: 12px !important; background-color: #fff !important; translate: none !important; transform: translateX(2px) !important; }
+  .cajon-modal button[role='switch'] > span { width: 12px !important; height: 12px !important; background-color: #fff !important; box-shadow: 0 0 0 .5px #0000001f, 0 1px 2px #00000033; translate: 0 0 !important; transform: translateX(2px) !important; }
   .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'] > span,
   .cajon-modal button[role='switch'][aria-checked='true'] > span { transform: translateX(18px) !important; }
+  .dark .panel-app[data-shell-nuevo] [data-config-raiz] button[role='switch'][aria-checked='true'] > span,
+  .dark .cajon-modal button[role='switch'][aria-checked='true'] > span { background-color: var(--card) !important; }
 }
 
 /* Pastillas de estado de Configuración como las de Shopify (`SHELL_NUEVO`): relleno de color, sin borde ni icono,

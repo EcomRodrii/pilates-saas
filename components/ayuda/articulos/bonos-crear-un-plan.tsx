@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AyudaPaso, AyudaResultado } from '@/components/ayuda/AyudaPasos';
+import { AyudaPlataformas } from '@/components/ayuda/AyudaPlataformas';
 
 // Sin captura desde el 13-sep: la que había era de Configuración → Planes y
 // tarifas, pantalla que se quitó al dejar las tarifas solo en Paquetes. Mejor
@@ -8,9 +9,12 @@ export default function Contenido() {
   return (
     <>
       <AyudaPaso numero={1} titulo="Ve a Paquetes">
-        <p>
-          En el menú, <strong>Paquetes</strong>. Ahí tienes tus tarifas separadas en Suscripciones, Bonos y Bajo
-          demanda, y el botón <strong>Crear</strong> para una nueva.
+        <AyudaPlataformas
+          escritorio={<p>En el menú de la izquierda, <strong>Paquetes</strong>.</p>}
+          movil={<p>Pulsa el botón de menú de la barra de abajo (<strong>Abrir el menú</strong>) y elige <strong>Paquetes</strong>.</p>}
+        />
+        <p style={{ marginTop: 10 }}>
+          Ahí tienes tus tarifas separadas en Suscripciones, Bonos y Bajo demanda, y el botón <strong>Crear</strong> para una nueva.
         </p>
       </AyudaPaso>
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { Interruptor } from '@/components/ui/interruptor';
+
 import { uscVerificada } from '@/lib/plataformas/usc/proveedor-config';
 import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
 import Link from 'next/link';
@@ -216,21 +218,12 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
                     : 'Vendo aquí · apunto yo las reservas'}
                 </p>
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={activa}
-                aria-label={`Vendo en ${NOMBRE_PLATAFORMA[p]}`}
+              <Interruptor
+                on={activa}
+                ariaLabel={`Vendo en ${NOMBRE_PLATAFORMA[p]}`}
                 disabled={guardando !== null || esperandoUsc || (p === USC && errorUsc)}
-                onClick={() => cambiar(p, !activa)}
-                className="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
-                style={{ background: activa ? 'var(--brand)' : 'var(--muted)' }}
-              >
-                <span
-                  className="absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform"
-                  style={{ left: 2, transform: activa ? 'translateX(20px)' : 'none' }}
-                />
-              </button>
+                onChange={() => cambiar(p, !activa)}
+              />
             </div>
             {activa && !porApi && (PLATAFORMAS_QUE_APARTAN as readonly Plataforma[]).includes(p) && (
               <LiberarApartadas plataforma={p} preguntar={recienActivada === p} showToast={showToast} />

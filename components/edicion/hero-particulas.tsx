@@ -89,7 +89,12 @@ export function HeroParticulas({ palabra, className }: { palabra: string; classN
     const mover = (e: PointerEvent) => { const r = canvas.getBoundingClientRect(); ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top; };
     const salir = () => { ptr.x = ptr.y = -9999; };
     canvas.addEventListener('pointermove', mover); canvas.addEventListener('pointerleave', salir);
-    const ro = new ResizeObserver(() => { if (vivo) arrancar(); });
+    let anchoPrev = 0, altoPrev = 0;
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect;
+      if (!vivo || (Math.abs(width - anchoPrev) < 1 && Math.abs(height - altoPrev) < 1)) return;
+      anchoPrev = width; altoPrev = height; arrancar();
+    });
     ro.observe(canvas);
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; if (visible && !raf && !quieto) raf = requestAnimationFrame(bucle); });
     io.observe(canvas);

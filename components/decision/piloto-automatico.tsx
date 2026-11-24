@@ -2,6 +2,7 @@
 
 import { useRef, useState, useId } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { Interruptor } from '@/components/ui/interruptor';
 import { TentiIcono } from '@/components/tenti/tenti-icono';
 import type { AutonomiaConfig, TipoAccion } from '@/lib/decision/autonomia';
 import type { AutonomiaEstado } from './use-autonomia-config';
@@ -58,18 +59,13 @@ export function PilotoAutomatico({ autonomia }: { autonomia: AutonomiaEstado }) 
           </div>
         </div>
         {/* Interruptor principal */}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={config.activa}
-          aria-label="Activar piloto automático"
-          onClick={() => guardar(config, { ...config, activa: !config.activa })}
+        <Interruptor
+          on={config.activa}
+          ariaLabel="Activar piloto automático"
+          onChange={() => guardar(config, { ...config, activa: !config.activa })}
           disabled={guardando}
-          className="relative mt-1 inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors disabled:opacity-50"
-          style={{ background: config.activa ? 'var(--brand)' : 'var(--muted-foreground)' }}
-        >
-          <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${config.activa ? 'translate-x-5' : 'translate-x-0'}`} />
-        </button>
+          className="mt-1"
+        />
       </div>
 
       {/* Fuera del bloque `config.activa &&` a propósito: si falla justo el
