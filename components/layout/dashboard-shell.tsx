@@ -517,7 +517,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   // Aún no se sabe si este estudio ve el panel nuevo: ni el antiguo ni el nuevo, un fondo neutro (la pregunta tarda unas décimas y solo
   // pasa la primera vez; después se pinta con lo recordado). Sin esto se enseñaba un instante el panel antiguo.
   if (shellNuevoEspera === null) {
-    return <PanelThemeProvider className="panel-app min-h-dvh bg-background" />;
+    return <div aria-hidden className="panel-app min-h-dvh bg-background" />;
   }
 
   return (
