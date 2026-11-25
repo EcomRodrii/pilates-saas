@@ -61,7 +61,6 @@ import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { useShellNuevoConEspera } from '@/lib/estudio/panel-nuevo-cliente';
 import { useAsistente, usePuertaAsistente } from '@/lib/asistente-context';
 import { useGuiaPasoAPaso } from '@/components/guia/use-guia-paso-a-paso';
-import { useCore } from '@/lib/core-context';
 import { InicioTenti } from '@/components/dashboard/inicio-tenti';
 
 // Code-split (mismo patrón que components/configuracion/shell/config-shell.tsx):
@@ -308,13 +307,14 @@ function ElegirInicio() {
   const { puede, disponible } = useAsistente();
   const guia = useGuiaPasoAPaso();
   const rol = useRol();
-  const { studio } = useCore();
   const pideResumen = params.get('vista') === 'resumen' || params.has('compartir');
-  // ⚠️ Sin estudio todavía (el arranque, tapado por el esqueleto del marco) se monta el resumen, como siempre: así
-  // «Hoy en el estudio» pide su día MIENTRAS carga y no después (e2e/arranque-de-inicio.spec.ts).
-  if (!studio || pideResumen || shell === false) return <Dashboard />;
+  // ⚠️ Solo con el marco nuevo CONFIRMADO se puede cambiar de pantalla. Hasta entonces (y con el marco de siempre) el
+  // resumen se monta una vez y se queda: así «Hoy en el estudio» pide su día MIENTRAS carga el arranque
+  // (e2e/arranque-de-inicio.spec.ts) y no se monta, se quita y se vuelve a montar. Con el estudio aún sin contestar,
+  // el marco pinta un fondo neutro, así que no se ve el resumen antes de Tenti.
+  if (shell !== true || pideResumen) return <Dashboard />;
   // Mientras no se sabe, nada: pintar el resumen y cambiarlo un instante después es el parpadeo que ya se quitó.
-  if (shell === null || (puede && disponible === null) || guia.activo === null) return null;
+  if ((puede && disponible === null) || guia.activo === null) return null;
   const enPuestaEnMarcha = guia.activo && puedeVer(rol, '/primeros-pasos') && !guia.ruta?.terminada;
   if (!puerta || enPuestaEnMarcha) return <Dashboard />;
   return <InicioTenti />;
