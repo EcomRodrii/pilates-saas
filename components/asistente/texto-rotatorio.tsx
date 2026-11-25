@@ -26,7 +26,7 @@ export function TextoRotatorio({ visible }: { visible: boolean }) {
       {FRASES_DEL_CAMPO.map((frase, k) => (
         <span
           key={frase}
-          className="absolute inset-x-0 top-0 flex h-10 items-center truncate px-0.5 text-[13px] text-[#757575] transition-[filter,opacity] duration-500 ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+          className="absolute inset-x-0 top-0 flex h-10 items-center truncate px-0.5 text-[13px] text-[#757575] transition-[filter,opacity] duration-500 ease-(--pn-ease)"
           style={{ filter: visible && k === i ? 'blur(0)' : 'blur(6px)', opacity: visible && k === i ? 1 : 0 }}
         >
           {frase}

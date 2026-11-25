@@ -44,7 +44,7 @@ export function ColumnaAsistente() {
       aria-hidden={!abierta}
       inert={!abierta}
       data-columna-asistente
-      className="fixed bottom-1 right-1 top-1 z-[45] hidden flex-col overflow-hidden rounded-2xl bg-card shadow-[0_24px_56px_-12px_#0000003d,0_0_0_1px_#00000012] transition-[transform,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] md:flex"
+      className="fixed bottom-1 right-1 top-1 z-[45] hidden flex-col overflow-hidden rounded-2xl bg-card shadow-[0_24px_56px_-12px_#0000003d,0_0_0_1px_#00000012] transition-[transform,opacity] duration-300 ease-(--pn-ease-out-emphasized) md:flex"
       style={{
         width: ANCHO_COLUMNA_ASISTENTE - 4,
         transform: abierta ? 'none' : 'translateX(calc(100% + 8px))',
@@ -105,7 +105,7 @@ export function PildoraAsistente() {
       data-pildora-asistente
       aria-hidden={abierta}
       tabIndex={abierta ? -1 : 0}
-      className="group fixed bottom-4 left-[calc(50%+var(--sidebar-w,0px)/2)] z-20 hidden h-[52px] w-[360px] -translate-x-1/2 items-center gap-3 rounded-full bg-white pl-3 pr-2 text-[15px] text-[#707070] shadow-[0_0_0_1px_#00000012,0_2px_20px_#00000008,0_5px_20px_#00000008,0_8px_60px_#00000008] transition-[transform,box-shadow,opacity] duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] hover:shadow-[0_0_0_1px_#0000001f,0_4px_24px_#0000000f,0_8px_60px_#0000000a] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-ring md:flex"
+      className="group fixed bottom-4 left-[calc(50%+var(--sidebar-w,0px)/2)] z-20 hidden h-[52px] w-[360px] -translate-x-1/2 items-center gap-3 rounded-full bg-white pl-3 pr-2 text-[15px] text-[#707070] shadow-[0_0_0_1px_#00000012,0_2px_20px_#00000008,0_5px_20px_#00000008,0_8px_60px_#00000008] transition-[transform,box-shadow,opacity] duration-200 ease-(--pn-ease-out-emphasized) hover:shadow-[0_0_0_1px_#0000001f,0_4px_24px_#0000000f,0_8px_60px_#0000000a] active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-ring md:flex"
       style={{ opacity: abierta ? 0 : 1, pointerEvents: abierta ? 'none' : 'auto' }}
     >
       <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center"><TentiIcono ancho={28} /></span>

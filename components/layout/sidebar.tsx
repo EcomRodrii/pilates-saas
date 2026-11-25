@@ -416,9 +416,9 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
                     >
                       <item.icon size={22} strokeWidth={abierto || active ? 2.2 : 1.6} className={cn('shrink-0', abierto || active ? 'text-white' : 'text-white/60')} aria-hidden="true" />
                       <span className="flex-1 truncate">{item.label}</span>
-                      <ChevronDown size={22} aria-hidden="true" className={cn('shrink-0 text-white/70 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto && 'rotate-180')} />
+                      <ChevronDown size={22} aria-hidden="true" className={cn('shrink-0 text-white/70 transition-transform duration-300 ease-(--pn-ease-out-emphasized)', abierto && 'rotate-180')} />
                     </button>
-                    <div className={cn('grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.2,0.8,0,1)]', abierto ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')} inert={!abierto}>
+                    <div className={cn('grid transition-[grid-template-rows,opacity] duration-300 ease-(--pn-ease-out-emphasized)', abierto ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')} inert={!abierto}>
                       <ul className="min-h-0 overflow-hidden">
                         {sub.map(f => (
                           <li key={f.href}>
@@ -490,15 +490,15 @@ function MasDrawer({ open, onClose, userInitials, userEmail, handleSignOut, sect
 
       {shell && (
         <div className="pointer-events-none absolute inset-x-0 bottom-[max(22px,calc(env(safe-area-inset-bottom,0px)-6px))] z-10 flex items-center justify-center gap-2 px-4">
-          <Link href="/configuracion" onClick={() => onClose()} aria-label="Configuración" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+          <Link href="/configuracion" onClick={() => onClose()} aria-label="Configuración" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-(--pn-ease-out-emphasized) active:scale-95">
             <Settings size={22} aria-hidden="true" />
           </Link>
           {puedeVer('/calendario') && (
-            <Link href="/calendario?nueva=1" onClick={() => onClose()} className="pointer-events-auto flex h-14 items-center gap-3 rounded-full bg-[#12141b] pl-4 pr-7 text-[18px] font-medium text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#2a3040] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+            <Link href="/calendario?nueva=1" onClick={() => onClose()} className="pointer-events-auto flex h-14 items-center gap-3 rounded-full bg-[#12141b] pl-4 pr-7 text-[18px] font-medium text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#2a3040] transition-transform duration-200 ease-(--pn-ease-out-emphasized) active:scale-95">
               <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-white text-black"><Plus size={16} strokeWidth={2.6} /></span> Crear clase
             </Link>
           )}
-          <button type="button" onClick={onClose} aria-label="Cerrar el menú" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0,1)] active:scale-95">
+          <button type="button" onClick={onClose} aria-label="Cerrar el menú" className="pointer-events-auto flex size-14 items-center justify-center rounded-full bg-[#1d1d1d] text-white shadow-[0_8px_24px_-8px_#000000a6,0_0_0_1px_#ffffff1f] transition-transform duration-200 ease-(--pn-ease-out-emphasized) active:scale-95">
             <X size={22} aria-hidden="true" />
           </button>
         </div>

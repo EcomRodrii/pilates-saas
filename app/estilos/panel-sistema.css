@@ -1,0 +1,172 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sistema de diseño y de movimiento del panel (25-nov-2026).
+
+   Los valores son los medidos en el admin de Shopify (sus tokens públicos de Polaris: duraciones, curvas, radios,
+   sombras, escala de letra) con nombres propios, `--pn-*`. Aquí viven UNA vez: un valor se cambia en este fichero,
+   nunca escrito a mano en una regla o en un componente (lo vigila lib/panel-sistema.test.ts).
+
+   · El MOVIMIENTO se declara en `:root` (lo usan también reglas fuera del marco).
+   · Todo lo que PINTA va dentro de `.panel-app[data-shell-nuevo]`: el panel antiguo, la app de las clientas y la web
+     no cambian ni un píxel.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Duraciones */
+  --pn-dur-50: 50ms;
+  --pn-dur-100: 100ms; /* salidas y respuesta al dedo */
+  --pn-dur-150: 150ms; /* hover, menús, aparecer */
+  --pn-dur-200: 200ms; /* tarjetas, avisos */
+  --pn-dur-250: 250ms; /* anchura: menú lateral y columnas */
+  --pn-dur-300: 300ms; /* diálogos, entrada de contenido */
+  --pn-dur-400: 400ms; /* desplegar y plegar */
+
+  /* Curvas */
+  --pn-ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --pn-ease-in: cubic-bezier(0.42, 0, 1, 1);
+  --pn-ease-in-out: cubic-bezier(0.42, 0, 0.58, 1);
+  --pn-ease-out: cubic-bezier(0.19, 0.91, 0.38, 1);
+  --pn-ease-out-emphasized: cubic-bezier(0.2, 0.8, 0, 1);
+  --pn-ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --pn-ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.panel-app[data-shell-nuevo] {
+  /* Radios */
+  --pn-radio-interior: 0.5rem; /* opción de un menú, insignia */
+  --pn-radio-control: 0.75rem; /* campos, menús, tarjetas */
+  --pn-radio-tarjeta: 1rem;
+  --pn-radio-dialogo: 1.5rem;
+  --pn-radio-pildora: 9999px;
+
+  /* Letra: tamaño / interlineado */
+  --pn-letra-xs: 0.6875rem;
+  --pn-letra-s: 0.75rem;
+  --pn-letra: 0.8125rem;
+  --pn-letra-m: 0.875rem;
+  --pn-letra-l: 1rem;
+  --pn-letra-xl: 1.25rem;
+  --pn-linea-s: 1rem;
+  --pn-linea: 1.25rem;
+  --pn-linea-l: 1.5rem;
+  --pn-peso-normal: 400;
+  --pn-peso-medio: 450;
+  --pn-peso-boton: 500;
+  --pn-peso-titulo: 600;
+  --pn-tracking: -0.01em;
+  --pn-tracking-s: -0.005em;
+
+  /* El movimiento que ya tenían los diálogos, cajones y ventanas, sobre la misma escala */
+  --motion-fast: var(--pn-dur-100);
+  --motion-normal: var(--pn-dur-150);
+  --motion-medium: var(--pn-dur-200);
+  --motion-slow: var(--pn-dur-300);
+  --motion-ventana: var(--pn-dur-250);
+  --motion-ease: var(--pn-ease-out);
+  --motion-ease-ventana: var(--pn-ease-out-emphasized);
+  --motion-ease-in: var(--pn-ease-in);
+}
+
+/* Colores: solo en claro. En oscuro mandan los del tema, como hasta ahora. */
+.panel-app[data-shell-nuevo]:not(.dark) {
+  --pn-texto: #101010;
+  --pn-texto-2: #4a4a4a;
+  --pn-texto-3: #606060;
+  --pn-texto-apagado: #a6a6a6;
+  --pn-superficie: #ffffff;
+  --pn-superficie-2: #f7f7f7;
+  --pn-superficie-3: #f2f2f2;
+  --pn-borde: #ebebeb;
+  --pn-borde-fuerte: #dcdcdc;
+  --pn-boton: #1b1b1b;
+  --pn-boton-hover: #303030;
+  --pn-boton-texto: #fcfcfc;
+
+  --pn-sombra-control: 0 2px 3px -1px #0000000a, 0 3px 4px -1.5px #0000000a, 0 0 0 1px #00000021;
+  --pn-sombra-control-hover: 0 2px 3px -1px #0000000a, 0 3px 4px -1.5px #0000000a, 0 0 0 1px #0000004d;
+  --pn-sombra-boton-principal: 0 1px 0.5px -0.5px #00000021, 0 1px 2px -0.5px #00000021, 0 4px 6px -2px #00000021,
+    0 2px 3px -1.5px #00000021, inset 0 0 4px 1px #101010, inset 0 0 4px 2px #ffffff1a, inset 0 0 12px -6px #ffffffbf;
+  --pn-sombra-boton-pulsado: inset 0 2px 6px -1px #00000012, inset 0 3px 2px -2px #0000000d, inset 0 0 0 0.5px #0000000d;
+  --pn-sombra-tarjeta: 0 0 2px #0000001f, 0 2px 12px #00000005, 0 4px 16px #00000005, 0 4px 48px #00000005;
+  --pn-sombra-menu: 0 2px 2px -1px #0000000f, 0 3px 4px -2px #0000000f, 0 6px 8px -3px #0000000f,
+    0 12px 16px -4px #0000000f, 0 0 0 1px #00000014;
+  --pn-sombra-dialogo: 0 2px 3px -1px #0000000f, 0 4px 6px -2px #0000000f, 0 8px 12px -4px #0000000f,
+    0 16px 24px -6px #0000000f, 0 32px 48px -8px #0000000f, 0 0 0 1px #00000014;
+}
+
+/* El foco, el mismo en todo el panel. */
+.panel-app[data-shell-nuevo] { --pn-foco: oklch(62.89% 0.2036 263.44); }
+
+/* ── Escala de letra ───────────────────────────────────────────────────────── */
+.panel-app[data-shell-nuevo] :is([data-slot='card-title'], [data-slot='dialog-title']) {
+  font-size: var(--pn-letra-m); line-height: var(--pn-linea); font-weight: var(--pn-peso-titulo); letter-spacing: var(--pn-tracking);
+}
+.panel-app[data-shell-nuevo] :is([data-slot='card-description'], [data-slot='dialog-description']) {
+  font-size: var(--pn-letra); line-height: var(--pn-linea); letter-spacing: var(--pn-tracking);
+}
+.panel-app[data-shell-nuevo] [data-slot='label'] {
+  font-size: var(--pn-letra); line-height: var(--pn-linea); font-weight: var(--pn-peso-medio);
+}
+.panel-app[data-shell-nuevo]:not(.dark) thead th {
+  font-size: var(--pn-letra-s); line-height: var(--pn-linea-s); font-weight: var(--pn-peso-boton);
+  letter-spacing: var(--pn-tracking-s); color: var(--pn-texto-2);
+}
+.panel-app[data-shell-nuevo] tbody td { font-size: var(--pn-letra); line-height: var(--pn-linea); }
+.panel-app[data-shell-nuevo] tbody :is(tr, td) { font-variant-numeric: tabular-nums; }
+
+/* ── Botones: los mismos en todos los módulos ──────────────────────────────── */
+.panel-app[data-shell-nuevo]:not(.dark) [data-slot='button'].bg-primary:active { box-shadow: var(--pn-sombra-boton-pulsado); }
+.panel-app[data-shell-nuevo]:not(.dark) [data-slot='button'][class*='text-destructive'] {
+  background-color: var(--pn-superficie); box-shadow: var(--pn-sombra-control); border-color: transparent;
+}
+.panel-app[data-shell-nuevo]:not(.dark) [data-slot='button'][class*='text-destructive']:hover { background-color: #fff3f2; }
+
+/* ── Campos, insignias, tarjetas, menús y diálogos ─────────────────────────── */
+.panel-app[data-shell-nuevo]:not(.dark) :is(textarea, select):not([class*='bg-transparent']):not([data-sin-estilo-shell]) {
+  border-radius: var(--pn-radio-control); border-color: transparent; background-color: var(--pn-superficie);
+  box-shadow: var(--pn-sombra-control); font-size: var(--pn-letra); letter-spacing: var(--pn-tracking);
+  transition: box-shadow var(--pn-dur-150) var(--pn-ease);
+}
+.panel-app[data-shell-nuevo]:not(.dark) :is(textarea, select):not([class*='bg-transparent']):hover { box-shadow: var(--pn-sombra-control-hover); }
+.panel-app[data-shell-nuevo] :is(textarea, select):focus-visible { outline: 2px solid var(--pn-foco); outline-offset: 1px; }
+@media (max-width: 767px) {
+  .panel-app[data-shell-nuevo] :is(textarea, select) { font-size: 16px; }
+}
+.panel-app[data-shell-nuevo] .group\/badge {
+  border-radius: var(--pn-radio-interior); font-size: var(--pn-letra-s); line-height: var(--pn-linea-s); font-weight: var(--pn-peso-boton);
+}
+.panel-app[data-shell-nuevo]:not(.dark) [data-slot='card'] {
+  border-radius: var(--pn-radio-tarjeta); box-shadow: var(--pn-sombra-tarjeta);
+}
+.panel-app[data-shell-nuevo] :is([role='menu'], [role='listbox']) { border-radius: var(--pn-radio-control); }
+.panel-app[data-shell-nuevo]:not(.dark) :is([role='menu'], [role='listbox']) { box-shadow: var(--pn-sombra-menu); }
+.panel-app[data-shell-nuevo] :is([role='menu'], [role='listbox']) :is([role='menuitem'], [role='option']) {
+  border-radius: var(--pn-radio-interior); font-size: var(--pn-letra); line-height: var(--pn-linea);
+}
+@media (min-width: 640px) {
+  .panel-app[data-shell-nuevo] [data-slot='dialog-content'] { border-radius: var(--pn-radio-dialogo); }
+}
+.panel-app[data-shell-nuevo]:not(.dark) [data-slot='dialog-content'] { box-shadow: var(--pn-sombra-dialogo); }
+
+/* ── Movimiento ────────────────────────────────────────────────────────────────
+   Solo `opacity` y las propiedades sueltas `translate`/`scale`, que se suman a la colocación del elemento sin
+   pisarla. Siempre `backwards`: al terminar no queda nada aplicado (un `transform` residual ancla los `fixed` de
+   dentro, ver globals.css «Diálogos, cajones y hojas del panel»). Con «reducir movimiento», nada se mueve. */
+@keyframes pn-aparece-debajo { from { opacity: 0; translate: 0 -4px; scale: 0.98; } }
+@keyframes pn-aparece-encima { from { opacity: 0; translate: 0 6px; scale: 0.98; } }
+@keyframes pn-funde { from { opacity: 0; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Menús y listas: nacen desde su botón. */
+  .panel-app[data-shell-nuevo] :is([role='menu'], [role='listbox']) { animation: pn-aparece-debajo var(--pn-dur-150) var(--pn-ease-out) backwards; }
+  /* Avisos: suben desde abajo. */
+  .panel-app[data-shell-nuevo] [data-slot='toast'] { animation: pn-aparece-encima var(--pn-dur-250) var(--pn-ease-out-emphasized) backwards; }
+  /* Cambio de pestaña y desplegables: el contenido entra fundido. */
+  .panel-app[data-shell-nuevo] :is([data-slot='tabs-content'], [role='tabpanel']) { animation: pn-funde var(--pn-dur-200) var(--pn-ease) backwards; }
+  .panel-app[data-shell-nuevo] [data-slot='collapsible-panel'] { transition: height var(--pn-dur-300) var(--pn-ease-out-soft), opacity var(--pn-dur-200) var(--pn-ease); }
+  /* Lo que se guarda, se confirma o falla: los mensajes de estado aparecen, no saltan. */
+  .panel-app[data-shell-nuevo] :is([role='alert'], [role='status']):not(.sr-only) { animation: pn-funde var(--pn-dur-200) var(--pn-ease) backwards; }
+  /* Tenti: cada mensaje y cada tarjeta que genera entran desde abajo. */
+  .panel-app[data-shell-nuevo] :is([data-turno], [data-bloque]) { animation: pn-aparece-encima var(--pn-dur-300) var(--pn-ease-out-soft) backwards; }
+  /* Filas de tabla. */
+  .panel-app[data-shell-nuevo] tbody tr { transition: background-color var(--pn-dur-100) var(--pn-ease); }
+}
