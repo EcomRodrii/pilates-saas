@@ -141,10 +141,10 @@ export default function HorarioPage() {
   // conocida con «ya no está en el horario» y no deja confirmar.
   const hoy = hoyISO();
   // La tira llega hasta la última clase publicada (mínimo dos semanas): con 14 fijos no se veía el mes siguiente.
-  const diasTira = data ? diasDeLaTira(data.clases, hoy) : DIAS_TIRA_MIN;
+  const diasTira = useMemo(() => (data ? diasDeLaTira(data.clases, hoy) : DIAS_TIRA_MIN), [data, hoy]);
   const salas = useMemo(
-    () => (data ? salasDelHorario(data.clases, hoy, addDias(hoy, diasDeLaTira(data.clases, hoy) - 1)) : []),
-    [data, hoy],
+    () => (data ? salasDelHorario(data.clases, hoy, addDias(hoy, diasTira - 1)) : []),
+    [data, hoy, diasTira],
   );
   const leerGuardado = useCallback(() => {
     try { return localStorage.getItem(claveFiltros(estudio.slug)); } catch { return null; }
