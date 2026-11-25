@@ -77,17 +77,20 @@ for (const vista of VISTAS) {
       await expect(burbuja(page)).toBeVisible({ timeout: 30_000 });
       if (vista.columna) await expect(titulo(page, 'Cobros y facturas')).toBeVisible({ timeout: 30_000 });
 
-      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-      await page.waitForTimeout(400);
-
       const ultimo = vista.columna
         ? page.locator('section[aria-labelledby="seccion-titulo"] [data-tarjeta-ajuste]').last()
         // En el móvil, la pantalla de lista es el inicio: su último grupo de filas.
         : page.locator('[aria-labelledby^="inicio-grupo-"] [data-tarjeta-ajuste]').last();
+      // La sección sigue creciendo mientras llegan sus datos (y al llegar recoloca el scroll): un solo «baja al final»
+      // medía a media carga. Se baja y se mide hasta que asienta; si la burbuja tapara de verdad, no asentaría nunca.
+      await expect.poll(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        await page.waitForTimeout(250);
+        const caja = await ultimo.boundingBox();
+        const b = await burbuja(page).boundingBox();
+        return !caja || !b ? 'sin pintar' : seSolapan(caja, b) ? `la burbuja (${Math.round(b.y)}) tapa el final (${Math.round(caja.y + caja.height)})` : 'libre';
+      }, { timeout: 15_000 }).toBe('libre');
       await expect(ultimo).toBeInViewport();
-      const caja = (await ultimo.boundingBox())!;
-      const b = (await burbuja(page).boundingBox())!;
-      expect(seSolapan(caja, b), `la burbuja (${Math.round(b.y)}) tapa el final (${Math.round(caja.y + caja.height)})`).toBe(false);
     });
 
     // Desde el 15-sep (v2) los campos de Mi estudio, Cobros y facturas y Cómo

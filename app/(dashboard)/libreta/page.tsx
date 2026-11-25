@@ -87,6 +87,7 @@ export default function Libreta() {
           lugar, la pantalla vacía que enseña qué llevará y cómo llenarla (Bonsai A4). */}
       {vaciaNueva ? (
         <PantallaVacia
+          imagen="citas"
           tono="indigo"
           Icono={Notebook}
           titulo="Tu libreta, por si cae internet"

@@ -39,6 +39,7 @@ export function TabApi({ showToast }: { showToast: (m: string) => void }) {
     // Hasta ahora, en blanco. Con el panel nuevo, se dice qué falta y a dónde ir.
     return panelNuevo && studio ? (
       <PantallaVacia
+        imagen="integraciones"
         tono="azul"
         Icono={Link2}
         titulo="Primero, la dirección de tu página"

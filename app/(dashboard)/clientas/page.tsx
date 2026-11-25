@@ -1507,6 +1507,7 @@ export default function Socios() {
       ) : sinNingunaNueva ? (
         // Panel nuevo, sin ninguna clienta todavía: lo que tendrá aquí y cómo empezar.
         <PantallaVacia
+          imagen="clientes"
           tono="magenta"
           Icono={Users}
           // Con el alta nueva (PR-5, maqueta «08 · El panel después»), las tres

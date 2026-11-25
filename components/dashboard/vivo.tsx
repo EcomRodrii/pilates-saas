@@ -22,6 +22,8 @@ import type { CSSProperties, ElementType, ReactNode } from 'react';
 import Link from 'next/link';
 import { Plus, ArrowRight, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Hero3D, type Escena3D } from '@/components/ilustraciones/hero-3d';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import type { Ocupacion } from '@/lib/inicio/cifras';
 
 export type Tono = 'azul' | 'magenta' | 'verde' | 'indigo';
@@ -298,7 +300,7 @@ export function VacioPositivo({ titulo, texto }: { titulo: string; texto: string
  * los ejemplos (lo que hace en negrita, cuándo en normal) y UNA acción
  * principal con verbo y objeto. Opcional, un enlace secundario.
  */
-export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEjemplos = 'Ejemplos', accion, secundaria, className }: {
+export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEjemplos = 'Ejemplos', accion, secundaria, className, imagen }: {
   tono: Tono;
   Icono: ElementType;
   titulo: string;
@@ -309,8 +311,41 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEj
   accion?: { label: string; href?: string; onClick?: () => void; Icono?: ElementType };
   secundaria?: { label: string; href?: string; onClick?: () => void };
   className?: string;
+  /** Con el marco nuevo: la tarjeta de Shopify, texto a la izquierda y esta imagen a la derecha. */
+  imagen?: Escena3D;
 }) {
   const c = TONOS[tono];
+  const sangre = useShellNuevo();
+  if (sangre && imagen) {
+    const enlace = 'zona-tactil text-[13px] font-medium text-foreground underline-offset-2 hover:underline';
+    return (
+      <section data-pantalla-vacia data-hero className={cn('mx-auto grid w-full max-w-[1000px] items-center gap-6 rounded-2xl bg-card p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:p-12', className)}>
+        <div className="flex min-w-0 flex-col items-start text-left max-md:order-2">
+          <h2 className="text-[22px] font-semibold leading-7 text-foreground text-balance">{titulo}</h2>
+          <p className="mt-2 max-w-md text-[13px] leading-5 text-muted-foreground text-pretty">{texto}</p>
+          {ejemplos && ejemplos.length > 0 && (
+            <ul aria-label={etiquetaEjemplos} className="mt-4 flex flex-col gap-3">
+              {ejemplos.map(e => (
+                <li key={e.accion} className="flex items-start gap-3 text-[13px] leading-5">
+                  <Check size={16} strokeWidth={2} aria-hidden className="mt-0.5 shrink-0 text-muted-foreground" />
+                  <span><span className="font-medium text-foreground">{e.accion}</span> <span className="text-muted-foreground">{e.cuando}</span></span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {(accion || secundaria) && (
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              {accion && <BotonVivo {...accion} />}
+              {secundaria && (secundaria.href
+                ? <Link href={secundaria.href} className={enlace}>{secundaria.label}</Link>
+                : <button type="button" onClick={secundaria.onClick} className={enlace}>{secundaria.label}</button>)}
+            </div>
+          )}
+        </div>
+        <Hero3D escena={imagen} className="mx-auto max-w-[420px] max-md:order-1 max-md:max-w-[280px]" />
+      </section>
+    );
+  }
   return (
     <section data-pantalla-vacia className={cn('flex flex-col items-center rounded-t-card border px-6 py-10 text-center shadow-t-card sm:py-12', className)} style={fondoTenido(tono, 10)}>
       <span

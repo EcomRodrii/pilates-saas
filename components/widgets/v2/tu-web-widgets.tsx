@@ -46,6 +46,7 @@ export function TuWebWidgets({ showToast }: { showToast: (m: string) => void }) 
     // Sin la dirección de su página no hay widget que dar: se dice qué falta y a dónde ir.
     return studio ? (
       <PantallaVacia
+        imagen="integraciones"
         tono="azul"
         Icono={Link2}
         titulo="Primero, la dirección de tu página"

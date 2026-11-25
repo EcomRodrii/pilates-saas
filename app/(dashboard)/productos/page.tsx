@@ -1608,6 +1608,7 @@ export default function Productos() {
       {/* Con el panel nuevo, sin productos: la pantalla vacía que enseña (Bonsai A4). */}
       {tab === 'pos' && panelNuevo && dataLoaded && productosPOS.length === 0 && (
         <PantallaVacia
+          imagen="paquetes"
           tono="magenta"
           Icono={ShoppingBag}
           titulo="Vende algo más que clases"

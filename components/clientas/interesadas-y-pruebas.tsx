@@ -145,6 +145,7 @@ export function InteresadasYPruebas({
       {/* Con el panel nuevo, el vacío que enseña (Bonsai A4): de dónde llegan y qué se hace con ellas. */}
       {nada && panelNuevo && (
         <PantallaVacia
+          imagen="clientes"
           tono="magenta"
           Icono={UserPlus}
           titulo="Que no se te escape ninguna interesada"

@@ -456,6 +456,7 @@ export function VacioPaquetes({ tipo, puedeCrear, onCrear }: { tipo?: TipoPlan; 
   if (!tipo) {
     return (
       <PantallaVacia
+        imagen="paquetes"
         tono="magenta"
         Icono={Package}
         titulo="Pon a la venta tu primera cuota o bono"
@@ -472,6 +473,7 @@ export function VacioPaquetes({ tipo, puedeCrear, onCrear }: { tipo?: TipoPlan; 
   const v = VACIO_TIPO[tipo];
   return (
     <PantallaVacia
+      imagen="paquetes"
       tono={TONO_TIPO[tipo]}
       Icono={ICONO_TIPO[tipo]}
       titulo={v.titulo}

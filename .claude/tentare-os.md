@@ -1989,7 +1989,9 @@ Fase 2 ya acotada en el doc (Caja/POS, envío programado, bono regalado, pagar o
 del marco nuevo (`--pn-*`, valores del admin de Shopify). Un valor se cambia ahí, nunca a mano en una regla o un
 componente (`lib/panel-sistema.test.ts`). Lo que pinta va dentro de `.panel-app[data-shell-nuevo]`; las animaciones,
 solo `opacity`/`translate`/`scale`, con `backwards` y tras `prefers-reduced-motion: no-preference`.
-Las imágenes grandes que faltan están encargadas en `docs/diseno/ilustraciones/ENCARGO-HERO.md`.
+Las pantallas vacías (`PantallaVacia` con `imagen`) llevan escenas 3D (`components/ilustraciones/hero-3d.tsx`, iconos de
+3dicons.co, CC0, en `public/ilustraciones/3d/`); `docs/diseno/ilustraciones/ENCARGO-HERO.md` queda por si se crean propias.
+El marco (`data-marco-vivo`) va por encima de lo pegado (z 38), sin resplandor de color en las esquinas.
 
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 

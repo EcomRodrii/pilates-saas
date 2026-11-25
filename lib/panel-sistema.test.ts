@@ -45,7 +45,7 @@ test('lo que pinta se queda dentro del marco nuevo; fuera de él solo hay movimi
   for (const m of root.matchAll(/(--[a-z0-9-]+):/g)) assert.match(m[1], /^--pn-(dur|ease)/, `${m[1]} cambiaría fuera del panel`);
   for (const m of sin.matchAll(/(?:^|\}|\{)\s*([^{}@]+?)\s*\{/g)) {
     for (const sel of m[1].split(/,(?![^(]*\))/).map(x => x.trim()).filter(Boolean)) {
-      if (sel === ':root' || sel === 'from') continue;
+      if (sel === ':root' || sel === 'from' || /^\d+%$/.test(sel)) continue; // pasos de un @keyframes
       assert.ok(sel.startsWith('.panel-app[data-shell-nuevo]'), `selector fuera del marco nuevo: ${sel}`);
     }
   }
