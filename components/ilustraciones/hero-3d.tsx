@@ -18,7 +18,8 @@ type Pieza =
 type Colocada = readonly [Pieza, number, number, number];
 
 export const ESCENAS_3D = {
-  clientes: [['chat-bubble', 72, 28, 30], ['boy', 62, 58, 50], ['girl', 34, 56, 56]],
+  // Sin globo de chat: detrás o delante de las dos figuras se leía como una mancha.
+  clientes: [['boy', 65, 51, 52], ['girl', 36, 50, 60]],
   calendario: [['calendar', 46, 58, 76], ['clock', 70, 34, 40]],
   paquetes: [['gift-box', 66, 34, 42], ['wallet', 44, 62, 70], ['credit-card', 66, 74, 40]],
   cobros: [['wallet', 42, 44, 68], ['credit-card', 62, 68, 60]],

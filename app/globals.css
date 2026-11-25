@@ -1741,6 +1741,27 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 @media (prefers-reduced-motion: reduce) {
   .shell-brillo-haz { animation: none; opacity: 0.25; }
 }
+/* La continuación del resplandor por el marco: la esquina redondeada del lienzo y la franja de 4 px de abajo. El marco negro
+   (`data-marco-vivo`) va por encima de todo lo del lienzo y cortaba la luz en seco al acabar el menú; esta es una SEGUNDA copia
+   del mismo resplandor (mismas capas, mismas olas, a la vez) que solo asoma por donde el marco pinta negro. ⚠️ La máscara usa la
+   MISMA geometría que las esquinas del marco: si una cambia y la otra no, entre las dos asoma una media luna. */
+.shell-brillo-ventana { display: none; }
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] .shell-brillo-ventana {
+    display: block; position: fixed; z-index: 39; pointer-events: none; contain: strict; overflow: hidden;
+    left: 0; bottom: 0; width: 100%; height: 20px;
+    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    -webkit-mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
+    mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
+    -webkit-mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
+    mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+  .panel-app[data-shell-nuevo] .shell-brillo-ventana > .shell-brillo { position: absolute; left: 0; bottom: 0; width: 100%; overflow: hidden; }
+}
+@media print { .panel-app[data-shell-nuevo] .shell-brillo-ventana { display: none; } }
 
 /* Configuración en el menú: la fila activa con el mismo vidrio que el buscador. */
 #host-menu-configuracion a[aria-current='page'] {

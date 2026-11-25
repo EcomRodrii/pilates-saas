@@ -1991,7 +1991,10 @@ componente (`lib/panel-sistema.test.ts`). Lo que pinta va dentro de `.panel-app[
 solo `opacity`/`translate`/`scale`, con `backwards` y tras `prefers-reduced-motion: no-preference`.
 Las pantallas vacías (`PantallaVacia` con `imagen`) llevan escenas 3D (`components/ilustraciones/hero-3d.tsx`, iconos de
 3dicons.co, CC0, en `public/ilustraciones/3d/`); `docs/diseno/ilustraciones/ENCARGO-HERO.md` queda por si se crean propias.
-El marco (`data-marco-vivo`) va por encima de lo pegado (z 38), sin resplandor de color en las esquinas.
+El marco (`data-marco-vivo`) va por encima de lo pegado (z 38). El brillo animado del menú **se queda** (fundador,
+25-nov-2026) y sigue por la esquina y la franja de abajo con una segunda copia encima del marco (`.shell-brillo-ventana`,
+z 39). ⚠️ Lienzo (`rounded-[16px]`), marco y máscara del brillo comparten la curva de 16 px. En el menú nada pinta negro
+sobre el brillo: «Configuración» va fuera de la lista que se desplaza y el final de la lista se desvanece con máscara.
 
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 

@@ -364,6 +364,31 @@ test('a sangre — el marco queda por encima de lo pegado y al final de la pági
   await page.screenshot({ path: 'test-results/shell-final-de-pagina.png' });
 });
 
+test('a sangre — el brillo del menú sigue por la esquina del marco y el submenú abierto se ve entero', async ({ page }) => {
+  await preparar(page, true);
+  // Bajo a propósito: con el menú sin caber entero es cuando el submenú quedaba cortado.
+  await page.setViewportSize({ width: 1440, height: 620 });
+  await ir(page, 'equipo');
+  await listo(page);
+  // La curva del lienzo y la del marco son la misma: con dos distintas asomaba una media luna negra en la esquina.
+  expect(await page.locator('[data-movil-hoja]').evaluate((e) => getComputedStyle(e).borderBottomLeftRadius)).toBe('16px');
+  const z = (sel: string) => page.locator(sel).first().evaluate((e) => Number(getComputedStyle(e).zIndex));
+  expect(await z('.shell-brillo-ventana'), 'el marco negro taparía la continuación del brillo').toBeGreaterThan(await z('[data-marco-vivo]'));
+  const menu = page.locator('aside[data-panel-menu] nav').first();
+  const bloque = menu.locator('[data-acordeon="/equipo"]');
+  await expect(bloque.getByRole('link')).not.toHaveCount(1);
+  await expect.poll(async () => {
+    const [m, b] = await Promise.all([menu.boundingBox(), bloque.boundingBox()]);
+    return m && b ? Math.round(b.y + b.height - (m.y + m.height)) : 999;
+  }, { message: 'el submenú no puede quedar cortado al final del menú' }).toBeLessThanOrEqual(0);
+  // «Configuración» va fuera de la lista y sin fondo propio: un fondo negro cortaba el brillo.
+  const anclado = page.locator('aside[data-panel-menu] [data-menu-anclado]');
+  await expect(anclado.getByRole('link', { name: 'Configuración' })).toBeInViewport();
+  expect(await anclado.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  await expect(menu.getByRole('link', { name: 'Configuración' })).toHaveCount(0);
+  await page.screenshot({ path: 'test-results/shell-menu-y-esquina.png' });
+});
+
 for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 844]] as const) {
   test(`a sangre — calendario (${nombre})`, async ({ page }) => {
     await preparar(page, true);

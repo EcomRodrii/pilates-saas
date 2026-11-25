@@ -166,6 +166,35 @@ const NavItem = memo(function NavItem({ href, label, Icon, onClick, collapsed, n
 });
 
 /**
+ * Con el submenú abierto, sus vistas tienen que verse enteras: en un portátil quedaban cortadas encima de «Configuración», que
+ * va anclada al pie del menú. Se desplaza solo la lista del menú, lo justo y sin esconder la fila del módulo, cuando el submenú termina de
+ * abrirse o cuando cambia el hueco (las tarjetas del pie cargan después). Al desplazar a mano no se dispara.
+ */
+function useSubmenuALaVista(bloque: React.RefObject<HTMLDivElement | null>, abierto: boolean) {
+  useEffect(() => {
+    const el = bloque.current;
+    const menu = el?.closest('nav');
+    if (!abierto || !el || !menu) return;
+    let espera: ReturnType<typeof setTimeout>;
+    const ajustar = () => {
+      clearTimeout(espera);
+      espera = setTimeout(() => {
+        const caja = menu.getBoundingClientRect();
+        const mio = el.getBoundingClientRect();
+        // 48 px de margen: es lo que se desvanece al final de la lista cuando queda menú por debajo.
+        const falta = Math.min(mio.bottom + 48 - caja.bottom, mio.top - caja.top);
+        if (falta > 1) menu.scrollBy({ top: falta, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      }, 120);
+    };
+    // Avisa al empezar y en cada cambio de alto, también los de la animación de apertura: la espera se reinicia hasta que para.
+    const observador = new ResizeObserver(ajustar);
+    observador.observe(el);
+    observador.observe(menu);
+    return () => { clearTimeout(espera); observador.disconnect(); };
+  }, [bloque, abierto]);
+}
+
+/**
  * Un módulo del menú a sangre con vistas (`lib/nav-submenus.ts`): su fila de siempre, un chevron que gira y debajo la lista
 
  * de sus vistas desplegada en línea, como Shopify: sin flechita, y solo abierto el módulo en el que estás.
@@ -184,12 +213,14 @@ const NavItemAcordeon = memo(function NavItemAcordeon({ item, rol, puedeVer, nue
   const dentro = pathname === item.href || pathname.startsWith(`${item.href}/`);
   // Como Shopify: solo está desplegado el módulo en el que estás; al pasar a otro, el anterior se cierra. Sin flechita.
   const abierto = dentro;
+  const bloque = useRef<HTMLDivElement>(null);
+  useSubmenuALaVista(bloque, abierto && hijos.length > 1);
   if (hijos.length < 2) {
     return <NavItem href={item.href} label={item.label} Icon={item.icon} nuevo={nuevo} contador={contador} contadorEtiqueta={contadorEtiqueta} onClick={onNavegar} />;
   }
   const idLista = `sub-${item.href.replace(/\W/g, '')}`;
   return (
-    <div className="relative" data-acordeon={item.href}>
+    <div ref={bloque} className="relative" data-acordeon={item.href}>
       <NavItem
         href={item.href} label={item.label} Icon={item.icon} nuevo={nuevo} contador={contador} contadorEtiqueta={contadorEtiqueta}
         onClick={onNavegar}
@@ -269,12 +300,23 @@ function BotonBuscarAjuste() {
  * detrás del menú (`z-10`) y con «reducir movimiento» se queda quieto. Decoración: `aria-hidden`.
  */
 function BrilloDelMarco() {
-  return (
-    <div aria-hidden className="shell-brillo pointer-events-none fixed bottom-0 left-0 z-10 hidden overflow-hidden lg:block" style={{ width: 'var(--sidebar-w)' }}>
+  const capas = (
+    <>
       <div className="shell-brillo-base" />
       <div className="shell-brillo-haz shell-brillo-haz-azul" />
       <div className="shell-brillo-haz shell-brillo-haz-magenta" />
-    </div>
+    </>
+  );
+  return (
+    <>
+      <div aria-hidden className="shell-brillo pointer-events-none fixed bottom-0 left-0 z-10 hidden overflow-hidden lg:block" style={{ width: 'var(--sidebar-w)' }}>
+        {capas}
+      </div>
+      {/* La misma luz, asomando por la esquina y la franja del marco (globals.css, `.shell-brillo-ventana`). */}
+      <div aria-hidden className="shell-brillo-ventana">
+        <div className="shell-brillo">{capas}</div>
+      </div>
+    </>
   );
 }
 
@@ -595,30 +637,37 @@ function BotonOjoPrivacidad() {
   );
 }
 
-const FilasDelMenu = memo(function FilasDelMenu({ secciones, horizontal, collapsed, sangre, conNovedad, sinLeerMensajes, porDecidir, rol, puedeVer }: {
+const FilasDelMenu = memo(function FilasDelMenu({ secciones, parte, horizontal, collapsed, sangre, conNovedad, sinLeerMensajes, porDecidir, rol, puedeVer }: {
   secciones: typeof navSections;
+  /** A sangre, «Configuración» va FUERA de la lista que se desplaza: `lista` la deja fuera y `anclado` pinta solo ella. */
+  parte?: 'lista' | 'anclado';
   horizontal: boolean; collapsed: boolean; sangre: boolean;
   conNovedad: ReadonlySet<string>; sinLeerMensajes: number; porDecidir: number;
   rol: Parameters<typeof submenuDe>[1]; puedeVer: (ruta: string) => boolean;
 }) {
   return (
     <>
-      {secciones.map((section, si) => (
+      {secciones.map((section, si) => {
+        const filas = section.items.filter(item => !parte || (item.href === ANCLADO) === (parte === 'anclado'));
+        if (parte && filas.length === 0) return null;
+        // El rótulo sale donde esté su grupo: un grupo que solo tiene «Configuración» lo lleva consigo abajo.
+        const conRotulo = parte !== 'anclado' || filas.length === section.items.length;
+        return (
         // `contents` en el grupo de Configuración (columna): su ítem va anclado abajo
         // (`position: sticky`) y un sticky solo se mueve dentro de su contenedor; si
         // ese fuera el grupo, que a veces queda entero bajo el pliegue, no se anclaría.
         <div key={si} className={cn((horizontal || section.items.some(i => i.href === ANCLADO)) && 'contents')}>
           {/* El rótulo del grupo no cabe tumbado: en horizontal manda el
               orden, que ya agrupa por sección. */}
-          {section.label && !collapsed && !horizontal && (
+          {section.label && !collapsed && !horizontal && conRotulo && (
             <p className={sangre ? 'px-3 pb-1 pt-4 text-[12px] font-medium leading-4 text-[#a6a6a6]' : 't-label px-3 pt-3 pb-1 text-white/50'}>
               {section.label}
             </p>
           )}
-          {section.label && collapsed && si > 0 && !horizontal && (
+          {section.label && collapsed && si > 0 && !horizontal && conRotulo && (
             <div className="mx-3 my-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }} />
           )}
-          {section.items.map(item => {
+          {filas.map(item => {
             const fila = sangre && !collapsed && !horizontal && Boolean(SUBMENUS[item.href]) ? (
               <NavItemAcordeon
                 key={item.href} item={item} rol={rol} puedeVer={puedeVer}
@@ -648,12 +697,15 @@ const FilasDelMenu = memo(function FilasDelMenu({ secciones, horizontal, collaps
             // menú no cabe entero y quedaba cortada bajo el pliegue (auditoría UX,
             // 10-nov-2026; OPEN DECISION 18). Fondo opaco para tapar lo que pasa por
             // debajo al desplazar. Tumbado (horizontal) la fila envuelve y no hace falta.
-            return item.href === ANCLADO && !horizontal
-              ? <div key={item.href} className={cn('sticky bottom-0 z-10 pt-1', sangre ? 'bg-[var(--shell-marco)]' : 'bg-[#0A0A0A]')}>{fila}</div>
+            // A sangre (`parte`) no hace falta ni se puede: va fuera de la lista, porque
+            // ese fondo cortaba el resplandor del menú.
+            return item.href === ANCLADO && !horizontal && !parte
+              ? <div key={item.href} className="sticky bottom-0 z-10 bg-[#0A0A0A] pt-1">{fila}</div>
               : fila;
           })}
         </div>
-      ))}
+        );
+      })}
     </>
   );
 });
@@ -880,9 +932,11 @@ export function Sidebar() {
     if (!el) return;
     const medir = () => setQuedaMenuAbajo(el.scrollHeight - el.scrollTop - el.clientHeight > 8);
     el.addEventListener('scroll', medir, { passive: true });
+    // Un submenú que se abre cambia lo que hay dentro sin cambiar la caja del menú: se vuelve a medir al terminar de abrirse.
+    el.addEventListener('transitionend', medir);
     const ro = new ResizeObserver(medir);
     ro.observe(el);
-    return () => { el.removeEventListener('scroll', medir); ro.disconnect(); };
+    return () => { el.removeEventListener('scroll', medir); el.removeEventListener('transitionend', medir); ro.disconnect(); };
   }, [horizontal, navMode, size, ocultos, activados, ordenMenu]);
 
 
@@ -922,8 +976,12 @@ export function Sidebar() {
         // enlace al portal fuera de la barra.
         ? 'flex min-w-0 flex-row flex-wrap items-center gap-1 py-1'
         : 'py-2 overflow-y-auto space-y-1',
+      sangre && !horizontal && 'min-h-0 flex-initial',
+      // A sangre, lo que queda por debajo se DESVANECE: un degradado negro encima cortaba en seco el resplandor del menú.
+      sangre && quedaMenuAbajo && '[mask-image:linear-gradient(to_top,transparent,#000_3rem)]',
     )}>
       <FilasDelMenu
+        parte={sangre && !horizontal ? 'lista' : undefined}
         secciones={seccionesVisibles} horizontal={horizontal} collapsed={collapsed} sangre={sangre}
         conNovedad={conNovedad} sinLeerMensajes={sinLeerMensajes} porDecidir={porDecidir} rol={rol} puedeVer={puedeVer}
       />
@@ -1102,16 +1160,26 @@ export function Sidebar() {
         {horizontal ? menu : enConfiguracion ? <MenuConfiguracion modulos={seccionesVisibles.flatMap(s => s.items)} tienda={studio?.nombre ?? marca} direccion={studioSlug ? `tentare.app/${studioSlug}` : null} /> : (
           // `min-h-0`: sin él la envoltura crece hasta el alto del menú entero
           // y el `overflow-y-auto` del <nav> no tiene nada que desplazar.
-          <div className="relative flex min-h-0 flex-1 flex-col">
-            {menu}
-            {quedaMenuAbajo && (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center pb-1"
-                style={{ background: `linear-gradient(to top, ${sangre ? 'var(--shell-marco)' : '#0A0A0A'} 35%, transparent)` }}
-              >
-                <ChevronDown size={14} className="text-white/50" />
-              </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className={cn('relative flex min-h-0 flex-col', sangre ? 'flex-initial' : 'flex-1')}>
+              {menu}
+              {quedaMenuAbajo && (
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 flex h-12 items-end justify-center pb-1"
+                  style={sangre ? undefined : { background: 'linear-gradient(to top, #0A0A0A 35%, transparent)' }}
+                >
+                  <ChevronDown size={14} className="text-white/50" />
+                </div>
+              )}
+            </div>
+            {sangre && (
+              <nav aria-label="Ajustes del panel" data-menu-anclado className="shrink-0 px-2 pb-1">
+                <FilasDelMenu
+                  parte="anclado" secciones={seccionesVisibles} horizontal={false} collapsed={collapsed} sangre
+                  conNovedad={conNovedad} sinLeerMensajes={sinLeerMensajes} porDecidir={porDecidir} rol={rol} puedeVer={puedeVer}
+                />
+              </nav>
             )}
           </div>
         )}
