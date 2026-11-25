@@ -48,101 +48,63 @@ export function TarjetasPrecios({ anualDisponible }: { anualDisponible: boolean 
   const anual = intervalo === 'anual';
   return (
     <>
-      {anualDisponible && (
-        <div style={{ display: 'flex', justifyContent: 'center', margin: '0 0 28px' }}>
-          <SelectorIntervalo valor={elegido} onCambio={setElegido} etiquetaAnual="Anual · 2 meses gratis" />
-        </div>
-      )}
+      <div className="psh-barra">
+        {anualDisponible
+          ? <SelectorIntervalo valor={elegido} onCambio={setElegido} etiquetaAnual="Anual · 2 meses gratis" oscuro />
+          : <span />}
+        <a className="psh-enlace" href="#comparar">Comparar todas las características</a>
+      </div>
       <div className="pre-grid">
-          {PLANES.map((p) => {
-            const destacado = p === 'ESTUDIO';
-            const inc = INCLUYE[p];
-            return (
-              <div
-                key={p}
-                className={destacado ? 'pre-card pre-card-rec' : 'pre-card'}
-                style={{
-                  background: destacado ? 'var(--w-noche)' : 'var(--w-papel)',
-                  color: destacado ? 'var(--w-sobre-noche)' : undefined,
-                  border: destacado ? 'none' : '1px solid var(--w-linea)',
-                  borderRadius: 'var(--w-r-tarjeta)', padding: destacado ? 'clamp(30px,3.4vw,40px) clamp(26px,3vw,34px)' : 'clamp(26px,3vw,34px)', position: 'relative',
-                  boxShadow: destacado ? 'var(--w-sombra-flotante)' : undefined,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, minHeight: 26 }}>
-                  <div style={{ fontSize: 16, fontWeight: 600, color: destacado ? 'var(--w-sand)' : 'var(--w-texto)' }}>{p === 'BASE' ? <NombrePlan plan={p} tamano={26} /> : PLAN_INFO[p].nombre}</div>
-                  {destacado && (
-                    <span style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--w-olive)', background: 'var(--w-sand)', borderRadius: 999, padding: '4px 10px' }}>
-                      {RESUMEN[p].gancho}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: 46, fontWeight: 600, letterSpacing: '-.035em', color: destacado ? 'var(--w-sobre-noche)' : 'var(--w-texto)', lineHeight: 1 }}>
-                  {p === 'BASE' ? 'Gratis' : <>{euros(importeDe(PLAN_INFO[p].precioMes, intervalo))}€<span style={{ fontSize: 15, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)' }}>/{anual ? 'año' : 'mes'}</span></>}
-                </div>
-                {/* «IVA incluido» pegado a la cifra, no en una nota al pie de la
-                    página: el precio de un SaaS español se lee para compararlo
-                    con otro, y "29 €" sin decir nada admite dos lecturas que se
-                    llevan un 21%. Misma frase que ya se ve en /suscripcion, que
-                    la pidió una clienta con estas palabras (P2-20). */}
+        {PLANES.map((p) => {
+          const inc = INCLUYE[p];
+          return (
+            <section key={p} className="psh-plan" aria-label={PLAN_INFO[p].nombre}>
+              <div className="psh-plan-cabeza">
+                <h2>{p === 'BASE' ? <NombrePlan plan={p} tamano={22} /> : PLAN_INFO[p].nombre}</h2>
+                <p className="psh-precio">
+                  {p === 'BASE' ? 'Gratis' : <>{euros(importeDe(PLAN_INFO[p].precioMes, intervalo))} €<span>/{anual ? 'año' : 'mes'}</span></>}
+                </p>
+              </div>
+              {/* Para quién es: lo primero que se lee tras el precio. */}
+              <p className="psh-para">{p === 'ESTUDIO' ? `${RESUMEN[p].gancho} · ${RESUMEN[p].para}` : RESUMEN[p].para}</p>
+              {/* Alto fijo en escritorio: los tres botones quedan a la misma altura. */}
+              <div className="psh-notas">
+                {/* «IVA incluido» pegado a la cifra, no en una nota al pie: el precio de un SaaS español se lee para
+                    compararlo con otro, y «29 €» sin decir nada admite dos lecturas que se llevan un 21 %. */}
                 {p === 'BASE' ? (
                   <>
-                    {/* Lo gratis tiene un límite de cobros; pasado, el mismo plan a su precio. */}
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--w-texto-3)', marginTop: 9, lineHeight: 1.45 }}>
-                      {TOPE_GRATIS} · {SI_PASAS_CON_COMPLEMENTOS}
-                    </div>
+                    {/* Lo gratis tiene un límite; pasado, el mismo plan a su precio. */}
+                    <p className="psh-nota">{TOPE_GRATIS} · {SI_PASAS_CON_COMPLEMENTOS}</p>
                     {anual && (
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--w-texto-2)', marginTop: 6, lineHeight: 1.45 }}>
+                      <p className="psh-nota psh-nota--fuerte">
                         Pagando el año: {euros(importeDe(PLAN_INFO.BASE.precioMes, 'anual'))} € en vez de {euros(PLAN_INFO.BASE.precioMes * 12)} €. {textoAhorro(PLAN_INFO.BASE.precioMes)}.
-                      </div>
+                      </p>
                     )}
-                    {/* La frase del fundador, junto a Founding Studio. En la
-                        cursiva de su nombre (NombrePlan): es una promesa, no un dato. */}
-                    <p className="nombre-plan-founding" style={{ fontSize: 19, lineHeight: 1.3, color: 'var(--w-texto)', margin: '12px 0 0' }}>{FRASE_FOUNDING}</p>
+                    <p className="psh-frase nombre-plan-founding">{FRASE_FOUNDING}</p>
                   </>
                 ) : (
-                  <div style={{ fontSize: 13.5, fontWeight: 500, color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)', marginTop: 9 }}>
-                    {anual ? `Facturado ${euros(importeDe(PLAN_INFO[p].precioMes, 'anual'))} € al año · IVA incluido` : 'IVA incluido'}
-                    {anual && (
-                      <div style={{ marginTop: 4, fontWeight: 600, color: destacado ? 'var(--w-sand)' : 'var(--w-exito)' }}>
-                        {textoAhorro(PLAN_INFO[p].precioMes)} · 2 meses gratis
-                      </div>
-                    )}
-                  </div>
+                  <>
+                    <p className="psh-nota">{anual ? `Facturado ${euros(importeDe(PLAN_INFO[p].precioMes, 'anual'))} € al año · IVA incluido` : 'IVA incluido'}</p>
+                    {anual && <p className="psh-nota psh-nota--fuerte">{textoAhorro(PLAN_INFO[p].precioMes)} · 2 meses gratis</p>}
+                  </>
                 )}
-                {/* Para quién es: lo primero que se lee tras el precio. */}
-                <p style={{ fontSize: 15, fontWeight: 500, lineHeight: 1.45, color: destacado ? 'var(--w-sobre-noche)' : 'var(--w-texto)', margin: '14px 0 0' }}>{RESUMEN[p].para}</p>
-                <Link
-                  href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'}
-                  className="block hover:brightness-110 transition-all"
-                  style={{ textAlign: 'center', display: 'block', background: destacado ? 'var(--w-sand)' : 'var(--w-olive)', color: destacado ? 'var(--w-olive)' : 'var(--w-sand)', fontWeight: 600, fontSize: destacado ? 16 : 15, padding: destacado ? '15px 18px' : '13px 18px', borderRadius: 999, textDecoration: 'none', marginTop: 20 }}
-                >
-                  {RESUMEN[p].cta}
-                </Link>
-                <p style={{ fontSize: 12.5, lineHeight: 1.4, textAlign: 'center', color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)', margin: '10px 0 0' }}>
-                  Sin permanencia · Cancela cuando quieras
-                </p>
-                {anual && p !== 'CADENA' && (
-                  <p style={{ fontSize: 12.5, lineHeight: 1.4, textAlign: 'center', color: destacado ? 'var(--w-sobre-noche-3)' : 'var(--w-texto-3)', margin: '4px 0 0' }}>
-                    Empiezas gratis; el pago anual lo eliges al contratar.
-                  </p>
-                )}
-                <div style={{ height: 1, background: destacado ? 'rgba(255,255,255,.14)' : 'var(--w-linea)', margin: '20px 0 16px' }} />
-                {inc.intro && <p style={{ fontSize: 13.5, fontWeight: 600, margin: '0 0 10px', color: destacado ? 'var(--w-sand)' : 'var(--w-texto)' }}>{inc.intro}</p>}
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 9 }}>
-                  {inc.items.map((t) => (
-                    <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14, lineHeight: 1.45, color: destacado ? 'var(--w-sobre-noche-2)' : 'var(--w-texto-2)' }}>
-                      <span aria-hidden="true" style={{ color: destacado ? 'var(--w-sand)' : 'var(--w-exito)', flexShrink: 0 }}>✓</span>{t}
-                    </li>
-                  ))}
-                </ul>
               </div>
-            );
-          })}
-        </div>
-        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--w-texto-3)', margin: '22px 0 0' }}>
-          Pagos seguros con Stripe · Configuración guiada · Precios con IVA incluido
-        </p>
+              <Link href={p === 'CADENA' ? 'mailto:hola@tentare.app?subject=Plan%20Cadena' : '/crear-estudio'} className="psh-boton">
+                {RESUMEN[p].cta}
+              </Link>
+              <p className="psh-bajo">
+                Sin permanencia · Cancela cuando quieras
+                {anual && p !== 'CADENA' && <><br />Empiezas gratis; el pago anual lo eliges al contratar.</>}
+              </p>
+              <ul className="psh-lista">
+                {inc.intro && <li className="psh-lista-intro">{inc.intro}</li>}
+                {inc.items.map((texto) => <li key={texto}>{texto}</li>)}
+              </ul>
+            </section>
+          );
+        })}
+      </div>
+      <p className="psh-pie-planes">Pagos seguros con Stripe · Configuración guiada · Precios con IVA incluido</p>
     </>
   );
 }

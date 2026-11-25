@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -12,9 +12,13 @@ import { ComparativaPlanes } from '@/components/planes/comparativa-planes';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
 import { anualDisponible } from '@/lib/billing/billing';
 import { TarjetasPrecios } from '@/components/precios/tarjetas-precios';
-import { COMPLEMENTOS_DE_PAGO, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS } from '@/lib/landing/founding-gratis';
+import { COMPLEMENTOS_DE_PAGO, GRATIS_MARGEN_DIAS, GRATIS_RESERVAS_MES, LIMITES_GRATIS, PRECIO_FOUNDING_PAGO, SI_PASAS, CTA_ALTA } from '@/lib/landing/founding-gratis';
 import { funcionalidades, paginaDe, urlDe } from '@/lib/seo/paginas';
 import { softwareApplicationLd } from '@/lib/seo/software-application';
+import { ADDONS, LISTA_ADDONS, type Addon, type Plan } from '@/lib/billing/entitlements';
+import Image from 'next/image';
+import { variablesInter } from '../_fuentes/fuentes-inter';
+import './precios.css';
 
 const PATH = '/precios';
 const pagina = paginaDe(PATH)!;
@@ -71,6 +75,28 @@ const FAQ = [
   },
 ];
 
+// Lo que va en todos los planes, enseñado con capturas del propio producto.
+const SIEMPRE = [
+  { img: '/landing-nueva/panel-resumen-1600.webp', w: 1600, h: 1000, titulo: 'Tu estudio en un panel', texto: 'Calendario por semana, día y sala, con control de asistencia y check-in.', grande: true },
+  { img: '/landing/capturas/app-alumna-inicio-v2-estudio-pilates-780.webp', w: 780, h: 1696, titulo: 'La app de tus alumnas, con tu marca', texto: 'Reserva, bonos, facturas y pase de acceso, desde el móvil.', grande: true },
+  { img: '/landing/capturas/app-alumna-reservar-manana-780.webp', w: 780, h: 1696, titulo: 'Reservas y lista de espera', texto: 'Cuando alguien cancela, la plaza se ofrece sola a la siguiente.', grande: false },
+  { img: '/landing/capturas/app-alumna-mi-plan-780.webp', w: 780, h: 1696, titulo: 'Bonos y cuotas', texto: 'Cuotas mensuales, bonos de sesiones y renovación automática.', grande: false },
+  { img: '/producto/v2/panel-clientas-1110.webp', w: 1110, h: 489, titulo: 'Fichas de tus alumnas', texto: 'Historial, ficha de salud con permisos aparte e importación desde tu plataforma actual.', grande: false },
+];
+
+const COMPLEMENTOS: Record<Addon, { img: string; w: number; h: number; href: string }> = {
+  decisiones: { img: '/landing-nueva/meditacion-1400.webp', w: 1400, h: 788, href: '/funcionalidades/informes' },
+  sustituciones: { img: '/landing/fotos/reformers-madera-tapizado-negro-plazas-1440.webp', w: 1440, h: 900, href: '/funcionalidades/sustituciones' },
+  ia: { img: '/landing-nueva/retrato-1600.webp', w: 1600, h: 900, href: '/funcionalidades/ficha-de-clienta' },
+};
+
+const botonDeTabla = (href: string, texto: string) => <Link href={href} className="psh-boton psh-boton--tabla">{texto}</Link>;
+const BOTONES_TABLA: Record<Plan, ReactNode> = {
+  BASE: botonDeTabla('/crear-estudio', CTA_ALTA),
+  ESTUDIO: botonDeTabla('/crear-estudio', CTA_ALTA),
+  CADENA: botonDeTabla('mailto:hola@tentare.app?subject=Plan%20Cadena', 'Hablar con nosotros'),
+};
+
 export default function PreciosPage() {
   // SoftwareApplication + Offer: el MISMO nodo (`/#software`) que pinta la home,
   // construido en lib/seo/software-application.ts (con las ofertas de Founding
@@ -83,128 +109,126 @@ export default function PreciosPage() {
       <OrganizationStructuredData />
       <PageBreadcrumb path={PATH} name="Precios" />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ofertaLd).replace(/</g, '\\u003c') }} />
-      <IslaWeb />
+      <div className={`psh ${variablesInter}`}>
+        <IslaWeb />
 
-      <header style={{ position: 'relative', padding: 'clamp(44px,6.5vw,84px) clamp(20px,4vw,44px) clamp(26px,3.5vw,38px)', textAlign: 'center' }}>
-        <div style={{ position: 'relative', maxWidth: 720, margin: '0 auto' }}>
-          <h1 style={{ fontWeight: 600, fontSize: 'clamp(36px,5.2vw,60px)', lineHeight: 1.04, letterSpacing: 'var(--w-track-display)', margin: '0 0 18px', color: 'var(--w-texto)' }}>
+        <header className="psh-heroe">
+          <h1>
             <PildoraBusqueda centrada>Precios del software para estudios de Pilates</PildoraBusqueda>
-            Precio público.<br />Sin permanencia.
+            Precio público. Sin permanencia.
           </h1>
-          <p style={{ fontSize: 'clamp(17px,1.5vw,20px)', lineHeight: 1.55, color: 'var(--w-texto-2)', margin: '0 auto', maxWidth: 560 }}>
+          <p>
             Tres planes, publicados. Sin «solicita una demo para saber el precio», sin comisión sobre tus cobros y sin
             permanencia (también si pagas por años).
           </p>
-          <p style={{ display: 'inline-block', marginTop: 20, padding: '8px 16px', borderRadius: 999, background: 'var(--w-olive)', color: 'var(--w-sand)', fontSize: 14, fontWeight: 600 }}>
-            Empieza gratis · Sin tarjeta de crédito
-          </p>
+          <p className="psh-gratis">Empieza gratis · Sin tarjeta de crédito</p>
+        </header>
+
+        <div className="psh-ancho psh-planes">
+          <TarjetasPrecios anualDisponible={anualDisponible()} />
         </div>
-      </header>
 
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 clamp(20px,4vw,44px) clamp(52px,7vw,84px)' }}>
-        <TarjetasPrecios anualDisponible={anualDisponible()} />
-
-        {/* Respuesta directa a la pregunta que se hace quien compara: pasaje
-            autocontenido de ~130 palabras, con las cifras de entitlements.ts
-            (nunca escritas a mano). Lo lee igual una persona que un buscador. */}
-        <section style={{ marginTop: 'clamp(48px,6vw,72px)' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 12px' }}>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
-          <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--w-texto-2)', margin: 0, maxWidth: 820 }}>
-            Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
-            {LIMITES_GRATIS}; {SI_PASAS}, y con ese plan {COMPLEMENTOS_DE_PAGO} van aparte), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
-            {PLAN_INFO.ESTUDIO.nombre}, que los incluye, y{' '}
-            {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
-            Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
-            cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. Traer
-            tus datos desde otra plataforma no se cobra aparte.
-          </p>
-        </section>
-
-        <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Todo lo que incluye Tentare</h2>
-          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>
-            Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es cuánto se automatiza y se
-            controla —Centro de Control, sustituciones autónomas, IA— y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
-          </p>
-          {/* La isla de navegación va pegada arriba: la cabecera de la tabla se queda justo debajo. */}
-          <div style={{ '--cmp-tope': '80px' } as CSSProperties}>
-            <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
-          </div>
-          <p style={{ fontSize: 14, color: 'var(--w-texto-3)', margin: '14px 0 0' }}>
-            Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
-          </p>
-        </section>
-
-        <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Qué se paga aparte y qué no</h2>
-          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 22px' }}>Dicho antes de que lo preguntes, porque es donde el sector suele esconder cosas.</p>
-          <div className="pre-dos">
-            <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-exito)', marginBottom: 14 }}>Incluido en la cuota</div>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal correlativa', 'Exportación de tus datos cuando quieras'].map((t) => (
-                  <li key={t} style={{ display: 'flex', gap: 9, fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
-                    <span style={{ color: 'var(--w-exito)', flexShrink: 0 }}>✓</span>{t}
-                  </li>
-                ))}
-              </ul>
+        <div className="psh-banda">
+          <div className="psh-ancho">
+            <h2>Siempre incluido</h2>
+            <div className="psh-incluidos">
+              {SIEMPRE.map((s) => (
+                <article key={s.titulo} className={s.grande ? 'psh-incluido psh-incluido--grande' : 'psh-incluido'}>
+                  <div className="psh-marco"><Image src={s.img} alt="" width={s.w} height={s.h} sizes={s.grande ? '(max-width: 900px) 100vw, 620px' : '(max-width: 900px) 100vw, 400px'} /></div>
+                  <h3>{s.titulo}</h3>
+                  <p>{s.texto}</p>
+                </article>
+              ))}
             </div>
-            <div style={{ background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 'var(--w-r-tarjeta)', padding: '24px 26px' }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--w-aviso)', marginBottom: 14 }}>No lo cobramos nosotros</div>
-              <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'grid', gap: 10 }}>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
-                  <strong>La comisión de Stripe</strong> por procesar cada cobro con tarjeta. Es de Stripe, la ves en su
-                  panel y Tentare no añade nada encima.
-                </li>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
-                  <strong>Tu número de WhatsApp Business</strong>, si quieres enviar por ese canal: se conecta tu propia
-                  cuenta de Meta, no una compartida.
-                </li>
-                <li style={{ fontSize: 14.5, lineHeight: 1.5, color: 'var(--w-texto)' }}>
-                  <strong>Lo que te cobre tu banco</strong> por presentar remesas SEPA, si cobras por domiciliación.
-                </li>
-              </ul>
+
+            <h2 className="psh-sep">Complementos para {PLAN_INFO.BASE.nombre} de pago</h2>
+            <div className="psh-extras">
+              {LISTA_ADDONS.map((a) => (
+                <article key={a} className="psh-extra">
+                  <Image src={COMPLEMENTOS[a].img} alt="" width={COMPLEMENTOS[a].w} height={COMPLEMENTOS[a].h} sizes="(max-width: 900px) 100vw, 400px" />
+                  <div className="psh-extra-cabeza">
+                    <h3>{ADDONS[a].nombre}</h3>
+                    <span className="psh-etiqueta">Complemento</span>
+                    <p className="psh-precio">+{ADDONS[a].precioMes} €<span>/mes</span></p>
+                  </div>
+                  <p>{ADDONS[a].resumen}</p>
+                  <Link href={COMPLEMENTOS[a].href} className="psh-boton">Más información</Link>
+                </article>
+              ))}
+            </div>
+
+            {/* Respuesta directa a la pregunta que se hace quien compara: pasaje
+                autocontenido, con las cifras de entitlements.ts (nunca escritas a
+                mano). Lo lee igual una persona que un buscador. */}
+            <section className="psh-caja psh-sep">
+              <h2>¿Cuánto cuesta un software de gestión para un estudio de Pilates?</h2>
+              <p>
+                Tentare es gratis en el plan {PLAN_INFO.BASE.nombre} (todas las funcionalidades menos varias sedes,{' '}
+                {LIMITES_GRATIS}; {SI_PASAS}, y con ese plan {COMPLEMENTOS_DE_PAGO} van aparte), cuesta {PLAN_INFO.ESTUDIO.precioMes} € al mes en el plan{' '}
+                {PLAN_INFO.ESTUDIO.nombre}, que los incluye, y{' '}
+                {PLAN_INFO.CADENA.precioMes} € en el plan {PLAN_INFO.CADENA.nombre} (dos o más centros bajo la misma marca).
+                Los precios son públicos, con IVA incluido y sin permanencia. Tentare no añade ninguna comisión sobre lo que
+                cobras a tus alumnas: solo pagas la de Stripe por procesar cada cobro con tarjeta, que es de Stripe. Traer
+                tus datos desde otra plataforma no se cobra aparte.
+              </p>
+            </section>
+
+            <h2 className="psh-sep">Qué se paga aparte y qué no</h2>
+            <p className="psh-entradilla">Dicho antes de que lo preguntes, porque es donde el sector suele esconder cosas.</p>
+            <div className="pre-dos">
+              <div className="psh-caja">
+                <h3>Incluido en la cuota</h3>
+                <ul>
+                  {['Todas las funcionalidades de tu plan', 'Actualizaciones y funciones nuevas', 'Importación de tus datos desde otra plataforma', 'Soporte en español', 'Facturas con numeración legal correlativa', 'Exportación de tus datos cuando quieras'].map((t) => <li key={t}>{t}</li>)}
+                </ul>
+              </div>
+              <div className="psh-caja">
+                <h3>No lo cobramos nosotros</h3>
+                <ul>
+                  <li><strong>La comisión de Stripe</strong> por procesar cada cobro con tarjeta. Es de Stripe, la ves en su panel y Tentare no añade nada encima.</li>
+                  <li><strong>Tu número de WhatsApp Business</strong>, si quieres enviar por ese canal: se conecta tu propia cuenta de Meta, no una compartida.</li>
+                  <li><strong>Lo que te cobre tu banco</strong> por presentar remesas SEPA, si cobras por domiciliación.</li>
+                </ul>
+              </div>
             </div>
           </div>
-        </section>
+        </div>
 
-        <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 18px' }}>Preguntas sobre el precio</h2>
-          <FeatureFaq items={FAQ} />
-        </section>
-
-        <section style={{ marginTop: 'clamp(44px,5.5vw,68px)' }}>
-          <h2 style={{ fontWeight: 600, fontSize: 'clamp(24px,2.8vw,34px)', letterSpacing: 'var(--w-track-h2)', color: 'var(--w-texto)', margin: '0 0 8px' }}>Antes de decidir</h2>
-          <p style={{ fontSize: 16, color: 'var(--w-texto-2)', margin: '0 0 20px' }}>Mira en detalle lo que vas a usar cada día.</p>
-          <div className="pre-links">
-            {funcionalidades().slice(0, 6).map((f) => (
-              <Link key={f.path} href={f.path} style={{ display: 'block', background: 'var(--w-papel)', border: '1px solid var(--w-linea)', borderRadius: 16, padding: '15px 17px', textDecoration: 'none', color: 'inherit', fontSize: 14.5, fontWeight: 600 }}>
-                {f.etiqueta}
-              </Link>
-            ))}
+        <section id="comparar" className="psh-comparar">
+          <div className="psh-ancho">
+            <h2>Todo lo que incluye Tentare</h2>
+            <p className="psh-entradilla">
+              Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es cuánto se automatiza y se
+              controla —Centro de Control, sustituciones autónomas, IA— y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
+            </p>
+            {/* La isla de navegación va pegada arriba: la cabecera de la tabla se queda justo debajo. */}
+            <div style={{ '--cmp-tope': '80px' } as CSSProperties}>
+              <ComparativaPlanes todoAbierto foundingGratis acciones={BOTONES_TABLA} />
+            </div>
+            <p className="psh-entradilla">
+              Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades">ver todas</Link>
+            </p>
           </div>
-          <p style={{ fontSize: 15, color: 'var(--w-texto-2)', margin: '18px 0 0' }}>
-            Y si vienes de otra plataforma, la <Link href="/comparativa" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>comparativa</Link> va punto
-            por punto.
-          </p>
         </section>
+
+        <div className="psh-cierre">
+          <div className="psh-ancho">
+            <h2>Preguntas sobre el precio</h2>
+            <FeatureFaq items={FAQ} />
+
+            <h2 className="psh-sep">Antes de decidir</h2>
+            <p className="psh-entradilla">Mira en detalle lo que vas a usar cada día.</p>
+            <div className="psh-enlaces">
+              {funcionalidades().slice(0, 6).map((f) => <Link key={f.path} href={f.path} className="psh-boton">{f.etiqueta}</Link>)}
+            </div>
+            <p className="psh-entradilla">
+              Y si vienes de otra plataforma, la <Link href="/comparativa">comparativa</Link> va punto por punto.
+            </p>
+          </div>
+        </div>
       </div>
 
       <PieWeb />
-
-      <style>{`
-        .pre-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; align-items: start; }
-        .pre-card-rec { transform: translateY(-14px); }
-        .pre-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-        .pre-links { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-        @media (max-width: 900px) {
-          .pre-card-rec { transform: none; }
-          .pre-grid { grid-template-columns: 1fr; max-width: 440px; margin: 0 auto; }
-          .pre-dos { grid-template-columns: 1fr; }
-          .pre-links { grid-template-columns: 1fr 1fr; }
-        }
-        @media (max-width: 560px) { .pre-links { grid-template-columns: 1fr; } }
-      `}</style>
     </PageShell>
   );
 }

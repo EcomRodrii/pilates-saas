@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { Check, Minus, ChevronDown } from 'lucide-react';
 import { PLANES, PLAN_INFO, type Plan } from '@/lib/billing/entitlements';
 import { CATEGORIAS, FILA_TOPE_ALUMNAS, valorFoundingGratis, type FilaPlan, type ValorPlan } from '@/lib/billing/catalogo-planes';
@@ -50,10 +50,14 @@ export function ComparativaPlanes({
    *  columna enseña todo menos varias sedes, «Gratis» en vez del precio y la
    *  fila de reservas al mes, que solo tiene tope en ese plan. */
   foundingGratis = false,
+  acciones,
 }: {
   destacado?: Plan;
   todoAbierto?: boolean;
   foundingGratis?: boolean;
+  /** Lo que va bajo el nombre de cada plan en la cabecera: el botón, en /precios.
+   *  Elementos y no una función: /precios es de servidor y esto es de cliente. */
+  acciones?: Partial<Record<Plan, ReactNode>>;
 }) {
   const valorDe = (fila: FilaPlan, p: Plan): ValorPlan => {
     if (!foundingGratis || p !== 'BASE') return fila.valor(p);
@@ -71,12 +75,13 @@ export function ComparativaPlanes({
   return (
     // `overflow-clip` y no `hidden`: recorta igual las esquinas, pero no crea un
     // contenedor de scroll, que es lo que impedía a la cabecera quedarse pegada.
-    <div className="overflow-clip rounded-2xl border border-border bg-card">
+    // Los `data-cmp` son para el aspecto de la web pública (app/precios/precios.css).
+    <div data-cmp="tabla" className="overflow-clip rounded-2xl border border-border bg-card">
       {/* Cabecera pegajosa contra el scroll de la página. `--cmp-tope` es lo que
           tapa cada pantalla por arriba (la isla de la web); sin él, 0. En móvil
           no hay scroll horizontal: el nombre de cada fila va encima y debajo las
           tres columnas, así que ningún plan queda fuera de la pantalla. */}
-      <div className={`${COLUMNAS} sticky top-[var(--cmp-tope,0px)] z-10 items-end border-b border-border bg-muted py-3`}>
+      <div data-cmp="cabecera" className={`${COLUMNAS} sticky top-[var(--cmp-tope,0px)] z-10 items-end border-b border-border bg-muted py-3`}>
         <span className="hidden text-[11px] font-semibold uppercase tracking-wider text-muted-foreground sm:block">
           Funcionalidad
         </span>
@@ -91,6 +96,7 @@ export function ComparativaPlanes({
             <span className="block text-[11px] font-medium tabular-nums text-foreground">
               {foundingGratis && p === 'BASE' ? 'Gratis' : `${PLAN_INFO[p].precioMes}€`}
             </span>
+            {acciones?.[p]}
           </span>
         ))}
       </div>
@@ -114,6 +120,7 @@ export function ComparativaPlanes({
             {cat.filas.flatMap((fila) => (foundingGratis && fila.id === FILA_TOPE_ALUMNAS ? [fila, filaReservas] : [fila])).map((fila) => (
               <div
                 key={fila.nombre}
+                data-cmp="fila"
                 className={`${COLUMNAS} items-center gap-y-2 py-2.5 odd:bg-muted/25`}
               >
                 <div className="col-span-3 min-w-0 sm:col-span-1 sm:pr-2">
