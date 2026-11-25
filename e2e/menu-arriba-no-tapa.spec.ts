@@ -48,40 +48,45 @@ async function bordes(page: Page) {
   });
 }
 
+/**
+ * Espera a que la barra esté ARRIBA y lo pegado quede por debajo, y devuelve las
+ * medidas. La posición del menú llega de `/api/layout` y el hueco se mide después:
+ * mirando una sola vez se medía el panel a medio colocar (la barra aún lateral, de
+ * 884 px de alto, o el hueco a medias) y el test fallaba a ratos. Si el buscador
+ * se queda metido en el menú, esto no se cumple nunca y falla igual.
+ */
+async function asentado(page: Page, cuando: string) {
+  let ultimo: Awaited<ReturnType<typeof bordes>> = null;
+  await expect.poll(async () => {
+    ultimo = await bordes(page);
+    // Más de 100: envuelve en varias filas (si no, no hay nada que tapar).
+    // Menos de 500: ya es la barra de arriba y no la lateral.
+    if (!ultimo || ultimo.barraAlto <= 100 || ultimo.barraAlto >= 500) return `sin colocar: ${JSON.stringify(ultimo)}`;
+    return ultimo.pegadoArriba >= ultimo.barraAbajo ? 'ok' : `metido en el menú: ${JSON.stringify(ultimo)}`;
+  }, { message: cuando, timeout: 20_000 }).toBe('ok');
+  return ultimo!;
+}
+
 test.describe('Menú arriba', () => {
   test('el buscador no se mete en la barra, ni quieto ni al scrollear', async ({ page }) => {
     await panelConMenuArriba(page, 1512);
-
-    const inicial = await bordes(page);
-    expect(inicial, 'no se montó el panel en horizontal').not.toBeNull();
-    // Guardia contra el verde por vacío: si la barra no hubiera envuelto, este
-    // test no estaría midiendo el caso que importa.
-    expect(inicial!.barraAlto, 'la barra no llegó a tener más de una fila').toBeGreaterThan(100);
-    expect(inicial!.pegadoArriba).toBeGreaterThanOrEqual(inicial!.barraAbajo);
+    await asentado(page, 'recién montado');
 
     await page.evaluate(() => window.scrollTo(0, 700));
-    await page.waitForTimeout(400);
-    const scrolleado = await bordes(page);
-    expect(scrolleado!.pegadoArriba, 'al scrollear el buscador se ha metido dentro del menú')
-      .toBeGreaterThanOrEqual(scrolleado!.barraAbajo);
+    await asentado(page, 'al scrollear el buscador se ha metido dentro del menú');
   });
 
   test('sigue sin taparse cuando la barra CRECE por estrechar la ventana', async ({ page }) => {
     // El caso que rompía: la barra gana una fila DESPUÉS de haberse medido.
     await panelConMenuArriba(page, 1512);
-    const ancho = await bordes(page);
+    const ancho = await asentado(page, 'recién montado');
 
     await page.setViewportSize({ width: 1180, height: 900 });
-    await page.waitForTimeout(600);
-    const estrecho = await bordes(page);
-
-    expect(estrecho!.barraAlto, 'estrechando la ventana la barra tenía que ganar una fila')
-      .toBeGreaterThan(ancho!.barraAlto);
-    expect(estrecho!.pegadoArriba).toBeGreaterThanOrEqual(estrecho!.barraAbajo);
+    await expect.poll(async () => (await bordes(page))?.barraAlto ?? 0, { message: 'estrechando la ventana la barra tenía que ganar una fila', timeout: 20_000 })
+      .toBeGreaterThan(ancho.barraAlto);
+    await asentado(page, 'tras estrechar la ventana');
 
     await page.evaluate(() => window.scrollTo(0, 700));
-    await page.waitForTimeout(400);
-    const final = await bordes(page);
-    expect(final!.pegadoArriba).toBeGreaterThanOrEqual(final!.barraAbajo);
+    await asentado(page, 'estrecha y scrolleada');
   });
 });
