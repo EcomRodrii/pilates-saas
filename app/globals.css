@@ -1713,14 +1713,17 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 /* El resplandor de abajo del menú, con el color de Tentare (turquesa → magenta en el haz). */
 .shell-brillo {
   height: 400px;
-  /* La misma máscara horizontal que el resplandor de ancho completo (medida en Shopify): el del menú también baja hacia su borde derecho
-     (a 224 px de 1440, ~70 %), y así enlaza sin corte con la franja y la esquina de debajo del lienzo. */
-  -webkit-mask-image: linear-gradient(90deg, #000 8.08vw, transparent 36.19vw);
-  mask-image: linear-gradient(90deg, #000 8.08vw, transparent 36.19vw);
+  /* La misma máscara horizontal en el menú y en su continuación por la franja, medida píxel a píxel sobre la captura de Shopify que
+     marcó el fundador (25-nov-2026): entera hasta el 8,7 vw y apagada en el 48,6 vw, así que a 224 px de 1440 queda al ~84 %. */
+  -webkit-mask-image: linear-gradient(90deg, #000 8.7vw, transparent 48.6vw);
+  mask-image: linear-gradient(90deg, #000 8.7vw, transparent 48.6vw);
 }
 .shell-brillo-base {
   position: absolute; inset: 0;
-  background: linear-gradient(rgba(62, 106, 130, 0) 81.93%, rgba(62, 106, 130, 0.68) 96.87%, rgba(76, 156, 176, 0.68) 100%);
+  /* Sube desde unos 200 px por encima del borde, como en aquella captura (antes se encendía solo en los últimos 70 px y la esquina
+     quedaba apagada). */
+  background: linear-gradient(rgba(62, 106, 130, 0) 50%, rgba(62, 106, 130, 0.07) 57%, rgba(62, 106, 130, 0.18) 66.5%, rgba(62, 106, 130, 0.45) 75.75%,
+    rgba(64, 114, 138, 0.62) 85.25%, rgba(68, 126, 150, 0.7) 91.5%, rgba(73, 144, 166, 0.83) 97.75%, rgba(76, 156, 176, 0.9) 100%);
 }
 .shell-brillo-haz {
   position: absolute; left: -25px; bottom: -60px; width: 385px; height: 260px; opacity: 0;
@@ -1741,6 +1744,27 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 @media (prefers-reduced-motion: reduce) {
   .shell-brillo-haz { animation: none; opacity: 0.25; }
 }
+/* La continuación del resplandor por el marco: la esquina redondeada del lienzo y la franja de 4 px de abajo. El marco negro
+   (`data-marco-vivo`) va por encima de todo lo del lienzo y cortaba la luz en seco al acabar el menú; esta es una SEGUNDA copia
+   del mismo resplandor (mismas capas, mismas olas, a la vez) que solo asoma por donde el marco pinta negro. ⚠️ La máscara usa la
+   MISMA geometría que las esquinas del marco: si una cambia y la otra no, entre las dos asoma una media luna. */
+.shell-brillo-ventana { display: none; }
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] .shell-brillo-ventana {
+    display: block; position: fixed; z-index: 39; pointer-events: none; contain: strict; overflow: hidden;
+    left: 0; bottom: 0; width: 100%; height: 20px;
+    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    mask-image: radial-gradient(circle at 16px 0, transparent 15.5px, #000 16px), linear-gradient(#000, #000);
+    -webkit-mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
+    mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
+    -webkit-mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
+    mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+  }
+  .panel-app[data-shell-nuevo] .shell-brillo-ventana > .shell-brillo { position: absolute; left: 0; bottom: 0; width: 100%; overflow: hidden; }
+}
+@media print { .panel-app[data-shell-nuevo] .shell-brillo-ventana { display: none; } }
 
 /* Configuración en el menú: la fila activa con el mismo vidrio que el buscador. */
 #host-menu-configuracion a[aria-current='page'] {
@@ -1809,7 +1833,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   --motion-ease-ventana: var(--pn-ease-out-emphasized);
 }
 
-/* Pie del menú a sangre: los desplegables (perfil, prueba, primeros pasos) salen hacia arriba y pegados a la
+/* Pie del menú a sangre: los desplegables (perfil, prueba) salen hacia arriba y pegados a la
    izquierda, porque el pie está abajo del todo. El aviso de prueba, en gris sobre el marco oscuro. */
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-pie-menu] .absolute.right-0 {
@@ -1818,10 +1842,6 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [data-pie-menu] [data-tour='pildora-prueba'] > button {
     width: 100%; justify-content: center; background: #303030 !important; height: 32px; padding-inline: 12px;
   }
-  .panel-app[data-shell-nuevo] [data-pie-menu] [data-primeros-pasos-pildora] {
-    width: 100%; justify-content: space-between; background: #303030; border-color: transparent; color: #fcfcfc; height: 32px;
-  }
-  .panel-app[data-shell-nuevo] [data-pie-menu] [data-primeros-pasos-pildora]:hover { background: #3a3a3a; }
 }
 
 /* Con la columna del asistente abierta el lienzo mide ~860 px aunque la ventana pase de 1280: los

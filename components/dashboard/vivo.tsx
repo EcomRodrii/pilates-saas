@@ -319,7 +319,7 @@ export function PantallaVacia({ tono, Icono, titulo, texto, ejemplos, etiquetaEj
   if (sangre && imagen) {
     const enlace = 'zona-tactil text-[13px] font-medium text-foreground underline-offset-2 hover:underline';
     return (
-      <section data-pantalla-vacia data-hero className={cn('mx-auto grid w-full max-w-[1000px] items-center gap-6 rounded-2xl bg-card p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:p-12', className)}>
+      <section data-pantalla-vacia data-hero className={cn('mx-auto grid w-full max-w-[1000px] items-center gap-6 rounded-[var(--pn-radio-tarjeta)] border border-border bg-card p-6 shadow-[var(--pn-sombra-tarjeta)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:p-12', className)}>
         <div className="flex min-w-0 flex-col items-start text-left max-md:order-2">
           <h2 className="text-[22px] font-semibold leading-7 text-foreground text-balance">{titulo}</h2>
           <p className="mt-2 max-w-md text-[13px] leading-5 text-muted-foreground text-pretty">{texto}</p>

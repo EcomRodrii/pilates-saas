@@ -22,6 +22,8 @@ import {
   RefreshCw, Search, Send, Store, Users, X,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PantallaVacia } from '@/components/dashboard/vivo';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { ProfileAvatar } from '@/components/ui/profile-avatar';
 import {
   agruparHilo, colorPersona, estadoEntrega, horaCorta, iniciales, selloLista, unaLinea, AVISO_ESTUDIO_PUEDE_LEER } from '@/lib/mensajeria/presentacion';
@@ -210,11 +212,21 @@ export function SinHiloElegido() {
 }
 
 export function BandejaVacia({ onNueva }: { onNueva: () => void }) {
+  const sangre = useShellNuevo();
+  const titulo = 'Aquí aparecerán tus conversaciones';
+  const texto = 'Escribe a un cliente desde el mostrador o deja que empiece desde su app: todo llega a esta bandeja.';
+  // Marco nuevo: la pantalla vacía con imagen, como el resto de módulos.
+  if (sangre) {
+    return (
+      <PantallaVacia tono="azul" Icono={Inbox} imagen="mensajeria" titulo={titulo} texto={texto}
+        accion={{ label: 'Nueva conversación', Icono: MessageSquarePlus, onClick: onNueva }} className="border-0 shadow-none" />
+    );
+  }
   return (
     <EmptyState escena="personas"
       icono={Inbox}
-      titulo="Aquí aparecerán tus conversaciones"
-      descripcion="Escribe a un cliente desde el mostrador o deja que ella empiece desde su portal — todo llega a esta bandeja."
+      titulo={titulo}
+      descripcion={texto}
       cta={{ label: 'Nueva conversación', icono: MessageSquarePlus, onClick: onNueva }}
       className="border-0 py-14"
     />

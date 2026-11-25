@@ -20,6 +20,7 @@ import { puedeGestionarCalendario } from '@/lib/permisos-reglas';
 import { authHeader, cerrarConversacionPanel } from '@/lib/api-client';
 import { supabase } from '@/lib/db/supabase';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { anadirMensaje, tieneSinLeer } from '@/lib/mensajeria/presentacion';
 import { sociasConRelacion } from '@/lib/mensajeria-portal';
 import {
@@ -302,6 +303,7 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
   const [error, setError] = useState<string | null>(null);
   const [abiertaId, setAbiertaId] = useState<string | null>(null);
   const [mostrarNueva, setMostrarNueva] = useState(false);
+  const sangre = useShellNuevo();
   const [errorNueva, setErrorNueva] = useState<string | null>(null);
   const [filtro, setFiltro] = useState('');
 
@@ -388,11 +390,16 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
     );
   }
 
+  // Marco nuevo y bandeja sin ninguna conversación: la invitación ocupa todo el ancho; un hueco «Elige una conversación» al
+  // lado no tiene qué elegir.
+  const soloInvitacion = sangre && ambito !== 'supervision' && conversaciones?.length === 0 && !abiertaId;
+
   return (
     <div className="bg-card rounded-2xl border border-border overflow-hidden">
-      <div className="flex h-[70vh] min-h-[440px] max-h-[720px]">
+      {/* Con la invitación sola, el alto lo pone ella: en el móvil, con el alto fijo, el botón quedaba escondido dentro de la caja. */}
+      <div className={`flex min-h-[440px] ${soloInvitacion ? '' : 'h-[70vh] max-h-[720px]'}`}>
         {/* Lista */}
-        <div className={`${abiertaId ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] md:border-r md:border-border flex-col shrink-0`}>
+        <div className={`${abiertaId ? 'hidden md:flex' : 'flex'} w-full flex-col shrink-0 ${soloInvitacion ? '' : 'md:w-[340px] md:border-r md:border-border'}`}>
           <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border shrink-0">
             <div className="flex items-center gap-2 min-w-0">
               <p className="text-sm font-bold text-foreground">Conversaciones</p>
@@ -461,7 +468,7 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
             </div>
           )}
 
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className={soloInvitacion ? 'flex flex-1 flex-col justify-center' : 'flex-1 min-h-0 overflow-y-auto'}>
             {conversaciones === null ? (
               <SkeletonLista />
             ) : conversaciones.length === 0 ? (
@@ -498,7 +505,7 @@ export function ConversacionesTab({ conversacionPedida = null }: { conversacionP
         </div>
 
         {/* Hilo */}
-        <div className={`${abiertaId ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
+        <div className={`${abiertaId ? 'flex' : soloInvitacion ? 'hidden' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
           {abierta ? (
             <Hilo
               key={abierta.id}
