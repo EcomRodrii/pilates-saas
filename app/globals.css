@@ -1988,9 +1988,9 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [data-config-raiz] { max-width: 784px; margin-inline: auto; padding-top: 32px; }
   .panel-app[data-shell-nuevo] [data-config-raiz] #seccion-titulo { margin-bottom: 18px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] { margin-bottom: 8px; }
-  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-title'] { font-size: 22px !important; line-height: 28px !important; font-weight: 500 !important; letter-spacing: -0.02em !important; }
-  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] > * { width: 28px !important; height: 28px !important; border-radius: 8px !important; background: var(--t-blue-500) !important; color: #fff !important; }
-  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] svg { color: #fff !important; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-title'] { font-size: 20px !important; line-height: 24px !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] > * { width: 20px !important; height: 20px !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+  .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-icono'] svg { width: 18px; height: 18px; color: var(--foreground) !important; }
   .panel-app[data-shell-nuevo] [data-config-grupos] { grid-template-columns: minmax(0, 1fr) !important; gap: 16px; }
   .panel-app[data-shell-nuevo] [data-config-icono] { width: 20px !important; height: 20px !important; border-radius: 0 !important; background: transparent !important; color: #101010 !important; }
   .panel-app[data-shell-nuevo] [data-config-icono] svg { width: 16px; height: 16px; color: #303030 !important; }
@@ -2035,7 +2035,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   .panel-app[data-shell-nuevo] [data-movil-inferior],
   .panel-app[data-shell-nuevo] [data-movil-menu] { display: none !important; }
   .panel-app[data-shell-nuevo] main:not([data-chat-main]) { padding-left: var(--sidebar-w, 224px); }
-  .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-top: 0.25rem !important; padding-bottom: 1.5rem !important; }
+  .panel-app[data-shell-nuevo] [data-panel-contenido] { padding-top: 0.25rem !important; padding-bottom: 6.5rem !important; }
   .panel-app[data-shell-nuevo] [data-compositor-inicio] { display: block; }
   .panel-app[data-shell-nuevo] [data-columna-asistente],
   .panel-app[data-shell-nuevo] [data-pildora-asistente] { display: flex; }
@@ -2118,6 +2118,8 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
    siempre. Aquí el scroll es el del documento, así que el marco negro es un panel fijo y transparente que dibuja SOLO el marco:
    cuatro tiras de 4 px y cuatro esquinas de 16 px (fondos en degradado radial), sin tocar lo de dentro. El contenido pasa por
    debajo, y el lienzo y la columna del asistente se ven como dos paneles redondeados con 4 px de marco entre ellos.
+   ⚠️ Va por ENCIMA de lo pegado dentro del lienzo (z 30, la barra de arriba) y por debajo de menús desplegados (40),
+   columna del asistente (45) y diálogos (50): con z 25 la barra tapaba la tira de arriba y las esquinas (25-nov-2026).
    Rendimiento (20-nov-2026): la primera versión era una sombra de 100vmax, una capa de ~4.300 × 3.400 px que se repintaba entera
    al abrir la columna y pesaba en cada fotograma del scroll. Esta es del tamaño de la ventana y casi toda transparente.
    `--marco-der` es el ancho de la tira de la derecha: 4 px, o lo que ocupa la columna del asistente cuando está abierta. No recibe toques. */
@@ -2126,7 +2128,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-marco-vivo] {
     --marco-negro: #0a0a0a;
-    display: block; position: fixed; z-index: 25; pointer-events: none; contain: strict;
+    display: block; position: fixed; z-index: 38; pointer-events: none; contain: strict;
     top: 0; bottom: 0; right: 0; left: var(--sidebar-w, 224px);
     background-repeat: no-repeat;
     background-image:
@@ -2144,38 +2146,16 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
     transition: --marco-der 0.3s var(--pn-ease-out-emphasized);
   }
 }
+/* Aire al final de cada pantalla: la píldora del asistente flota abajo (52 px + 16) y tapaba la última tarjeta y su botón.
+   El calendario no: ocupa el alto entero a propósito. */
+@media (min-width: 768px) {
+  .panel-app[data-shell-nuevo] [data-panel-contenido]:not(:has([data-calendario-marco])) { padding-bottom: 6.5rem !important; }
+}
 @media (min-width: 1024px) {
   :root[data-columna-asistente-abierta] .panel-app[data-shell-nuevo] [data-marco-vivo] { --marco-der: 360px; }
 }
 @media (prefers-reduced-motion: reduce) { .panel-app[data-shell-nuevo] [data-marco-vivo] { transition: none; } }
 @media print { .panel-app[data-shell-nuevo] [data-marco-vivo] { display: none; } }
-
-/* El resplandor por debajo del lienzo, con la receta del de Shopify (medida el 23-nov-2026 en el DOM del admin): una capa fija de ancho
-   COMPLETO (`_FrameGlow`, z-index 0) con una máscara horizontal que la deja opaca hasta el 8,08 vw y la desvanece hasta el 36,19 vw,
-   y el mismo degradado vertical que el del menú (transparente al 81,93 % → .68 al 96,87 % → .68). Detrás de un lienzo con radio 16, eso
-   hace que la esquina de abajo a la izquierda y la franja de 4 px enseñen la MISMA luz que el menú, sin corte.
-   Aquí el lienzo se desplaza bajo un marco negro, así que la capa solo se ve donde el marco deja ventana: la franja de 4 px (desde el borde
-   del menú hacia la derecha) y el hueco de la esquina. (El radio de la máscara es ~1 px menor que el de la esquina del lienzo: el resplandor
-   solapa su borde antialiasado y no queda el aro negro.) */
-.panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; }
-@media (min-width: 768px) {
-  .panel-app[data-shell-nuevo] [data-marco-brillo] {
-    display: block; position: fixed; z-index: 26; pointer-events: none; contain: strict;
-    left: 0; bottom: 0; width: 100%; height: 20px;
-    background: linear-gradient(90deg, rgba(76, 156, 176, 0.68) 8.08vw, rgba(76, 156, 176, 0) 36.19vw);
-    -webkit-mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
-    -webkit-mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
-    -webkit-mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
-    -webkit-mask-repeat: no-repeat;
-    -webkit-mask-composite: source-over;
-    mask-image: radial-gradient(circle at 16px 0, transparent 14.8px, #000 15.4px), linear-gradient(#000, #000);
-    mask-size: 16px 16px, calc(100% - var(--sidebar-w, 224px)) 4px;
-    mask-position: var(--sidebar-w, 224px) 0, var(--sidebar-w, 224px) 100%;
-    mask-repeat: no-repeat;
-    mask-composite: add;
-  }
-}
-@media print { .panel-app[data-shell-nuevo] [data-marco-brillo] { display: none; } }
 
 /* Calendario con el marco a sangre (19-nov-2026, fase 1): sin tarjeta dentro de la tarjeta, la barra de vistas y de filtros en los
    neutros de Shopify (no el crema de marca), la columna de mes y filtros sin su borde propio, y la semana que entra al cambiar. */
@@ -2646,7 +2626,7 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
    Shopify, y campos de texto de 30 px con radio 8 también fuera de los diálogos. */
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-config-raiz] :is(.max-w-2xl, .max-w-3xl, .max-w-4xl) { max-width: 784px; }
-  .panel-app[data-shell-nuevo] [data-config-raiz] :is(input:not([type]), input[type='text'], input[type='email'], input[type='url'], input[type='number'], input[type='tel'], input[type='search'], input[type='password']) {
+  .panel-app[data-shell-nuevo] [data-config-raiz] :is(input:not([type]), input[type='text'], input[type='email'], input[type='url'], input[type='number'], input[type='tel'], input[type='search'], input[type='password']):not([data-config-buscador] *) {
     height: 30px; min-height: 0; border-radius: 8px; font-size: 13px; line-height: 20px; padding-block: 4px; padding-inline: 8px; border-color: rgba(0, 0, 0, 0.2);
   }
 }

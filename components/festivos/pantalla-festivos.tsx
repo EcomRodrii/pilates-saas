@@ -206,6 +206,7 @@ export function PantallaFestivos() {
 
           {festivos.length === 0 ? (
             <PantallaVacia
+              imagen="calendario"
               tono="magenta"
               Icono={PartyPopper}
               titulo="Pon los festivos de tu estudio"

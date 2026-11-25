@@ -106,6 +106,7 @@ export function RegistroNuevo({ items, cargando, reintentando, errorReintento, o
   if (!cargando && items.length === 0) {
     return (
       <PantallaVacia
+        imagen="mensajeria"
         className="mt-5"
         tono="azul"
         Icono={Bell}

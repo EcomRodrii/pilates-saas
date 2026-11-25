@@ -1327,6 +1327,7 @@ export default function AutomatizacionesPage() {
           {panelNuevo ? (reglasVisibles.length > 0 && <HechoPorTentareNuevo />) : <HechoPorTentare />}
           {panelNuevo && reglasVisibles.length === 0 && (
             <PantallaVacia
+              imagen="automatizaciones"
               tono="indigo"
               Icono={Zap}
               titulo="Automatiza tu estudio"

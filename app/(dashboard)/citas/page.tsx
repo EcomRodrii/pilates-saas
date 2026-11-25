@@ -716,6 +716,7 @@ export default function CitasPage() {
       <div className="space-y-3">
         {filtered.length === 0 && panelNuevo && citas.length === 0 ? (
           <PantallaVacia
+            imagen="citas"
             tono="indigo"
             Icono={Clock}
             titulo="Reserva tu primera cita"

@@ -84,6 +84,7 @@ export function ClasesFijasPorAlumna({ puedeGestionar, onToast }: {
   if (ahoraMs && todas.length === 0) {
     return (
       <PantallaVacia
+        imagen="calendario"
         tono="azul"
         Icono={CalendarClock}
         titulo="Nadie tiene clase fija todavía"

@@ -547,6 +547,7 @@ export default function SustitucionesPage() {
         <p className="text-sm text-muted-foreground py-16 text-center">Cargando…</p>
       ) : items.length === 0 && panelNuevo ? (
         <PantallaVacia
+          imagen="sustituciones"
           tono="verde"
           Icono={UserCheck}
           titulo="Ninguna baja ahora mismo"

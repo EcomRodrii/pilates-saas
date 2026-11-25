@@ -394,6 +394,7 @@ function VistaHorarioNueva(p: VistaHorarioProps & { horario: HorarioFijo }) {
 
       {dias.length === 0 ? (
         <PantallaVacia
+          imagen="calendario"
           tono="azul"
           Icono={Repeat}
           titulo="Tu semana, siempre igual"

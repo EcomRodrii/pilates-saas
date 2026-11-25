@@ -351,13 +351,17 @@ test('a sangre — el menú despliega las vistas de un módulo en línea (Paquet
   }
 });
 
-test('a sangre — el resplandor del menú sigue bajo la esquina del lienzo', async ({ page }) => {
+test('a sangre — el marco queda por encima de lo pegado y al final de la página hay aire', async ({ page }) => {
   await preparar(page, true);
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await ir(page, 'dashboard');
+  await page.setViewportSize({ width: 1440, height: 700 });
+  await ir(page, 'clientas');
   await listo(page);
-  await expect(page.locator('[data-marco-brillo]')).toBeAttached();
-  await page.screenshot({ path: 'test-results/shell-brillo-esquina.png', clip: { x: 0, y: 780, width: 700, height: 120 } });
+  const z = (sel: string) => page.locator(sel).first().evaluate((e) => Number(getComputedStyle(e).zIndex));
+  expect(await z('[data-marco-vivo]'), 'la barra pegada arriba no puede tapar el marco').toBeGreaterThan(await z('[data-panel-topbar]'));
+  const aire = await page.locator('[data-panel-contenido]').evaluate((e) => parseFloat(getComputedStyle(e).paddingBottom));
+  expect(aire, 'sin aire abajo, la píldora del asistente tapa el final').toBeGreaterThanOrEqual(80);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.screenshot({ path: 'test-results/shell-final-de-pagina.png' });
 });
 
 for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 844]] as const) {
