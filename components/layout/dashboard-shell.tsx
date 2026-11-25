@@ -120,7 +120,7 @@ function LienzoDelPanel({ shellNuevo, children }: { shellNuevo: boolean; childre
       data-columna-abierta={shellNuevo && abierta ? '' : undefined}
       className={cn(
         // Móvil y tablet incluidos: lienzo blanco redondeado a 4 px del marco oscuro (en escritorio, además, cede el hueco al asistente).
-        shellNuevo && 'mx-1 min-h-[calc(100dvh-0.5rem)] rounded-2xl bg-background md:ml-0 md:mr-1 lg:transition-[margin] lg:duration-300 lg:ease-[cubic-bezier(0.2,0.8,0,1)]',
+        shellNuevo && 'mx-1 min-h-[calc(100dvh-0.5rem)] rounded-2xl bg-background md:ml-0 md:mr-1 lg:transition-[margin] lg:duration-300 lg:ease-(--pn-ease-out-emphasized)',
         shellNuevo && (abierta ? 'lg:mr-[360px]' : 'lg:mr-1'),
       )}
     >

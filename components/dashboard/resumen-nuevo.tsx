@@ -513,7 +513,7 @@ function ResumenLimpio(props: ResumenNuevoProps & {
       <details data-resumen-mas className="group rounded-[20px] bg-card shadow-[0_0_2px_#0000003d,0_2px_12px_#00000005,0_4px_16px_#00000005,0_4px_48px_#00000005] open:pb-5">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-[13px] font-medium text-foreground [&::-webkit-details-marker]:hidden">
           <span>Más detalle del estudio</span>
-          <span aria-hidden className="text-muted-foreground transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0,1)] group-open:rotate-90"><ArrowRight size={14} /></span>
+          <span aria-hidden className="text-muted-foreground transition-transform duration-300 ease-(--pn-ease-out-emphasized) group-open:rotate-90"><ArrowRight size={14} /></span>
         </summary>
         <div className="grid grid-cols-1 items-start gap-5 px-5 xl:grid-cols-2">
           <div className="flex min-w-0 flex-col gap-5">

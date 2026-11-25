@@ -29,8 +29,8 @@ const BOTON = 'zona-tactil inline-flex h-7 items-center rounded-full bg-card px-
 
 const ESTILOS = `${ESTILOS_ILUSTRACION}
 @keyframes ic-entra { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: none; } }
-.ic-tarjeta { animation: ic-entra .5s cubic-bezier(.25,.1,.25,1) both; animation-delay: calc(var(--i, 0) * 60ms); }
-.ic-cerrar { opacity: 0; transition: opacity .2s cubic-bezier(.25,.1,.25,1); }
+.ic-tarjeta { animation: ic-entra .5s var(--pn-ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.ic-cerrar { opacity: 0; transition: opacity .2s var(--pn-ease); }
 .ic-tarjeta:hover .ic-cerrar, .ic-cerrar:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ic-tarjeta { animation: none; } }
 `;

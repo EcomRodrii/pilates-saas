@@ -107,6 +107,9 @@ test.describe('la captura de un cambio', () => {
 
   test('se pinta la del cambio que la tiene, y solo esa', async ({ page }) => {
     await montar(page);
+    // La imagen se sirve aquí: sin esto se pide al almacén de verdad, y si contesta «no existe» antes de mirar, la
+    // pantalla la quita (`onError`) y el test depende de lo rápida que vaya la red.
+    await page.route(FOTO, (r) => r.fulfill({ status: 200, contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64') }));
     await page.goto('/actualizaciones', { waitUntil: 'domcontentloaded' });
     await noRevento(page);
     await page.getByRole('button', { name: 'Ver detalles' }).click();

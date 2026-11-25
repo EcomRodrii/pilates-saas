@@ -32,7 +32,7 @@ export function SubListaMenu({ abierta, hijos, etiqueta, onNavegar }: {
       data-abierta={abierta ? '' : undefined}
       inert={!abierta}
       className={cn(
-        'grid transition-[grid-template-rows,opacity] duration-400 ease-[cubic-bezier(0.2,0.8,0,1)] motion-reduce:transition-none',
+        'grid transition-[grid-template-rows,opacity] duration-400 ease-(--pn-ease-out-emphasized) motion-reduce:transition-none',
         abierta ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
       )}
     >
