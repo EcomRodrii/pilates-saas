@@ -179,6 +179,12 @@
 }
 .panel-app[data-shell-nuevo].dark .hero3d-resplandor { opacity: 0.28; }
 @keyframes pn-flota { 50% { translate: 0 -7px; } }
+/* La campana: un golpe de badajo que se va apagando. Dos nombres para el mismo balanceo (llegada y ratón): así al quitar el
+   ratón no vuelve a empezar el de la llegada. La tercera es la de las imágenes 3D, que suena y descansa. */
+@keyframes pn-campana { 14% { rotate: 17deg; } 30% { rotate: -14deg; } 46% { rotate: 10deg; } 62% { rotate: -7deg; } 78% { rotate: 3deg; } }
+@keyframes pn-campana-toque { 14% { rotate: 17deg; } 30% { rotate: -14deg; } 46% { rotate: 10deg; } 62% { rotate: -7deg; } 78% { rotate: 3deg; } }
+@keyframes pn-campana-3d { 62% { rotate: 0deg; } 67% { rotate: 14deg; } 73% { rotate: -12deg; } 79% { rotate: 8deg; } 85% { rotate: -5deg; } 91% { rotate: 2deg; } }
+.panel-app[data-shell-nuevo] :is([data-campana-dibujo], [data-campana]) { transform-origin: 50% 12%; }
 
 @media (prefers-reduced-motion: no-preference) {
   /* Menús y listas: nacen desde su botón. */
@@ -197,4 +203,8 @@
   /* Imágenes 3D: entran escalonadas (la envoltura) y flotan despacio (la imagen), cada una a su aire. */
   .panel-app[data-shell-nuevo] .hero3d-entra { animation: pn-aparece-encima var(--pn-dur-400) var(--pn-ease-out-soft) calc(var(--orden, 0) * var(--pn-dur-150)) backwards; }
   .panel-app[data-shell-nuevo] .hero3d-flota { animation: pn-flota 6s var(--pn-ease-in-out) calc(var(--orden, 0) * -1700ms) infinite backwards; }
+  .panel-app[data-shell-nuevo] .hero3d-campana { transform-origin: 62% 8%; animation: pn-campana-3d 4s var(--pn-ease-in-out) 1200ms infinite backwards; }
+  /* La campana de avisos: suena al llegar uno y al acercarse. */
+  .panel-app[data-shell-nuevo] [data-campana='suena'] { animation: pn-campana 900ms var(--pn-ease-in-out) var(--pn-dur-400) backwards; }
+  .panel-app[data-shell-nuevo] button:is(:hover, :focus-visible) [data-campana-dibujo] { animation: pn-campana-toque 900ms var(--pn-ease-in-out) backwards; }
 }

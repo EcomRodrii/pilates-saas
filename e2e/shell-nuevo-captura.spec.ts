@@ -395,6 +395,36 @@ test('a sangre — el brillo del menú sigue por la esquina del marco y el subme
 });
 
 for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 844]] as const) {
+  test(`a sangre — mensajería sin conversaciones: imagen nueva a todo el ancho y la campana se mueve (${nombre})`, async ({ page }) => {
+    await preparar(page, true);
+    await page.route((u) => u.pathname === '/api/mensajeria/conversaciones', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"conversaciones":[]}' }));
+    await page.setViewportSize({ width: ancho, height: alto });
+    await ir(page, 'mensajeria?tab=conversaciones');
+    await listo(page);
+    const invitacion = page.locator('[data-pantalla-vacia][data-hero]');
+    await expect(invitacion.getByRole('heading', { name: 'Aquí aparecerán tus conversaciones' })).toBeVisible({ timeout: 120_000 });
+    await expect(invitacion.locator('[data-hero-3d="mensajeria"]')).toBeVisible();
+    await expect(page.locator('[data-escena="personas"]'), 'la ilustración antigua no vuelve').toHaveCount(0);
+    await expect(page.getByText('Elige una conversación')).toBeHidden();
+    const animacion = (sel: string) => page.locator(sel).first().evaluate((e) => getComputedStyle(e).animationName);
+    expect(await animacion('[data-hero-3d="mensajeria"] .hero3d-campana')).toBe('pn-campana-3d');
+    if (ancho >= 1024) {
+      // La del menú: suena sola con avisos sin leer y vuelve a sonar al acercarse.
+      const boton = page.locator('aside[data-panel-menu]').getByRole('button', { name: 'Notificaciones' });
+      await expect(boton.locator('[data-campana="suena"]')).toHaveCount(1);
+      expect(await animacion('aside[data-panel-menu] [data-campana="suena"]')).toBe('pn-campana');
+      await boton.hover();
+      expect(await animacion('aside[data-panel-menu] [data-campana-dibujo]')).toBe('pn-campana-toque');
+    }
+    // El botón se alcanza desplazando la página, sin una caja con scroll propio de por medio.
+    expect(await invitacion.evaluate((e) => getComputedStyle(e.parentElement!).overflowY)).toBe('visible');
+    // Y entera dentro de su tarjeta, que recorta lo que se salga.
+    expect(await invitacion.evaluate((e) => e.parentElement!.parentElement!.parentElement!.parentElement!.getBoundingClientRect().bottom - e.getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(-1);
+    await page.screenshot({ path: `test-results/shell-mensajeria-vacia-${nombre}.png`, fullPage: true });
+  });
+}
+
+for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 844]] as const) {
   test(`a sangre — calendario (${nombre})`, async ({ page }) => {
     await preparar(page, true);
     await page.setViewportSize({ width: ancho, height: alto });

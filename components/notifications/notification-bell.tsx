@@ -294,7 +294,11 @@ export function NotificationBell({ oscuro = false }: { oscuro?: boolean } = {}) 
         aria-label="Notificaciones"
         className={cn('zona-tactil relative flex items-center justify-center transition-colors', oscuro ? 'size-8 rounded-lg hover:bg-white/10 hover:text-white text-white/70' : 'w-9 h-9 rounded-full hover:bg-muted')}
       >
-        <Bell size={oscuro ? 16 : 18} className={oscuro ? 'text-current' : 'text-muted-foreground'} />
+        {/* La campana suena al llegar un aviso (la envoltura se vuelve a montar cuando cambia la cuenta) y al pasar el ratón o
+            enfocarla (el dibujo). Dos capas para que una no corte a la otra. Animación en app/estilos/panel-sistema.css. */}
+        <span key={unread} data-campana={unread > 0 ? 'suena' : 'quieta'} className="flex">
+          <Bell size={oscuro ? 16 : 18} data-campana-dibujo="" className={oscuro ? 'text-current' : 'text-muted-foreground'} />
+        </span>
         {/* ⚠️ `red-600` y no `red-500`: el contador va en 10 px, y blanco sobre
             `red-500` (#FB2C36) da **3,81:1**, por debajo del 4,5 que pide AA
             para texto normal. `red-600` (#E7000B) da 4,77 y es el siguiente

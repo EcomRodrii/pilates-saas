@@ -1995,7 +1995,8 @@ El marco (`data-marco-vivo`) va por encima de lo pegado (z 38). El brillo animad
 25-nov-2026) y sigue por la esquina y la franja de abajo con una segunda copia encima del marco (`.shell-brillo-ventana`,
 z 39). ⚠️ Lienzo (`rounded-[16px]`), marco y máscara del brillo comparten la curva de 16 px. En el menú nada pinta negro
 sobre el brillo: «Configuración» va fuera de la lista que se desplaza y el final de la lista se desvanece con máscara. Y el menú del marco
-nuevo **no lleva la puesta en marcha** (ni «Configuración inicial» ni «Siguiente: …»): vive en Inicio.
+nuevo **no lleva la puesta en marcha** (ni «Configuración inicial» ni «Siguiente: …»): vive en Inicio. Las campanas se
+mueven (la de avisos al llegar uno y al acercarse; la de las imágenes 3D, cada 4 s): `pn-campana*` en `panel-sistema.css`.
 
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 
