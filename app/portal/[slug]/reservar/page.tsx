@@ -15,7 +15,7 @@ import { disponibilidad } from '@/lib/student/maquina-reserva';
 import { addDias, hoyISO } from '@/lib/student/formato';
 import { estadoTemporalDeFila } from '@/lib/student/fila-horario';
 import {
-  avisoDeSalto, diasConClases, diasConReserva, filtrarHorario, leerFiltrosGuardados, primerDiaConClases, salasDelHorario, type Franja,
+  avisoDeSalto, DIAS_TIRA_MIN, diasConClases, diasConReserva, diasDeLaTira, filtrarHorario, leerFiltrosGuardados, primerDiaConClases, salasDelHorario, type Franja,
 } from '@/lib/student/horario-dias';
 import { DateSelector } from '@/components/student/domain/DateSelector';
 import { FilaHorario } from '@/components/student/domain/FilaHorario';
@@ -30,9 +30,6 @@ import { TirarParaActualizar } from '@/components/student/ui/TirarParaActualizar
 // pestaña (con su scroll, que pone el marco). En memoria: se va al recargar. Un
 // día que ya pasó no se recupera: se vuelve a hoy.
 const ultimoDia = new Map<string, string>();
-
-/** Días de la tira: dos semanas (P13). */
-const DIAS_TIRA = 14;
 
 // La franja y la sala que ella dejó puestas, en ESTE móvil: una comodidad suya, nunca algo que decida qué se puede
 // reservar. Se leen con `useSyncExternalStore` (la CADENA guardada: una primitiva estable; un objeto nuevo en cada
@@ -143,8 +140,12 @@ export default function HorarioPage() {
   // La clase elegida se busca en los datos VIVOS (aforo en vivo incluido); si desaparece, la hoja pinta la última
   // conocida con «ya no está en el horario» y no deja confirmar.
   const hoy = hoyISO();
-  const hasta = addDias(hoy, DIAS_TIRA - 1);
-  const salas = useMemo(() => (data ? salasDelHorario(data.clases, hoy, hasta) : []), [data, hoy, hasta]);
+  // La tira llega hasta la última clase publicada (mínimo dos semanas): con 14 fijos no se veía el mes siguiente.
+  const diasTira = useMemo(() => (data ? diasDeLaTira(data.clases, hoy) : DIAS_TIRA_MIN), [data, hoy]);
+  const salas = useMemo(
+    () => (data ? salasDelHorario(data.clases, hoy, addDias(hoy, diasTira - 1)) : []),
+    [data, hoy, diasTira],
+  );
   const leerGuardado = useCallback(() => {
     try { return localStorage.getItem(claveFiltros(estudio.slug)); } catch { return null; }
   }, [estudio.slug]);
@@ -172,7 +173,7 @@ export default function HorarioPage() {
   // El día con el que abre (P13): hoy, o el siguiente con clases si hoy ya no queda ninguna por empezar. Con búsqueda,
   // ni salto ni aviso (busca en todo el horario). Lo que ella eligió manda.
   const automatico = data && !consulta
-    ? primerDiaConClases(data.clases, { hoy, ahoraMs: abiertoEn, dias: DIAS_TIRA, reservas: data.reservas })
+    ? primerDiaConClases(data.clases, { hoy, ahoraMs: abiertoEn, dias: diasTira, reservas: data.reservas })
     : { dia: hoy, saltado: false };
   const dia = elegido ?? automatico.dia;
   const aviso = !elegido && !consulta && automatico.saltado ? avisoDeSalto(hoy, automatico.dia) : null;
@@ -225,7 +226,7 @@ export default function HorarioPage() {
         <DateSelector
           value={dia}
           onChange={setDia}
-          dias={DIAS_TIRA}
+          dias={diasTira}
           formato="semana"
           marcados={data ? diasConReserva(data.reservas, data.clases) : undefined}
           habilitados={data ? diasConClases(data.clases) : undefined}
