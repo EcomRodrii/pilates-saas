@@ -54,6 +54,14 @@ ruta de servidor puede importar sin arrastrar Capacitor.
 host, `//otro-host`, un puerto, credenciales en la URL o un fragmento se
 descartan (`rutaInternaDeEnlace`): lo que devuelve se le pasa a `router.push`.
 
+⚠️ **Un plugin de Capacitor nunca se devuelve desde una función `async` ni se
+resuelve una promesa con él.** El proxy contesta a cualquier nombre, también a
+`then`, así que la promesa pide `<Plugin>.then()` a iOS y no contesta nunca. Pasó
+con los tres plugins propios (widget, avisos y bloqueo): compilaban, y ninguna
+llamada llegaba al iPhone (encontrado en el simulador, 25-nov-2026). Se usan
+dentro de `pluginPropio`; `lib/nativo/puente.test.ts` lo comprueba con el
+`@capacitor/core` real. Un plugin nuevo lleva ahí su caso.
+
 ### Iniciar sesión con Apple: dos nonces
 
 - A Apple va el **SHA-256 en hex** del nonce; Apple lo firma en el claim `nonce`.
@@ -681,6 +689,8 @@ frente a la guía 4.3(a) (ver el plan B de la app).
 - **Qué se guarda: lo mínimo** para dibujarlo (título, hora, estudio, instructora y sala). Nunca ids de alumna, correo, pagos
   ni bonos: va a una pantalla visible sin desbloquear la app. Hasta 3 clases, 14 días de caducidad.
 - **Al cerrar sesión o borrar la cuenta** se borra (`borrarClasesDelWidget`, en `lib/student/auth.ts`).
+- Se escribe **cada vez que Inicio carga**, sin recordar lo último guardado: esa memoria dejaba el widget vacío al
+  volver a entrar (y los avisos sin programar tras apagarlos y encenderlos).
 - **Contrato web ↔ Swift:** versión 1 (`VERSION_WIDGET` ↔ `ProximasClasesAlmacen.version`); un test las cruza. Si cambia la
   forma, sube la versión en los dos lados.
 - **Grupo de apps:** `group.$(TENTARE_BUNDLE_ID)` (la app de un estudio, con otro bundle id, usa el suyo). Va en los dos
@@ -698,7 +708,8 @@ frente a la guía 4.3(a) (ver el plan B de la app).
 
 ## Avisos locales de clase (23-nov-2026)
 
-«Tu clase empieza en 15 minutos», **programado en el propio iPhone** con
+Título: el nombre de la clase. Cuerpo: «Empieza en 15 minutos · estudio · sala».
+**Programado en el propio iPhone** con
 `UNUserNotificationCenter`: salta sin red y con la app cerrada. Algo que una web
 no puede hacer.
 
@@ -714,9 +725,10 @@ no puede hacer.
 - **Apagarlo**: Preferencias › interruptor «Aviso 15 minutos antes de tu clase»
   (solo en la app de iOS; es del dispositivo, `localStorage`). Cerrar sesión o
   borrar la cuenta los quita.
-- Contenido (pantalla de bloqueo): nombre de la clase, estudio y sala. Nada más.
-- ⚠️ No comprobado en un iPhone real ni con permiso concedido en simulador: solo
-  compila y se prueba la parte pura.
+- Contenido (pantalla de bloqueo): nombre de la clase, cuánto falta, estudio y
+  sala. Nada más. El título ocupa una línea: no meter ahí la frase entera.
+- Visto en el simulador (25-nov-2026): con permiso, programa y salta en la
+  pantalla de bloqueo y como banda. ⚠️ No comprobado en un iPhone real.
 
 ## Qué no se ha podido comprobar
 
@@ -735,7 +747,11 @@ producción (necesita la alumna de demo y las variables).
 - **Solo consultan.** Leen lo mismo que el widget (grupo de apps, `ProximasClasesAlmacen`): sin red, al instante. Reservar o cancelar por voz NO está a propósito: mueve bonos y penalizaciones y necesita sesión.
 - Los datos los refresca la app al abrirse; si lleva días cerrada, Siri contesta con lo último guardado (caduca a los 14 días y entonces dice que no ve clases).
 - Las frases van en español; se puso `developmentRegion = es` (el Info.plist ya lo decía) para que Siri las trate como frases del idioma de origen.
-- ⚠️ **No probado en un iPhone real ni con Siri**: compila (simulador), y el texto de las respuestas se comprobó con un script aparte. Hay que probarlo en dispositivo antes del build 1.1 (las frases con `\(.applicationName)` dependen de cómo se llame la app en esa instalación).
+- Visto en el simulador (25-nov-2026): las dos órdenes salen en Atajos y contestan, con clases y sin ellas.
+  ⚠️ Con la firma ad hoc de arriba, ejecutarlas falla («No se puede ejecutar el atajo de la app»: sin identificador de
+  equipo); hay que volver a firmar la compilación con un certificado de desarrollo (`codesign`, primero los `.dylib`,
+  frameworks y la extensión, y al final la app). El botón del resultado salió en inglés («Done»).
+- ⚠️ **Sin probar por voz ni en un iPhone real** (las frases con `\(.applicationName)` dependen de cómo se llame la app en esa instalación).
 
 ## Bloqueo con Face ID (23-nov-2026)
 
@@ -744,8 +760,14 @@ producción (necesita la alumna de demo y las variables).
 - `LAContext` con `.deviceOwnerAuthentication`: si Face ID falla, iOS ofrece el código del iPhone; nunca queda sin salida.
 - Encender y apagar piden autenticarse. Al **cerrar sesión se apaga sin pedir** (`apagarBloqueoAlSalir`): ya no hay cuenta que proteger.
 - La pantalla se tapa en cuanto la app deja de estar activa (tampoco se ve en el selector de apps); se pide desbloquear al abrirla en frío y al volver pasados 30 s.
+- ⚠️ **Dos reglas que no se tocan sin repetir las pruebas.** Una vez bloqueada, solo autenticarse la desbloquea: los
+  30 s de gracia valen únicamente para una app que se dejó desbloqueada. Y se pide una vez por apertura o vuelta: si
+  cancela queda el botón «Desbloquear».
 - Necesita `NSFaceIDUsageDescription` (ya en `Info.plist`). Un build antiguo no tiene el plugin: la web no enseña el interruptor (`estadoBloqueo()` devuelve `null`).
-- ⚠️ **No probado en un iPhone real** (el simulador compila; no se ha ejercitado la autenticación). Probar antes del build 1.1: apertura en frío, volver tras >30 s, cancelar el desbloqueo y reintentar, y cerrar sesión con el bloqueo encendido.
+- Visto en el simulador (25-nov-2026), con Face ID simulado: activar, apagar, apertura en frío, cara no reconocida y
+  cancelar, volver sin haber desbloqueado, volver antes y después de 30 s. Para simularlo:
+  `xcrun simctl spawn <udid> notifyutil -s com.apple.BiometricKit.enrollmentChanged 1`, `-p` de lo mismo, y
+  `-p com.apple.BiometricKit_Sim.pearl.match` (o `.nomatch`). ⚠️ Sin probar en un iPhone real ni el código como alternativa.
 
 ## Sin conexión: tus próximas clases (25-nov-2026)
 

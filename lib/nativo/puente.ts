@@ -500,6 +500,23 @@ export async function brilloAlMaximo(): Promise<() => Promise<void>> {
   }
 }
 
+// ─── Plugins propios de la app ────────────────────────────────────────────
+//
+// ⚠️ Un plugin de Capacitor NUNCA se devuelve desde una función `async` ni se
+// resuelve una promesa con él. Su proxy contesta a CUALQUIER nombre, también a
+// `then`: la promesa lo toma por otra promesa, pide `<Plugin>.then()` a iOS y se
+// queda sin respuesta para siempre. Así estuvieron rotos el widget, los avisos y
+// el bloqueo (puente.test.ts). Por eso el plugin se usa DENTRO de `usar`.
+
+function pluginPropio<P>(nombre: string): <R>(usar: (plugin: P) => Promise<R>) => Promise<R> {
+  let plugin: P | null = null;
+  return async (usar) => {
+    const { registerPlugin } = await import('@capacitor/core');
+    plugin ??= registerPlugin<P>(nombre);
+    return usar(plugin);
+  };
+}
+
 // ─── Widget «Mi próxima clase» ────────────────────────────────────────────
 //
 // La app guarda las próximas clases de la alumna en el grupo de apps de iOS y
@@ -510,21 +527,13 @@ interface PluginProximaClase {
   guardar(o: { json: string }): Promise<void>;
   borrar(): Promise<void>;
 }
-let pluginProximaClase: PluginProximaClase | null = null;
-
-async function proximaClase(): Promise<PluginProximaClase> {
-  if (!pluginProximaClase) {
-    const { registerPlugin } = await import('@capacitor/core');
-    pluginProximaClase = registerPlugin<PluginProximaClase>('ProximaClase');
-  }
-  return pluginProximaClase;
-}
+const conProximaClase = pluginPropio<PluginProximaClase>('ProximaClase');
 
 /** Guarda las próximas clases para el widget. `false` fuera de la app o si el plugin no está. */
 export async function guardarClasesParaElWidget(json: string): Promise<boolean> {
   if (!esAppNativa()) return false;
   try {
-    await (await proximaClase()).guardar({ json });
+    await conProximaClase((p) => p.guardar({ json }));
     return true;
   } catch {
     return false;
@@ -537,7 +546,7 @@ export async function borrarClasesDelWidget(): Promise<void> {
   try {
     // Con tope: si el puente nativo no contesta, esto no se queda esperando para siempre.
     await Promise.race([
-      proximaClase().then((p) => p.borrar()),
+      conProximaClase((p) => p.borrar()),
       new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
     ]);
   } catch { /* sin plugin: no hay widget que limpiar */ }
@@ -553,22 +562,14 @@ interface PluginAvisosLocales {
   programar(o: { json: string }): Promise<{ programados: number }>;
   borrar(): Promise<void>;
 }
-let pluginAvisosLocales: PluginAvisosLocales | null = null;
-
-async function avisosLocales(): Promise<PluginAvisosLocales> {
-  if (!pluginAvisosLocales) {
-    const { registerPlugin } = await import('@capacitor/core');
-    pluginAvisosLocales = registerPlugin<PluginAvisosLocales>('AvisosLocales');
-  }
-  return pluginAvisosLocales;
-}
+const conAvisosLocales = pluginPropio<PluginAvisosLocales>('AvisosLocales');
 
 /** Cuántos avisos quedaron programados; `null` fuera de la app o si el plugin no contesta. */
 export async function programarAvisosLocales(json: string): Promise<number | null> {
   if (!esAppNativa()) return null;
   try {
     const r = await Promise.race([
-      avisosLocales().then((p) => p.programar({ json })),
+      conAvisosLocales((p) => p.programar({ json })),
       new Promise<null>((resolver) => setTimeout(() => resolver(null), ESPERA_WIDGET_MS)),
     ]);
     return r ? r.programados : null;
@@ -582,7 +583,7 @@ export async function borrarAvisosLocales(): Promise<void> {
   if (!esAppNativa()) return;
   try {
     await Promise.race([
-      avisosLocales().then((p) => p.borrar()),
+      conAvisosLocales((p) => p.borrar()),
       new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
     ]);
   } catch { /* sin plugin: no hay nada que quitar */ }
@@ -605,22 +606,14 @@ interface PluginBloqueo {
   estado(): Promise<EstadoBloqueo>;
   activar(o: { activo: boolean; sinPedir?: boolean }): Promise<{ activo: boolean }>;
 }
-let pluginBloqueo: PluginBloqueo | null = null;
-
-async function bloqueo(): Promise<PluginBloqueo> {
-  if (!pluginBloqueo) {
-    const { registerPlugin } = await import('@capacitor/core');
-    pluginBloqueo = registerPlugin<PluginBloqueo>('Bloqueo');
-  }
-  return pluginBloqueo;
-}
+const conBloqueo = pluginPropio<PluginBloqueo>('Bloqueo');
 
 /** `null` fuera de la app, sin plugin (build antiguo) o si no contesta. */
 export async function estadoBloqueo(): Promise<EstadoBloqueo | null> {
   if (!esAppNativa()) return null;
   try {
     return await Promise.race([
-      bloqueo().then((p) => p.estado()),
+      conBloqueo((p) => p.estado()),
       new Promise<null>((resolver) => setTimeout(() => resolver(null), ESPERA_WIDGET_MS)),
     ]);
   } catch {
@@ -633,7 +626,7 @@ export async function cambiarBloqueo(activo: boolean): Promise<boolean | null> {
   if (!esAppNativa()) return null;
   try {
     // Sin límite de tiempo: la alumna puede tardar en autenticarse.
-    const r = await (await bloqueo()).activar({ activo });
+    const r = await conBloqueo((p) => p.activar({ activo }));
     return r.activo;
   } catch {
     return null;
@@ -645,7 +638,7 @@ export async function apagarBloqueoAlSalir(): Promise<void> {
   if (!esAppNativa()) return;
   try {
     await Promise.race([
-      bloqueo().then((p) => p.activar({ activo: false, sinPedir: true })),
+      conBloqueo((p) => p.activar({ activo: false, sinPedir: true })),
       new Promise<void>((resolver) => setTimeout(resolver, ESPERA_WIDGET_MS)),
     ]);
   } catch { /* sin plugin: no hay bloqueo que apagar */ }

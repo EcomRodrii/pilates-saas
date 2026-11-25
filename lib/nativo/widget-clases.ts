@@ -97,11 +97,3 @@ export function jsonParaElWidget(clases: readonly ClaseWidget[], ahoraMs: number
     clases,
   });
 }
-
-/**
- * La huella de lo que se enseña, SIN la hora de guardado: sirve para no volver
- * a escribir en el iPhone (y recargar el widget) cuando nada ha cambiado.
- */
-export function huellaDelWidget(clases: readonly ClaseWidget[]): string {
-  return JSON.stringify(clases);
-}

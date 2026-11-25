@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clasesParaElWidget, huellaDelWidget, jsonParaElWidget, MAX_CLASES_WIDGET, VERSION_WIDGET } from './widget-clases.ts';
+import { clasesParaElWidget, jsonParaElWidget, MAX_CLASES_WIDGET, VERSION_WIDGET } from './widget-clases.ts';
 
 const AHORA = Date.parse('2026-11-23T10:00:00Z');
 const h = (horas: number) => new Date(AHORA + horas * 3_600_000).toISOString();
@@ -75,11 +75,6 @@ test('el json lleva la versión del contrato y cuándo se guardó', () => {
   assert.equal(j.version, VERSION_WIDGET);
   assert.equal(j.actualizadoEn, '2026-11-23T10:00:00Z');
   assert.deepEqual(j.clases, []);
-});
-
-test('la huella no cambia con la hora de guardado (no se reescribe sin motivo)', () => {
-  const a = clasesParaElWidget({ reservas: [conf('c1')], clases: [clase('c1', 2)], instructoras, estudio: 'E', ahoraMs: AHORA });
-  assert.equal(huellaDelWidget(a), huellaDelWidget(a.map((c) => ({ ...c }))));
 });
 
 test('contrato con Swift: la versión coincide con la de ProximasClasesAlmacen', async () => {

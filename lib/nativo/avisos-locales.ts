@@ -48,8 +48,10 @@ export function avisosLocales(e: {
     if (cuandoMs <= e.ahoraMs + 30_000) continue;
     salida.push({
       id: `${PREFIJO_AVISO_LOCAL}${c.id}`,
-      titulo: `${c.titulo} empieza en ${MINUTOS_ANTES} minutos`,
-      cuerpo: [c.estudio, c.sala].filter(Boolean).join(' · '),
+      // El título ocupa UNA línea en la pantalla de bloqueo: ahí solo la clase.
+      // Cuánto falta va en el cuerpo, que sí puede ocupar dos.
+      titulo: c.titulo,
+      cuerpo: [`Empieza en ${MINUTOS_ANTES} minutos`, c.estudio, c.sala].filter(Boolean).join(' · '),
       cuando: new Date(cuandoMs).toISOString().replace(/\.\d{3}Z$/, 'Z'),
     });
     if (salida.length >= MAX_AVISOS_LOCALES) break;
@@ -60,9 +62,4 @@ export function avisosLocales(e: {
 /** Lo que recibe `AvisosLocalesPlugin.programar({ json })`. */
 export function jsonParaAvisosLocales(avisos: readonly AvisoLocal[]): string {
   return JSON.stringify({ version: 1, avisos });
-}
-
-/** Sirve para no reprogramar si no ha cambiado nada. */
-export function huellaDeAvisosLocales(avisos: readonly AvisoLocal[]): string {
-  return JSON.stringify(avisos);
 }
