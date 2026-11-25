@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CATEGORIAS, PARA_QUIEN, novedadesFrenteAlAnterior, resumenCorto, textoComplemento } from './catalogo-planes.ts';
-import { ADDONS, PLANES, PLAN_ENTITLEMENTS, addonDeFeature, type Plan } from './entitlements.ts';
+import { CATEGORIAS, PARA_QUIEN, novedadesFrenteAlAnterior, resumenCorto, textoComplemento, textoGratisYComplemento, valorFoundingGratis } from './catalogo-planes.ts';
+import { ADDONS, ENTITLEMENTS_GRATIS, LISTA_ADDONS, PLANES, PLAN_ENTITLEMENTS, addonDeFeature, type Plan } from './entitlements.ts';
 
 test('ninguna fila promete menos en un plan caro que en uno barato', () => {
   // La escalera BASE → ESTUDIO → CADENA no puede tener escalones hacia abajo:
@@ -107,7 +107,24 @@ test('no se anuncia ningún módulo congelado', () => {
 
 test('en Founding, los complementos salen con su precio y Estudio los incluye', () => {
   const fila = CATEGORIAS.flatMap((c) => c.filas).find((f) => f.nombre === 'Centro de Control')!;
-  assert.deepEqual(fila.valor('BASE'), { tipo: 'texto', texto: textoComplemento(ADDONS.decisiones.precioMes) });
+  assert.deepEqual(fila.valor('BASE'), { tipo: 'texto', texto: textoComplemento(ADDONS.decisiones.precioMes), complemento: 'decisiones' });
   assert.deepEqual(fila.valor('ESTUDIO'), { tipo: 'si' });
   assert.ok(novedadesFrenteAlAnterior('ESTUDIO', 'BASE').includes('Centro de Control'));
+});
+
+test('la columna Founding Studio de la web no llama «incluido» a lo que de pago es un complemento', () => {
+  const filas = CATEGORIAS.flatMap((c) => c.filas);
+  const vistos = new Set<string>();
+  for (const f of filas) {
+    const web = valorFoundingGratis(f, ENTITLEMENTS_GRATIS);
+    const dePago = f.valor('BASE');
+    if (dePago.tipo === 'texto' && dePago.complemento) {
+      vistos.add(dePago.complemento);
+      assert.deepEqual(web, { tipo: 'texto', texto: textoGratisYComplemento(dePago.complemento) }, f.nombre);
+    } else {
+      assert.deepEqual(web, f.valor('BASE', ENTITLEMENTS_GRATIS), f.nombre);
+    }
+  }
+  // Los tres complementos tienen su fila en la tabla.
+  assert.deepEqual([...vistos].sort(), [...LISTA_ADDONS].sort());
 });
