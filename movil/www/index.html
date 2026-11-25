@@ -25,6 +25,7 @@
       --suave: #566270;
       --boton: #222A33;
       --boton-texto: #F8FAFC;
+      --borde: #DDE3EA;
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -33,16 +34,18 @@
         --suave: #A3AEBB;
         --boton: #F8FAFC;
         --boton-texto: #111827;
+        --borde: #2F3949;
       }
     }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; }
+    html, body { margin: 0; min-height: 100%; }
+    html { height: 100%; }
     body {
       background: var(--fondo);
       color: var(--tinta);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
-      align-items: center;
+      align-items: safe center;
       justify-content: center;
       padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
       text-align: center;
@@ -53,6 +56,14 @@
     svg { width: 64px; height: 64px; color: var(--tinta); margin-bottom: 24px; }
     h1 { font-size: 22px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.01em; }
     p { font-size: 16px; line-height: 1.45; color: var(--suave); margin: 0 0 28px; }
+    section { margin: 0 0 28px; text-align: left; }
+    h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--suave); margin: 0 0 10px; }
+    ul { list-style: none; margin: 0; padding: 0; }
+    li { border: 1px solid var(--borde); border-radius: 16px; padding: 12px 14px; margin: 0 0 8px; }
+    li strong { display: block; font-size: 16px; }
+    li span { display: block; font-size: 14px; line-height: 1.4; color: var(--suave); }
+    .nota { font-size: 13px; margin: 10px 0 0; }
+    [hidden] { display: none !important; }
     button {
       appearance: none;
       border: 0;
@@ -83,12 +94,50 @@
       <path fill="url(#sin-conexion-tg)" d="M56 18C62 22 67 31 67 42V103A6 6 0 0 1 61 109H50C42 109 36 99 36 82V56C36 35 45 21 56 18Z"></path>
     </svg>
     <h1>Sin conexión</h1>
-    <p>No hemos podido abrir tu estudio. Comprueba que tienes internet y vuelve a intentarlo.</p>
+    <p id="explicacion">No hemos podido abrir tu estudio. Comprueba que tienes internet y vuelve a intentarlo.</p>
+    <section id="clases" hidden aria-labelledby="clases-titulo">
+      <h2 id="clases-titulo">Tus próximas clases</h2>
+      <ul id="lista"></ul>
+      <p class="nota">Guardadas en este iPhone. Pueden haber cambiado desde la última vez que abriste la app.</p>
+    </section>
     <button type="button" id="reintentar">Volver a intentarlo</button>
   </main>
   <script>
     // La carcasa deja el logo del arranque hasta que alguien lo quita.
     try { window.Capacitor.Plugins.SplashScreen.hide(); } catch (e) {}
+    // Sin red, las próximas clases que la app guardó la última vez (las mismas del
+    // widget; ProximaClasePlugin.leer). Todo con `textContent`: son textos del
+    // estudio, nunca HTML. Si no hay nada guardado, la página se queda como estaba.
+    function pintarClases(json) {
+      var datos = JSON.parse(json);
+      var ahora = Date.now();
+      var clases = (datos.clases || []).filter(function (c) { return new Date(c.fin).getTime() > ahora; });
+      if (!clases.length) return;
+      var lista = document.getElementById('lista');
+      var dia = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      var hora = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
+      clases.forEach(function (c) {
+        var li = document.createElement('li');
+        var titulo = document.createElement('strong');
+        titulo.textContent = c.titulo;
+        li.appendChild(titulo);
+        var inicio = new Date(c.inicio);
+        [dia.format(inicio) + ' · ' + hora.format(inicio), [c.estudio, c.instructora, c.sala].filter(Boolean).join(' · ')]
+          .forEach(function (linea) {
+            var s = document.createElement('span');
+            s.textContent = linea;
+            li.appendChild(s);
+          });
+        lista.appendChild(li);
+      });
+      document.getElementById('explicacion').textContent = 'No hemos podido abrir tu estudio. Comprueba tu conexión.';
+      document.getElementById('clases').hidden = false;
+    }
+    try {
+      window.Capacitor.Plugins.ProximaClase.leer()
+        .then(function (r) { if (r && r.json) pintarClases(r.json); })
+        .catch(function () {});
+    } catch (e) {}
     var boton = document.getElementById('reintentar');
     boton.addEventListener('click', function () {
       boton.disabled = true;

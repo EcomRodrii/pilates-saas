@@ -746,3 +746,15 @@ producción (necesita la alumna de demo y las variables).
 - La pantalla se tapa en cuanto la app deja de estar activa (tampoco se ve en el selector de apps); se pide desbloquear al abrirla en frío y al volver pasados 30 s.
 - Necesita `NSFaceIDUsageDescription` (ya en `Info.plist`). Un build antiguo no tiene el plugin: la web no enseña el interruptor (`estadoBloqueo()` devuelve `null`).
 - ⚠️ **No probado en un iPhone real** (el simulador compila; no se ha ejercitado la autenticación). Probar antes del build 1.1: apertura en frío, volver tras >30 s, cancelar el desbloqueo y reintentar, y cerrar sesión con el bloqueo encendido.
+
+## Sin conexión: tus próximas clases (25-nov-2026)
+
+`movil/www/index.html` (la página de «Sin conexión») pide a `ProximaClasePlugin.leer()` lo que la app guardó para el widget y pinta las próximas clases que aún no han terminado, con la nota de que pueden haber cambiado. Misma caducidad que el widget (14 días) y se borra al cerrar sesión. Todo con `textContent`. Sin nada guardado, la página queda como antes.
+
+Comprobado en el simulador (iPhone 17) compilando con `server.url` apuntando a un dominio inexistente y sembrando el grupo de apps. ⚠️ Con un puerto bloqueado por WebKit (`localhost:9`) salió en blanco: para probarlo, usar un dominio `.invalid`.
+
+## Privacidad y versión (25-nov-2026)
+
+- `PrivacyInfo.xcprivacy` declara `CA92.1` además de `1C8F.1`: `BloqueoPlugin` usa `UserDefaults.standard`.
+- Número de compilación: **2** (app y widget). La versión sigue en 1.0, que es la que está rechazada en App Store Connect (nunca se publicó): para reenviar se sube una compilación nueva de la misma versión.
+- `loggingBehavior: 'debug'` se queda: es el valor por defecto de Capacitor (solo registra en compilaciones de desarrollo).
