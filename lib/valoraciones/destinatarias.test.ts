@@ -15,7 +15,7 @@ test('solo ASISTIDA: ni confirmadas sin pasar lista, ni no-asistió, ni cancelad
     { id: 'r-b', socio_id: 'b', estado: 'CONFIRMADA' },
     { id: 'r-d', socio_id: 'd', estado: 'NO_ASISTIO' },
   ], socios);
-  assert.deepEqual(r, [{ socio_id: 'a', reserva_id: 'r-a', nombre: 'Ana Pérez', email: 'ana@x.es', conCuenta: true }]);
+  assert.deepEqual(r, [{ socio_id: 'a', reserva_id: 'r-a', nombre: 'Ana Pérez', email: 'ana@x.es', conCuenta: true, authUserId: 'u-a' }]);
 });
 
 test('una socia borrada no recibe nada aunque asistiera', () => {
@@ -23,7 +23,7 @@ test('una socia borrada no recibe nada aunque asistiera', () => {
 });
 
 test('sin email se devuelve igualmente (quien envía decide saltarla), sin apellidos no deja espacio', () => {
-  assert.deepEqual(destinatariasValoracion([{ id: 'r-b', socio_id: 'b', estado: 'ASISTIDA' }], socios), [{ socio_id: 'b', reserva_id: 'r-b', nombre: 'Bea', email: null, conCuenta: false }]);
+  assert.deepEqual(destinatariasValoracion([{ id: 'r-b', socio_id: 'b', estado: 'ASISTIDA' }], socios), [{ socio_id: 'b', reserva_id: 'r-b', nombre: 'Bea', email: null, conCuenta: false, authUserId: null }]);
 });
 
 test('una socia con dos reservas en la misma sesión cuenta una vez', () => {

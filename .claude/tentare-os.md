@@ -1971,6 +1971,18 @@ vuelta ven el cobro pagado, idempotente por sesión. El código no lo lee el nav
 ⚠️ El IVA y la caducidad mínima están **pendientes de gestoría**: no activar la venta en estudios reales sin cerrarlos.
 Fase 2 ya acotada en el doc (Caja/POS, envío programado, bono regalado, pagar online con saldo).
 
+## Inicio es Tenti, y los correos como los de Shopify (25-nov-2026, decisión del fundador)
+
+- **Inicio (`/dashboard`) es solo la conversación con Tenti** (`components/dashboard/inicio-tenti.tsx`, el mismo chat que
+  `/asistente`) con el marco nuevo y el asistente disponible. El resumen de siempre sigue ENTERO en
+  `/dashboard?vista=resumen` (y se enseña en su lugar sin asistente, con la puesta en marcha sin terminar o con
+  `?compartir=1`). ⚠️ Las tarjetas de «lo que espera tu visto bueno» (cobros, devoluciones, reservas por aprobar…) viven
+  ahí: el enlace «N por decidir» de Inicio no se quita sin dar otra puerta.
+- **Correos**: anatomía del correo de Shopify (banda, logo, titular de 44 px ligero, píldora, foto, pie negro) en
+  `lib/emails/estudio/plantilla.ts` (marca del estudio) y `lib/emails/tentare/plantilla.ts` (la nuestra). Un correo nuevo
+  pasa por una de las dos; nunca HTML propio. ⚠️ Las plantillas de acceso de `supabase/templates/` van aparte y no se
+  despliegan con el merge.
+
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día

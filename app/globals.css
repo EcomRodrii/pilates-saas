@@ -2649,3 +2649,11 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
     height: 30px; min-height: 0; border-radius: 8px; font-size: 13px; line-height: 20px; padding-block: 4px; padding-inline: 8px; border-color: rgba(0, 0, 0, 0.2);
   }
 }
+
+/* Inicio con Tenti: solo la conversación. La píldora que la abriría sobra, y el aviso de la edición quedaría tapado a
+   medias por el chat (sigue saliendo en el resumen). En el móvil el chat deja sitio a la barra de navegación. */
+.panel-app:has([data-testid='inicio-tenti']) :is([data-pildora-asistente], [data-aviso-edicion]) { display: none !important; }
+@media (max-width: 767px) {
+  .panel-app[data-shell-nuevo]:has([data-testid='inicio-tenti']) [data-testid='chat-asistente']:not([data-teclado]) { bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important; }
+  .panel-app[data-shell-nuevo]:has([data-testid='inicio-tenti']) [data-movil-barra] { z-index: 37; }
+}

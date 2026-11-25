@@ -20,10 +20,10 @@ const BASICO = {
   motivo: 'Te escribimos porque eres la propietaria.',
 };
 
-test('Outlook recibe 600 px fijos y Arial forzado, no Times New Roman', () => {
+test('Outlook recibe 620 px fijos y Arial forzado, no Times New Roman', () => {
   const html = correoTentare(BASICO);
   assert.match(html, /<!--\[if mso \| IE\]>/);
-  assert.match(html, /<table[^>]*width="600"/);
+  assert.match(html, /<table[^>]*width="620"/);
   assert.match(html, /<o:PixelsPerInch>96<\/o:PixelsPerInch>/);
   // Outlook no baja por la pila si la primera fuente no está instalada: cae a
   // Times New Roman. Esta familia no tiene serif, así que se fuerza Arial.
@@ -45,7 +45,9 @@ test('el logo lleva su placa: en claro no se nota y en oscuro se queda blanca (e
   // La placa NO puede ser el mismo hex que la tarjeta: el modo oscuro cambia por valor y se llevaría la placa por delante.
   assert.notEqual(TENTARE.placa.toUpperCase(), TENTARE.tarjeta.toUpperCase());
   assert.equal(TENTARE_OSCURO.placa, TENTARE.placa, 'la placa no se oscurece');
-  assert.ok(html.includes(TENTARE.regla), 'falta la regla de color de la marca');
+  // La banda de arriba dice de qué va el correo, y el pie es negro, como en la referencia.
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.banda}"[^>]*padding:4px 24px;[^>]*>Tu suscripción<`));
+  assert.match(html, new RegExp(`bgcolor="${TENTARE.banda}" style="background:${TENTARE.banda};"`));
 });
 
 test('la marca es la de Tentare y no se tiñe con la de ningún estudio', () => {
@@ -60,7 +62,7 @@ const PARES: [string, keyof typeof TENTARE, keyof typeof TENTARE][] = [
   ['titular sobre la tarjeta', 'texto', 'tarjeta'],
   ['cuerpo sobre la tarjeta', 'cuerpo', 'tarjeta'],
   ['letra pequeña sobre la tarjeta', 'suave', 'tarjeta'],
-  ['pie sobre el fondo', 'suave', 'fondo'],
+  ['texto de la banda y del pie', 'sobreBanda', 'banda'],
   ['antetítulo y enlaces sobre la tarjeta', 'realce', 'tarjeta'],
   ['texto del botón sobre el botón', 'botonTexto', 'boton'],
   ['cifras sobre su panel', 'texto', 'panel'],
@@ -81,8 +83,8 @@ test('todo lo que es texto sobre un fondo se lee (AA), en claro Y en oscuro', ()
 
 test('dentro de cada propiedad, dos roles no comparten hex (el modo oscuro cambia por valor)', () => {
   const grupos: Record<string, (keyof typeof TENTARE)[]> = {
-    fondos: ['fondo', 'tarjeta', 'panel', 'boton', 'alerta', 'regla', 'placa'],
-    textos: ['texto', 'cuerpo', 'suave', 'realce', 'botonTexto'],
+    fondos: ['fondo', 'tarjeta', 'panel', 'boton', 'alerta', 'regla', 'placa', 'banda'],
+    textos: ['texto', 'cuerpo', 'suave', 'realce', 'botonTexto', 'sobreBanda'],
     bordes: ['borde', 'realce'],
   };
   for (const [nombre, roles] of Object.entries(grupos)) {
@@ -135,7 +137,7 @@ test('preheader oculto con su relleno y peso bajo el recorte de Gmail', () => {
 test('solo clases para el móvil, y ningún dominio que no le hayamos dado', () => {
   const html = correoTentare(BASICO);
   const clases = new Set([...html.matchAll(/class="([^"]+)"/g)].flatMap(m => m[1].split(/\s+/)));
-  assert.deepEqual([...clases].sort(), ['px-mobile', 'w-full']);
+  assert.deepEqual([...clases].sort(), ['h1-mobile', 'px-mobile', 'w-full']);
   const hosts = new Set([...html.matchAll(/https?:\/\/([^/"'\s)]+)/g)].map(m => m[1]));
   const descargas = [...hosts].filter(h => !h.includes('schemas.microsoft.com') && !h.includes('www.w3.org'));
   assert.deepEqual(descargas.sort(), ['app.example.com', 'www.tentare.app']);
