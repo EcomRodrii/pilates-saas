@@ -1983,6 +1983,14 @@ Fase 2 ya acotada en el doc (Caja/POS, envío programado, bono regalado, pagar o
   pasa por una de las dos; nunca HTML propio. ⚠️ Las plantillas de acceso de `supabase/templates/` van aparte y no se
   despliegan con el merge.
 
+## Sistema de diseño y movimiento del panel (25-nov-2026)
+
+`app/estilos/panel-sistema.css` es la ÚNICA fuente de duraciones, curvas, radios, escala de letra, sombras y neutros
+del marco nuevo (`--pn-*`, valores del admin de Shopify). Un valor se cambia ahí, nunca a mano en una regla o un
+componente (`lib/panel-sistema.test.ts`). Lo que pinta va dentro de `.panel-app[data-shell-nuevo]`; las animaciones,
+solo `opacity`/`translate`/`scale`, con `backwards` y tras `prefers-reduced-motion: no-preference`.
+Las imágenes grandes que faltan están encargadas en `docs/diseno/ilustraciones/ENCARGO-HERO.md`.
+
 ## Tentare Brain = Decision OS (no construir uno nuevo)
 
 El "Tentare Brain" es `lib/decision/`, que ya existe y corre dos veces al día
