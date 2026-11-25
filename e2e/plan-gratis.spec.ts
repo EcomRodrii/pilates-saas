@@ -74,6 +74,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await montar(page, 'MARGEN', '/suscripcion#tu-plan');
   const aviso = page.getByRole('region', { name: 'Lo que usas' }).getByRole('alert');
   await expect(aviso).toContainText('Te quedan 12 días en Founding Studio', { timeout: 30_000 });
+  if (process.env.AVISO_CAPTURAS) await page.screenshot({ path: `${process.env.AVISO_CAPTURAS}/margen.png`, fullPage: true });
   await expect(aviso).toContainText('150 reservas al mes');
   await expect(aviso).toContainText('hasta el 20 de noviembre');
   await expect(aviso).toContainText('Si antes vuelves a estar por debajo, no tienes que hacer nada');
@@ -82,6 +83,7 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)');
   await expect(aviso).toContainText('sin límites');
   await expect(aviso).not.toContainText('Estudio (79');
+  await expect(page.getByRole('region', { name: 'Pasa a complemento' })).toContainText('Centro de Control+22 €/mes');
   // Del gratis (todo incluido) a pagar se pierden tres cosas: se dice antes.
   await expect(aviso).toContainText('sustituciones automáticas (12 €/mes)');
   await expect(aviso).toContainText('van aparte, como complementos');
@@ -144,6 +146,12 @@ test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un 
   // Antes de «Seguir creciendo» se dice qué deja de ir incluido.
   await expect(felicidades).toContainText('van aparte, como complementos');
   await expect(felicidades).not.toContainText('Todo igual');
+  await expect(felicidades.getByRole('region', { name: 'Sigue incluido' })).toBeVisible();
+  // Título y botón de pagar a la vista a la vez, sin deslizar el diálogo entero.
+  await expect(felicidades.getByText('¡Felicidades!')).toBeInViewport({ ratio: 1 });
+  await expect(felicidades.getByTestId('felicidades-contratar')).toBeInViewport({ ratio: 1 });
+  const carpeta = process.env.AVISO_CAPTURAS;
+  if (carpeta) await page.screenshot({ path: `${carpeta}/felicidades.png` });
   await expect(felicidades).toContainText('150 reservas al mes');
   await expect(felicidades).toContainText('29 €');
   await expect(felicidades).toContainText('hasta el 20 de noviembre');

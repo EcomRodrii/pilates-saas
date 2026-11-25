@@ -11,11 +11,11 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Link from 'next/link';
-import { CalendarCheck, CalendarClock, Gift, TrendingUp, Users } from 'lucide-react';
+import { CalendarCheck, CalendarClock, Check, Gift, TrendingUp, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { AVISO_PCT, FRASE_PLAN_GRATIS, textoLimite, textoLimites, type EstadoGratisApi } from '@/lib/billing/plan-gratis';
-import { PLAN_INFO } from '@/lib/billing/entitlements';
+import { ADDONS, LISTA_ADDONS, PLAN_ENTITLEMENTS, PLAN_INFO } from '@/lib/billing/entitlements';
 import { AL_PAGAR_FOUNDING } from '@/lib/landing/founding-gratis';
 import { Baldosa } from '@/components/dashboard/vivo';
 
@@ -116,6 +116,52 @@ function Medidor({ Icono, titulo, valor, limite, pie, href }: {
   );
 }
 
+/** Lo que sigue yendo dentro al pagar Founding Studio. Lo que pasa a complemento sale de `ADDONS`. */
+const SIGUE_INCLUIDO = [
+  'Reservas, agenda y salas, sin límite',
+  'Alumnas, sin límite',
+  'Cobros, bonos y facturas',
+  'App con tu marca',
+  'Sustituciones con tu visto bueno',
+  `Pregúntale a Tentare: ${PLAN_ENTITLEMENTS.BASE.consultasAsistenteMes} consultas al mes`,
+];
+
+/**
+ * Lo que cambia al pasar del gratis a Founding Studio de pago, en dos tarjetas: lo que sigue y lo que
+ * pasa a contratarse aparte. Antes de pagar, siempre (el aviso, el panel cerrado y la felicitación).
+ */
+export function QueCambia({ className, compacta = false }: { className?: string; compacta?: boolean }) {
+  const tarjeta = 'rounded-[20px] border border-border bg-card p-4 shadow-[0_2px_12px_rgb(0_0_0/0.04)]';
+  const fila = cn('flex items-center justify-between gap-3 border-b border-border text-[13px] text-foreground last:border-0', compacta ? 'py-1.5' : 'py-2.5');
+  return (
+    <div data-que-cambia className={cn('grid gap-3 text-left sm:grid-cols-2', className)}>
+      <section aria-label="Sigue incluido" className={tarjeta}>
+        <h3 className="text-[14px] font-semibold text-foreground">Sigue incluido</h3>
+        <ul className="mt-1">
+          {SIGUE_INCLUIDO.map((t) => (
+            <li key={t} className={fila}>
+              <span>{t}</span>
+              <span aria-hidden className="flex size-4 shrink-0 items-center justify-center rounded-full bg-foreground text-background"><Check size={10} strokeWidth={3.5} /></span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section aria-label="Pasa a complemento" className={tarjeta}>
+        <h3 className="text-[14px] font-semibold text-foreground">Pasa a complemento</h3>
+        <ul className="mt-1">
+          {LISTA_ADDONS.map((a) => (
+            <li key={a} className={fila}>
+              <span>{ADDONS[a].nombre}</span>
+              <span className="shrink-0 tabular-nums">+{ADDONS[a].precioMes} €/mes</span>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-2 text-[12px] text-muted-foreground">Se añaden cuando quieras desde Plan.</p>
+      </section>
+    </div>
+  );
+}
+
 /** Lo que usas frente a los dos límites, y qué te corresponde. */
 export function UsoPlanGratis({ gratis, className }: { gratis: EstadoGratisApi; className?: string }) {
   const m = mensajeGratis(gratis);
@@ -150,6 +196,7 @@ export function UsoPlanGratis({ gratis, className }: { gratis: EstadoGratisApi; 
           <span className="block text-[13px] text-muted-foreground text-pretty">{m.texto}</span>
         </span>
       </div>
+      {(gratis.fase === 'MARGEN' || gratis.fase === 'CERRADO') && <QueCambia className="mt-4" />}
     </section>
   );
 }

@@ -28,3 +28,9 @@ test('el aviso del margen, el de panel cerrado y la felicitación llevan la fras
   assert.equal(veces('components/billing/plan-gratis.tsx'), 2);
   assert.equal(veces('components/billing/felicidades-crecimiento.tsx'), 1);
 });
+
+test('antes de pagar se ven las dos listas: en el margen, con el panel cerrado y en la felicitación', () => {
+  const aviso = readFileSync('components/billing/plan-gratis.tsx', 'utf8');
+  assert.match(aviso, /\(gratis\.fase === 'MARGEN' \|\| gratis\.fase === 'CERRADO'\) && <QueCambia/);
+  assert.match(readFileSync('components/billing/felicidades-crecimiento.tsx', 'utf8'), /<QueCambia compacta \/>/);
+});

@@ -22,6 +22,7 @@ import { PartyPopper } from 'lucide-react';
 import { estadoBilling, iniciarSuscripcion, type EstadoBilling } from '@/lib/api-client';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
 import { textoLimites } from '@/lib/billing/plan-gratis';
+import { QueCambia } from '@/components/billing/plan-gratis';
 import { AL_PAGAR_FOUNDING } from '@/lib/landing/founding-gratis';
 import { claveFelicidadesVista, fraseDeFelicidades, tocaFelicitar } from '@/lib/billing/felicidades';
 import { vistaPreviaSolicitada } from '@/lib/growth/vista-previa';
@@ -97,46 +98,46 @@ export function FelicidadesCrecimiento() {
   return (
     <Dialog open={abierto} onOpenChange={(v) => { if (!v) cerrar(); }}>
       {abierto && <Confeti zIndex={9999} />}
-      <DialogContent className="sm:max-w-md" data-testid="felicidades-crecimiento">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full" style={{ backgroundColor: 'color-mix(in srgb, var(--success) 14%, var(--card))', color: 'var(--success)' }} aria-hidden>
-            <PartyPopper size={28} />
-          </span>
-          <DialogTitle className="text-[24px] font-extrabold tracking-tight">¡Felicidades!</DialogTitle>
-          <DialogDescription className="text-[14.5px] leading-relaxed text-foreground text-pretty">
+      {/* La forma de los diálogos del admin de Shopify: título arriba, contenido y botones abajo a la derecha. */}
+      <DialogContent className="flex flex-col gap-0 overflow-hidden rounded-[20px] p-0 sm:max-w-2xl" data-testid="felicidades-crecimiento">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-5 py-3.5">
+          <PartyPopper size={18} aria-hidden style={{ color: 'var(--success)' }} />
+          <DialogTitle className="text-[16px] font-semibold tracking-tight">¡Felicidades!</DialogTitle>
+        </div>
+
+        {/* Lo único que se desliza: título y botones quedan siempre a la vista, también en un móvil bajo. */}
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-5 py-4">
+          <DialogDescription className="text-[14px] leading-relaxed text-foreground text-pretty">
             Tu estudio ha pasado de {textoLimites(g.motivos)}. Eso solo pasa cuando la gente vuelve.
           </DialogDescription>
-          <p className="text-[14px] italic leading-relaxed text-muted-foreground text-pretty">{fraseDeFelicidades(cierraEl)}</p>
-        </div>
-
-        <div className="mt-2 rounded-2xl border border-border bg-muted/40 p-4">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[15px] font-bold text-foreground">Founding Studio</p>
-            <p className="text-[15px] font-bold text-foreground tabular-nums">{precio} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></p>
+          <p className="text-[13px] italic leading-relaxed text-muted-foreground text-pretty">{fraseDeFelicidades(cierraEl)}</p>
+          <div className="flex items-baseline justify-between gap-3 pt-1">
+            <p className="text-[15px] font-semibold text-foreground">Founding Studio</p>
+            <p className="text-[22px] font-semibold text-foreground tabular-nums">{precio} €<span className="text-[12.5px] font-medium text-muted-foreground">/mes</span></p>
           </div>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-muted-foreground text-pretty">
+          <QueCambia compacta />
+          <p className="text-[13px] leading-relaxed text-muted-foreground text-pretty">
             Sin límite de clientes ni de reservas. {AL_PAGAR_FOUNDING} Tienes hasta el {fechaLarga(cierraEl)} para dar el paso; mientras tanto, nada cambia.
           </p>
+          {error && <p role="alert" className="text-[12.5px] font-semibold text-destructive">{error}</p>}
+          {vistaPrevia && <p className="text-[11.5px] text-muted-foreground">Vista previa con cifras de ejemplo: no se guarda ni se cobra nada.</p>}
         </div>
 
-        {error && <p role="alert" className="text-[12.5px] font-semibold text-destructive">{error}</p>}
-
-        <div className="mt-1 flex flex-col gap-2">
+        <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-5 py-3.5">
+          <button type="button" onClick={cerrar} className="h-9 rounded-full bg-muted px-4 text-[13px] font-medium text-foreground hover:brightness-95">
+            Ahora no
+          </button>
           {estado.configurado ? (
             <button type="button" onClick={() => void contratar()} disabled={contratando} data-testid="felicidades-contratar"
-              className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-[14px] font-bold text-background disabled:opacity-60">
+              className="inline-flex h-9 items-center justify-center rounded-full bg-foreground px-4 text-[13px] font-medium text-background disabled:opacity-60">
               {contratando ? 'Abriendo el pago…' : `Seguir creciendo · ${precio} €/mes`}
             </button>
           ) : (
             <Link href="/suscripcion" onClick={cerrar}
-              className="inline-flex h-11 items-center justify-center rounded-full bg-foreground px-5 text-[14px] font-bold text-background">
+              className="inline-flex h-9 items-center justify-center rounded-full bg-foreground px-4 text-[13px] font-medium text-background">
               Ver el plan · {precio} €/mes
             </Link>
           )}
-          <button type="button" onClick={cerrar} className="h-10 rounded-full text-[13.5px] font-semibold text-muted-foreground hover:text-foreground">
-            Ahora no
-          </button>
-          {vistaPrevia && <p className="text-center text-[11.5px] text-muted-foreground">Vista previa con cifras de ejemplo: no se guarda ni se cobra nada.</p>}
         </div>
       </DialogContent>
     </Dialog>
