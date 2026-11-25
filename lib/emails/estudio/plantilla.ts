@@ -20,6 +20,7 @@ import { Marked } from 'marked';
 import type { CanalResuelto } from '../../canales-estudio.ts';
 import { paletaCorreoEstudio, type PaletaCorreo } from './paleta.ts';
 import { colorLegibleSobre } from '../../color-utils.ts';
+import { foregroundParaFondo } from '../../wcag-contrast.ts';
 import { sanearMarkdown } from '../sanear-markdown.ts';
 import { escaparHtml, hrefSeguro, imagenSegura, preheaderHtml, cabezaHtml, FUENTES_EN_WINDOWS } from '../html.ts';
 import { logoDeCorreo } from './marca-correo.ts';
@@ -121,25 +122,39 @@ export interface CorreoEstudioOpts {
   contenidoHtml?: string;
 }
 
-const ANCHO = 600;
+const ANCHO = 620;
 
-/** Pila de fuentes segura en correo. La de marca del producto es un webfont y casi ningún cliente la carga. */
-const PILA_SEGURA = "-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
-/** El titular va en serif cursiva SIEMPRE: es la seña de identidad de la plantilla. */
-const PILA_TITULAR = "Georgia, 'Times New Roman', Times, serif";
+/**
+ * El correo es el de Shopify, pieza por pieza (medido en una bandeja real, 24-nov-2026): lienzo gris claro, columna
+ * blanca de 620 px, una banda negra arriba que dice de qué tienda es, el logo a la izquierda, titular de 44 px y peso
+ * ligero centrado, texto centrado de 18/16 px, botón en píldora, foto a lo ancho y un pie negro con la dirección. La
+ * marca del estudio entra por su nombre, su logo, su foto y el color de su botón: los neutros son los del correo.
+ */
+const LIENZO = '#EFF1F4';
+const TINTA = '#000000';
+const SUAVE = '#4A4A4A';
+const LINEA = '#E3E3E3';
+const NEGRO = '#000000';
+/** Inter si el cliente la tiene; si no, la del sistema. La de marca del producto es un webfont y casi nadie la carga. */
+const PILA_SEGURA = "InterVariable, Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 
 /**
  * Lo que lee SOLO Outlook de Windows. Su motor no baja por la pila de fuentes:
  * con `-apple-system` o 'Plus Jakarta Sans' delante —ninguna instalada en
  * Windows— pintaba el cuerpo del correo en Times New Roman. Aquí se le da la
- * fuente elegida si Windows la tiene, y si no Arial. El serif del titular va
- * aparte con su clase: Georgia sí está en Windows y es la seña de la plantilla.
+ * fuente elegida si Windows la tiene, y si no Arial.
  */
 function estiloMso(fuente?: string | null): string {
   const elegida = (fuente ?? '').trim();
   const cuerpo = FUENTES_EN_WINDOWS.has(elegida) ? `'${elegida}', Arial, sans-serif` : 'Arial, Helvetica, sans-serif';
-  return `td, div, p, a, li, span { font-family: ${cuerpo} !important; } .f-serif { font-family: Georgia, serif !important; }`;
+  return `td, div, p, a, li, span { font-family: ${cuerpo} !important; }`;
 }
+
+/** En el móvil el titular baja de 44 a 32 px: a 44, cuatro palabras ya se parten en tres líneas. */
+const CSS_MOVIL = `  @media screen and (max-width: 620px) {
+    .h1-mobile { font-size: 32px !important; line-height: 38px !important; }
+  }
+`;
 
 // Las piezas sin marca (escapar, destinos seguros, preheader, <head>) viven en
 // lib/emails/html.ts y las comparte la familia de Tentare. Se reexporta
@@ -150,49 +165,41 @@ export { escaparHtml };
 export function correoEstudio(o: CorreoEstudioOpts): string {
   const p = paletaCorreoEstudio(o.marca.colorPrimario, o.marca.colorSecundario, o.marca.colorBoton);
   const cuerpoFuente = o.marca.fuente ? `'${o.marca.fuente.replace(/'/g, '')}', ${PILA_SEGURA}` : PILA_SEGURA;
-  const filete = o.acento?.trim() || p.marca;
-  // El acento también pinta el dato destacado de la tarjeta (el importe de un
-  // cobro), y ahí ya no es un filete de 5 px sino TEXTO sobre el arena. Medido:
-  // el ámbar del primer aviso de impago se queda en 4,2:1 sobre el arena de un
-  // estudio rosa. Mismo criterio que el resto de la paleta.
-  const destaque = colorLegibleSobre(filete, p.arena);
+  const acento = o.acento?.trim() || null;
+  // El acento también pinta el dato destacado (el importe de un cobro): ahí es TEXTO sobre blanco.
+  const destaque = colorLegibleSobre(acento ?? p.marca, '#FFFFFF');
 
-  const foto = o.conPortada ? portada(o.marca) : '';
-  // Tras la cabecera basta un respiro; tras la foto, el titular necesita aire.
-  const arriba = foto ? 26 : 6;
   const cuerpo = o.contenidoHtml !== undefined
-    ? `<tr><td class="px-mobile" style="padding:${arriba}px 28px 20px;background:${p.papel};">${o.contenidoHtml}</td></tr>`
+    ? `<tr><td class="px-mobile" style="padding:24px 40px 8px;background:#FFFFFF;">${o.contenidoHtml}</td></tr>`
     : [
-        titularYTexto(o, p, cuerpoFuente, arriba),
-        o.detalle && o.detalle.filas.length > 0 ? tarjetaDetalle(o.detalle, p, cuerpoFuente, destaque) : '',
+        titularYTexto(o, cuerpoFuente),
+        o.detalle && o.detalle.filas.length > 0 ? tarjetaDetalle(o.detalle, cuerpoFuente, destaque) : '',
         o.boton ? boton(o.boton, p, cuerpoFuente) : '',
       ].join('');
 
   const bloques = [
-    // Membrete y después la foto. La foto primero (como la referencia, que no
-    // tiene logo) dejaba el logo encajado entre la foto y el titular.
-    cabecera(o.marca, p, cuerpoFuente),
-    foto,
+    banda(o.marca.estudioNombre, acento ?? p.marca, cuerpoFuente),
+    cabecera(o, cuerpoFuente),
     cuerpo,
-    notaYFirma(o, p, cuerpoFuente),
+    notaYFirma(o, cuerpoFuente),
+    o.conPortada ? portada(o.marca) : '',
+    pie(o, cuerpoFuente),
   ].join('');
 
   return `<!doctype html>
 <html lang="es" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
-${cabezaHtml(o.marca.estudioNombre, p.arena, p.enlace, ANCHO, estiloMso(o.marca.fuente))}
-<body style="margin:0;padding:0;background:${p.arena};">
+${cabezaHtml(o.marca.estudioNombre, LIENZO, p.enlace, ANCHO, estiloMso(o.marca.fuente), 'light', CSS_MOVIL)}
+<body style="margin:0;padding:0;background:${LIENZO};">
 ${preheaderHtml(o.preheader)}
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.arena}" style="background:${p.arena};">
-<tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${LIENZO}" style="background:${LIENZO};">
+<tr><td align="center" style="padding:0;">
 <!--[if mso | IE]>
 <table role="presentation" width="${ANCHO}" align="center" cellpadding="0" cellspacing="0" border="0" style="width:${ANCHO}px;"><tr><td>
 <![endif]-->
 <div class="w-full" style="max-width:${ANCHO}px;margin:0 auto;text-align:left;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.papel}" style="background:${p.papel};border:1px solid ${p.borde};border-radius:8px;overflow:hidden;">
-<tr><td style="background:${filete};height:5px;line-height:5px;font-size:0;">&nbsp;</td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background:#FFFFFF;">
 ${bloques}
 </table>
-${pie(o, p, cuerpoFuente)}
 </div>
 <!--[if mso | IE]></td></tr></table><![endif]-->
 </td></tr>
@@ -203,26 +210,31 @@ ${pie(o, p, cuerpoFuente)}
 
 // ── Piezas ───────────────────────────────────────────────────────────────────
 
-function cabecera(marca: MarcaCorreo, p: PaletaCorreo, fuente: string): string {
-  // Con logo se pinta el logo; sin él, el nombre del estudio en versales. Nunca
-  // las dos cosas: sería el nombre dos veces seguidas.
-  //
-  // Centrado y arriba del todo, de membrete. Antes iba debajo de la foto y a
-  // 30 px de alto, y así llegó a una bandeja real: un logo cuadrado se quedaba
-  // en un sello ilegible y uno que era una foto parecía una imagen rota.
-  const logo = imagenSegura(logoDeCorreo(marca.logoUrl));
-  // ⚠️ Dos límites y ningún tamaño fijo: no sabemos la forma del logo. Uno
-  // cuadrado topa con el alto (72×72) y uno apaisado con el ancho (200×40).
-  // Outlook ignora `max-*`, así que ahí va su propia copia con alto fijo.
-  const alt = escaparHtml(marca.estudioNombre);
+/**
+ * La banda de arriba: de quién es el correo, en 12 px, con el color del estudio (en la referencia es la marca de la
+ * casa). Cuando el correo trae un aviso con significado propio (clase cancelada, cobro fallido) toma ese color. El
+ * texto se elige por contraste: una marca pastel lleva letra oscura.
+ */
+function banda(nombre: string, fondo: string, fuente: string): string {
+  return `<tr><td align="center" bgcolor="${fondo}" style="background:${fondo};padding:4px 24px;font-family:${fuente};font-size:12px;line-height:14px;color:${foregroundParaFondo(fondo)};text-align:center;">${escaparHtml(nombre)}</td></tr>`;
+}
+
+/**
+ * El logo a la izquierda (o el nombre, si no hay) y, SOLO en un correo comercial, la misma acción del botón repetida a
+ * la derecha: es una campaña, como la de Shopify. En una confirmación sería ruido.
+ */
+function cabecera(o: CorreoEstudioOpts, fuente: string): string {
+  const logo = imagenSegura(logoDeCorreo(o.marca.logoUrl));
+  const alt = escaparHtml(o.marca.estudioNombre);
+  // Dos límites y ningún tamaño fijo: no sabemos la forma del logo. Outlook ignora `max-*`, así que ahí va su copia con alto fijo.
   const identidad = logo
-    ? `<!--[if mso]><img src="${logo}" height="56" alt="${alt}" style="display:block;margin:0 auto;border:0;"><![endif]-->
-<!--[if !mso]><!--><img src="${logo}" alt="${alt}" style="display:block;margin:0 auto;border:0;width:auto;height:auto;max-width:200px;max-height:72px;"><!--<![endif]-->`
-    : `<div style="font-family:${fuente};font-size:12px;font-weight:bold;letter-spacing:.16em;text-transform:uppercase;color:${p.etiqueta};">${alt}</div>`;
-  const lema = marca.lema?.trim()
-    ? `<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:13px;line-height:1.4;color:${p.tintaSuave};margin-top:8px;">${escaparHtml(marca.lema.trim())}</div>`
+    ? `<!--[if mso]><img src="${logo}" height="48" alt="${alt}" style="display:block;border:0;"><![endif]-->
+<!--[if !mso]><!--><img src="${logo}" alt="${alt}" style="display:block;border:0;width:auto;height:auto;max-width:160px;max-height:53px;"><!--<![endif]-->`
+    : `<div style="font-family:${fuente};font-size:20px;font-weight:600;line-height:26px;color:${TINTA};">${alt}</div>`;
+  const atajo = o.bajaUrl && o.boton
+    ? `<td align="right" valign="middle" style="padding:0 0 0 16px;"><a href="${hrefSeguro(o.boton.href)}" style="display:inline-block;padding:10px 20px;border-radius:30px;background:${LIENZO};font-family:${fuente};font-size:14px;font-weight:500;line-height:20px;color:${TINTA};text-decoration:none;">${escaparHtml(o.boton.texto)}</a></td>`
     : '';
-  return `<tr><td class="px-mobile" align="center" style="padding:24px 28px 22px;background:${p.papel};text-align:center;">${identidad}${lema}</td></tr>`;
+  return `<tr><td class="px-mobile" style="padding:16px 40px 8px;background:#FFFFFF;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td valign="middle">${identidad}</td>${atajo}</tr></table></td></tr>`;
 }
 
 function portada(marca: MarcaCorreo): string {
@@ -231,55 +243,52 @@ function portada(marca: MarcaCorreo): string {
   // Sin `height` fijo: la foto del estudio no tiene por qué venir en 16:10 y
   // forzarlo la deformaría. El `width` sí va como atributo porque Outlook no
   // lee el de la hoja de estilos.
-  return `<tr><td style="padding:0;font-size:0;line-height:0;">
+  return `<tr><td style="padding:16px 0 0;font-size:0;line-height:0;">
 <img src="${foto}" width="${ANCHO}" alt="${escaparHtml(marca.estudioNombre)}" style="display:block;width:100%;max-width:${ANCHO}px;height:auto;border:0;">
 </td></tr>`;
 }
 
-function titularYTexto(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string, arriba: number): string {
+function titularYTexto(o: CorreoEstudioOpts, fuente: string): string {
   const parrafos = (o.parrafos ?? [])
     .filter((t): t is string => !!t && t.trim() !== '')
-    .map((t, i, todos) => `<div style="font-family:${fuente};font-size:14.5px;line-height:1.7;color:${p.tinta};margin:0 0 ${i === todos.length - 1 ? 0 : 14}px;">${escaparHtml(t)}</div>`)
+    // El primero es la entradilla (18 px); el resto, texto (16 px). Como en la referencia.
+    .map((t, i, todos) => `<div style="font-family:${fuente};font-size:${i === 0 ? 18 : 16}px;font-weight:400;line-height:${i === 0 ? 25 : 22}px;color:${TINTA};text-align:center;margin:0 0 ${i === todos.length - 1 ? 0 : 16}px;">${escaparHtml(t)}</div>`)
     .join('');
-  // La cita es de otra persona: filete de la marca a la izquierda y serif cursiva, para que no se
-  // lea como una frase más del estudio. Una tabla (no `border-left` suelto) por Outlook.
+  // La cita es de otra persona: en cursiva y entre comillas, para que no se lea como una frase más del estudio.
   const cita = o.cita?.texto.trim()
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 0;"><tr>
-<td width="3" bgcolor="${p.marca}" style="background:${p.marca};width:3px;font-size:0;line-height:0;">&nbsp;</td>
-<td style="padding:4px 0 4px 16px;">
-<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:17px;line-height:1.55;color:${p.tinta};">«${escaparHtml(o.cita.texto.trim())}»</div>
-${o.cita.autor?.trim() ? `<div style="font-family:${fuente};font-size:12.5px;font-weight:bold;color:${p.tintaSuave};margin-top:6px;">— ${escaparHtml(o.cita.autor.trim())}</div>` : ''}
-</td></tr></table>`
+    ? `<div style="margin:24px 0 0;text-align:center;">
+<div style="font-family:${fuente};font-style:italic;font-size:22px;line-height:28px;color:${TINTA};">«${escaparHtml(o.cita.texto.trim())}»</div>
+${o.cita.autor?.trim() ? `<div style="font-family:${fuente};font-size:12px;font-weight:700;line-height:16px;color:${TINTA};margin-top:12px;">${escaparHtml(o.cita.autor.trim())}</div>` : ''}
+</div>`
     : '';
-  return `<tr><td class="px-mobile" style="padding:${arriba}px 28px 20px;background:${p.papel};">
-<div class="f-serif" style="font-family:${PILA_TITULAR};font-style:italic;font-size:23px;line-height:1.35;color:${p.tinta};margin:0 0 14px;">${escaparHtml(o.titular)}</div>
-${parrafos}${cita}
-</td></tr>`;
+  const titular = o.titular.trim()
+    ? `<tr><td class="px-mobile" align="center" style="padding:24px 40px 12px;background:#FFFFFF;text-align:center;"><h1 class="h1-mobile" style="font-family:${fuente};font-size:44px;font-weight:300;line-height:48px;color:${TINTA};text-align:center;margin:0;">${escaparHtml(o.titular)}</h1></td></tr>`
+    : '';
+  return `${titular}
+<tr><td class="px-mobile" align="center" style="padding:8px 40px 16px;background:#FFFFFF;text-align:center;">${parrafos}${cita}</td></tr>`;
 }
 
-function tarjetaDetalle(d: NonNullable<CorreoEstudioOpts['detalle']>, p: PaletaCorreo, fuente: string, destaque: string): string {
+function tarjetaDetalle(d: NonNullable<CorreoEstudioOpts['detalle']>, fuente: string, destaque: string): string {
   const titulo = d.titulo?.trim()
-    ? `<div style="font-family:${fuente};font-weight:bold;font-size:13px;color:${p.etiqueta};margin:0 0 10px;">${escaparHtml(d.titulo.trim())}</div>`
+    ? `<div style="font-family:${fuente};font-weight:400;font-size:22px;line-height:28px;color:${TINTA};text-align:center;margin:0 0 12px;">${escaparHtml(d.titulo.trim())}</div>`
     : '';
-  return `<tr><td class="px-mobile" style="padding:0 28px 20px;background:${p.papel};">${filasDetalle(d.filas, p, fuente, '0', titulo, destaque)}</td></tr>`;
+  return `<tr><td class="px-mobile" style="padding:8px 40px 16px;background:#FFFFFF;">${filasDetalle(d.filas, fuente, '0', titulo, destaque)}</td></tr>`;
 }
 
-/** La tarjeta arena con las filas etiqueta/valor. La comparten el correo de sistema y el cuerpo libre. */
-function filasDetalle(filas: FilaDetalle[], p: PaletaCorreo, fuente: string, margen: string, titulo = '', destaque = p.etiqueta): string {
-  const cuerpo = filas.map(f => f.codigo ? `<tr><td colspan="2" align="center" style="padding:6px 0 14px;">
-<div style="font-family:${fuente};font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${p.etiqueta};padding:0 0 8px;">${escaparHtml(f.label)}</div>
-<div style="font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;font-size:20px;font-weight:bold;letter-spacing:.04em;line-height:1.4;color:${destaque};background:${p.papel};border:1.5px dashed ${p.borde};border-radius:8px;padding:14px 10px;">${escaparHtml(f.value)}</div>
+/** Las filas etiqueta/valor, separadas por un filete fino. La comparten el correo de sistema y el cuerpo libre. */
+function filasDetalle(filas: FilaDetalle[], fuente: string, margen: string, titulo = '', destaque: string = TINTA): string {
+  const cuerpo = filas.map(f => f.codigo ? `<tr><td colspan="2" align="center" style="padding:16px 0;border-top:1px solid ${LINEA};text-align:center;">
+<div style="font-family:${fuente};font-size:14px;line-height:18px;color:${SUAVE};padding:0 0 8px;">${escaparHtml(f.label)}</div>
+<div style="font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;font-size:32px;font-weight:400;letter-spacing:.08em;line-height:40px;color:${destaque};">${escaparHtml(f.value)}</div>
 </td></tr>` : `<tr>
-<td width="110" valign="top" style="padding:${f.destacado ? '8px' : '6px'} 0 4px;font-family:${fuente};font-size:11px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${p.etiqueta};">${escaparHtml(f.label)}</td>
-<td valign="top" style="padding:4px 0;font-family:${fuente};font-size:${f.destacado ? '20px' : '13.5px'};font-weight:${f.destacado ? 'bold' : 'normal'};line-height:1.5;color:${f.destacado ? destaque : p.tinta};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.value)}</td>
+<td width="140" valign="top" style="padding:12px 12px 12px 0;border-top:1px solid ${LINEA};font-family:${fuente};font-size:16px;line-height:22px;color:${SUAVE};">${escaparHtml(f.label)}</td>
+<td valign="top" style="padding:${f.destacado ? '7px' : '12px'} 0;border-top:1px solid ${LINEA};font-family:${fuente};font-size:${f.destacado ? '28px' : '16px'};font-weight:${f.destacado ? 300 : 400};line-height:${f.destacado ? '32px' : '22px'};color:${f.destacado ? destaque : TINTA};${f.tachado ? 'text-decoration:line-through;' : ''}">${escaparHtml(f.value)}</td>
 </tr>`).join('');
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${p.arena}" style="background:${p.arena};border-radius:6px;margin:${margen};"><tr><td style="padding:16px 18px;">
-${titulo}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${cuerpo}</table>
-</td></tr></table>`;
+  return `<div style="margin:${margen};">${titulo}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${cuerpo}</table></div>`;
 }
 
 function boton(b: { href: string; texto: string }, p: PaletaCorreo, fuente: string): string {
-  return `<tr><td class="px-mobile" style="padding:0 28px 22px;background:${p.papel};">${pildora(b, p, fuente, '0')}</td></tr>`;
+  return `<tr><td class="px-mobile" align="center" style="padding:8px 40px 16px;background:#FFFFFF;">${pildora(b, p, fuente, '0')}</td></tr>`;
 }
 
 /**
@@ -288,49 +297,44 @@ function boton(b: { href: string; texto: string }, p: PaletaCorreo, fuente: stri
  * una raya de color con el texto pegado a los bordes.
  */
 function pildora(b: { href: string; texto: string }, p: PaletaCorreo, fuente: string, margen: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:${margen};"><tr>
-<td align="center" bgcolor="${p.boton}" style="border-radius:999px;background:${p.boton};mso-padding-alt:13px 28px;">
-<a href="${hrefSeguro(b.href)}" style="display:inline-block;padding:13px 28px;font-family:${fuente};font-weight:bold;font-size:13.5px;letter-spacing:.02em;color:${p.botonTexto};text-decoration:none;border-radius:999px;line-height:1.15;">${escaparHtml(b.texto)}</a>
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:${margen === '0' ? '0 auto' : margen};"><tr>
+<td align="center" bgcolor="${p.boton}" style="border-radius:30px;background:${p.boton};mso-padding-alt:12px 24px;">
+<a href="${hrefSeguro(b.href)}" style="display:inline-block;padding:12px 24px;font-family:${fuente};font-weight:500;font-size:16px;color:${p.botonTexto};text-decoration:none;border-radius:30px;line-height:24px;">${escaparHtml(b.texto)}</a>
 </td></tr></table>`;
 }
 
-function notaYFirma(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string): string {
+function notaYFirma(o: CorreoEstudioOpts, fuente: string): string {
   const nota = o.nota?.trim()
-    ? `<div style="font-family:${fuente};font-size:12px;line-height:1.6;color:${p.tintaSuave};margin:0;">${escaparHtml(o.nota.trim())}</div>`
+    ? `<div style="font-family:${fuente};font-size:14px;line-height:20px;color:${SUAVE};text-align:center;margin:0;">${escaparHtml(o.nota.trim())}</div>`
     : '';
   const firma = o.firma?.trim()
-    ? `<div style="font-family:${fuente};font-size:12px;color:${p.tintaSuave};margin:${nota ? '12px' : '0'} 0 0;">${escaparHtml(o.firma.trim())}</div>`
+    ? `<div style="font-family:${fuente};font-size:14px;font-weight:700;line-height:20px;color:${TINTA};text-align:center;margin:${nota ? '16px' : '0'} 0 0;">${escaparHtml(o.firma.trim())}</div>`
     : '';
-  if (!nota && !firma) return '';
-  return `<tr><td class="px-mobile" style="padding:0 28px 26px;background:${p.papel};">${nota}${firma}</td></tr>`;
+  if (!nota && !firma) return `<tr><td style="padding:0 0 16px;background:#FFFFFF;font-size:0;line-height:0;">&nbsp;</td></tr>`;
+  return `<tr><td class="px-mobile" align="center" style="padding:8px 40px 32px;background:#FFFFFF;">${nota}${firma}</td></tr>`;
 }
 
 /**
- * El pie va FUERA de la tarjeta, sobre el arena: es la letra del sobre, no del
- * mensaje. Lleva la dirección postal del estudio y, solo en los correos
- * comerciales, el enlace de baja.
+ * El pie negro: de quién es, su dirección postal, sus canales y, solo en los correos comerciales, la baja.
  */
-function pie(o: CorreoEstudioOpts, p: PaletaCorreo, fuente: string): string {
+function pie(o: CorreoEstudioOpts, fuente: string): string {
   const piezas: string[] = [];
   if (o.pie?.trim()) {
     piezas.push(escaparHtml(o.pie.trim()));
   } else {
-    piezas.push(escaparHtml(o.marca.estudioNombre));
+    piezas.push(`© ${escaparHtml(o.marca.estudioNombre)}`);
+    if (o.marca.lema?.trim()) piezas.push(escaparHtml(o.marca.lema.trim()));
     if (o.marca.direccionPostal?.trim()) piezas.push(escaparHtml(o.marca.direccionPostal.trim()));
   }
-  if (o.bajaUrl) {
-    piezas.push(`<a href="${hrefSeguro(o.bajaUrl)}" style="color:${p.tintaSuave};text-decoration:underline;">Darte de baja de estos avisos</a>`);
-  }
+  const enlace = (href: string, texto: string) => `<a href="${hrefSeguro(href)}" style="color:#FFFFFF;font-weight:700;text-decoration:underline;">${escaparHtml(texto)}</a>`;
   // Enlaces de texto y no iconos: los clientes de correo bloquean las imágenes
   // por defecto y una fila de iconos bloqueados es una fila de cuadros rotos.
-  const canales = (o.marca.canales ?? [])
-    .map(c => `<a href="${hrefSeguro(c.href)}" style="color:${p.tintaSuave};text-decoration:underline;">${escaparHtml(c.label)}</a>`)
-    .join(' · ');
-  const segunda = canales ? `<br>${canales}` : '';
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:16px 8px 0;font-family:${fuente};font-size:11px;line-height:1.6;color:${p.tintaSuave};text-align:center;">
-${piezas.join(' &middot; ')}${segunda}
-</td></tr></table>`;
+  const enlaces = [
+    ...(o.marca.canales ?? []).map(c => enlace(c.href, c.label)),
+    ...(o.bajaUrl ? [enlace(o.bajaUrl, 'Darte de baja de estos avisos')] : []),
+  ].join('&nbsp;&nbsp;&nbsp; ');
+  const segunda = enlaces ? `<div style="margin:16px 0 0;">${enlaces}</div>` : '';
+  return `<tr><td class="px-mobile" align="center" bgcolor="${NEGRO}" style="background:${NEGRO};padding:40px 40px 40px;font-family:${fuente};font-size:14px;line-height:18px;color:#FFFFFF;text-align:center;">${piezas.join(' &middot; ')}${segunda}</td></tr>`;
 }
 
 // ── Cuerpo libre escrito por la propietaria ──────────────────────────────────
@@ -341,19 +345,17 @@ ${piezas.join(' &middot; ')}${segunda}
  * cualquier plantilla que siga en React Email.
  */
 function markdownCorreo(p: PaletaCorreo, fuente: string): Marked {
-  const texto = `font-family:${fuente};font-size:14.5px;line-height:1.7;color:${p.tinta};`;
+  const texto = `font-family:${fuente};font-size:16px;font-weight:400;line-height:22px;color:${TINTA};`;
   return new Marked({
     gfm: true,
     breaks: true,
     renderer: {
       paragraph(t) { return `<div style="${texto}margin:0 0 14px;">${this.parser.parseInline(t.tokens)}</div>`; },
       heading(t) {
-        const tam = t.depth === 1 ? 23 : t.depth === 2 ? 18 : 15;
-        const estilo = t.depth === 1
-          ? `font-family:${PILA_TITULAR};font-style:italic;`
-          : `font-family:${fuente};font-weight:bold;`;
-        const clase = t.depth === 1 ? ' class="f-serif"' : '';
-        return `<div${clase} style="${estilo}font-size:${tam}px;line-height:1.35;color:${p.tinta};margin:0 0 12px;">${this.parser.parseInline(t.tokens)}</div>`;
+        // H1 = el titular del correo (44 px ligero, centrado); H2 = sección; el resto, destacado.
+        const [tam, alto, peso] = t.depth === 1 ? [44, 48, 300] : t.depth === 2 ? [28, 34, 300] : [16, 22, 700];
+        const clase = t.depth === 1 ? ' class="h1-mobile"' : '';
+        return `<div${clase} style="font-family:${fuente};font-weight:${peso};font-size:${tam}px;line-height:${alto}px;color:${TINTA};text-align:${t.depth === 3 ? 'left' : 'center'};margin:0 0 16px;">${this.parser.parseInline(t.tokens)}</div>`;
       },
       list(t) {
         const items = t.items.map(i => `<li style="${texto}margin:0 0 6px;">${this.parser.parseInline(i.tokens)}</li>`).join('');
@@ -362,8 +364,8 @@ function markdownCorreo(p: PaletaCorreo, fuente: string): Marked {
       link(t) { return `<a href="${hrefSeguro(t.href)}" style="color:${p.enlace};text-decoration:underline;">${this.parser.parseInline(t.tokens)}</a>`; },
       // Sin esto sale un `<hr>` pelado: cada cliente de correo le pone su
       // propio grosor y su propio gris, y en Outlook queda una raya hundida.
-      hr() { return `<div style="height:1px;line-height:1px;font-size:0;background:${p.borde};margin:0 0 18px;">&nbsp;</div>`; },
-      blockquote(t) { return `<div style="${texto}margin:0 0 14px;padding:2px 0 2px 14px;border-left:3px solid ${p.borde};color:${p.tintaSuave};">${this.parser.parse(t.tokens)}</div>`; },
+      hr() { return `<div style="height:1px;line-height:1px;font-size:0;background:${LINEA};margin:0 0 18px;">&nbsp;</div>`; },
+      blockquote(t) { return `<div style="${texto}margin:0 0 14px;padding:2px 0 2px 14px;border-left:3px solid ${LINEA};color:${SUAVE};">${this.parser.parse(t.tokens)}</div>`; },
       // Una imagen pegada por la propietaria sale a lo ancho de la tarjeta y
       // nunca sin `alt`: con las imágenes bloqueadas —el caso por defecto en
       // media bandeja— un `alt` vacío deja un hueco mudo.
@@ -393,7 +395,7 @@ export function correoEstudioLibre(o: CorreoEstudioOpts & { cuerpo: string }): s
   const contenidoHtml = trozos.map((trozo, i) => {
     if (i % 2 === 0) return trozo.trim() === '' ? '' : String(md.parse(trozo));
     if (trozo === 'datos') {
-      return o.detalle && o.detalle.filas.length > 0 ? filasDetalle(o.detalle.filas, p, fuente, '0 0 16px') : '';
+      return o.detalle && o.detalle.filas.length > 0 ? filasDetalle(o.detalle.filas, fuente, '0 0 16px') : '';
     }
     return o.boton ? pildora(o.boton, p, fuente, '0 0 16px') : '';
   }).join('');

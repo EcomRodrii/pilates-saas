@@ -132,7 +132,7 @@ test('correo 3 con clase que aún no se puede reservar: no le dice «crea tu pri
 });
 
 test('correo 3: sin nombre, sin coma; lo que escribió una persona se escapa', () => {
-  assert.match(correoPrimeraClase({ ...SIN_CLASE, nombre: null }).html, /Te falta un paso<\/div>/);
+  assert.match(correoPrimeraClase({ ...SIN_CLASE, nombre: null }).html, /Te falta un paso<\/h1>/);
   const { html, preheader } = correoPrimeraClase({ ...SIN_CLASE, estudioNombre: 'Pilates <b>Malo</b>', nombre: '<i>Ana</i>' });
   assert.doesNotMatch(html, /<b>Malo<\/b>|<i>Ana<\/i>/);
   assert.match(html, /&lt;i&gt;Ana&lt;\/i&gt;/);
@@ -175,7 +175,7 @@ test('empuje «clientes»: reconoce que ya compartió y no promete nada que no c
 });
 
 test('empuje: sin nombre, sin coma; lo que escribió una persona se escapa', () => {
-  assert.match(correoEmpuje({ ...EMPUJE, variante: 'compartir', nombre: null }).html, /Tu app ya puede recibir reservas<\/div>/);
+  assert.match(correoEmpuje({ ...EMPUJE, variante: 'compartir', nombre: null }).html, /Tu app ya puede recibir reservas<\/h1>/);
   const { html } = correoEmpuje({ ...EMPUJE, variante: 'alumnas', estudioNombre: 'Pilates <b>Malo</b>', nombre: '<i>Ana</i>' });
   assert.doesNotMatch(html, /<b>Malo<\/b>|<i>Ana<\/i>/);
   assert.match(html, /&lt;i&gt;Ana&lt;\/i&gt;/);

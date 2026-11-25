@@ -34,6 +34,20 @@ async function panelConMenuArriba(page: Page, ancho: number) {
   await page.addInitScript(() => localStorage.setItem('nav-mode', 'avanzado'));
   await page.setViewportSize({ width: ancho, height: 900 });
   await ir(page, 'configuracion?tab=panel');
+  // La preferencia «menú arriba» llega después del primer pintado: hasta entonces la barra es la lateral, y medirla
+  // daba falsos rojos. Se espera a verla tumbada.
+  await page.waitForFunction(() => {
+    const barra = document.querySelector('aside.fixed');
+    return !!barra && !!document.querySelector('.sticky.z-30') && barra.getBoundingClientRect().width > window.innerWidth * 0.8;
+  }, null, { timeout: 60_000 });
+}
+
+/** El tope de lo pegado se recalcula al cambiar la barra: se espera a que asiente. El fallo que se vigila no se arregla solo. */
+async function sinTapar(page: Page, mensaje: string) {
+  await expect.poll(async () => {
+    const b = await bordes(page);
+    return b ? b.pegadoArriba - b.barraAbajo : -9999;
+  }, { timeout: 10_000, message: mensaje }).toBeGreaterThanOrEqual(0);
 }
 
 /** El borde inferior de la barra y el borde superior de lo pegado. */
@@ -48,45 +62,34 @@ async function bordes(page: Page) {
   });
 }
 
-/**
- * Espera a que la barra esté ARRIBA y lo pegado quede por debajo, y devuelve las
- * medidas. La posición del menú llega de `/api/layout` y el hueco se mide después:
- * mirando una sola vez se medía el panel a medio colocar (la barra aún lateral, de
- * 884 px de alto, o el hueco a medias) y el test fallaba a ratos. Si el buscador
- * se queda metido en el menú, esto no se cumple nunca y falla igual.
- */
-async function asentado(page: Page, cuando: string) {
-  let ultimo: Awaited<ReturnType<typeof bordes>> = null;
-  await expect.poll(async () => {
-    ultimo = await bordes(page);
-    // Más de 100: envuelve en varias filas (si no, no hay nada que tapar).
-    // Menos de 500: ya es la barra de arriba y no la lateral.
-    if (!ultimo || ultimo.barraAlto <= 100 || ultimo.barraAlto >= 500) return `sin colocar: ${JSON.stringify(ultimo)}`;
-    return ultimo.pegadoArriba >= ultimo.barraAbajo ? 'ok' : `metido en el menú: ${JSON.stringify(ultimo)}`;
-  }, { message: cuando, timeout: 20_000 }).toBe('ok');
-  return ultimo!;
-}
-
 test.describe('Menú arriba', () => {
   test('el buscador no se mete en la barra, ni quieto ni al scrollear', async ({ page }) => {
     await panelConMenuArriba(page, 1512);
-    await asentado(page, 'recién montado');
+
+    const inicial = await bordes(page);
+    expect(inicial, 'no se montó el panel en horizontal').not.toBeNull();
+    // Guardia contra el verde por vacío: si la barra no hubiera envuelto, este
+    // test no estaría midiendo el caso que importa.
+    expect(inicial!.barraAlto, 'la barra no llegó a tener más de una fila').toBeGreaterThan(100);
+    await sinTapar(page, 'quieto, el buscador se mete dentro del menú');
 
     await page.evaluate(() => window.scrollTo(0, 700));
-    await asentado(page, 'al scrollear el buscador se ha metido dentro del menú');
+    await page.waitForTimeout(400);
+    await sinTapar(page, 'al scrollear el buscador se ha metido dentro del menú');
   });
 
   test('sigue sin taparse cuando la barra CRECE por estrechar la ventana', async ({ page }) => {
     // El caso que rompía: la barra gana una fila DESPUÉS de haberse medido.
     await panelConMenuArriba(page, 1512);
-    const ancho = await asentado(page, 'recién montado');
+    const ancho = await bordes(page);
 
     await page.setViewportSize({ width: 1180, height: 900 });
-    await expect.poll(async () => (await bordes(page))?.barraAlto ?? 0, { message: 'estrechando la ventana la barra tenía que ganar una fila', timeout: 20_000 })
-      .toBeGreaterThan(ancho.barraAlto);
-    await asentado(page, 'tras estrechar la ventana');
+    await expect.poll(async () => (await bordes(page))?.barraAlto ?? 0, { timeout: 10_000, message: 'estrechando la ventana la barra tenía que ganar una fila' })
+      .toBeGreaterThan(ancho!.barraAlto);
+    await sinTapar(page, 'estrecha, el buscador se mete dentro del menú');
 
     await page.evaluate(() => window.scrollTo(0, 700));
-    await asentado(page, 'estrecha y scrolleada');
+    await page.waitForTimeout(400);
+    await sinTapar(page, 'estrecha y al scrollear, el buscador se mete dentro del menú');
   });
 });

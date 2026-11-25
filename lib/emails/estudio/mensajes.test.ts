@@ -66,7 +66,7 @@ test('el mensaje de una automatización se parte en párrafos, no en una parrafa
   assert.match(html, /Hace un par de semanas/);
   assert.match(html, /¿Te reservamos sitio el jueves\?/);
   // Dos párrafos del mensaje + el saludo.
-  assert.ok((html.match(/font-size:14\.5px/g) ?? []).length >= 3);
+  assert.ok((html.match(/font-size:1[68]px/g) ?? []).length >= 3);
 });
 
 test('el enlace de baja solo va en lo comercial', () => {
