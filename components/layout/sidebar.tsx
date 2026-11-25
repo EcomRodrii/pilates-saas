@@ -1206,7 +1206,7 @@ export function Sidebar() {
             <Link
               href={`/portal/${studioSlug}/acceso/login`}
               target="_blank"
-              className={cn('zona-tactil flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors hover:bg-card/5', sangre ? 'text-[13px] text-white/55 hover:text-white' : 'text-[11px] text-sidebar-primary-foreground')}
+              className={cn('zona-tactil flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors hover:bg-card/5', sangre ? 'text-[13px] text-white/80 hover:text-white' : 'text-[11px] text-sidebar-primary-foreground')}
             >
               <ExternalLink size={12} className="shrink-0" />
               <span>Portal clientes</span>

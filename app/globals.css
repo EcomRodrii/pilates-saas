@@ -1713,14 +1713,17 @@ body.sin-primeros-pasos-flotante [data-primeros-pasos] { display: none !importan
 /* El resplandor de abajo del menú, con el color de Tentare (turquesa → magenta en el haz). */
 .shell-brillo {
   height: 400px;
-  /* La misma máscara horizontal que el resplandor de ancho completo (medida en Shopify): el del menú también baja hacia su borde derecho
-     (a 224 px de 1440, ~70 %), y así enlaza sin corte con la franja y la esquina de debajo del lienzo. */
-  -webkit-mask-image: linear-gradient(90deg, #000 8.08vw, transparent 36.19vw);
-  mask-image: linear-gradient(90deg, #000 8.08vw, transparent 36.19vw);
+  /* La misma máscara horizontal en el menú y en su continuación por la franja, medida píxel a píxel sobre la captura de Shopify que
+     marcó el fundador (25-nov-2026): entera hasta el 8,7 vw y apagada en el 48,6 vw, así que a 224 px de 1440 queda al ~84 %. */
+  -webkit-mask-image: linear-gradient(90deg, #000 8.7vw, transparent 48.6vw);
+  mask-image: linear-gradient(90deg, #000 8.7vw, transparent 48.6vw);
 }
 .shell-brillo-base {
   position: absolute; inset: 0;
-  background: linear-gradient(rgba(62, 106, 130, 0) 81.93%, rgba(62, 106, 130, 0.68) 96.87%, rgba(76, 156, 176, 0.68) 100%);
+  /* Sube desde unos 200 px por encima del borde, como en aquella captura (antes se encendía solo en los últimos 70 px y la esquina
+     quedaba apagada). */
+  background: linear-gradient(rgba(62, 106, 130, 0) 50%, rgba(62, 106, 130, 0.07) 57%, rgba(62, 106, 130, 0.18) 66.5%, rgba(62, 106, 130, 0.45) 75.75%,
+    rgba(64, 114, 138, 0.62) 85.25%, rgba(68, 126, 150, 0.7) 91.5%, rgba(73, 144, 166, 0.83) 97.75%, rgba(76, 156, 176, 0.9) 100%);
 }
 .shell-brillo-haz {
   position: absolute; left: -25px; bottom: -60px; width: 385px; height: 260px; opacity: 0;
