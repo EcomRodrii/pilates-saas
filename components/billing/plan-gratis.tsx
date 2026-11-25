@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { TZ_ESTUDIO } from '@/lib/utils';
 import { AVISO_PCT, FRASE_PLAN_GRATIS, textoLimite, textoLimites, type EstadoGratisApi } from '@/lib/billing/plan-gratis';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
+import { AL_PAGAR_FOUNDING } from '@/lib/landing/founding-gratis';
 import { Baldosa } from '@/components/dashboard/vivo';
 
 const fechaLarga = (ymd: string) =>
@@ -39,13 +40,13 @@ export function mensajeGratis(g: EstadoGratisApi): { titulo: string; texto: stri
     case 'MARGEN':
       return {
         titulo: `¡Felicidades, tu estudio ha crecido! Te quedan ${g.diasRestantes} ${g.diasRestantes === 1 ? 'día' : 'días'} en Founding Studio gratis`,
-        texto: `Has pasado de ${textoLimites(g.motivos)}. Tienes hasta el ${fechaLarga(g.cierraEl!)} para pasarte a ${DESTINO}: todo igual, sin límites. Si antes vuelves a estar por debajo, no tienes que hacer nada.`,
+        texto: `Has pasado de ${textoLimites(g.motivos)}. Tienes hasta el ${fechaLarga(g.cierraEl!)} para pasarte a ${DESTINO}, sin límites de reservas. ${AL_PAGAR_FOUNDING} Si antes vuelves a estar por debajo, no tienes que hacer nada.`,
         tono: 'aviso',
       };
     case 'CERRADO':
       return {
         titulo: 'Tu estudio ha crecido',
-        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. La app de tus clientes sigue funcionando: reservan y pagan como siempre.`,
+        texto: `Pasaste de ${textoLimites(g.motivos)} y se acabaron los ${g.margenDias} días de margen. Pásate a ${DESTINO} para seguir usando el panel. ${AL_PAGAR_FOUNDING} La app de tus clientes sigue funcionando: reservan y pagan como siempre.`,
         tono: 'problema',
       };
     case 'SIN_MEDIR':

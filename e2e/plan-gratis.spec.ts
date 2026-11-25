@@ -82,6 +82,9 @@ test('pasado un límite: cuántos días quedan, hasta cuándo, y qué pasa si vu
   await expect(aviso).toContainText('Founding Studio de pago (29 €/mes)');
   await expect(aviso).toContainText('sin límites');
   await expect(aviso).not.toContainText('Estudio (79');
+  // Del gratis (todo incluido) a pagar se pierden tres cosas: se dice antes.
+  await expect(aviso).toContainText('sustituciones automáticas (12 €/mes)');
+  await expect(aviso).toContainText('van aparte, como complementos');
   await expect(page.getByRole('radio', { name: /^Founding Studio/ })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('radio', { name: /^Estudio/ })).toHaveAttribute('aria-checked', 'false');
 });
@@ -138,6 +141,9 @@ test('al pasarse de un límite sale «¡Felicidades!» con el plan de pago a un 
   const felicidades = page.getByTestId('felicidades-crecimiento');
   await expect(felicidades).toBeVisible({ timeout: 30_000 });
   await expect(felicidades).toContainText('¡Felicidades!');
+  // Antes de «Seguir creciendo» se dice qué deja de ir incluido.
+  await expect(felicidades).toContainText('van aparte, como complementos');
+  await expect(felicidades).not.toContainText('Todo igual');
   await expect(felicidades).toContainText('150 reservas al mes');
   await expect(felicidades).toContainText('29 €');
   await expect(felicidades).toContainText('hasta el 20 de noviembre');

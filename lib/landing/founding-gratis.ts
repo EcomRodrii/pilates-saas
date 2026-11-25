@@ -68,6 +68,13 @@ export const COMPLEMENTOS_CORTO = 'Centro de Control, sustituciones automáticas
  */
 export const SI_PASAS_CON_COMPLEMENTOS = `${SI_PASAS}, con ${COMPLEMENTOS_CORTO} aparte`;
 
+/**
+ * Lo que hay que leer ANTES de pagar quien viene del gratis (que lo tiene todo):
+ * va en cada aviso del panel que le ofrece Founding Studio de pago. Aquellos
+ * decían «todo igual, sin límites», y tres funciones dejan de estar.
+ */
+export const AL_PAGAR_FOUNDING = `Con ese plan, ${COMPLEMENTOS_DE_PAGO} van aparte, como complementos.`;
+
 /** El botón que lleva al alta. Sustituye a «Probar 7 días gratis». */
 export const CTA_ALTA = 'Empezar gratis';
 
