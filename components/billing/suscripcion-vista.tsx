@@ -378,7 +378,7 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
             <UsoPlanGratis gratis={gratis} />
             <section aria-label={seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'} className="rounded-t-card border border-border bg-card p-5 shadow-t-card sm:p-6">
               <h2 className="text-[16px] font-semibold text-foreground">{seHaPasado ? 'Elige cómo seguir' : 'Cuando quieras crecer'}</h2>
-              <p className="text-[12.5px] text-muted-foreground">{seHaPasado ? 'Lo mismo que ya usas, sin límites. Sin permanencia.' : 'Sin permanencia. Si un día pasas de los límites, te lo decimos antes.'}</p>
+              <p className="text-[12.5px] text-muted-foreground">{seHaPasado ? 'Sin límites de reservas y sin permanencia. Mira qué incluye cada plan antes de elegir.' : 'Sin permanencia. Si un día pasas de los límites, te lo decimos antes.'}</p>
               {/* Crecer es Founding Studio de pago, 29 €/mes y lo mismo sin límites (fundador, 15-oct-2026:
                   «cuando pasa de esos limites cuesta 29€»): va el primero y elegido, también dentro del gratis.
                   Estudio y Cadena se ofrecen, pero nunca se eligen solos. */}
