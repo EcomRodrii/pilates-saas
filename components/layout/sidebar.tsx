@@ -1185,8 +1185,9 @@ export function Sidebar() {
         )}
 
         {/* «Configuración inicial»: lo siguiente que falta, en una tarjeta compacta de altura fija. Solo en la
-            columna: tumbada no hay sitio y ahí queda la píldora de la barra. */}
-        {!horizontal && <TarjetaPasosMenu colapsado={collapsed} />}
+            columna: tumbada no hay sitio y ahí queda la píldora de la barra. A sangre no está: la puesta en
+            marcha vive en Inicio (fundador, 25-nov-2026). */}
+        {!horizontal && !sangre && <TarjetaPasosMenu colapsado={collapsed} />}
 
         {/* External links — solo con la sede activa resuelta (F4·E5: sin slug ajeno) */}
         {studioSlug && (collapsed || horizontal ? (
@@ -1214,14 +1215,13 @@ export function Sidebar() {
         ))}
 
         {/* Marco a sangre: el pie del menú, como Shopify. Aquí viven los controles que antes colgaban de una fila
-            suelta sobre el lienzo (que en Shopify no existe): el aviso de prueba, «Primeros pasos», la tienda con su
+            suelta sobre el lienzo (que en Shopify no existe): el aviso de prueba, la tienda con su
             menú (sede, perfil, ayuda, modo oscuro, salir), la campana y el ojo de privacidad. Los desplegables salen
             hacia arriba (`data-pie-menu`, globals.css). */}
         {sangre && !collapsed && (
           <div data-pie-menu className="flex shrink-0 flex-col gap-2 px-3 pb-3 pt-2">
             <FelicidadesCrecimiento />
             <PildoraPrueba className="w-full" />
-            <PrimerosPasosFlotante />
             <div className="flex items-center gap-0.5">
               <div className="min-w-0 flex-1"><ProfileMenu variante="menu" persona={enConfiguracion} /></div>
               <BotonOjoPrivacidad />

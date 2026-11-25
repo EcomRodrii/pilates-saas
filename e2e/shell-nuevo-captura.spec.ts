@@ -366,6 +366,8 @@ test('a sangre — el marco queda por encima de lo pegado y al final de la pági
 
 test('a sangre — el brillo del menú sigue por la esquina del marco y el submenú abierto se ve entero', async ({ page }) => {
   await preparar(page, true);
+  // Sin ninguna reserva quedan pasos de la puesta en marcha: es cuando la tarjeta y la píldora salían en el menú.
+  await page.route('**/rest/v1/reservas**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
   // Bajo a propósito: con el menú sin caber entero es cuando el submenú quedaba cortado.
   await page.setViewportSize({ width: 1440, height: 620 });
   await ir(page, 'equipo');
@@ -386,6 +388,9 @@ test('a sangre — el brillo del menú sigue por la esquina del marco y el subme
   await expect(anclado.getByRole('link', { name: 'Configuración' })).toBeInViewport();
   expect(await anclado.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await expect(menu.getByRole('link', { name: 'Configuración' })).toHaveCount(0);
+  // La puesta en marcha vive en Inicio: el menú no lleva ni la tarjeta ni la píldora.
+  await expect(page.locator('aside[data-panel-menu]').getByTestId('tarjeta-menu-pasos')).toHaveCount(0);
+  await expect(page.locator('aside[data-panel-menu] [data-primeros-pasos-pildora]')).toHaveCount(0);
   await page.screenshot({ path: 'test-results/shell-menu-y-esquina.png' });
 });
 
