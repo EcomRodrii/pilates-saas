@@ -30,7 +30,7 @@ import { TRIAL_DIAS } from '../../billing/trial.ts';
 import { LIMITES_GRATIS } from '../../landing/founding-gratis.ts';
 import { enlaceWhatsApp } from '../../decision/mensajes-socia.ts';
 import { SOPORTE_WHATSAPP } from '../../soporte.ts';
-import { botonTentare, cabeceraTentare, marcoTentare, PILA_TENTARE as PILA, TENTARE } from './plantilla.ts';
+import { botonTentare, cabeceraTentare, marcoTentare, pieNegro, tituloTentare, PILA_TENTARE as PILA, TENTARE } from './plantilla.ts';
 
 /** «Primeros pasos · 1 de 5»: la lista de la maqueta, con la cuenta ya hecha. */
 export const PRIMEROS_PASOS_ALTA = [
@@ -72,7 +72,7 @@ export function correoCuentaActiva(p: {
     `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;${extra}">${html}</div>`;
   const etiqueta = (texto: string) =>
     `<div style="font-family:${PILA};font-size:10.5px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:${t.realce};margin:0 0 8px;">${escaparHtml(texto)}</div>`;
-  const caja = (contenido: string) => `<tr><td class="px-mobile" style="padding:0 32px 14px;">
+  const caja = (contenido: string) => `<tr><td class="px-mobile" style="padding:0 40px 16px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-radius:8px;"><tr><td style="padding:14px 16px;">
 ${contenido}
 </td></tr></table>
@@ -89,8 +89,8 @@ ${contenido}
 
   const bloques = [
     cabeceraTentare(),
-    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">Tu cuenta está activa</div>
+    `<tr><td class="px-mobile" align="center" style="padding:24px 40px 8px;text-align:center;">
+${tituloTentare('Tu cuenta está activa')}
 ${parrafo(`<b>${escaparHtml(estudio)}</b> ya tiene la app de sus clientes:`)}
 <div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.texto};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
 ${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus clientes podrán entrar con su email y reservar desde el móvil, sin descargarse nada.')}
@@ -110,12 +110,8 @@ ${parrafo('Todavía está vacía. En cuanto crees tu primera clase, tus clientes
 
 /** El pie de la maqueta en los correos del alta: una persona por WhatsApp y quién escribe. */
 function pieDelAlta(estudio: string): string {
-  const t = TENTARE;
   const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.suave};text-align:center;">
-¿Te atascas? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.suave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'}: <b>te responde una persona</b>.<br>Tentare · Software para estudios de Pilates · Hecho en España
-</td></tr></table>`;
+  return pieNegro(`¿Te atascas? ${whatsapp ? enlacePie(whatsapp, 'Escríbenos por WhatsApp') : 'Escríbenos por WhatsApp'}: <b>te responde una persona</b>.<br>© Tentare · Software para estudios de Pilates · Hecho en España`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -142,12 +138,12 @@ export function correoRecibirReservas(p: {
   const estudio = p.estudioNombre.trim() || 'Tu estudio';
   const preheader = 'Tu enlace y tu QR, para tenerlos a mano.';
   const parrafo = (html: string) =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:16px;line-height:22px;color:${t.cuerpo};margin:0 0 16px;">${html}</div>`;
 
   const bloques = [
     cabeceraTentare(),
-    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">Ya puedes recibir reservas</div>
+    `<tr><td class="px-mobile" align="center" style="padding:24px 40px 8px;text-align:center;">
+${tituloTentare('Ya puedes recibir reservas')}
 ${parrafo(`Tu clase <b>${escaparHtml(p.claseNombre.trim() || 'de hoy')}</b> está publicada (${escaparHtml(p.cuando)}). Copia este enlace y mándalo:`)}
 <div style="margin:0 0 14px;padding:12px 14px;border:1px solid ${t.borde};border-radius:8px;font-family:${PILA};font-size:14px;line-height:1.4;word-break:break-all;"><a href="${hrefSeguro(p.urlApp)}" style="color:${t.texto};text-decoration:underline;">${escaparHtml(p.urlApp)}</a></div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${t.panel}" style="background:${t.panel};border-radius:8px;margin:0 0 14px;"><tr>
@@ -194,7 +190,7 @@ export function correoPrimeraClase(p: {
   const nombre = p.nombre?.trim();
   const preheader = `Es lo único que le falta a ${estudio} para recibir reservas.`;
   const parrafo = (html: string) =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:16px;line-height:22px;color:${t.cuerpo};margin:0 0 16px;">${html}</div>`;
 
   const cuerpo = p.variante.tipo === 'sin_clase'
     ? [
@@ -208,8 +204,8 @@ export function correoPrimeraClase(p: {
 
   const bloques = [
     cabeceraTentare(),
-    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">Te falta un paso${nombre ? `, ${escaparHtml(nombre)}` : ''}</div>
+    `<tr><td class="px-mobile" align="center" style="padding:24px 40px 8px;text-align:center;">
+${tituloTentare(`Te falta un paso${nombre ? `, ${nombre}` : ''}`)}
 ${cuerpo}
 </td></tr>`,
     botonTentare({ href: p.urlBoton, texto: p.variante.tipo === 'sin_clase' ? 'Crear mi primera clase' : 'Ver qué falta' }),
@@ -227,12 +223,12 @@ ${cuerpo}
 
 /** El pie del correo 3: la persona por WhatsApp y que es el único recordatorio sobre esto. */
 function pieDelRecordatorio(estudio: string): string {
-  const t = TENTARE;
   const whatsapp = enlaceWhatsApp(SOPORTE_WHATSAPP, `Hola, soy de ${estudio} y estoy poniendo en marcha Tentare:`);
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-<td class="px-mobile" style="padding:18px 8px 0;font-family:${PILA};font-size:12px;line-height:1.6;color:${t.suave};text-align:center;">
-¿Te atascas en algo? ${whatsapp ? `<a href="${hrefSeguro(whatsapp)}" style="color:${t.suave};text-decoration:underline;">Escríbenos por WhatsApp</a>` : 'Escríbenos por WhatsApp'} y te ayuda <b>una persona del equipo</b>.<br>Es el único recordatorio que te mandamos sobre esto.<br>Tentare · Software para estudios de Pilates · Hecho en España
-</td></tr></table>`;
+  return pieNegro(`¿Te atascas en algo? ${whatsapp ? enlacePie(whatsapp, 'Escríbenos por WhatsApp') : 'Escríbenos por WhatsApp'} y te ayuda <b>una persona del equipo</b>.<br>Es el único recordatorio que te mandamos sobre esto.<br>© Tentare · Software para estudios de Pilates · Hecho en España`);
+}
+
+function enlacePie(href: string, texto: string): string {
+  return `<a href="${hrefSeguro(href)}" style="color:${TENTARE.sobreBanda};font-weight:bold;text-decoration:underline;">${texto}</a>`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -257,7 +253,7 @@ export function correoEmpuje(p: {
   const estudio = p.estudioNombre.trim() || 'Tu estudio';
   const nombre = p.nombre?.trim();
   const parrafo = (html: string) =>
-    `<div style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;">${html}</div>`;
+    `<div style="font-family:${PILA};font-size:16px;line-height:22px;color:${t.cuerpo};margin:0 0 16px;">${html}</div>`;
   const lista = (items: string[]) =>
     `<ul style="font-family:${PILA};font-size:15px;line-height:1.65;color:${t.cuerpo};margin:0 0 14px;padding-left:20px;">${items.map(i => `<li style="margin:0 0 6px;">${i}</li>`).join('')}</ul>`;
 
@@ -265,7 +261,7 @@ export function correoEmpuje(p: {
     ? {
       asunto: 'Tu clase está lista: falta que lo sepan tus clientes',
       preheader: `${estudio} ya puede recibir reservas. Solo falta que tus clientes tengan el enlace.`,
-      titular: `Tu app ya puede recibir reservas${nombre ? `, ${escaparHtml(nombre)}` : ''}`,
+      titular: `Tu app ya puede recibir reservas${nombre ? `, ${nombre}` : ''}`,
       cuerpo: [
         parrafo(`En <b>${escaparHtml(estudio)}</b> ya hay una clase que un cliente nuevo puede reservar. Lo único que falta es que se enteren.`),
         parrafo('El enlace de tu app es el que tienes que darles. Entran con su email, sin descargarse nada, y reservan desde el móvil. Lo que más sencillo resulta:'),
@@ -280,7 +276,7 @@ export function correoEmpuje(p: {
     : {
       asunto: `Ya compartiste el enlace de ${estudio}: las primeras reservas`,
       preheader: 'Casi siempre las primeras clientes llegan cuando se lo pides tú, una a una.',
-      titular: `Las primeras reservas${nombre ? `, ${escaparHtml(nombre)}` : ''}`,
+      titular: `Las primeras reservas${nombre ? `, ${nombre}` : ''}`,
       cuerpo: [
         parrafo(`Compartiste el enlace de la app de <b>${escaparHtml(estudio)}</b>, pero todavía no ha reservado nadie.`),
         parrafo('Es lo habitual la primera vez: con un enlace suelto en un grupo no basta, hay que pedírselo directamente. Tres cosas que ayudan:'),
@@ -295,8 +291,8 @@ export function correoEmpuje(p: {
 
   const bloques = [
     cabeceraTentare(),
-    `<tr><td class="px-mobile" style="padding:28px 32px 8px;">
-<div style="font-family:${PILA};font-weight:800;font-size:26px;line-height:1.2;letter-spacing:-0.02em;color:${t.texto};margin:0 0 14px;">${contenido.titular}</div>
+    `<tr><td class="px-mobile" align="center" style="padding:24px 40px 8px;text-align:center;">
+${tituloTentare(contenido.titular)}
 ${contenido.cuerpo}
 </td></tr>`,
     botonTentare({ href: p.urlBoton, texto: contenido.boton }),
