@@ -264,6 +264,9 @@ test.describe('pantalla de la demo', () => {
     const guia = page.locator('#tentare-demo-guia');
     await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
     const antes = page.url();
+    // El panel tarda más en pintarse que la guía (la pone un script aparte): se espera a que tenga su menú.
+    await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('a[href^="/"]')]
+      .filter((x) => !x.getAttribute('href')!.startsWith('/configuracion') && !x.closest('#tentare-demo-guia')).length), { timeout: 60_000, message: 'el panel de la demo no llega a pintar enlaces a otros módulos' }).toBeGreaterThan(0);
     // Un enlace del propio panel a otro módulo (el menú lateral): se hace clic como lo haría una persona.
     const destino = await page.evaluate(() => {
       const a = [...document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]')].find((x) => !x.getAttribute('href')!.startsWith('/configuracion') && !x.closest('#tentare-demo-guia'));
