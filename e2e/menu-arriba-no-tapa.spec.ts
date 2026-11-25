@@ -34,6 +34,20 @@ async function panelConMenuArriba(page: Page, ancho: number) {
   await page.addInitScript(() => localStorage.setItem('nav-mode', 'avanzado'));
   await page.setViewportSize({ width: ancho, height: 900 });
   await ir(page, 'configuracion?tab=panel');
+  // La preferencia «menú arriba» llega después del primer pintado: hasta entonces la barra es la lateral, y medirla
+  // daba falsos rojos. Se espera a verla tumbada.
+  await page.waitForFunction(() => {
+    const barra = document.querySelector('aside.fixed');
+    return !!barra && !!document.querySelector('.sticky.z-30') && barra.getBoundingClientRect().width > window.innerWidth * 0.8;
+  }, null, { timeout: 60_000 });
+}
+
+/** El tope de lo pegado se recalcula al cambiar la barra: se espera a que asiente. El fallo que se vigila no se arregla solo. */
+async function sinTapar(page: Page, mensaje: string) {
+  await expect.poll(async () => {
+    const b = await bordes(page);
+    return b ? b.pegadoArriba - b.barraAbajo : -9999;
+  }, { timeout: 10_000, message: mensaje }).toBeGreaterThanOrEqual(0);
 }
 
 /** El borde inferior de la barra y el borde superior de lo pegado. */
@@ -57,13 +71,11 @@ test.describe('Menú arriba', () => {
     // Guardia contra el verde por vacío: si la barra no hubiera envuelto, este
     // test no estaría midiendo el caso que importa.
     expect(inicial!.barraAlto, 'la barra no llegó a tener más de una fila').toBeGreaterThan(100);
-    expect(inicial!.pegadoArriba).toBeGreaterThanOrEqual(inicial!.barraAbajo);
+    await sinTapar(page, 'quieto, el buscador se mete dentro del menú');
 
     await page.evaluate(() => window.scrollTo(0, 700));
     await page.waitForTimeout(400);
-    const scrolleado = await bordes(page);
-    expect(scrolleado!.pegadoArriba, 'al scrollear el buscador se ha metido dentro del menú')
-      .toBeGreaterThanOrEqual(scrolleado!.barraAbajo);
+    await sinTapar(page, 'al scrollear el buscador se ha metido dentro del menú');
   });
 
   test('sigue sin taparse cuando la barra CRECE por estrechar la ventana', async ({ page }) => {
@@ -72,16 +84,12 @@ test.describe('Menú arriba', () => {
     const ancho = await bordes(page);
 
     await page.setViewportSize({ width: 1180, height: 900 });
-    await page.waitForTimeout(600);
-    const estrecho = await bordes(page);
-
-    expect(estrecho!.barraAlto, 'estrechando la ventana la barra tenía que ganar una fila')
+    await expect.poll(async () => (await bordes(page))?.barraAlto ?? 0, { timeout: 10_000, message: 'estrechando la ventana la barra tenía que ganar una fila' })
       .toBeGreaterThan(ancho!.barraAlto);
-    expect(estrecho!.pegadoArriba).toBeGreaterThanOrEqual(estrecho!.barraAbajo);
+    await sinTapar(page, 'estrecha, el buscador se mete dentro del menú');
 
     await page.evaluate(() => window.scrollTo(0, 700));
     await page.waitForTimeout(400);
-    const final = await bordes(page);
-    expect(final!.pegadoArriba).toBeGreaterThanOrEqual(final!.barraAbajo);
+    await sinTapar(page, 'estrecha y al scrollear, el buscador se mete dentro del menú');
   });
 });
