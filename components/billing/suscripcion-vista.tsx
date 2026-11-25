@@ -25,6 +25,8 @@ import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
 import { PantallaBloqueo } from '@/components/billing/pantalla-bloqueo';
+import { PlanShell } from '@/components/billing/plan-shell';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
 import { cn } from '@/lib/utils';
 import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -241,6 +243,9 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
     void registrarVisitaPlanes();
   }, [session, estado, pagaYEsPropietaria]);
 
+  // Configuración → Plan con la forma del admin de Shopify: solo en el marco a sangre (plan-shell.tsx).
+  const sangre = useShellNuevo();
+
   if (loading || !session) return null;
 
   const activo = estado?.activo ?? false;
@@ -371,6 +376,33 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
             <Loader2 size={16} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
             Cargando tu suscripción…
           </div>
+        ) : embebida && sangre ? (
+          <PlanShell
+            gratis={gratis} yaPaga={yaPaga} enImpago={enImpago} plan={(estado?.plan as Plan) ?? 'BASE'}
+            importe={importeDe(precioMensual((estado?.plan as Plan) ?? 'BASE', estado?.complementos?.pagaAparte ? estado.complementos.contratados : []), intervaloActual)}
+            intervaloActual={intervaloActual} proximoCobro={fecha(estado?.periodoTermina)} primerCobro={primerCobro}
+            esPropietaria={esPropietaria} stripeListo={stripeListo} soloCadena={soloCadena}
+            anual={Boolean(estado?.anual)} intervalo={intervalo} onIntervalo={setIntervalo}
+            elegido={elegido} onElegir={setElegido} accion={accion} onSuscribir={suscribir} onPortal={() => abrirPortal()}
+            avisoCadena={<AvisoAlPasarACadena opciones={opciones} />}
+            uso={<UsoDelPlan estado={estado} className="mt-3 border-t border-border pt-3" />}
+            detalle={yaPaga && (
+              <>
+                {esPropietaria && (
+                  <MiSuscripcion ocultarEstudio={Boolean(estado?.complementos?.pagaAparte)}
+                    onCambio={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }} />
+                )}
+                {estado?.complementos?.pagaAparte && (
+                  <Complementos
+                    contratados={estado.complementos.contratados} disponibles={estado.complementos.disponibles}
+                    esPropietaria={esPropietaria} intervalo={intervaloActual}
+                    onCambio={(addons) => setEstado((e) => (e && e.complementos ? { ...e, complementos: { ...e.complementos, contratados: addons } } : e))}
+                    onPlanCambiado={() => { void estadoBilling().then((e) => { if (e) setEstado(e); }); }}
+                  />
+                )}
+              </>
+            )}
+          />
         ) : gratis ? (
           /* ── Founding Studio gratis, como «Planes» de Bonsai ───────────── */
           <div className="flex flex-col gap-4">

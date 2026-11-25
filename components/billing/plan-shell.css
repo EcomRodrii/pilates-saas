@@ -1,0 +1,10 @@
+/* La tabla de planes con la forma de «Comparar planes» del admin de Shopify: sin tarjeta, líneas finas
+   y marcas redondas en tinta. Solo dentro de .plan-sh (Configuración → Plan, marco a sangre). */
+.plan-sh [data-cmp="tabla"] { border: 0; border-radius: 0; background: transparent; }
+.plan-sh [data-cmp="cabecera"] { background: var(--card); padding-inline: 0; }
+.plan-sh [data-cmp="tabla"] details { border: 0; }
+.plan-sh [data-cmp="tabla"] summary { padding: 28px 0 12px; border-bottom: 1px solid var(--border); background: transparent; }
+.plan-sh [data-cmp="fila"] { padding-block: 14px; padding-inline: 0; border-bottom: 1px solid var(--border); background: transparent; }
+.plan-sh [data-cmp="fila"] .lucide-check { width: 20px; height: 20px; padding: 4px; border-radius: 999px; background: var(--foreground); color: var(--background); stroke-width: 3.5; }
+/* Las tarjetas de uso, suscripción y datos que van alrededor, con el mismo radio. */
+.plan-sh section.rounded-t-card, .plan-sh ~ section { border-radius: 20px; }
