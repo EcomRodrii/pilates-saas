@@ -70,7 +70,8 @@ async function mockear(page: Page, opts: {
 
 async function marcarCentro(page: Page, nombre: RegExp) {
   await expect(async () => {
-    await page.getByRole('radio', { name: nombre }).check({ force: true });
+    // `click` y no `check`: si quedó marcada antes de hidratar, `check` ya no hace nada.
+    await page.getByRole('radio', { name: nombre }).click({ force: true });
     await expect(page.getByRole('button', { name: 'Continuar' })).toBeEnabled({ timeout: 1_500 });
   }).toPass({ timeout: 20_000 });
 }
