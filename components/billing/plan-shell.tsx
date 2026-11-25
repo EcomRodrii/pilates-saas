@@ -66,7 +66,8 @@ export function PlanShell({
   onIntervalo: (i: IntervaloUi) => void;
   elegido: Plan;
   onElegir: (p: Plan) => void;
-  accion: 'suscribir' | 'portal' | null;
+  /** Qué se está abriendo ('suscribir' o 'portal'), para el botón que gira. */
+  accion: string | null;
   onSuscribir: () => void;
   onPortal: () => void;
   avisoCadena: ReactNode;
