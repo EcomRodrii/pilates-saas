@@ -13,7 +13,9 @@ export function Calendar({ value, onChange, marcados }: { value: string; onChang
   // minúscula. Se capitaliza solo la primera letra, en JS.
   const mesCrudo = primero.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
   const mes = mesCrudo.charAt(0).toUpperCase() + mesCrudo.slice(1);
-  const mover = (n: number) => { const d = new Date(y, m - 1 + n, 1); setCursor(d.toISOString().slice(0, 7)); };
+  // ⚠️ Aritmética de mes sin pasar por UTC: `new Date(y, m, 1).toISOString()` en España (UTC+1/+2) cae en el mes
+  // ANTERIOR, y el botón «Mes siguiente» no avanzaba nunca.
+  const mover = (n: number) => { const t = y * 12 + (m - 1) + n; setCursor(`${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`); };
   const hoy = hoyISO();
   return (
     <div className="card" style={{ padding: '14px 14px 12px' }}>

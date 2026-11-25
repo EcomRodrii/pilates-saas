@@ -87,3 +87,12 @@ test('filtros guardados: lo roto vuelve a «sin filtro»', () => {
   assert.deepEqual(leerFiltrosGuardados(JSON.stringify({ franja: 'noche', sala: 's9' }), salas), { franja: 'todo', sala: null });
   assert.deepEqual(leerFiltrosGuardados(null, salas), { franja: 'todo', sala: null });
 });
+
+test('diasDeLaTira: llega hasta la última clase publicada, mínimo 14 y tope 120', async () => {
+  const { diasDeLaTira } = await import('./horario-dias.ts');
+  assert.equal(diasDeLaTira([], '2026-11-25'), 14);
+  assert.equal(diasDeLaTira([{ fecha: '2026-11-30' }], '2026-11-25'), 14);
+  assert.equal(diasDeLaTira([{ fecha: '2026-12-31' }], '2026-11-25'), 37);
+  assert.equal(diasDeLaTira([{ fecha: '2026-11-01' }], '2026-11-25'), 14);
+  assert.equal(diasDeLaTira([{ fecha: '2030-01-01' }], '2026-11-25'), 120);
+});

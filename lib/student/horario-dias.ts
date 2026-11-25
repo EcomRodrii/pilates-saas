@@ -35,6 +35,26 @@ export function primerDiaConClases(
   return { dia: hoy, saltado: false };
 }
 
+/** Días mínimos y máximos de la tira del horario. */
+export const DIAS_TIRA_MIN = 14;
+export const DIAS_TIRA_MAX = 120;
+
+/**
+ * Cuántos días enseña la tira del horario: como mínimo dos semanas, y hasta la ÚLTIMA clase publicada (tope
+ * `DIAS_TIRA_MAX`). Con un tope fijo de 14 días una alumna no veía las clases que el estudio ya había abierto para el
+ * mes siguiente («solo me salen hasta el 8»).
+ */
+export function diasDeLaTira(clases: Pick<Clase, 'fecha'>[], hoy: string): number {
+  const base = Date.parse(`${hoy}T12:00:00Z`);
+  let max = DIAS_TIRA_MIN;
+  for (const c of clases) {
+    if (c.fecha < hoy) continue;
+    const n = Math.round((Date.parse(`${c.fecha}T12:00:00Z`) - base) / 86_400_000) + 1;
+    if (n > max) max = n;
+  }
+  return Math.min(max, DIAS_TIRA_MAX);
+}
+
 /** «Hoy ya no quedan clases por empezar. Te enseñamos las de mañana.» (o «… el martes 7.»). */
 export function avisoDeSalto(hoy: string, dia: string): string {
   const p = partes(dia);
