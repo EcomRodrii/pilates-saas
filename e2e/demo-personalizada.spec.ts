@@ -265,12 +265,13 @@ test.describe('pantalla de la demo', () => {
     await expect(guia.getByText('Demo · paso 1 de')).toBeVisible({ timeout: 90_000 });
     const antes = page.url();
     // Un enlace del propio panel a otro módulo (el menú lateral): se hace clic como lo haría una persona.
-    const destino = await page.evaluate(() => {
+    // La guía puede pintarse antes que el menú del panel: se espera a que haya un
+    // enlace (y solo se pulsa cuando lo hay) en vez de mirar una vez y fallar.
+    await expect.poll(() => page.evaluate(() => {
       const a = [...document.querySelectorAll<HTMLAnchorElement>('a[href^="/"]')].find((x) => !x.getAttribute('href')!.startsWith('/configuracion') && !x.closest('#tentare-demo-guia'));
       a?.click();
       return a?.getAttribute('href') ?? null;
-    });
-    expect(destino, 'el panel tiene enlaces a otros módulos').not.toBeNull();
+    }), { message: 'el panel tiene enlaces a otros módulos', timeout: 30_000 }).not.toBeNull();
     await expect(guia.getByText(/solo recorre lo que has preguntado/)).toBeVisible();
     expect(page.url()).toBe(antes);
   });
