@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { ARTICULOS, CATEGORIAS, articuloDe } from './registro.ts';
+import { readFileSync, readdirSync } from 'node:fs';
+import { ARTICULOS, CATEGORIAS, articuloDe, ultimaActualizacion } from './registro.ts';
 
 test('todo artículo apunta a una categoría que existe en el registro', () => {
   const slugs = new Set(CATEGORIAS.map((c) => c.slug));
@@ -57,4 +57,30 @@ test('todo artículo publicado tiene su componente de contenido', () => {
     .filter((clave) => !conContenido.has(clave));
 
   assert.deepEqual(huerfanos, [], `Publicados sin contenido (dan 404 al abrirlos): ${huerfanos.join(', ')}`);
+});
+
+// Un enlace escrito a mano dentro de un artículo no pasa por el registro: así
+// llegó a producción un `/ayuda/clientas/…` (la categoría es `clientes`), un 404.
+test('todo enlace /ayuda/… escrito dentro de un artículo lleva a una página que existe', () => {
+  const carpeta = 'components/ayuda/articulos';
+  const categorias = new Set(CATEGORIAS.map((c) => c.slug));
+  const rotos: string[] = [];
+  let vistos = 0;
+  for (const f of readdirSync(carpeta).filter((n) => n.endsWith('.tsx'))) {
+    for (const m of readFileSync(`${carpeta}/${f}`, 'utf8').matchAll(/href="\/ayuda\/([a-z0-9-]+)(?:\/([a-z0-9-]+))?(?:#[^"]*)?"/g)) {
+      vistos++;
+      const [, categoria, slug] = m;
+      if (slug ? !articuloDe(categoria, slug) : !categorias.has(categoria)) rotos.push(`${f} → ${m[0]}`);
+    }
+  }
+  assert.ok(vistos > 20, `solo se han leído ${vistos} enlaces: el patrón ha dejado de encontrarlos`);
+  assert.deepEqual(rotos, []);
+});
+
+test('la fecha de una categoría es la de su artículo publicado más reciente', () => {
+  for (const c of CATEGORIAS) {
+    const fechas = ARTICULOS.filter((a) => a.categoria === c.slug && a.estado === 'publicado').map((a) => a.actualizado);
+    assert.equal(ultimaActualizacion(c.slug), fechas.length ? fechas.sort().at(-1) : null, c.slug);
+  }
+  assert.equal(ultimaActualizacion('no-existe'), null);
 });

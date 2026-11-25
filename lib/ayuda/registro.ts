@@ -688,6 +688,11 @@ export function articulosPublicadosDe(categoria: string): ArticuloAyuda[] {
 }
 
 /** Resuelve los `relacionados` de un artículo a sus fichas completas, ignorando slugs rotos. */
+/** La fecha del artículo publicado más reciente de una categoría, o `null` si no tiene ninguno. */
+export function ultimaActualizacion(categoria: string): string | null {
+  return articulosPublicadosDe(categoria).map((a) => a.actualizado).sort().at(-1) ?? null;
+}
+
 export function relacionadosDe(articulo: ArticuloAyuda): ArticuloAyuda[] {
   return (articulo.relacionados ?? [])
     .map((clave) => PORCLAVE.get(clave))

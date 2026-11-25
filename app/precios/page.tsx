@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
 import { PildoraBusqueda } from '@/components/recursos/PildoraBusqueda';
 import { PageShell } from '@/components/recursos/PageShell';
@@ -125,7 +126,10 @@ export default function PreciosPage() {
             Lo esencial —reservas, cobros, facturación y fichas— está en los tres. Lo que cambia es cuánto se automatiza y se
             controla —Centro de Control, sustituciones autónomas, IA— y las sedes; y en {PLAN_INFO.BASE.nombre} de pago, {COMPLEMENTOS_DE_PAGO} van aparte.
           </p>
-          <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
+          {/* La isla de navegación va pegada arriba: la cabecera de la tabla se queda justo debajo. */}
+          <div style={{ '--cmp-tope': '80px' } as CSSProperties}>
+            <ComparativaPlanes todoAbierto destacado="ESTUDIO" foundingGratis />
+          </div>
           <p style={{ fontSize: 14, color: 'var(--w-texto-3)', margin: '14px 0 0' }}>
             Cada funcionalidad tiene su página con el detalle: <Link href="/funcionalidades" style={{ color: 'var(--w-olive)', textDecoration: 'underline', textUnderlineOffset: 3 }}>ver todas</Link>
           </p>

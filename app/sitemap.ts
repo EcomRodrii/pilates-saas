@@ -3,7 +3,7 @@ import { PAGINAS, urlDe, BASE_URL } from '@/lib/seo/paginas';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { ciudadesIndexables, slugCiudadUrl } from '@/lib/network/publico';
 import { slugsEstudiosIndexables } from '@/lib/seo/estudio-indexable-servidor';
-import { ARTICULOS, CATEGORIAS, urlArticulo } from '@/lib/ayuda/registro';
+import { ARTICULOS, CATEGORIAS, ultimaActualizacion, urlArticulo } from '@/lib/ayuda/registro';
 import { imagenesSitemap } from '@/lib/recursos/schema';
 
 // El sitemap se DERIVA del registro (lib/seo/paginas.ts); aquí no se mantiene
@@ -50,11 +50,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // clave, el sitemap perdía las 14 categorías y todos los artículos sin que
   // fallara nada ni se notara. Lo que necesita la base de datos son los perfiles
   // de Network y las páginas de estudio, y solo eso debe caerse con ella.
-  const paginasCategoriaAyuda: MetadataRoute.Sitemap = CATEGORIAS.map((c) => ({
-    url: `${BASE_URL}/ayuda/${c.slug}`,
-    changeFrequency: 'weekly',
-    priority: 0.6,
-  }));
+  const paginasCategoriaAyuda: MetadataRoute.Sitemap = CATEGORIAS.map((c) => {
+    // La fecha de una categoría es la de su artículo publicado más reciente: es
+    // lo que cambia en esa página. Sin ninguno, se omite (nunca se inventa).
+    const fecha = ultimaActualizacion(c.slug);
+    return {
+      url: `${BASE_URL}/ayuda/${c.slug}`,
+      changeFrequency: 'weekly',
+      priority: 0.6,
+      ...(fecha ? { lastModified: new Date(fecha) } : {}),
+    };
+  });
   const paginasArticuloAyuda: MetadataRoute.Sitemap = ARTICULOS
     .filter((a) => a.estado === 'publicado')
     .map((a) => ({
