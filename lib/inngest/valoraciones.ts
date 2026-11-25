@@ -15,6 +15,8 @@ import { emitirValorarClase } from '@/lib/notifications/emit';
 import { fechaLargaEstudio, horaEstudio } from '@/lib/utils';
 import { appUrl } from '@/lib/app-url';
 import { limitesDeBarrido } from '@/lib/valoraciones/momento';
+import { sociasQueYaRecibenElAviso } from '@/lib/valoraciones/sin-correo';
+import { EVENTOS } from '@/lib/notifications/eventos';
 import { estudiosConValoracionesPendientes } from '@/lib/valoraciones/estudios-pendientes';
 
 function cuandoTexto(inicio: string): string {
@@ -176,18 +178,39 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         // re-ejecutar el step es seguro y N steps por alumna solo sumarían
         // coste en Inngest sin dar reintentos. Solo a quien tiene cuenta
         // reclamada: sin `auth_user_id` no hay bandeja ni push que ver.
-        await step.run(`valorar-inapp-${c.id}`, async () => {
+        const inapp = await step.run(`valorar-inapp-${c.id}`, async () => {
           const admin = getSupabaseAdmin();
-          if (!admin) return 0;
+          if (!admin) return { creadas: 0, conAviso: [] as string[] };
           let creadas = 0;
           for (const a of pedida.lista) {
             if (!a.conCuenta) continue;
             creadas += await emitirValorarClase(admin, { studioId, sesionId: c.id, socioId: a.socio_id, reservaId: a.reserva_id, instructora: datos.instructorNombre });
           }
-          return creadas;
+          // A quien le va a llegar al móvil no se le manda además el correo (cuota de correo).
+          // Si algo no se puede leer, la lista queda vacía y el correo sale como siempre.
+          const userIds = pedida.lista.map(a => a.authUserId).filter((id): id is string => !!id);
+          if (userIds.length === 0) return { creadas, conAviso: [] as string[] };
+          const [subs, prefs, estudio] = await Promise.all([
+            admin.from('push_subscription').select('user_id').eq('studio_id', studioId).in('user_id', userIds),
+            admin.from('notification_preference').select('user_id, push, push_eventos').eq('category', 'reservas').in('user_id', userIds),
+            admin.from('studios').select('avisos_push_apagados').eq('id', studioId).maybeSingle(),
+          ]);
+          if (subs.error || prefs.error || estudio.error) return { creadas, conAviso: [] as string[] };
+          return {
+            creadas,
+            conAviso: sociasQueYaRecibenElAviso({
+              destinatarias: pedida.lista,
+              conDispositivo: (subs.data ?? []).map(f => f.user_id as string),
+              preferencias: (prefs.data ?? []) as { user_id: string; push: boolean; push_eventos: unknown }[],
+              apagadosPorElEstudio: (estudio.data?.avisos_push_apagados as string[] | null) ?? [],
+              evento: EVENTOS.VALORAR_CLASE,
+            }),
+          };
         });
+        // `?.`: una ejecución a medias puede traer el resultado antiguo del paso (un número).
+        const conAviso = new Set((inapp as { conAviso?: string[] })?.conAviso ?? []);
         for (const a of pedida.lista) {
-          if (!a.email) continue;
+          if (!a.email || conAviso.has(a.socio_id)) continue;
           const enviado = await step.run(`valorar-${c.id}-${a.socio_id}`, async () => {
             const token = firmarTokenValoracion(studioId, a.socio_id, c.id);
             const r = await enviarEmailPedirValoracion({

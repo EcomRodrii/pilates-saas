@@ -18,7 +18,7 @@ export function AvisoEdicion() {
   useEffect(() => { try { setCerrado(localStorage.getItem(CLAVE) === '1'); } catch { setCerrado(false); } }, []);
   if (!enInicio || cerrado !== false) return null;
   return (
-    <section aria-label={`Novedad: ${EDICION.nombre} ${EDICION.temporada}`} className="relative mb-4">
+    <section data-aviso-edicion="" aria-label={`Novedad: ${EDICION.nombre} ${EDICION.temporada}`} className="relative mb-4">
       <p className="mb-2 text-[13px] text-muted-foreground">Hemos estrenado panel nuevo. Mira todo lo que ha cambiado:</p>
       <BannerEdicion className="ed-banner--aviso" />
       <button
