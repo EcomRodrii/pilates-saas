@@ -111,3 +111,16 @@ test('pedir la página de Stripe con uno incrustado abierto lo caduca: nunca dos
 test('incrustado: una suscripción viva bloquea igual', () => {
   assert.equal(decidirCheckoutPrevio({ ...base, incrustado: true, suscripciones: [{ id: 'sub_1', status: 'active' }] }).accion, 'bloquear');
 });
+
+test('un incrustado abierto con otros métodos no se reutiliza: solo el de solo tarjeta', async () => {
+  const sesion = (id: string, payment_method_types: string[]) => ({
+    id, mode: 'subscription', url: null, client_secret: `${id}_secret`, payment_method_types, metadata: { plan: 'ESTUDIO' },
+  });
+  const con = (...data: unknown[]) => ({
+    subscriptions: { list: async () => ({ data: [] }) }, checkout: { sessions: { list: async () => ({ data }) } },
+  }) as unknown as Parameters<typeof consultarCheckoutPrevio>[0];
+  assert.deepEqual(await consultarCheckoutPrevio(con(sesion('cs_todo', ['card', 'klarna'])), 'cus_1', 'ESTUDIO', false, true),
+    { accion: 'crear', expirar: ['cs_todo'] });
+  assert.deepEqual(await consultarCheckoutPrevio(con(sesion('cs_tarjeta', ['card'])), 'cus_1', 'ESTUDIO', false, true),
+    { accion: 'reutilizar', secreto: 'cs_tarjeta_secret', expirar: [] });
+});

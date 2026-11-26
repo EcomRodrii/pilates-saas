@@ -95,7 +95,10 @@ export async function leerPagosDelCliente(
       .filter(s => s.mode === 'subscription')
       .map(s => ({
         id: s.id, url: s.url, plan: claveDePlan(s.metadata?.plan, s.metadata?.intervalo),
-        secreto: s.client_secret ?? null, conDescuento: Boolean(s.discounts?.length),
+        // Solo se reutiliza el incrustado de solo tarjeta, que es el que se crea hoy: uno abierto con otros
+        // métodos se caduca y se abre de nuevo.
+        secreto: s.payment_method_types?.join() === 'card' ? s.client_secret ?? null : null,
+        conDescuento: Boolean(s.discounts?.length),
       })),
   };
 }
