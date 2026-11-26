@@ -1,3 +1,7 @@
+> **Retirado el 26-nov-2026 (decisión del fundador).** El marco nuevo pinta las escenas 3D de
+> `components/ilustraciones/hero-3d.tsx` en los estados vacíos y en las tarjetas de paso; se quitaron las ilustraciones
+> `vacio-*` y `paso-*` y su manifiesto. Lo de abajo queda como historia del encargo anterior.
+
 # Ilustraciones de Tentare — encargo y cómo pasármelas
 
 Aquí están **todas las ilustraciones que hoy pinta el producto**, como SVG sueltos que se abren en cualquier editor (Figma, Illustrator,

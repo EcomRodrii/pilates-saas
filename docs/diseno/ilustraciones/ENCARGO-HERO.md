@@ -68,5 +68,4 @@ escriben mal.
 Adjúntalas aquí (pocas por mensaje, o en un zip). Yo las optimizo, las coloco en cada pantalla y te mando capturas.
 No hace falta tenerlas todas: la pantalla sin imagen se queda como está.
 
-Las 33 pequeñas que ya tiene el panel (`public/ilustraciones/`, los `vacio-*` y `paso-*`) son del estilo anterior. Se
-pueden rehacer con este mismo texto base y su mismo nombre de archivo.
+Las pequeñas del estilo anterior (`vacio-*` y `paso-*`) se retiraron el 26-nov-2026: esas pantallas usan las 3D.
