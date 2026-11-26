@@ -58,3 +58,17 @@ test('las animaciones del sistema respetan «reducir movimiento» y no dejan un 
   for (const m of movimiento.matchAll(/animation: pn-[^;]+;/g)) assert.match(m[0], /backwards;$/);
   assert.ok(!/@keyframes pn-[\s\S]*?transform:/.test(SISTEMA), 'usa translate/scale, que se suman a la colocación');
 });
+
+// El minificador de producción (Lightning CSS) funde `translate`/`scale`/`rotate` con `transform` cuando van en la misma
+// regla y puede perder una: en local se ve bien y en producción no (la bola de los interruptores salía fuera de su pista).
+test('ninguna regla mezcla translate, scale o rotate con transform', () => {
+  const malas: string[] = [];
+  for (const f of [...ficheros('app'), ...ficheros('components'), ...ficheros('brand')].filter(x => x.endsWith('.css'))) {
+    const css = leer(f).replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/\{([^{}]*)\}/g)) {
+      const props = m[1].split(';').map(d => d.split(':')[0].trim());
+      if (props.includes('transform') && props.some(p => p === 'translate' || p === 'scale' || p === 'rotate')) malas.push(`${f}: ${m[1].trim().slice(0, 90)}`);
+    }
+  }
+  assert.deepEqual(malas, []);
+});

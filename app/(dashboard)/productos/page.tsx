@@ -1079,17 +1079,7 @@ function PosModal({ initial, onSave, onClose, onDelete, onMoverStock }: {
           </p>
 
           <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              role="switch"
-              aria-checked={form.activo}
-              aria-label="Producto activo"
-              onClick={() => set('activo', !form.activo)}
-              className="w-9 h-5 rounded-full transition-colors flex items-center px-0.5 cursor-pointer"
-              style={{ backgroundColor: form.activo ? 'var(--brand)' : 'var(--muted-foreground)' }}>
-              <span className="w-4 h-4 bg-card rounded-full shadow transition-transform"
-                style={{ transform: form.activo ? 'translateX(16px)' : 'translateX(0)' }} />
-            </button>
+            <InterruptorUI on={form.activo} onChange={v => set('activo', v)} ariaLabel="Producto activo" />
             <span className="text-sm font-medium text-foreground">Producto activo</span>
           </div>
         </div>

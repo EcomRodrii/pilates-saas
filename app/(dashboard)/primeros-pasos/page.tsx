@@ -13,6 +13,8 @@ import { useTour } from '@/lib/tour-context';
 import { PageHeader } from '@/components/ui/page-header';
 import { useRol, puedeGestionarClientas } from '@/lib/permisos';
 import { cn } from '@/lib/utils';
+import { useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
+import { Hero3D } from '@/components/ilustraciones/hero-3d';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La portada de la guía.
@@ -34,6 +36,13 @@ const ILUSTRACION_NIVEL: Record<NivelGuia, string> = {
   avanzado: '/ilustraciones/automatizaciones.svg',
 };
 
+/** En el marco nuevo, las mismas piezas 3D que las pantallas vacías (los SVG de arriba quedan para el panel anterior). */
+const PIEZA_NIVEL: Record<NivelGuia, string> = {
+  esencial: '/ilustraciones/3d/notebook.webp',
+  recomendado: '/ilustraciones/3d/wallet.webp',
+  avanzado: '/ilustraciones/3d/cube.webp',
+};
+
 export default function PrimerosPasosPage() {
   const {
     studio, instructores, tiposClase, sesiones, socios,
@@ -41,6 +50,7 @@ export default function PrimerosPasosPage() {
   } = useStudio();
   const { iniciarTour } = useTour();
   const puedeMigrar = puedeGestionarClientas(useRol());
+  const sangre = useShellNuevo();
 
   // Sin `studio` no hay nada que calcular, pero el early return NO puede ir
   // aquí: los hooks de abajo dejarían de ejecutarse en el primer render y
@@ -133,8 +143,12 @@ export default function PrimerosPasosPage() {
             </div>
             <p className="text-[12px] text-muted-foreground mt-2">{hechos} de {totalEsencial} · {pct}%</p>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={listo ? '/ilustraciones/completado.svg' : '/ilustraciones/hero.svg'} alt="" className="hidden sm:block w-32 shrink-0" />
+          {sangre ? (
+            <Hero3D escena={listo ? 'marca' : 'horario'} className="hidden w-40 shrink-0 sm:block" />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={listo ? '/ilustraciones/completado.svg' : '/ilustraciones/hero.svg'} alt="" className="hidden sm:block w-32 shrink-0" />
+          )}
         </div>
 
         {/* Un solo siguiente paso, con su enlace. Mandarla a una lista a buscar
@@ -206,7 +220,7 @@ export default function PrimerosPasosPage() {
         const cabecera = (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={ILUSTRACION_NIVEL[nivel]} alt="" className="w-10 h-10 object-contain shrink-0" />
+            <img src={(sangre ? PIEZA_NIVEL : ILUSTRACION_NIVEL)[nivel]} alt="" className="w-10 h-10 object-contain shrink-0" />
             <div className="min-w-0 flex-1">
               <h2 className="text-[15px] font-semibold text-foreground">{ETIQUETA_NIVEL[nivel]}</h2>
               <p className="text-[12px] text-muted-foreground">{EXPLICACION_NIVEL[nivel]}</p>

@@ -88,7 +88,7 @@ export function ActionCenter({ nueva = false }: { nueva?: boolean } = {}) {
               {r.nUnToque === 1 ? 'Una la hago yo con un toque' : `${r.nUnToque} las hago yo con un toque`}
             </span>
           ) : <span />}
-          <span className={`${BOTON_VIVO} h-9 px-4 text-[13px]`}>
+          <span data-boton-negro="" className={`${BOTON_VIVO} h-9 px-4 text-[13px]`}>
             Ver y decidir <ArrowRight size={13} aria-hidden />
           </span>
         </div>

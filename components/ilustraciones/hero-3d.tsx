@@ -31,6 +31,12 @@ export const ESCENAS_3D = {
   automatizaciones: [['cube', 28, 62, 34], ['clock', 52, 48, 56], ['bell', 76, 62, 36]],
   integraciones: [['computer', 62, 44, 52], ['folder', 36, 60, 52], ['cube', 70, 74, 28]],
   sustituciones: [['girl', 28, 52, 48], ['boy', 72, 52, 48], ['clock', 50, 66, 34]],
+  vacio: [['folder', 44, 54, 62], ['cube', 70, 70, 30]],
+  avisos: [['mobile', 46, 64, 74], ['bell', 62, 38, 44]],
+  salas: [['cube', 40, 52, 58], ['clock', 70, 66, 36]],
+  horario: [['calendar', 60, 60, 66], ['clock', 36, 44, 46]],
+  marca: [['cube', 36, 56, 48], ['gift-box', 66, 52, 50]],
+  fiscales: [['folder', 40, 52, 58], ['notebook', 66, 68, 46]],
 } as const satisfies Record<string, readonly Colocada[]>;
 
 export type Escena3D = keyof typeof ESCENAS_3D;

@@ -244,7 +244,7 @@ export function TabSalas({ showToast }: { showToast: MostrarToast }) {
           // es lo único que hace que alguien pulse. El aforo de la sala es lo
           // que limita cuánta gente entra en cada clase: sin salas no se puede
           // programar nada.
-          <EmptyState escena="sinDatos"
+          <EmptyState escena="sinDatos" className="border-0"
             icono={DoorOpen}
             titulo="Crea tu primera sala"
             descripcion="El aforo de cada sala es el límite de plazas de las clases que se den en ella. Sin al menos una, no puedes programar clases."

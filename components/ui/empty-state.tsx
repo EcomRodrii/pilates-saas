@@ -57,7 +57,8 @@ function EmptyState({
     <span className={cn(
       'inline-flex items-center gap-2 px-4 py-2.5 text-[13px] font-bold',
       escena
-        ? 'rounded-full bg-[var(--t-surface-inverse)] text-[var(--t-text-inverse)] max-md:flex max-md:h-[54px] max-md:w-full max-md:items-center max-md:justify-center max-md:text-[17px] max-md:font-semibold'
+        // El mismo negro que el resto de botones del marco nuevo (en oscuro, la superficie invertida).
+        ? 'rounded-full bg-[var(--pn-boton,var(--t-surface-inverse))] text-[var(--pn-boton-texto,var(--t-text-inverse))] shadow-[var(--pn-sombra-boton-principal,none)] max-md:flex max-md:h-[54px] max-md:w-full max-md:items-center max-md:justify-center max-md:text-[17px] max-md:font-semibold'
         : 'rounded-xl bg-brand text-brand-foreground',
     )}>
       {IconoCta && <IconoCta size={15} aria-hidden="true" />} {cta.label}

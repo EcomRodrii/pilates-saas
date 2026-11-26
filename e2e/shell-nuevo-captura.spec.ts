@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { montar, ir, enOscuro } from './panel-sembrado';
+import { montar, ir, enOscuro, STUDIO_ROW } from './panel-sembrado';
 import { conAsistente } from './asistente-andamiaje';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,6 +172,9 @@ test('a sangre — Resumen de un estudio nuevo: tarjetas de paso con imagen', as
   const tarjetas = page.getByTestId('tarjetas-de-paso');
   await expect(tarjetas).toBeVisible({ timeout: 120_000 });
   await expect(tarjetas.locator('li')).not.toHaveCount(0);
+  // Cada tarjeta pinta su escena 3D.
+  await expect(tarjetas.locator('[data-paso] [data-hero-3d]').first()).toBeVisible();
+  expect(await tarjetas.locator('[data-paso] [data-hero-3d]').count()).toBe(await tarjetas.locator('li').count());
   await page.screenshot({ path: 'test-results/shell-sangre-tarjetas-paso.png' });
   // Descartar una tarjeta la quita sin recargar.
   const titulo = (await tarjetas.locator('h3').first().innerText()).trim();
@@ -404,7 +407,7 @@ for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 8
     const invitacion = page.locator('[data-pantalla-vacia][data-hero]');
     await expect(invitacion.getByRole('heading', { name: 'Aquí aparecerán tus conversaciones' })).toBeVisible({ timeout: 120_000 });
     await expect(invitacion.locator('[data-hero-3d="mensajeria"]')).toBeVisible();
-    await expect(page.locator('[data-escena="personas"]'), 'la ilustración antigua no vuelve').toHaveCount(0);
+    await expect(page.locator('img[src*="/ilustraciones/vacio-"]'), 'la ilustración antigua no vuelve').toHaveCount(0);
     await expect(page.getByText('Elige una conversación')).toBeHidden();
     const animacion = (sel: string) => page.locator(sel).first().evaluate((e) => getComputedStyle(e).animationName);
     expect(await animacion('[data-hero-3d="mensajeria"] .hero3d-campana')).toBe('pn-campana-3d');
@@ -421,6 +424,63 @@ for (const [nombre, ancho, alto] of [['escritorio', 1440, 900], ['movil', 390, 8
     // Y entera dentro de su tarjeta, que recorta lo que se salga.
     expect(await invitacion.evaluate((e) => e.parentElement!.parentElement!.parentElement!.parentElement!.getBoundingClientRect().bottom - e.getBoundingClientRect().bottom)).toBeGreaterThanOrEqual(-1);
     await page.screenshot({ path: `test-results/shell-mensajeria-vacia-${nombre}.png`, fullPage: true });
+  });
+}
+
+// Los estados vacíos que aún llevaban la ilustración anterior: ahora pintan la escena 3D y ninguna pide un archivo retirado.
+for (const [nombre, ruta, tabla, escena, panelNuevo] of [
+  ['salas', 'configuracion?tab=estudio&abrir=salas', 'salas', 'vacio', true],
+  ['notificaciones', 'notificaciones', null, 'avisos', false],
+  ['quien-me-debe', 'cobros', 'recibos', 'cobros', false],
+] as const) {
+  test(`a sangre — estado vacío con escena 3D: ${nombre}`, async ({ page }) => {
+    await preparar(page, true);
+    await page.route((u) => u.pathname === '/api/estudio/interruptores', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ panelNuevo, shellNuevo: true }) }));
+    if (tabla) await page.route(`**/rest/v1/${tabla}**`, (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    const retiradas: string[] = [];
+    page.on('request', (r) => { if (/\/ilustraciones\/(vacio|paso)-/.test(r.url())) retiradas.push(r.url()); });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await ir(page, ruta);
+    await listo(page);
+    const imagen = page.locator(`[data-hero-3d="${escena}"]`).first();
+    await expect(imagen).toBeVisible({ timeout: 120_000 });
+    await imagen.scrollIntoViewIfNeeded();
+    // Las piezas son `loading="lazy"`: se espera a que cada una haya llegado de verdad.
+    await expect.poll(() => imagen.locator('img').evaluateAll((is) => is.map((i) => { const x = i as HTMLImageElement; return x.complete && x.naturalWidth > 0 ? 'ok' : `${x.currentSrc || x.src} ${Math.round(x.getBoundingClientRect().width)}`; }).filter((v) => v !== 'ok')), { timeout: 60_000 }).toEqual([]);
+    expect((await imagen.boundingBox())!.width, 'la imagen no puede quedarse en nada').toBeGreaterThan(150);
+    expect(retiradas).toEqual([]);
+    if (nombre === 'salas') {
+      // El botón con icono de la misma pantalla: icono y texto en la misma línea (salían apilados).
+      expect(await page.getByRole('button', { name: 'Marcar avería' }).evaluate((b) => {
+        const icono = b.querySelector('svg')!.getBoundingClientRect();
+        const r = document.createRange();
+        r.selectNodeContents([...b.childNodes].find((n) => n.nodeType === 3 && n.textContent!.trim())!);
+        return icono.right <= r.getBoundingClientRect().left + 1 && b.getBoundingClientRect().height <= 44;
+      })).toBe(true);
+    }
+    await page.screenshot({ path: `test-results/shell-vacio-3d-${nombre}.png` });
+  });
+}
+
+// ⚠️ Este solo puede fallar contra el BUILD de producción (CI): el minificador cambia las reglas y en `next dev` se veía bien
+// mientras en tentare.app la bola salía fuera de la pista (26-nov-2026).
+for (const encendido of [true, false]) {
+  test(`a sangre — Configuración: la bola del interruptor va dentro de su pista (${encendido ? 'encendido' : 'apagado'})`, async ({ page }) => {
+    await preparar(page, true);
+    await page.route('**/rest/v1/studios**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...STUDIO_ROW, avisar_alumnas: encendido }) }));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await ir(page, 'configuracion?tab=reservas');
+    await listo(page);
+    const interruptor = page.locator('[data-config-raiz] button[role="switch"]').first();
+    await expect(interruptor).toHaveAttribute('aria-checked', String(encendido), { timeout: 120_000 });
+    await interruptor.scrollIntoViewIfNeeded();
+    // La transición de la bola dura 200 ms: se mide cuando ya ha llegado.
+    await expect.poll(() => interruptor.evaluate((e) => {
+      const p = e.getBoundingClientRect();
+      const b = e.querySelector('span')!.getBoundingClientRect();
+      return { dentro: b.left >= p.left && b.right <= p.right && b.top >= p.top && b.bottom <= p.bottom, lado: b.left + b.width / 2 > p.left + p.width / 2 ? 'derecha' : 'izquierda' };
+    })).toEqual({ dentro: true, lado: encendido ? 'derecha' : 'izquierda' });
+    await page.screenshot({ path: `test-results/shell-interruptor-${encendido ? 'encendido' : 'apagado'}.png` });
   });
 }
 
