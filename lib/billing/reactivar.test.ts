@@ -38,6 +38,12 @@ test('RUTA_TODOS_LOS_PLANES lleva ancla: si no, /suscripcion devolvería aquí y
   assert.match(RUTA_TODOS_LOS_PLANES, /^\/suscripcion#/);
 });
 
+test('sin la autorización dentro del formulario de Stripe, va junto al botón', () => {
+  const pago = readFileSync(new URL('../../components/billing/reactivar/pago-reactivar.tsx', import.meta.url), 'utf8');
+  assert.match(pago, /terms: \{ card: 'never' \}/);
+  assert.match(pago, /autorizas a Tentare a cobrarlo de tu tarjeta cada mes hasta que canceles/);
+});
+
 test('el pago incrustado no gasta un descuento al abrir la pantalla, ni vale para Cadena', () => {
   const ruta = readFileSync(new URL('../../app/api/billing/checkout/route.ts', import.meta.url), 'utf8');
   const pos = (t: string) => { const i = ruta.indexOf(t); assert.ok(i >= 0, `falta «${t}»`); return i; };
@@ -47,4 +53,5 @@ test('el pago incrustado no gasta un descuento al abrir la pantalla, ni vale par
   assert.ok(pos("if (incrustado && plan === 'CADENA') {") < pos("if (plan === 'CADENA') {\n      let cadenaId"));
   assert.ok(pos("if (sesion.rol !== 'PROPIETARIO') {") < sale, 'el secreto del pago solo llega a la propietaria');
   assert.ok(ruta.includes('-dentro-${caducadas[0] ?? \'\'}'), 'la clave de idempotencia distingue el pago incrustado');
+  assert.ok(ruta.includes("payment_method_types: ['card' as const]"), 'dentro de la pantalla, solo tarjeta (con Apple Pay y Google Pay)');
 });

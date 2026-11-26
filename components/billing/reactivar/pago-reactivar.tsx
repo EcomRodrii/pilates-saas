@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { loadStripe, type Stripe, type StripeElementsUpdateOptions, type StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js';
+import { loadStripe, type Stripe, type StripeCheckoutExpressCheckoutElementOptions, type StripeElementsUpdateOptions, type StripeExpressCheckoutElementConfirmEvent } from '@stripe/stripe-js';
 import { BillingAddressElement, CheckoutElementsProvider, ExpressCheckoutElement, PaymentElement, useCheckoutElements } from '@stripe/react-stripe-js/checkout';
 import { iniciarSuscripcion, prepararPagoIncrustado } from '@/lib/api-client';
 import { PLAN_INFO } from '@/lib/billing/entitlements';
@@ -15,17 +15,29 @@ type Plan = 'BASE' | 'ESTUDIO';
 const APARIENCIA: NonNullable<StripeElementsUpdateOptions['appearance']> = {
   theme: 'stripe',
   labels: 'floating',
+  // Número, caducidad y código en un solo bloque, como en la pantalla copiada.
+  inputs: 'condensed',
   variables: {
     colorPrimary: '#101010', colorBackground: '#ffffff', colorText: '#101010', colorTextSecondary: '#616a6a',
     colorTextPlaceholder: '#616a6a', colorDanger: '#b3261e', borderRadius: '12px',
-    fontFamily: 'Inter, system-ui, sans-serif', fontSizeBase: '14px', gridRowSpacing: '8px', gridColumnSpacing: '8px',
+    fontFamily: 'Inter, system-ui, sans-serif', fontSizeBase: '14px', buttonBorderRadius: '9999px',
   },
   rules: {
     '.Input': { border: '1px solid #e1e3e3', boxShadow: '0 1px 2px rgba(0,0,0,.05)' },
     '.Input:focus': { borderColor: '#101010', boxShadow: '0 0 0 1px #101010' },
-    '.AccordionItem': { border: '0', boxShadow: 'none', padding: '0' },
   },
 };
+
+// Los botones de arriba: Apple Pay y Google Pay, en una fila. `always`: Apple Pay también fuera de Safari
+// (se paga escaneando con el iPhone). El resto no entra: la sesión es solo de tarjeta.
+const EXPRES = {
+  buttonHeight: 40,
+  buttonTheme: { applePay: 'black', googlePay: 'black' },
+  buttonType: { applePay: 'plain', googlePay: 'plain' },
+  layout: { maxColumns: 2, maxRows: 1, overflow: 'never' },
+  paymentMethodOrder: ['applePay', 'googlePay'],
+  paymentMethods: { applePay: 'always', googlePay: 'always', link: 'never', amazonPay: 'never', paypal: 'never', klarna: 'never' },
+} satisfies StripeCheckoutExpressCheckoutElementOptions;
 
 type Preparado =
   | { paso: 'preparando' }
@@ -102,7 +114,7 @@ function Condiciones({ plan, complementosAparte }: { plan: Plan; complementosApa
   return (
     <p className={estilos.condiciones}>
       Cuando te suscribas, aceptas pagar {PLAN_INFO[plan].precioMes}&nbsp;€/mes ({PLAN_INFO[plan].nombre}), IVA incluido, a partir
-      de hoy y cada mes hasta que canceles. {complementosAparte && 'Centro de Control, sustituciones automáticas y redacción con IA se contratan aparte. '}
+      de hoy, y autorizas a Tentare a cobrarlo de tu tarjeta cada mes hasta que canceles. {complementosAparte && 'Centro de Control, sustituciones automáticas y redacción con IA se contratan aparte. '}
       Cancela cuando quieras en Configuración → Plan. <Link href="/terminos" target="_blank">Condiciones</Link>
     </p>
   );
@@ -169,14 +181,15 @@ function Formulario({ plan, email, complementosAparte, onFallo }: { plan: Plan; 
       <form className={estilos.formulario} hidden={!listo} onSubmit={e => { e.preventDefault(); void pagar(); }}>
         <div className={express ? estilos.express : undefined}>
           <ExpressCheckoutElement
-            options={{ buttonHeight: 40, buttonTheme: { applePay: 'black', googlePay: 'black', paypal: 'blue' }, layout: { maxColumns: 2, maxRows: 2, overflow: 'never' }, buttonType: undefined, paymentMethodOrder: undefined, paymentMethods: undefined }}
+            options={EXPRES}
             onReady={e => setExpress(Object.values(e.availablePaymentMethods ?? {}).some(Boolean))}
             onConfirm={e => void pagar(e)}
           />
         </div>
         {express && <p className={estilos.o}>o</p>}
         <PaymentElement
-          options={{ layout: { type: 'accordion', defaultCollapsed: false, radios: 'never' }, wallets: { applePay: 'never', googlePay: 'never' } }}
+          // La autorización del cobro va junto al botón (`Condiciones`), no dentro del formulario.
+          options={{ layout: 'tabs', wallets: { applePay: 'never', googlePay: 'never', link: 'never' }, terms: { card: 'never' } }}
           onReady={() => setListo(true)}
           onLoadError={onFallo}
         />

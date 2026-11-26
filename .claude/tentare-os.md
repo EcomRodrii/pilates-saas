@@ -1990,7 +1990,7 @@ Fase 2 ya acotada en el doc (Caja/POS, envío programado, bono regalado, pagar o
 Con el panel cerrado (`bloqueado`), la propietaria cae en esta pantalla (copia de la de Shopify) y paga dentro (Checkout
 `ui_mode: 'elements'`, misma ruta, cerrojos y webhook que /suscripcion). A quién se enseña: `lib/billing/reactivar.ts`
 (Cadena, sede secundaria y quien no es propietaria van a /suscripcion). El `<id>` de la URL no autoriza nada: manda la sesión.
-Abrirla no gasta el descuento de reseñas (`alojado` → página de Stripe al pulsar). ⚠️ /suscripcion «a secas» se decide
+Dentro solo tarjeta (con Apple Pay y Google Pay como botones); la autorización del cobro va junto al botón. Abrirla no gasta el descuento de reseñas (`alojado` → página de Stripe al pulsar). ⚠️ /suscripcion «a secas» se decide
 mirando la dirección al contestar: por un enlace interno la vista se monta antes de que cambie.
 
 ## Sistema de diseño y movimiento del panel (25-nov-2026)

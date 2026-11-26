@@ -388,7 +388,9 @@ export async function POST(req: NextRequest) {
       },
       metadata: { studioId: studio.id, plan, intervalo, ...(regimenAddons ? METADATA_REGIMEN : {}) },
       ...(incrustado
-        ? { ui_mode: 'elements' as const, return_url: `${appUrl}/suscripcion?suscripcion=ok` }
+        // Solo tarjeta (con ella van Apple Pay y Google Pay): la pantalla copia la de Shopify, sin lista de métodos.
+        // En la página de Stripe siguen todos los de la cuenta.
+        ? { ui_mode: 'elements' as const, payment_method_types: ['card' as const], return_url: `${appUrl}/suscripcion?suscripcion=ok` }
         : { success_url: `${appUrl}/suscripcion?suscripcion=ok`, cancel_url: `${appUrl}/suscripcion?suscripcion=cancel` }),
       locale: 'es',
       // La pantalla incrustada no tiene casilla de código: se canjea en la página de Stripe.
