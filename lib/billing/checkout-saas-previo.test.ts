@@ -87,3 +87,27 @@ test('⚠️ PAY-5-cadena: las DOS claves de idempotencia del checkout SaaS dist
   assert.equal(claves.length, 2, 'una por rama (CADENA y BASE/ESTUDIO)');
   for (const c of claves) assert.match(c, /discounts \?/, `la clave no distingue el descuento: ${c.trim()}`);
 });
+
+// El pago dentro de la pantalla de reactivación (26-nov-2026).
+test('incrustado: se reutiliza el Checkout incrustado del mismo plan (recargar no abre otro)', () => {
+  const d = decidirCheckoutPrevio({ ...base, incrustado: true, sesionesAbiertas: [{ id: 'cs_1', url: null, secreto: 'cs_1_secret', plan: 'ESTUDIO' }] });
+  assert.deepEqual(d, { accion: 'reutilizar', secreto: 'cs_1_secret', expirar: [] });
+});
+
+test('incrustado: la página de Stripe abierta sin descuento se caduca; con descuento se sigue en ella', () => {
+  const pagina = { id: 'cs_1', url: 'https://pago/1', plan: 'ESTUDIO' };
+  assert.deepEqual(decidirCheckoutPrevio({ ...base, incrustado: true, sesionesAbiertas: [pagina] }), { accion: 'crear', expirar: ['cs_1'] });
+  assert.deepEqual(
+    decidirCheckoutPrevio({ ...base, incrustado: true, sesionesAbiertas: [{ ...pagina, conDescuento: true }] }),
+    { accion: 'reutilizar', url: 'https://pago/1', expirar: [] },
+  );
+});
+
+test('pedir la página de Stripe con uno incrustado abierto lo caduca: nunca dos formas de pagar', () => {
+  const d = decidirCheckoutPrevio({ ...base, sesionesAbiertas: [{ id: 'cs_1', url: null, secreto: 's', plan: 'ESTUDIO' }] });
+  assert.deepEqual(d, { accion: 'crear', expirar: ['cs_1'] });
+});
+
+test('incrustado: una suscripción viva bloquea igual', () => {
+  assert.equal(decidirCheckoutPrevio({ ...base, incrustado: true, suscripciones: [{ id: 'sub_1', status: 'active' }] }).accion, 'bloquear');
+});

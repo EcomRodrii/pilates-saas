@@ -180,6 +180,8 @@ export async function GET(req: NextRequest) {
   }
 
   const respuesta = NextResponse.json({
+    // El estudio de ESTA sesión: forma parte de la dirección de la pantalla de reactivación.
+    estudioId: sesion.studioId,
     plan,
     subscriptionStatus,
     activo,

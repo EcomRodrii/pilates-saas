@@ -1397,6 +1397,8 @@ export interface EstadoBilling {
   configurado: boolean;
   esPropietaria: boolean;
   bloqueado: boolean;
+  /** El estudio de la sesión. Ausente con un servidor anterior. */
+  estudioId?: string;
   // Trial: enPrueba = suscripción en periodo de prueba; pruebaTermina = ISO fin.
   enPrueba?: boolean;
   pruebaTermina?: string | null;
@@ -1452,6 +1454,27 @@ export async function iniciarSuscripcion(
     return data as { url: string };
   } catch {
     return { error: 'No se pudo iniciar la suscripción' };
+  }
+}
+
+/**
+ * El pago dentro de la pantalla de reactivación (solo mensual y planes de un estudio).
+ * `url` o `alojado`: hay un descuento, y se paga en la página de Stripe.
+ */
+export async function prepararPagoIncrustado(
+  plan: 'BASE' | 'ESTUDIO',
+): Promise<{ clientSecret: string } | { url: string } | { alojado: true } | { error: string }> {
+  try {
+    const res = await fetch('/api/billing/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+      body: JSON.stringify({ plan, incrustado: true }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: mensajeSeguro(data.error, mensajeHttp(res.status)) };
+    return data as { clientSecret: string } | { url: string } | { alojado: true };
+  } catch {
+    return { error: 'No se pudo preparar el pago' };
   }
 }
 

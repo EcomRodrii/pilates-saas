@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Solo la propietaria puede gestionar la suscripción' }, { status: 403 });
   }
 
-  const body = await req.json().catch(() => null) as { plan?: string; intervalo?: unknown } | null;
+  const body = await req.json().catch(() => null) as { plan?: string; intervalo?: unknown; incrustado?: unknown } | null;
   const plan = body?.plan as Plan | undefined;
   if (!plan || !PLANES.includes(plan)) {
     return NextResponse.json({ error: 'Plan no válido' }, { status: 400 });
@@ -58,6 +58,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Periodo de facturación no válido' }, { status: 400 });
   }
   const intervalo: Intervalo = body?.intervalo === 'anual' ? 'anual' : 'mensual';
+  // `incrustado`: el pago se hace dentro de la pantalla de reactivación
+  // (/studio/<id>/access_account/reactivate) y no en la página de Stripe. Mismas
+  // guardas, cerrojos y webhook. Solo planes de un estudio: Cadena avisa antes de
+  // lo que cancela, y eso vive en /suscripcion.
+  const incrustado = body?.incrustado === true;
+  if (incrustado && plan === 'CADENA') {
+    return NextResponse.json({ error: 'El plan Cadena se contrata desde «Ver todos los planes».' }, { status: 400 });
+  }
   const price = priceIdDe(plan, intervalo);
   if (!price) {
     return NextResponse.json(
@@ -107,10 +115,16 @@ export async function POST(req: NextRequest) {
     claveCadena = clave;
     return null;
   };
+  // Los Checkout que esta petición ha caducado: van en la clave de idempotencia del
+  // pago incrustado (ver abajo).
+  let caducadas: string[] = [];
   try {
     // Review Boost (ver lib/billing/recompensa-review-boost.ts): se lee aquí y se
     // canjea justo antes de crear la sesión, nunca antes de un posible 409.
     const recompensa = await leerRecompensaPendiente(admin, studio.id);
+    // Abrir la pantalla de reactivación no gasta un descuento: con uno pendiente se
+    // contesta `alojado` y se canjea cuando la propietaria pulse para pagar.
+    if (incrustado && recompensa) return NextResponse.json({ alojado: true });
     // Crea la sesión con la recompensa canjeada en ese momento; si Stripe falla,
     // se devuelve. `discounts` y `allow_promotion_codes` son mutuamente
     // excluyentes en la API de Stripe.
@@ -127,12 +141,13 @@ export async function POST(req: NextRequest) {
         throw err;
       }
       if (discounts) capturar(studio.id, { nombre: 'review_boost_reward_claimed', props: {} });
-      return NextResponse.json({ url: session.url });
+      return NextResponse.json(incrustado ? { clientSecret: session.client_secret } : { url: session.url });
     };
     // PAY-5: se pregunta a STRIPE, no a `studio.subscription_id` (que solo escribe
     // el webhook, minutos después). Ver lib/billing/checkout-saas-previo.ts.
     async function checkoutPrevio(customerId: string): Promise<NextResponse | null> {
-      const previo = await consultarCheckoutPrevio(stripe, customerId, clavePlan, Boolean(recompensa));
+      const previo = await consultarCheckoutPrevio(stripe, customerId, clavePlan, Boolean(recompensa), incrustado);
+      caducadas = previo.expirar;
       // Caducar lo que sobra (best-effort: si una ya estaba completada o caducada
       // Stripe lo rechaza, y en el peor caso queda como estaba antes de este arreglo).
       for (const id of previo.expirar) await stripe.checkout.sessions.expire(id).catch(() => {});
@@ -142,7 +157,9 @@ export async function POST(req: NextRequest) {
           { status: 409 },
         );
       }
-      if (previo.accion === 'reutilizar') return NextResponse.json({ url: previo.url });
+      if (previo.accion === 'reutilizar') {
+        return NextResponse.json(previo.secreto ? { clientSecret: previo.secreto } : { url: previo.url });
+      }
       return null;
     }
     // Plan CADENA: una sola suscripción cubre todas las sedes de la cadena
@@ -370,10 +387,12 @@ export async function POST(req: NextRequest) {
         metadata: { studioId: studio.id, plan, intervalo, ...(regimenAddons ? METADATA_REGIMEN : {}) },
       },
       metadata: { studioId: studio.id, plan, intervalo, ...(regimenAddons ? METADATA_REGIMEN : {}) },
-      success_url: `${appUrl}/suscripcion?suscripcion=ok`,
-      cancel_url: `${appUrl}/suscripcion?suscripcion=cancel`,
+      ...(incrustado
+        ? { ui_mode: 'elements' as const, return_url: `${appUrl}/suscripcion?suscripcion=ok` }
+        : { success_url: `${appUrl}/suscripcion?suscripcion=ok`, cancel_url: `${appUrl}/suscripcion?suscripcion=cancel` }),
       locale: 'es',
-      ...(discounts ? { discounts } : { allow_promotion_codes: true }),
+      // La pantalla incrustada no tiene casilla de código: se canjea en la página de Stripe.
+      ...(discounts ? { discounts } : incrustado ? {} : { allow_promotion_codes: true }),
     }, {
       // Auditoría 23ª pasada, P-2: mismo criterio que la rama CADENA de
       // arriba — sin esto, dos pestañas o un doble clic entraban ANTES de
@@ -388,7 +407,10 @@ export async function POST(req: NextRequest) {
       // clave y parámetros distintos, Stripe la rechaza y la propietaria recibe
       // un 500 «No se pudo iniciar la suscripción». Es exactamente el bug que
       // PAY-3 acaba de cerrar en el checkout de socias, en su gemelo del SaaS.
-      idempotencyKey: `billing-checkout-${studio.id}-${clavePlan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}`,
+      // Incrustado: otros parámetros, otra clave. Y lleva la sesión que se acaba de
+      // caducar: sin ella, volver en el mismo minuto devolvería de la caché de Stripe
+      // un Checkout que ya no sirve.
+      idempotencyKey: `billing-checkout-${studio.id}-${clavePlan}-${discounts ? `d${recompensa?.cupon ?? 'si'}` : 'sin'}-${Math.floor(Date.now() / 60000)}${incrustado ? `-dentro-${caducadas[0] ?? ''}` : ''}`,
     }));
   } catch (err) {
     return errorInterno('billing/checkout:POST', err, 'No se pudo iniciar la suscripción. Inténtalo de nuevo más tarde.');

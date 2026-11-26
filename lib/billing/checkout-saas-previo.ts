@@ -37,11 +37,17 @@ export function claveDePlan(plan: string | null | undefined, intervalo?: string 
   return intervalo === 'anual' ? `${plan}:anual` : plan;
 }
 
-export interface SesionAbiertaPrevia { id: string; url: string | null; plan: string | null }
+export interface SesionAbiertaPrevia {
+  id: string; url: string | null; plan: string | null;
+  /** `client_secret` de un Checkout con el pago DENTRO de nuestra pantalla (esos no tienen `url`). */
+  secreto?: string | null;
+  /** Lleva un descuento aplicado: caducarlo se lo haría perder. */
+  conDescuento?: boolean;
+}
 
 export type DecisionCheckoutPrevio =
   | { accion: 'bloquear'; motivo: 'suscripcion-viva'; expirar: string[] }
-  | { accion: 'reutilizar'; url: string; expirar: string[] }
+  | { accion: 'reutilizar'; url?: string; secreto?: string; expirar: string[] }
   | { accion: 'crear'; expirar: string[] };
 
 export function decidirCheckoutPrevio(p: {
@@ -50,17 +56,26 @@ export function decidirCheckoutPrevio(p: {
   sesionesAbiertas: readonly SesionAbiertaPrevia[];
   /** Esta petición acaba de canjear un descuento: una sesión vieja no lo lleva. */
   hayDescuentoNuevo: boolean;
+  /** Quien pide quiere el pago dentro de la pantalla de reactivación, no la página de Stripe. */
+  incrustado?: boolean;
 }): DecisionCheckoutPrevio {
   if (p.suscripciones.some(s => ESTADOS_VIVOS.includes(s.status))) {
     return { accion: 'bloquear', motivo: 'suscripcion-viva', expirar: [] };
   }
-  const delMismoPlan = p.sesionesAbiertas.filter(s => s.plan === p.plan && s.url);
+  const delMismoPlan = p.sesionesAbiertas.filter(s => s.plan === p.plan);
+  // Sirve la que se puede abrir tal como se pide: con `url` (página de Stripe) o con
+  // secreto (dentro de la pantalla). Quien pide lo segundo y tiene abierta la página
+  // de Stripe CON descuento sigue en ella: caducarla le haría perder el descuento.
+  const elegida = p.incrustado
+    ? delMismoPlan.find(s => s.secreto) ?? delMismoPlan.find(s => s.url && s.conDescuento)
+    : delMismoPlan.find(s => s.url);
   // Reutilizar solo si no se pierde el descuento recién canjeado y hay una sesión
   // que reutilizar; todo lo demás que siga abierto se caduca.
-  if (!p.hayDescuentoNuevo && delMismoPlan.length > 0) {
-    const elegida = delMismoPlan[0];
+  if (!p.hayDescuentoNuevo && elegida) {
     const otras = p.sesionesAbiertas.filter(s => s.id !== elegida.id).map(s => s.id);
-    return { accion: 'reutilizar', url: elegida.url as string, expirar: otras };
+    return p.incrustado && elegida.secreto
+      ? { accion: 'reutilizar', secreto: elegida.secreto, expirar: otras }
+      : { accion: 'reutilizar', url: elegida.url as string, expirar: otras };
   }
   return { accion: 'crear', expirar: p.sesionesAbiertas.map(s => s.id) };
 }
@@ -78,7 +93,10 @@ export async function leerPagosDelCliente(
     suscripciones: subs.data.map(s => ({ id: s.id, status: s.status })),
     sesionesAbiertas: sesiones.data
       .filter(s => s.mode === 'subscription')
-      .map(s => ({ id: s.id, url: s.url, plan: claveDePlan(s.metadata?.plan, s.metadata?.intervalo) })),
+      .map(s => ({
+        id: s.id, url: s.url, plan: claveDePlan(s.metadata?.plan, s.metadata?.intervalo),
+        secreto: s.client_secret ?? null, conDescuento: Boolean(s.discounts?.length),
+      })),
   };
 }
 
@@ -87,6 +105,7 @@ export async function consultarCheckoutPrevio(
   customerId: string,
   plan: string,
   hayDescuentoNuevo: boolean,
+  incrustado = false,
 ): Promise<DecisionCheckoutPrevio> {
-  return decidirCheckoutPrevio({ plan, ...(await leerPagosDelCliente(stripe, customerId)), hayDescuentoNuevo });
+  return decidirCheckoutPrevio({ plan, ...(await leerPagosDelCliente(stripe, customerId)), hayDescuentoNuevo, incrustado });
 }
