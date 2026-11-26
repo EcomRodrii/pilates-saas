@@ -60,6 +60,9 @@ test('sin sesión: el email y el código la meten, y la saluda con sus estudios'
 
   await page.goto('/app');
   await expect(page.getByRole('heading', { name: 'Reserva en tu estudio' })).toBeVisible({ timeout: 60_000 });
+  // La privacidad, a la vista antes de dar el email.
+  await expect(page.getByRole('link', { name: 'Política de privacidad' })).toHaveAttribute('href', '/privacidad');
+  await expect(page.getByRole('link', { name: 'Condiciones' })).toHaveAttribute('href', '/terminos');
   await page.getByLabel('Email').fill('lucia@example.com');
   await page.getByRole('button', { name: 'Continuar', exact: true }).click();
 
