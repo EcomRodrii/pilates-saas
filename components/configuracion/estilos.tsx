@@ -38,8 +38,9 @@ export const inputCls =
 export const labelCls = 'text-[12px] font-medium text-foreground block mb-1';
 export const btnPrimary =
   `bg-brand text-brand-foreground border border-transparent rounded-lg px-4 py-2 text-[13px] font-medium flex items-center gap-1.5 min-h-11 [@media(pointer:fine)]:min-h-9 hover:brightness-95 transition-colors ${APAGADO} ${FOCO}`;
+// ⚠️ `inline-flex`: sin él, un botón con icono lo apila encima del texto (el `svg` es `block`).
 export const btnSecondary =
-  `bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground min-h-11 [@media(pointer:fine)]:min-h-9 hover:bg-muted transition-colors ${APAGADO} ${FOCO}`;
+  `inline-flex items-center justify-center gap-1.5 bg-card border border-border rounded-lg px-4 py-2 text-[13px] text-foreground min-h-11 [@media(pointer:fine)]:min-h-9 hover:bg-muted transition-colors ${APAGADO} ${FOCO}`;
 // La sombra ayuda al borde a despegar la tarjeta del fondo sin oscurecerlo más:
 // una tarjeta agrupa, no es un control, y no debe pesar como un campo.
 export const cardCls = 'bg-card border border-border rounded-xl shadow-xs';

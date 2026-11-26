@@ -122,16 +122,17 @@
 
 /* El botón negro, UNO en todo el panel. Cada pantalla lo escribía a su manera (`bg-primary`, `bg-foreground`, radios y
    altos distintos, azul pizarra): aquí todos se ven igual que el de Shopify. Solo los que llevan texto: los redondos de
-   solo icono, las pestañas y lo seleccionado en una rejilla se quedan como están. */
-.panel-app[data-shell-nuevo]:not(.dark) :is(button, a):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white):not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [role='option'], [role='switch'], [data-sin-estilo-shell]) {
+   solo icono, las pestañas y lo seleccionado en una rejilla se quedan como están. Un dibujo de botón que no es un
+   `button` ni un enlace (el de dentro de una tarjeta que ya es el enlace) lleva `data-boton-negro`. */
+.panel-app[data-shell-nuevo]:not(.dark) :is(button, a, [data-boton-negro]):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white):not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [role='option'], [role='switch'], [data-sin-estilo-shell]) {
   background-color: var(--pn-boton); color: var(--pn-boton-texto); border-radius: var(--pn-radio-pildora); box-shadow: var(--pn-sombra-boton-principal);
   font-size: var(--pn-letra); font-weight: var(--pn-peso-boton); letter-spacing: var(--pn-tracking-s); filter: none;
 }
-.panel-app[data-shell-nuevo]:not(.dark) :is(button, a):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white):not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [role='option'], [role='switch'], [data-sin-estilo-shell]):hover { background-color: var(--pn-boton-hover); filter: none; }
-.panel-app[data-shell-nuevo]:not(.dark) :is(button, a):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white):not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [role='option'], [role='switch'], [data-sin-estilo-shell]):active { box-shadow: var(--pn-sombra-boton-pulsado); }
+.panel-app[data-shell-nuevo]:not(.dark) :is(button, a, [data-boton-negro]):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white):not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [role='option'], [role='switch'], [data-sin-estilo-shell]):hover { background-color: var(--pn-boton-hover); filter: none; }
+.panel-app[data-shell-nuevo]:not(.dark) :is(button, a, [data-boton-negro]):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white):not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [role='option'], [role='switch'], [data-sin-estilo-shell]):active { box-shadow: var(--pn-sombra-boton-pulsado); }
 /* Con ratón, la altura de Shopify. Con el dedo (iPad de recepción, móvil) conservan sus 40-44 px. */
 @media (min-width: 768px) and (pointer: fine) {
-  .panel-app[data-shell-nuevo]:not(.dark) :is(button, a):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white).rounded-full:not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [data-sin-estilo-shell]) {
+  .panel-app[data-shell-nuevo]:not(.dark) :is(button, a, [data-boton-negro]):is(.bg-primary, .bg-foreground):is(.text-primary-foreground, .text-background, .text-white).rounded-full:not([class*='size-'], [aria-pressed], [aria-selected], [role='tab'], [data-sin-estilo-shell]) {
     height: 2rem; min-height: 2rem; padding-inline: 0.875rem;
   }
 }
