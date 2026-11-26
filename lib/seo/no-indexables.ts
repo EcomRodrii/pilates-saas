@@ -19,6 +19,8 @@
 export const PREFIJOS_NO_INDEXABLES = [
   // Infraestructura y autenticación
   '/api', '/login', '/crear-estudio', '/suscripcion', '/invitacion', '/clave-nueva', '/interno', '/verificar-acceso',
+  // La pantalla de reactivación del pago (/studio/<id>/access_account/reactivate).
+  '/studio/',
   // Aterrizaje para el enlace de la bio de TikTok (app/empieza): repite las
   // promesas de la home y competiría con ella en el buscador.
   '/empieza',

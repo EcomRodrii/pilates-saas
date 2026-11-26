@@ -27,6 +27,7 @@ import { PanelSkeleton } from '@/components/ui/panel-skeleton';
 import { PantallaCargaAlta } from '@/components/alta-nueva/pantalla-carga-alta';
 import { limpiarAltaEnCurso, useAltaEnCurso } from '@/lib/alta/alta-en-curso';
 import { estadoBilling } from '@/lib/api-client';
+import { rutaReactivar } from '@/lib/billing/reactivar';
 import { pasoDobleFactorDelPanel } from '@/lib/auth/doble-factor-cliente';
 import { precargarAgenda } from '@/lib/agenda-precarga';
 import { asociarEstudio } from '@/lib/posthog-cliente';
@@ -219,7 +220,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     estadoBilling().then((e) => {
       if (!vivo) return;
       setBillingBloqueado(!!e?.bloqueado);
-      if (e?.bloqueado) router.replace('/suscripcion');
+      // La propietaria, a la pantalla de reactivación; el resto (y un servidor sin `estudioId`), a /suscripcion.
+      if (e?.bloqueado) router.replace(e.esPropietaria && e.estudioId ? rutaReactivar(e.estudioId) : '/suscripcion');
     });
     return () => { vivo = false; };
   }, [loading, session, router]);

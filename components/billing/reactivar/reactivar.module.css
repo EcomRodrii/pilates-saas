@@ -1,0 +1,218 @@
+/* Medidas tomadas de la pantalla /access_account/reactivate del admin de Shopify (26-nov-2026). */
+.fondo {
+  --curva: cubic-bezier(0.75, 0, 0.42, 1.01);
+  position: relative;
+  display: flex;
+  min-height: 100dvh;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 12px 28px;
+  background: linear-gradient(180deg, #0a1110 0%, #111716 55%, #171a1a 100%);
+  color: #fcfcfc;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.tarjeta {
+  display: grid;
+  width: min(940px, 100%);
+  gap: 8px;
+  padding: 8px;
+  border: 0.55px solid rgb(56, 70, 73);
+  border-radius: 28px;
+  background: linear-gradient(123deg, rgba(92, 107, 108, 0.18) 4.98%, rgba(4, 16, 18, 0.18) 52.98%), rgb(2, 16, 18);
+  box-shadow: 0 0 30px #000;
+}
+
+.izquierda {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.contenido { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+/* El título pisa solo el canto de abajo, que se desvanece: el logotipo se ve entero y la letra se lee. */
+.moneda { width: 126px; height: 126px; -webkit-mask: linear-gradient(#000 72%, transparent 98%); mask: linear-gradient(#000 72%, transparent 98%); }
+.titulo {
+  position: relative;
+  margin: -34px 0 0;
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: -0.672px;
+  text-wrap: balance;
+  text-shadow: 0 2px 18px rgb(2, 16, 18);
+}
+.frase {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  color: rgb(145, 145, 145);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.13px;
+  text-wrap: balance;
+}
+.pildoras { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.pildora {
+  position: relative;
+  height: 28px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  color: rgb(181, 181, 181);
+  font-size: 11px;
+  line-height: 16px;
+  backdrop-filter: blur(16px);
+  box-shadow: rgba(10, 10, 10, 0.9) 0 4px 12px, rgba(10, 10, 10, 0.65) 0 12px 24px, rgba(10, 10, 10, 0.35) 0 20px 48px;
+}
+.pildora::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 0% 0%, #fcfcfc, #fcfcfc 12px, transparent 24px),
+    radial-gradient(circle at 100% 100%, #fcfcfc, #fcfcfc 12px, transparent 24px),
+    linear-gradient(to right bottom, rgba(252, 252, 252, 0.38) 0%, rgba(252, 252, 252, 0.38) 40%, rgba(252, 252, 252, 0.04) 46%, rgba(252, 252, 252, 0.04) 54%, rgba(252, 252, 252, 0.38) 60%, rgba(252, 252, 252, 0.38) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.planes {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgb(40, 49, 51);
+  color: rgb(250, 252, 252);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+}
+.planes:hover { background: rgb(52, 63, 66); }
+
+.panel {
+  min-width: 0;
+  min-height: 483px;
+  padding: 28px;
+  border-radius: 20px;
+  background: rgb(253, 253, 253);
+  color: #101010;
+}
+
+@media (min-width: 840px) {
+  .tarjeta { height: 500px; grid-template-columns: 461fr 453fr; }
+  .izquierda { position: relative; padding: 32px; }
+  /* Deja el título, la frase y las píldoras a la misma altura que en la pantalla medida. */
+  .contenido { margin-bottom: 40px; }
+  .planes { position: absolute; bottom: 40px; left: 32px; }
+  .panel { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
+
+.formulario { display: flex; flex-direction: column; gap: 8px; }
+.formulario[hidden] { display: none; }
+.express { margin-bottom: 4px; }
+.o { margin: 4px 0 8px; color: rgb(74, 74, 74); font-size: 13px; text-align: center; }
+.direccion { margin-top: 2px; }
+
+.pagar {
+  flex-shrink: 0;
+  width: 100%;
+  min-height: 38px;
+  margin-top: 8px;
+  border: 0;
+  border-radius: 9999px;
+  background:
+    radial-gradient(50% 50% at 50% 0%, rgba(255, 255, 255, 0.2), transparent),
+    radial-gradient(37.11% 49.59% at 50.41% 101.56%, rgba(255, 255, 255, 0.15), transparent 66.46%),
+    rgb(16, 16, 16);
+  box-shadow:
+    inset 0 0 12px -6px rgba(255, 255, 255, 0.75), inset 0 0 4px 2px rgba(255, 255, 255, 0.1), inset 0 0 4px 1px #101010,
+    0 2px 3px -1.5px rgba(0, 0, 0, 0.12), 0 4px 6px -2px rgba(0, 0, 0, 0.12), 0 1px 2px -0.5px rgba(0, 0, 0, 0.12), 0 1px 0.5px -0.5px rgba(0, 0, 0, 0.12);
+  color: #fff;
+  font: 500 13px/20px Inter, system-ui, sans-serif;
+  letter-spacing: -0.1px;
+  cursor: pointer;
+}
+.pagar:hover { filter: brightness(1.25); }
+.pagar:disabled { cursor: default; opacity: 0.65; }
+
+.condiciones { margin: 8px 0 0; color: rgb(74, 74, 74); font-size: 12px; line-height: 18px; }
+.condiciones a { text-decoration: underline; }
+.aviso { display: flex; min-height: 100%; flex-direction: column; justify-content: center; gap: 8px; font-size: 14px; line-height: 20px; }
+.aviso p { margin: 0; }
+.aviso .condiciones { margin-top: 8px; }
+.error { margin: 0; color: #b3261e; font-size: 13px; line-height: 18px; }
+
+.espera { display: grid; width: 100%; min-height: 100%; place-content: center; }
+.panel > .espera { height: 100%; min-height: 420px; }
+.barra { position: relative; display: block; width: 160px; height: 3px; overflow: hidden; border-radius: 3px; background: rgba(128, 138, 138, 0.25); }
+.barra::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: rgb(128, 138, 138); }
+
+.pie { margin: 55px 0 0; color: rgb(191, 199, 200); font-size: 12px; line-height: 18px; text-align: center; }
+.pie a { text-decoration: underline; }
+
+.cuenta { position: absolute; top: 12px; right: 12px; z-index: 2; }
+.avatar {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  place-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgb(0, 160, 210);
+  color: #fff;
+  font: 500 13px/1 Inter, system-ui, sans-serif;
+  cursor: pointer;
+}
+.menu {
+  position: absolute;
+  top: 43px;
+  right: 0;
+  display: flex;
+  width: 240px;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  color: #101010;
+  font-size: 13px;
+}
+.menu p { display: flex; flex-direction: column; margin: 0 0 4px; padding: 6px 8px 10px; border-bottom: 1px solid #ebebeb; font-weight: 600; }
+.menu p span { overflow: hidden; color: #616a6a; font-weight: 400; text-overflow: ellipsis; }
+.menu a, .menu button {
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menu a:hover, .menu button:hover { background: #f3f3f3; }
+
+.fondo a:focus-visible, .fondo button:focus-visible { outline: 2px solid rgb(0, 160, 210); outline-offset: 2px; }
+
+@keyframes aparece { from { opacity: 0; } }
+@keyframes sube { from { opacity: 0; translate: 0 10px; } }
+@keyframes carga { from { translate: -100% 0; } to { translate: 100% 0; } }
+
+@media (prefers-reduced-motion: no-preference) {
+  .barra::after { animation: carga 625ms linear infinite; }
+  .panel { animation: aparece 400ms var(--curva) 801ms backwards; }
+  .contenido, .planes { animation: sube 400ms var(--curva) 1202ms backwards; }
+  .pie { animation: aparece 400ms var(--curva) 1202ms backwards; }
+}

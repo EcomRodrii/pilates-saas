@@ -25,6 +25,7 @@ import { NombrePlan } from '@/components/planes/nombre-plan';
 import { ConsultasDeTentare } from '@/components/asistente/packs-consultas';
 import { CabeceraPlanGratis, UsoPlanGratis } from '@/components/billing/plan-gratis';
 import { PantallaBloqueo } from '@/components/billing/pantalla-bloqueo';
+import { decidirReactivacion, rutaReactivar } from '@/lib/billing/reactivar';
 import { cn } from '@/lib/utils';
 import type { OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import type { PlanSueltoQueCancelaCadena } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -181,7 +182,15 @@ export function SuscripcionVista({ embebida = false }: { embebida?: boolean }) {
       // Visita a secas a /suscripcion de la PROPIETARIA de un estudio que NO está bloqueado (la gerencia no ve Plan en Configuración): su sitio es Configuración → Plan
       // (fundador, 22-nov-2026). Con `?…` (vuelta de Stripe, ?tarjeta=1, ?pack=) o `#…` (#consultas,
       // #exportar-datos, #tu-plan) se queda aquí: son enlaces de correos, avisos y Stripe que dependen de esta pantalla.
-      if (!embebida && e && !e.bloqueado && e.esPropietaria && visitaASecas) { router.replace('/configuracion?tab=plan'); return; }
+      // Se vuelve a mirar la dirección al contestar: al llegar por un enlace interno, la vista se monta ANTES de que
+      // la dirección cambie, y «a secas» saldría de la de la página anterior (devolvía a quien pedía ver los planes).
+      const aSecas = visitaASecas && !window.location.search && !window.location.hash;
+      if (!embebida && e && !e.bloqueado && e.esPropietaria && aSecas) { router.replace('/configuracion?tab=plan'); return; }
+      // Bloqueado y sin pedir nada en concreto: a la pantalla de reactivación (los enlaces de los correos llegan aquí).
+      if (!embebida && e?.bloqueado && aSecas) {
+        const reactivar = decidirReactivacion(e, null);
+        if (reactivar.accion === 'pagar' && e.estudioId) { router.replace(rutaReactivar(e.estudioId)); return; }
+      }
       // Se preselecciona el plan que ya está probando: es el que ha estado
       // usando estos días, y el que menos sorpresas le va a dar.
       // Un estudio gratis que ha pasado un límite: Founding Studio de pago, que

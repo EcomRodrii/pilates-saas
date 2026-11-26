@@ -187,6 +187,12 @@ const nextConfig: NextConfig = {
       // (los mismos que sirve la app). Aquí sí `immutable` y un año, a
       // diferencia de widget.js: la ruta lleva la versión (`v1/`), y cambiarlas
       // es servirlas en otra.
+      // La letra del formulario de pago de la pantalla de reactivación: la pide el
+      // iframe de Stripe, que es otro origen.
+      {
+        source: '/fuentes-pago/:ruta*',
+        headers: [{ key: 'Access-Control-Allow-Origin', value: '*' }],
+      },
       {
         source: '/widget-fuentes/:ruta*',
         headers: [
