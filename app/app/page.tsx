@@ -357,6 +357,12 @@ export default function EntradaApp() {
             <p className="t-meta" style={{ textAlign: 'center', margin: 0 }}>
               ¿No puedes entrar? <Link href="/soporte" style={{ color: 'var(--accent)', fontWeight: 800 }}>Te ayudamos</Link>
             </p>
+            {/* A la vista antes de crear la cuenta. `_blank`: en la app se abre por encima, con su «OK» para volver. */}
+            <p className="t-meta" style={{ textAlign: 'center', margin: 0 }}>
+              <Link href="/privacidad" target="_blank" style={{ color: 'inherit' }}>Política de privacidad</Link>
+              {' · '}
+              <Link href="/terminos" target="_blank" style={{ color: 'inherit' }}>Condiciones</Link>
+            </p>
           </form>
         )}
 
