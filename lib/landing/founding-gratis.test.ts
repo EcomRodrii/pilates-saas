@@ -21,7 +21,7 @@ import {
 
 test('las cifras son las de la decisión', () => {
   assert.equal(GRATIS_RESERVAS_MES, 150);
-  assert.equal(GRATIS_MARGEN_DIAS, 30);
+  assert.equal(GRATIS_MARGEN_DIAS, 7);
   assert.equal(LIMITES_GRATIS, 'hasta 150 reservas al mes');
   assert.equal(TOPE_GRATIS, 'Hasta 150 reservas al mes');
   assert.equal(GRATIS_CON_LIMITES, 'Gratis hasta 150 reservas al mes');

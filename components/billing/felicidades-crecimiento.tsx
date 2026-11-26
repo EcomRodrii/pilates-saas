@@ -51,12 +51,12 @@ export function FelicidadesCrecimiento() {
     let vivo = true;
     void estadoBilling().then(e => {
       if (vivo && e?.esPropietaria && vistaPreviaSolicitada(window.location.search) === 'felicidades') {
-        const cierra = masDias(hoyEnEstudio(), 20);
+        const cierra = masDias(hoyEnEstudio(), 5);
         setEstado({
           ...e,
           gratis: {
             fase: 'MARGEN', uso: { alumnasActivas: 80, reservas30Dias: 151 }, motivos: ['reservas'],
-            diasRestantes: 20, cierraEl: cierra, limites: { reservasMes: 150 }, margenDias: 30,
+            diasRestantes: 5, cierraEl: cierra, limites: { reservasMes: 150 }, margenDias: 7,
           },
         });
         setVistaPrevia(true);

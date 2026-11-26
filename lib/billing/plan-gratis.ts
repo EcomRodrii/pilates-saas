@@ -41,7 +41,17 @@ import { masDias } from '../utils.ts';
 
 export const LIMITE_RESERVAS_MES = 150;
 /** Días para elegir un plan de pago desde que se pasa. */
-export const MARGEN_DIAS = 30;
+export const MARGEN_DIAS = 7;
+/**
+ * Decisión del fundador (26-nov-2026): los 7 días valen para quien se pase del
+ * límite desde diciembre. Quien se pasó antes conserva los 30 que tenía.
+ */
+export const MARGEN_NUEVO_DESDE = '2026-12-01';
+export const MARGEN_DIAS_ANTERIOR = 30;
+/** El margen de quien se pasó el día `desde` ('YYYY-MM-DD', Madrid). */
+export function margenDe(desde: string): number {
+  return desde < MARGEN_NUEVO_DESDE ? MARGEN_DIAS_ANTERIOR : MARGEN_DIAS;
+}
 /** Desde qué parte del límite se avisa (120 reservas). */
 export const AVISO_PCT = 0.8;
 
@@ -122,7 +132,7 @@ const aMs = (ymd: string) => Date.UTC(Number(ymd.slice(0, 4)), Number(ymd.slice(
 
 /** El día (calendario) en que acaba el margen que empezó `desde`. */
 export function finDelMargen(desde: string): string {
-  return masDias(desde, MARGEN_DIAS);
+  return masDias(desde, margenDe(desde));
 }
 
 /**
