@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { avisosLocales, huellaDeAvisosLocales, jsonParaAvisosLocales, MAX_AVISOS_LOCALES, MINUTOS_ANTES, PREFIJO_AVISO_LOCAL } from './avisos-locales.ts';
+import { avisosLocales, jsonParaAvisosLocales, MAX_AVISOS_LOCALES, MINUTOS_ANTES, PREFIJO_AVISO_LOCAL } from './avisos-locales.ts';
 import { readFileSync } from 'node:fs';
 
 const AHORA = Date.parse('2026-11-23T10:00:00Z');
@@ -15,8 +15,8 @@ test('avisa 15 minutos antes, con el prefijo y sin datos personales', () => {
   const [a] = avisosLocales({ ...base, reservas: [conf('c1')], clases: [clase('c1', 2)] });
   assert.equal(a.id, `${PREFIJO_AVISO_LOCAL}c1`);
   assert.equal(a.cuando, new Date(AHORA + 2 * 3_600_000 - MINUTOS_ANTES * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z'));
-  assert.equal(a.titulo, 'Clase c1 empieza en 15 minutos');
-  assert.equal(a.cuerpo, 'Estudio Aurora · Sala 1');
+  assert.equal(a.titulo, 'Clase c1');
+  assert.equal(a.cuerpo, 'Empieza en 15 minutos · Estudio Aurora · Sala 1');
   assert.ok(!JSON.stringify(a).includes('Ana'));
 });
 
@@ -36,10 +36,9 @@ test('tope de avisos y orden por hora', () => {
   assert.equal(out[0].id, `${PREFIJO_AVISO_LOCAL}c0`);
 });
 
-test('el json y la huella son estables', () => {
+test('el json lleva los avisos', () => {
   const lista = avisosLocales({ ...base, reservas: [conf('c1')], clases: [clase('c1', 2)] });
   assert.equal(JSON.parse(jsonParaAvisosLocales(lista)).avisos.length, 1);
-  assert.equal(huellaDeAvisosLocales(lista), huellaDeAvisosLocales([...lista]));
 });
 
 test('el prefijo coincide con el del plugin Swift', () => {

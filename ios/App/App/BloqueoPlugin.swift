@@ -16,6 +16,12 @@ import Capacitor
 /// - Con el bloqueo encendido, la pantalla se tapa en cuanto la app deja de
 ///   estar activa (así tampoco se ve en el selector de apps) y se pide
 ///   desbloquear al volver pasados `gracia` segundos y al abrirla en frío.
+/// - ⚠️ Una vez bloqueada, SOLO autenticarse la desbloquea. El tiempo de gracia
+///   cuenta únicamente para una app que se dejó desbloqueada: por eso hay un
+///   estado `bloqueada` aparte del tiempo fuera.
+/// - ⚠️ Se pide Face ID UNA vez por apertura o por vuelta. Si cancela, queda el
+///   botón «Desbloquear»: cerrar el diálogo de iOS también «reactiva» la app, y
+///   volver a pedirlo ahí era un bucle sin salida.
 @objc(BloqueoPlugin)
 public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "BloqueoPlugin"
@@ -34,6 +40,10 @@ public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
     private var cubierta: UIView?
     private var salioEn: Date?
     private var pidiendo = false
+    /// Tapada hasta que se autentique.
+    private var bloqueada = false
+    /// La próxima vez que la app esté activa y bloqueada, se pide sin tocar nada.
+    private var pedirAlVolver = false
 
     public override func load() {
         let c = NotificationCenter.default
@@ -42,8 +52,12 @@ public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
         c.addObserver(self, selector: #selector(vuelveAEstarActiva), name: UIApplication.didBecomeActiveNotification, object: nil)
         // Apertura en frío: tapada desde el primer fotograma.
         if Self.activo {
-            salioEn = .distantPast
-            DispatchQueue.main.async { [weak self] in self?.taparYPedir() }
+            bloqueada = true
+            pedirAlVolver = true
+            DispatchQueue.main.async { [weak self] in
+                // Si iOS aún no la da por activa, lo pide `vuelveAEstarActiva`.
+                if UIApplication.shared.applicationState == .active { self?.taparYPedir() } else { self?.mostrarCubierta() }
+            }
         }
     }
 
@@ -78,13 +92,18 @@ public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
         // Al cerrar sesión la web lo apaga sin pedir nada: ya no hay cuenta que proteger.
         if !quiere && call.getBool("sinPedir") == true {
             UserDefaults.standard.set(false, forKey: Self.clave)
+            DispatchQueue.main.async { [weak self] in self?.soltar() }
             call.resolve(["activo": false])
             return
         }
         ctx.evaluatePolicy(.deviceOwnerAuthentication,
                            localizedReason: quiere ? "Activar el bloqueo de la app" : "Quitar el bloqueo de la app") { ok, _ in
-            DispatchQueue.main.async {
-                if ok { UserDefaults.standard.set(quiere, forKey: Self.clave) }
+            DispatchQueue.main.async { [weak self] in
+                if ok {
+                    UserDefaults.standard.set(quiere, forKey: Self.clave)
+                    // Acaba de autenticarse: ni queda tapada ni arrastra el tiempo fuera.
+                    self?.soltar()
+                }
                 call.resolve(["activo": Self.activo])
             }
         }
@@ -99,14 +118,33 @@ public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc private func salioAFondo() {
         guard Self.activo else { return }
-        salioEn = Date()
+        if bloqueada {
+            // Se fue sin desbloquear: al volver se le vuelve a pedir.
+            pedirAlVolver = true
+        } else {
+            salioEn = Date()
+        }
     }
 
     @objc private func vuelveAEstarActiva() {
-        guard Self.activo else { quitarCubierta(); return }
+        guard Self.activo else { soltar(); return }
         if pidiendo { return }
         let fuera = salioEn.map { Date().timeIntervalSince($0) } ?? 0
-        if fuera >= Self.gracia { taparYPedir() } else { quitarCubierta() }
+        salioEn = nil
+        if fuera >= Self.gracia {
+            bloqueada = true
+            pedirAlVolver = true
+        }
+        guard bloqueada else { quitarCubierta(); return }
+        if pedirAlVolver { taparYPedir() } else { mostrarCubierta(); mostrarBotonReintentar() }
+    }
+
+    /// Deja la app abierta: sin cubierta y sin nada pendiente.
+    private func soltar() {
+        bloqueada = false
+        pedirAlVolver = false
+        salioEn = nil
+        quitarCubierta()
     }
 
     // MARK: - Pantalla de bloqueo
@@ -139,14 +177,15 @@ public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
         mostrarCubierta()
         guard !pidiendo else { return }
         pidiendo = true
+        pedirAlVolver = false
+        cubierta?.viewWithTag(77)?.removeFromSuperview()
         let ctx = LAContext()
         ctx.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "Desbloquear la app") { [weak self] ok, _ in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 self.pidiendo = false
                 if ok {
-                    self.salioEn = nil
-                    self.quitarCubierta()
+                    self.soltar()
                 } else {
                     self.mostrarBotonReintentar()
                 }
@@ -160,7 +199,6 @@ public class BloqueoPlugin: CAPPlugin, CAPBridgedPlugin {
         var cfg = UIButton.Configuration.filled()
         cfg.title = "Desbloquear"
         let b = UIButton(configuration: cfg, primaryAction: UIAction { [weak self] _ in
-            self?.cubierta?.viewWithTag(77)?.removeFromSuperview()
             self?.taparYPedir()
         })
         b.tag = 77
