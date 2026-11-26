@@ -97,9 +97,10 @@ test('paridad: situacion_derivada (SQL) = situacionDerivada (TS), caso a caso', 
 
 test('paridad: fase_plan_gratis (SQL) = estadoGratis del gate (TS), con sus bordes', async () => {
   const entrada: Array<{ i: number; alumnas: number | null; reservas: number | null; excedido: string | null; hoy: string }> = [];
-  for (const hoy of ['2026-10-16', '2027-03-28']) {
+  // Con días a los dos lados del cambio de margen del 1-dic-2026.
+  for (const hoy of ['2026-10-16', '2026-12-04', '2027-03-28']) {
     for (const alumnas of [null, 0, 119, 120, 150, 151]) for (const reservas of [null, 0, 199, 200, 250, 251]) {
-      for (const d of [null, -40, -30, -29, -1, 0, 3]) {
+      for (const d of [null, -40, -30, -29, -8, -7, -6, -4, -3, -1, 0, 3]) {
         entrada.push({ i: entrada.length, alumnas, reservas, excedido: d === null ? null : masDias(hoy, d), hoy });
       }
     }

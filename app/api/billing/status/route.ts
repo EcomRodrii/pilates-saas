@@ -7,7 +7,7 @@ import { accesoProducto, addonsDe, LISTA_ADDONS, pagaAddonsAparte, planDeFila, P
 import { estadoTrial } from '@/lib/billing/trial';
 import { encendidaPara } from '@/lib/interruptor-por-estudio';
 import {
-  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_RESERVAS_MES, MARGEN_DIAS, esPlanGratis, pagaPlan, sedeAdmiteGratis, type EstadoGratisApi,
+  ESTADO_GRATIS, ESTADO_GRATIS_CERRADO, LIMITE_RESERVAS_MES, esPlanGratis, margenDe, pagaPlan, sedeAdmiteGratis, type EstadoGratisApi,
 } from '@/lib/billing/plan-gratis';
 import { decidirPlanSuelto, type OpcionesDePlan } from '@/lib/billing/sede-incluida-en-cadena';
 import { sueltosQueCancelaCadena, type SedeConPlan } from '@/lib/billing/cancelar-suscripcion-anterior';
@@ -17,6 +17,7 @@ import {
 } from '@/lib/billing/convertir-a-gratis';
 import { marcarUso } from '@/lib/retencion/marcar-uso';
 import { clientIp } from '@/lib/rate-limit-core';
+import { hoyEnEstudio } from '@/lib/utils';
 import { COOKIE_DISPOSITIVO, enDiasDeAlta, huellaAltaActiva } from '@/lib/billing/vinculos-gratis';
 import { apuntarHuellaAlta } from '@/lib/billing/vinculos-gratis-servidor';
 import { apuntarPaso } from '@/lib/alta/embudo-servidor';
@@ -152,7 +153,8 @@ export async function GET(req: NextRequest) {
     if (estado.fase === 'CERRADO' && subscriptionStatus === ESTADO_GRATIS && (await cerrarPlanGratis(admin, sesion.studioId))) {
       subscriptionStatus = ESTADO_GRATIS_CERRADO;
     }
-    gratis = { ...estado, limites: { reservasMes: LIMITE_RESERVAS_MES }, margenDias: MARGEN_DIAS };
+    // El margen de ESTE estudio (30 si se pasó antes de diciembre); sin haberse pasado, el que le tocaría hoy.
+    gratis = { ...estado, limites: { reservasMes: LIMITE_RESERVAS_MES }, margenDias: margenDe(lectura.excedidoDesde ?? hoyEnEstudio(ahora)) };
     activo = estado.fase !== 'CERRADO';
     bloqueado = enforcement && configurado && !activo;
   }

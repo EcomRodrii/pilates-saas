@@ -3,14 +3,14 @@ import assert from 'node:assert/strict';
 import {
   cadenaSinPlan, empiezaDeCeroAlConvertir, estadoDeLoGuardado, estadoGratis, excedidoMasAntiguo, finDelMargen, limitesCerca, limitesPasados,
   medicionDelGrupo, pagaPlan, pasaAGratis, sedeAdmiteGratis, siguienteExcedidoDesde, sumarUsos,
-  FRASE_PLAN_GRATIS, LIMITE_RESERVAS_MES, MARGEN_DIAS, type UsoGratis,
+  FRASE_PLAN_GRATIS, LIMITE_RESERVAS_MES, MARGEN_DIAS, MARGEN_DIAS_ANTERIOR, MARGEN_NUEVO_DESDE, margenDe, type UsoGratis,
 } from './plan-gratis.ts';
 
 const uso = (o: Partial<UsoGratis> = {}): UsoGratis => ({ alumnasActivas: 0, reservas30Dias: 0, ...o });
 
 test('el límite del fundador (13-nov-2026): 150 reservas al mes y ningún tope de alumnas, 30 días de margen', () => {
   assert.equal(LIMITE_RESERVAS_MES, 150);
-  assert.equal(MARGEN_DIAS, 30);
+  assert.equal(MARGEN_DIAS, 7);
   assert.equal(FRASE_PLAN_GRATIS, 'Tú eres la prioridad. Si tu estudio crece, crecemos contigo.');
 });
 
@@ -47,7 +47,7 @@ test('las fases: dentro, cerca, margen con su cuenta atrás y cerrado', () => {
 test('pasado sin fecha guardada todavía: el margen empieza hoy, nunca antes', () => {
   const e = estadoGratis({ uso: uso({ reservas30Dias: 300 }), excedidoDesde: null, hoy: '2026-10-15' });
   assert.equal(e.fase, 'MARGEN');
-  assert.equal(e.diasRestantes, MARGEN_DIAS);
+  assert.equal(e.diasRestantes, margenDe('2026-10-15'));
   assert.equal(e.cierraEl, finDelMargen('2026-10-15'));
 });
 
@@ -56,8 +56,23 @@ test('sin cifras no se cierra nada', () => {
 });
 
 test('el margen cruza meses y años en días de calendario', () => {
-  assert.equal(finDelMargen('2026-12-15'), '2027-01-14');
-  assert.equal(finDelMargen('2027-02-01'), '2027-03-03');
+  assert.equal(finDelMargen('2026-12-28'), '2027-01-04');
+  assert.equal(finDelMargen('2027-02-25'), '2027-03-04');
+});
+
+// Decisión del fundador (26-nov-2026): 7 días solo para quien se pase desde diciembre.
+test('quien se pasó antes del 1 de diciembre conserva 30 días; desde ese día, 7', () => {
+  assert.equal(MARGEN_NUEVO_DESDE, '2026-12-01');
+  assert.equal(margenDe('2026-11-30'), MARGEN_DIAS_ANTERIOR);
+  assert.equal(margenDe('2026-12-01'), MARGEN_DIAS);
+  assert.equal(finDelMargen('2026-11-30'), '2026-12-30');
+  assert.equal(finDelMargen('2026-12-01'), '2026-12-08');
+  // Con el margen viejo en marcha, la fecha nueva no le acorta nada.
+  const antes = estadoGratis({ uso: uso({ reservas30Dias: 151 }), excedidoDesde: '2026-11-15', hoy: '2026-12-10' });
+  assert.equal(antes.fase, 'MARGEN');
+  assert.equal(antes.diasRestantes, 5);
+  assert.equal(estadoGratis({ uso: uso({ reservas30Dias: 151 }), excedidoDesde: '2026-12-01', hoy: '2026-12-07' }).fase, 'MARGEN');
+  assert.equal(estadoGratis({ uso: uso({ reservas30Dias: 151 }), excedidoDesde: '2026-12-01', hoy: '2026-12-08' }).fase, 'CERRADO');
 });
 
 test('quién paga: Stripe vivo o la sede de una cadena; la prueba local no', () => {

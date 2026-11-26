@@ -7,7 +7,7 @@ import {
   anclaDeActividad, diasDeCierreDesde, diasSinActividad, modoBajas, pagaElEstudio, situacionDerivada,
   type EntradaSituacion, type PlanDeCadena,
 } from './situacion-estudio.ts';
-import { AVISO_PCT, LIMITE_RESERVAS_MES, MARGEN_DIAS, type FaseGratis } from '../billing/plan-gratis.ts';
+import { AVISO_PCT, LIMITE_RESERVAS_MES, MARGEN_DIAS, MARGEN_DIAS_ANTERIOR, MARGEN_NUEVO_DESDE, type FaseGratis } from '../billing/plan-gratis.ts';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La situación de un estudio (bajas, fase 2), su gemela SQL y sus invariantes.
@@ -17,7 +17,7 @@ import { AVISO_PCT, LIMITE_RESERVAS_MES, MARGEN_DIAS, type FaseGratis } from '..
 
 const SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261016123000_situacion_estudio_solo_lectura.sql'), 'utf8');
 
-const FASE_GRATIS_SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261113115203_plan_gratis_solo_reservas.sql'), 'utf8');
+const FASE_GRATIS_SQL = readFileSync(join(import.meta.dirname, '../../supabase/migrations/20261126122448_plan_gratis_margen_7_dias_desde_diciembre.sql'), 'utf8');
 
 function constanteSql(nombre: string, fuente: string = SQL): number {
   const m = fuente.match(new RegExp(`${nombre} constant (?:integer|numeric) := ([\\d.]+);`));
@@ -28,9 +28,11 @@ function constanteSql(nombre: string, fuente: string = SQL): number {
 test('contrato TS↔SQL: los umbrales y los límites son los mismos números', () => {
   assert.equal(constanteSql('c_dias_inactivo'), DIAS_HASTA_INACTIVO);
   assert.equal(constanteSql('c_dias_suspendido'), DIAS_HASTA_SUSPENDIDO);
-  // `fase_plan_gratis` se redefinió el 13-nov-2026 (sin tope de alumnas, 150 reservas).
+  // `fase_plan_gratis` se redefinió el 26-nov-2026 (7 días de margen desde diciembre).
   assert.equal(constanteSql('c_limite_reservas', FASE_GRATIS_SQL), LIMITE_RESERVAS_MES);
   assert.equal(constanteSql('c_margen_dias', FASE_GRATIS_SQL), MARGEN_DIAS);
+  assert.equal(constanteSql('c_margen_dias_anterior', FASE_GRATIS_SQL), MARGEN_DIAS_ANTERIOR);
+  assert.equal(FASE_GRATIS_SQL.match(/c_margen_nuevo_desde constant date := date '([\d-]+)';/)?.[1], MARGEN_NUEVO_DESDE);
   assert.equal(constanteSql('c_aviso_pct', FASE_GRATIS_SQL), AVISO_PCT);
   // El tope por cierre (`c.desde + (365 - 1)`) y el aviso de la demo.
   assert.equal(Number(SQL.match(/c\.desde \+ \((\d+) - 1\)/)?.[1]), DIAS_MAX_POR_CIERRE);
