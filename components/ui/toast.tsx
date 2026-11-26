@@ -58,6 +58,15 @@ export function Toast({
     return () => clearTimeout(t);
   }, [dismissConAnimacion, duracion]);
 
+  // ⚠️ El desmontaje NO puede depender solo de `onAnimationEnd`: si el navegador no llega a disparar el evento
+  // (movimiento reducido, animación cancelada, pestaña en segundo plano) el aviso se quedaba pegado abajo hasta salir
+  // de la pantalla. Este temporizador de respaldo lo retira siempre, un poco después de lo que dura la salida.
+  useEffect(() => {
+    if (!cerrando) return;
+    const t = setTimeout(onDismiss, 400);
+    return () => clearTimeout(t);
+  }, [cerrando, onDismiss]);
+
   // En un portal y a z-[60] (P0.3): las hojas y los diálogos del panel también
   // son z-50 pero van en portal, después en el DOM, y tapaban el aviso — un
   // fallo al pasar lista en la ficha de la clase del móvil no se veía. Al
