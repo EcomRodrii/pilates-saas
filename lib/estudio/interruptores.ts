@@ -51,6 +51,12 @@ export const INTERRUPTORES = {
    */
   miWebNueva: 'MI_WEB_NUEVA',
   /**
+   * «Mi app» y «Mi web» con la forma de «Tienda online» de Shopify (27-nov-2026, maqueta aprobada por el fundador):
+   * vista previa grande, pantallas y widgets en rejilla. Solo con `miWebNueva`. Apagado de serie: primero en el
+   * estudio de prueba, a todos cuando lo vea publicado.
+   */
+  miWebShopify: 'MI_APP_WEB_SHOPIFY',
+  /**
    * Semana y racha únicas (Fase 3, PR 3.3): una sola función de racha (`calcularRachaUnica`) para el
    * motor, la app de la alumna y el panel, con las reglas aprobadas por el fundador (solo ASISTIDA,
    * semanas neutras, respiro). Apagado de serie: con él apagado nada cambia en ningún estudio. Se

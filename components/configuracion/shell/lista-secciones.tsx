@@ -12,7 +12,7 @@ import {
   FILAS_EXTERNAS, GRUPOS, GRUPOS_PANEL_NUEVO, NOMBRE_CORTO, externaVisible, type FilaExternaId, type SeccionConfiguracion, type SeccionId,
 } from '@/lib/configuracion/secciones';
 import { useMiWebNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
+import { gruposConMiWeb, nombreCortoDe, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
 import { esClicNormal } from './contexto';
 
 // La columna de secciones, a partir de 768 px: el inicio de Configuración y
@@ -123,7 +123,7 @@ export function ListaSecciones({
                     <li key={s.id}>
                       <Link id={`rail-seccion-${s.id}`} href={hrefDeSeccion(s.id)} aria-current={actual ? 'page' : undefined} title={s.titulo} onClick={elegir(s.id)} className={filaNueva(actual)}>
                         <Icono size={16} className={icono(actual)} aria-hidden />
-                        <span className="min-w-0 flex-1 truncate">{sangre ? NOMBRE_CORTO[s.id] : s.titulo}</span>
+                        <span className="min-w-0 flex-1 truncate">{sangre ? nombreCortoDe(s.id, NOMBRE_CORTO[s.id], miWebNueva) : s.titulo}</span>
                       </Link>
                     </li>
                   );
