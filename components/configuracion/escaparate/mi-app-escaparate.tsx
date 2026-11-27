@@ -55,6 +55,12 @@ export function MiAppEscaparate({ datos, acciones, slug, hrefPresentacion }: {
           <div className={e.escena} aria-hidden>
             <Telefono src={`${url}/acceso`} titulo="La entrada a tu app" ancho={226} clase={e.movilEntrada} />
             <Telefono src={url} titulo="El inicio de tu app" ancho={244} clase={e.movilInicio} />
+            <div className={`${e.telefono} ${e.movilReservar}`} style={{ '--w': '188px' } as React.CSSProperties}>
+              <div className={e.pantalla}>
+                <img src="/landing/capturas/app-alumna-reservar-manana-390.webp" alt="Vista de ejemplo del horario para reservar" />
+              </div>
+              <span className={e.isla} aria-hidden />
+            </div>
           </div>
         )}
         <div className={e.velo} />
@@ -99,19 +105,36 @@ export function MiAppEscaparate({ datos, acciones, slug, hrefPresentacion }: {
         <Tema id="paso-inicio" nombre="Inicio" detalle="Mensaje y tarjetas" accion={editar('inicio')} estado={paso('inicio').estado}>
           {url && <Marco402 src={url} titulo="Vista previa del inicio" />}
         </Tema>
-        <Tema id="paso-fotos" nombre="Tus clases" detalle="Sus fotos en el horario" accion={editar('fotos')}
+        <Tema id="paso-reservar" nombre="Reservar" detalle="El horario de tus clases" accion={editar('fotos')}
           estado={datos.clases.total > 0 ? `${datos.clases.conFoto} de ${datos.clases.total} con foto` : null}
           tono={datos.clases.conFoto >= datos.clases.total ? 'ok' : 'falta'}>
-          <div className={e.mosaico} aria-hidden>{mosaico.map((f, i) => <img key={i} src={f} alt="" loading="lazy" />)}</div>
+          <div className={e.previewHorario} aria-hidden>
+            <div className={e.previewDias}><span>HOY</span><b>27</b><b>28</b><b>29</b><b className={e.previewDiaActivo}>30</b><b>1</b></div>
+            <div className={e.previewFiltros}><span>Todos</span><span>Pilates Suelo</span><span>Yoga</span></div>
+            {mosaico.slice(0, 2).map((f, i) => (
+              <div className={e.previewClase} key={i}>
+                <img src={f} alt="" loading="lazy" />
+                <span><b>{i === 0 ? 'Pilates Suelo' : 'Pilates Reformer'}</b><small>{i === 0 ? '10:00 · 50 min' : '11:00 · 55 min'}</small></span>
+              </div>
+            ))}
+          </div>
         </Tema>
-        <Tema nombre="Tu equipo" detalle="La cara de quien da la clase" accion={editar('fotos')}
+        <Tema nombre="Ficha de clase" detalle="Tu equipo, la sala y los detalles" accion={editar('fotos')}
           estado={datos.equipo.total > 0 ? `${datos.equipo.conFoto} de ${datos.equipo.total} con foto` : null}
           tono={datos.equipo.conFoto >= datos.equipo.total ? 'ok' : 'falta'}>
-          <div className={e.caras} aria-hidden>
-            {equipo.map(i => {
-              const foto = i.fotoUrl ?? i.avatar;
-              return <span key={i.id}>{foto && /^(https?:|\/)/.test(foto) ? <img src={foto} alt="" loading="lazy" /> : i.nombre.slice(0, 1).toUpperCase()}</span>;
-            })}
+          <div className={e.previewFicha} aria-hidden>
+            <img className={e.previewPortada} src={mosaico[0]} alt="" loading="lazy" />
+            <div className={e.previewFichaTexto}>
+              <small>PILATES SUELO</small><b>Muévete con calma</b>
+              <span>10:00 · 50 min · Sala Suelo</span>
+              <span className={e.previewInstructora}>
+                {equipo[0] && (equipo[0].fotoUrl || equipo[0].avatar)
+                  ? <img src={equipo[0].fotoUrl ?? equipo[0].avatar!} alt="" loading="lazy" />
+                  : <i>{equipo[0]?.nombre.slice(0, 1).toUpperCase() ?? 'I'}</i>}
+                {equipo[0]?.nombre ?? 'Tu instructora'}
+              </span>
+              <strong>Reservar</strong>
+            </div>
           </div>
         </Tema>
       </ul>
