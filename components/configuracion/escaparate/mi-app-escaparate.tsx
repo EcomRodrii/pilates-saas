@@ -119,7 +119,7 @@ export function MiAppEscaparate({ datos, acciones, slug, hrefPresentacion }: {
             ))}
           </div>
         </Tema>
-        <Tema nombre="Ficha de clase" detalle="Tu equipo, la sala y los detalles" accion={editar('fotos')}
+        <Tema id="paso-ficha-clase" nombre="Ficha de clase" detalle="Tu equipo, la sala y los detalles" accion={editar('fotos')}
           estado={datos.equipo.total > 0 ? `${datos.equipo.conFoto} de ${datos.equipo.total} con foto` : null}
           tono={datos.equipo.conFoto >= datos.equipo.total ? 'ok' : 'falta'}>
           <div className={e.previewFicha} aria-hidden>

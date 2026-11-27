@@ -28,9 +28,11 @@ test('Mi app: la app en grande, sus pantallas y los siete asuntos con su sitio',
   const p = page.getByTestId('mi-app-escaparate');
   await expect(p).toBeVisible({ timeout: 90_000 });
   await expect(page.getByTestId('mi-app-guiada')).toHaveCount(0);
-  for (const id of ['logo', 'estilo', 'entrada', 'fotos', 'inicio', 'frase', 'compartir']) {
+  for (const id of ['logo', 'estilo', 'entrada', 'inicio', 'frase', 'compartir']) {
     await expect(p.locator(`#paso-${id}`)).toBeVisible();
   }
+  await expect(p.locator('#paso-reservar')).toBeVisible();
+  await expect(p.locator('#paso-ficha-clase')).toBeVisible();
   await expect(p.getByRole('link', { name: 'Editar app' })).toHaveAttribute('href', '/configuracion/apariencia?paso=estilo');
   await expect(p.getByRole('link', { name: 'Abrir mi app' })).toHaveAttribute('href', `/portal/${STUDIO_ROW.slug}`);
   // El menú dice lo mismo que los textos.
