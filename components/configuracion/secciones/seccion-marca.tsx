@@ -10,6 +10,7 @@ import { DEFAULT_THEME, type ThemeConfig } from '@/lib/theme-schema';
 import { hrefDeHerramienta, hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { pasosMiApp, type IdPasoMiApp } from '@/lib/configuracion/mi-app-pasos';
 import { MiAppGuiada, useDatosMiApp, type AccionPaso } from '@/components/configuracion/secciones/mi-app-guiada';
+import { MiAppEscaparate } from '@/components/configuracion/escaparate/mi-app-escaparate';
 import {
   resumenLogoYFavicon, resumenPresentacion, resumenTextosBienvenida,
 } from '@/lib/configuracion/resumenes';
@@ -66,6 +67,7 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
   // siempre) pero se pinta aquí (lib/configuracion/mi-web-nueva.ts).
   const miWebNueva = useMiWebNueva();
   const pedirApp = useInterruptor('pedirApp', studio?.id);
+  const escaparate = useInterruptor('miWebShopify', studio?.id);
   const [ahoraMs, setAhoraMs] = useState(0);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- La hora del reloj no se puede derivar en render.
@@ -160,7 +162,11 @@ export function SeccionMarca({ showToast }: { showToast: (m: string) => void }) 
     return (
       <>
         {datosMiApp ? (
-          <MiAppGuiada datos={datosMiApp} acciones={acciones} slug={studio?.slug ?? null} hrefPresentacion={hrefDeTarjeta('textos-de-tu-app')} />
+          // Con `miWebShopify`, la misma información con la forma de «Tienda online» (27-nov-2026).
+          (() => {
+            const Pantalla = escaparate ? MiAppEscaparate : MiAppGuiada;
+            return <Pantalla datos={datosMiApp} acciones={acciones} slug={studio?.slug ?? null} hrefPresentacion={hrefDeTarjeta('textos-de-tu-app')} />;
+          })()
         ) : (
           <div aria-busy className="h-64 animate-pulse rounded-2xl bg-muted" />
         )}

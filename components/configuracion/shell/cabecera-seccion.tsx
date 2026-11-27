@@ -1,7 +1,7 @@
 'use client';
 
 import { useMiWebNueva, usePanelNuevo, useShellNuevo } from '@/lib/estudio/panel-nuevo-cliente';
-import { gruposConMiWeb, grupoEsLaSeccion } from '@/lib/configuracion/mi-web-nueva';
+import { gruposConMiWeb, grupoEsLaSeccion, nombreCortoDe } from '@/lib/configuracion/mi-web-nueva';
 import { Baldosa } from '@/components/dashboard/vivo';
 import { TONO_SECCION_CONFIG } from './tono-config';
 import { ICONOS_SECCION } from './lista-secciones';
@@ -39,7 +39,7 @@ export function CabeceraSeccion({
   const grupo = gruposConMiWeb(GRUPOS_PANEL_NUEVO, miWebNueva).find(g => g.secciones.includes(seccion.id));
   return (
     <>
-      <div className={cn('sticky z-20 -mx-4 flex items-center gap-1 border-b border-border px-2 md:static', sangre ? 'top-0 h-[calc(3.5rem+env(safe-area-inset-top,0px))] bg-background pt-[env(safe-area-inset-top,0px)] md:pt-0' : 'top-12 h-14 bg-background/95 backdrop-blur', 'md:static md:mx-0 md:h-auto md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none')}>
+      <div data-cabecera-seccion className={cn('sticky z-20 -mx-4 flex items-center gap-1 border-b border-border px-2 md:static', sangre ? 'top-0 h-[calc(3.5rem+env(safe-area-inset-top,0px))] bg-background pt-[env(safe-area-inset-top,0px)] md:pt-0' : 'top-12 h-14 bg-background/95 backdrop-blur', 'md:static md:mx-0 md:h-auto md:border-0 md:bg-transparent md:px-0 md:backdrop-blur-none')}>
         <button
           type="button"
           onClick={onVolver}
@@ -58,7 +58,7 @@ export function CabeceraSeccion({
             tabIndex={-1}
             className={cn('min-w-0 truncate text-base font-semibold text-foreground outline-none md:whitespace-normal md:text-balance', sangre ? 'md:text-[26px] md:font-medium md:leading-8 md:tracking-normal md:text-[#101010]' : 'md:text-xl')}
           >
-            {sangre && NOMBRE_CORTO[seccion.id] ? NOMBRE_CORTO[seccion.id] : seccion.titulo}
+            {sangre && NOMBRE_CORTO[seccion.id] ? nombreCortoDe(seccion.id, NOMBRE_CORTO[seccion.id], miWebNueva) : seccion.titulo}
           </h2>
         </span>
         {/* El «?» del tutorial de esta vista (P1.1): su clave es la URL canónica. */}

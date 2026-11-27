@@ -47,6 +47,11 @@ export const PRESENTACION_MI_WEB: Partial<Record<SeccionId, { titulo: string; re
   },
 };
 
+/** El nombre corto en el menú y el título del marco a sangre: con el interruptor, el mismo que citan los textos. */
+export function nombreCortoDe(id: SeccionId, corto: string, miWebNueva: boolean): string {
+  return (miWebNueva && PRESENTACION_MI_WEB[id]?.titulo) || corto;
+}
+
 /** La sección con el nombre que se enseña (con el interruptor, «Mi app» / «Mi web»). */
 export function presentarSeccion<T extends { id: SeccionId; titulo: string; resumen?: string; frase?: string }>(s: T, miWebNueva: boolean): T {
   const p = miWebNueva ? PRESENTACION_MI_WEB[s.id] : undefined;

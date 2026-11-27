@@ -1993,6 +1993,13 @@ Con el panel cerrado (`bloqueado`), la propietaria cae en esta pantalla (copia d
 Dentro solo tarjeta (con Apple Pay y Google Pay como botones); la autorización del cobro va junto al botón. Abrirla no gasta el descuento de reseñas (`alojado` → página de Stripe al pulsar). ⚠️ /suscripcion «a secas» se decide
 mirando la dirección al contestar: por un enlace interno la vista se monta antes de que cambie.
 
+## «Mi app» y «Mi web» como «Tienda online» (27-nov-2026)
+
+Tras `MI_APP_WEB_SHOPIFY` (solo con `MI_WEB_NUEVA`; apagado de serie), `components/configuracion/escaparate/` sustituye a las
+pantallas guiadas con los MISMOS pasos, estados y cajones (`mi-app-pasos.ts`, `mi-web-pasos.ts`): un asunto nuevo se añade ahí
+y en las dos caras. Las vistas previas son iframes de las páginas de verdad, perezosos y sin clic; las de `/reservar` van con
+`conVistaPrevia` (no cuentan visitas). Sin sesión de alumna solo se pueden enseñar Inicio y Entrada de la app.
+
 ## Sistema de diseño y movimiento del panel (25-nov-2026)
 
 `app/estilos/panel-sistema.css` es la ÚNICA fuente de duraciones, curvas, radios, escala de letra, sombras y neutros

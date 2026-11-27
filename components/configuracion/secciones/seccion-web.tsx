@@ -11,6 +11,8 @@ import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
 import { DetalleDireccionYEnlaces, FilaDireccionYEnlaces, useOrigen } from '@/components/configuracion/tab-estudio-enlaces';
 import { DetalleDescripcionWeb } from '@/components/configuracion/detalle-descripcion-web';
 import { MiWebGuiada } from '@/components/configuracion/secciones/mi-web-guiada';
+import { MiWebEscaparate } from '@/components/configuracion/escaparate/mi-web-escaparate';
+import { useInterruptor } from '@/lib/estudio/interruptores-cliente';
 import { DetallePaginaPublica } from '@/components/configuracion/pagina-publica';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
 import { FilaAjuste, FilaInterruptor, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
@@ -39,6 +41,8 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
   // «Mi web» (MI_WEB_NUEVA): solo lo de la web, en el orden del fundador (dirección, widgets, ocultar la
   // página) y Network aparte. «Contenido de tu app» se pinta en «Mi app» (seccion-marca.tsx).
   const miWebNueva = useMiWebNueva();
+  // Con `miWebShopify`, los mismos pasos con la forma de «Tienda online» (27-nov-2026).
+  const Guiada = useInterruptor('miWebShopify', studio?.id) ? MiWebEscaparate : MiWebGuiada;
   const origen = useOrigen();
 
   // Qué tarjetas siguen publicadas depende de la hora: se lee una vez al montar,
@@ -98,7 +102,7 @@ export function SeccionWeb({ showToast }: { showToast: (m: string) => void }) {
         // «Mi web» guiada (maqueta aprobada el 21-oct-2026): cinco pasos con lo que hace falta, dónde
         // lo ve quien llega y cuándo le llega el cambio. Los cajones y la herramienta son los de siempre.
         dataLoaded && studio ? (
-          <MiWebGuiada
+          <Guiada
             showToast={showToast}
             datos={{
               direccion: resumenDireccion({ slug: studio.slug, origen }),

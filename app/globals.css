@@ -2006,6 +2006,12 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
    apilados en vez de en dos columnas y los iconos de fila sin baldosa de color (16 px, tinta). ───────── */
 @media (min-width: 768px) {
   .panel-app[data-shell-nuevo] [data-config-raiz] { max-width: 784px; margin-inline: auto; padding-top: 32px; }
+  /* «Mi app» y «Mi web» como la «Tienda online» de Shopify: más anchas y con su propia barra. Los títulos de
+     siempre siguen para el lector de pantalla. */
+  .panel-app[data-shell-nuevo] [data-config-raiz]:has([data-escaparate]) { max-width: 966px; padding-top: 12px; }
+  [data-config-raiz]:has([data-escaparate]) :is([data-config-cabecera], [data-cabecera-seccion]) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Sus botones ya están en la barra nueva: escondidos del todo, para que el teclado no caiga en uno que no se ve. */
+  [data-config-raiz]:has([data-escaparate]) :is([data-config-cabecera], [data-cabecera-seccion]) :is(a, button) { visibility: hidden; }
   .panel-app[data-shell-nuevo] [data-config-raiz] #seccion-titulo { margin-bottom: 18px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] { margin-bottom: 8px; }
   .panel-app[data-shell-nuevo] [data-config-cabecera] [data-slot='page-header-title'] { font-size: 20px !important; line-height: 24px !important; font-weight: 600 !important; letter-spacing: -0.01em !important; }
