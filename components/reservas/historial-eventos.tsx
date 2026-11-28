@@ -22,6 +22,18 @@ interface HistorialEventosProps {
   className?: string;
 }
 
+function esEventoReserva(valor: unknown): valor is EventoReserva {
+  if (typeof valor !== 'object' || valor === null) return false;
+  const evento = valor as Partial<EventoReserva>;
+  return Number.isSafeInteger(evento.id)
+    && typeof evento.reserva_id === 'string'
+    && typeof evento.ocurrido_en === 'string'
+    && Number.isFinite(Date.parse(evento.ocurrido_en))
+    && ['INSERT', 'UPDATE', 'DELETE'].includes(evento.operacion ?? '')
+    && ['STAFF', 'SOCIA', 'SISTEMA', 'DESCONOCIDO'].includes(evento.actor_tipo ?? '')
+    && ['PANEL', 'PORTAL', 'SERVIDOR'].includes(evento.origen ?? '');
+}
+
 function estadoLegible(valor: unknown): string {
   if (typeof valor !== 'string') return '—';
   const estados: Record<string, string> = {
@@ -77,7 +89,11 @@ export function HistorialEventosReservas({ socioId, sesionId, className }: Histo
       if (resultado.error) setError(true);
       else {
         setError(false);
-        setEventos((resultado.data ?? []) as EventoReserva[]);
+        // Algunos consumidores E2E interceptan `reservas**` y responden con
+        // filas de `reservas`; descartar esos datos evita que una fecha ausente
+        // en una respuesta inesperada derribe toda la pantalla.
+        const filas = Array.isArray(resultado.data) ? resultado.data : [];
+        setEventos(filas.filter(esEventoReserva));
       }
     }).catch(() => { if (vivo) setError(true); }).finally(() => { if (vivo) setCargando(false); });
     return () => { vivo = false; };

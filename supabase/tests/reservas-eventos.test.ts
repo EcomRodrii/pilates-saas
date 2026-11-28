@@ -39,14 +39,15 @@ test('reserva y asistencia dejan actor y antes/después; el historial no se pued
         actor: eventos?.[1].actor_tipo, actorUid: eventos?.[1].actor_uid, actorRol: eventos?.[1].actor_rol,
         origen: eventos?.[1].origen,
         antes: eventos?.[1].antes,
-        despues: eventos?.[1].despues,
+        despues: {
+          ...(eventos?.[1].despues as Record<string, unknown>),
+          check_in_en: new Date(String((eventos?.[1].despues as Record<string, unknown> | null)?.check_in_en)).toISOString(),
+        },
       },
       {
         actor: 'STAFF', actorUid: estudio.authUserId, actorRol: 'PROPIETARIO', origen: 'PANEL',
         antes: { estado: 'CONFIRMADA', check_in_en: null, spot_id: null, posicion_espera: null },
-        // Postgres puede serializar timestamptz como `+00:00` y JS como `Z`;
-        // comparar el instante evita fallos por diferencias de formato.
-        despues: { estado: 'ASISTIDA', check_in_en: new Date(checkIn).toISOString(), spot_id: null, posicion_espera: null },
+        despues: { estado: 'ASISTIDA', check_in_en: checkIn, spot_id: null, posicion_espera: null },
       },
     );
 
