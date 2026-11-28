@@ -2777,12 +2777,10 @@ export function registrarEventoWidget(admin: SupabaseClient, params: {
 }
 
 /**
- * Los topes de reservas que decide TypeScript y no `evaluar_reserva`: el máximo a la vez
- * (`reserva_max_simultaneas`) y el máximo de clases al día (`reserva_max_por_dia`). Un solo
- * dueño para la reserva de la alumna (`crearReservaPublica`) y para el cobro de una clase
- * ANTES de cobrar (`comprobarPlazaAntesDeCobrar`): si los dos los contaran a su manera, se
- * cobraría una clase que luego la reserva rechaza. `null`: no se pasa de ninguno (o no se
- * ha podido contar el del día: no se inventa un «ya tienes una»).
+ * Precheck rápido de reservas a la vez (`reserva_max_simultaneas`) y del máximo diario
+ * (`reserva_max_por_dia`). El máximo diario también se revalida en SQL, bajo el lock por
+ * socia, al insertar desde el canal público; este precheck conserva el mensaje temprano y
+ * protege el cobro previo. `null`: no se pasa de ninguno (o no se pudo contar el día).
  */
 export async function topesDeReservaTS(admin: SupabaseClient, p: {
   studioId: string; socioId: string; sesionId: string; inicioISO: string;
@@ -3058,13 +3056,10 @@ export async function crearReservaPublica(params: {
     }
   }
 
-  // Los topes de reservas a la vez y por día (studios.reserva_max_simultaneas /
-  // reserva_max_por_dia). Solo aquí, en la reserva de la propia alumna: el
-  // mostrador decide por su cuenta, y la reserva tras pagar
-  // (`reservarPlazaTrasPagoPublico`) no puede rechazar ya cobrada — por eso el
-  // cobro de una clase los mira ANTES de cobrar, con esta MISMA función
-  // (`comprobarPlazaAntesDeCobrar`). Un solo dueño. Fuera del candado de
-  // `reservar_plaza`: dos pestañas a la vez podrían colarse, aceptado.
+  // Precheck de los topes de reservas a la vez y por día. El máximo diario se
+  // vuelve a validar atómicamente en `reservar_plaza_con_max_diario`; el máximo
+  // a la vez sigue siendo este precheck. El mostrador conserva su política y la
+  // reserva ya cobrada no se rechaza; su flujo valida antes de cobrar.
   {
     const tope = await topesDeReservaTS(admin, {
       studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, inicioISO,
@@ -3092,7 +3087,7 @@ export async function crearReservaPublica(params: {
   const consumibleBono = await resolverBonoParaSesion(admin, {
     studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId,
   });
-  const { data, error } = await admin.rpc('reservar_plaza', {
+  const { data, error } = await admin.rpc('reservar_plaza_con_max_diario', {
     p_studio_id: params.studioId, p_sesion_id: params.sesionId,
     p_socio_id: params.socioId, p_reserva_id: reservaId,
     p_permite_lista_espera: permiteListaEsperaResuelto,
@@ -3133,6 +3128,15 @@ export async function crearReservaPublica(params: {
     p_suscripcion_id: consumibleBono?.suscripcion.id ?? null,
   });
   if (error) {
+    // Revalidado por SQL dentro del mismo lock que crea la reserva: dos pestañas
+    // pueden superar el precheck TS, pero no el máximo diario transaccional.
+    if (esCodigoReserva(error.message, 'MAX_POR_DIA')) {
+      registrarIntentoFallido(admin, { studioId: params.studioId, socioId: params.socioId, sesionId: params.sesionId, tipoClaseId, motivo: 'MAX_POR_DIA' });
+      const detalle = /MAX_POR_DIA:(\d+):(\d+)/.exec(error.message);
+      const tiene = detalle ? Number(detalle[1]) : (pol.maxPorDia ?? 1);
+      const maximo = detalle ? Number(detalle[2]) : (pol.maxPorDia ?? 1);
+      return { error: mensajeMaxPorDia(tiene, maximo, inicioISO), codigo: 'max-por-dia' as const };
+    }
     // ⚠️ El `codigo` es lo que consume el cliente; el `error` es solo para
     // enseñar. Antes solo viajaba la frase en castellano, así que la app tenía
     // que comparar cadenas traducibles para saber qué había pasado — y

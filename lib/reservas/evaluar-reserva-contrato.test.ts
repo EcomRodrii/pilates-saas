@@ -1,13 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 
 // Motor de derechos, FASE 3b (migración 20261002145300): `evaluar_reserva`, la elegibilidad en un solo sitio, de solo
 // lectura y en sombra. Guardianes sobre el fuente de lo que no se puede invocar desde node:test; la PARIDAD con
 // `reservar_plaza` contra una base de datos real vive en `supabase/tests/rls-evaluar-reserva-paridad.test.ts`.
 
 const leer = (ruta: string) => readFileSync(new URL(`../../${ruta}`, import.meta.url), 'utf8');
-const MIGRACION = leer('supabase/migrations/20261002145300_evaluar_reserva.sql');
+const DIR_MIGRACIONES = new URL('../../supabase/migrations/', import.meta.url);
+const MIGRACION_VIVA = readdirSync(DIR_MIGRACIONES)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .reverse()
+  .find((f) => readFileSync(new URL(f, DIR_MIGRACIONES), 'utf8').includes('create or replace function public.evaluar_reserva'));
+assert.ok(MIGRACION_VIVA, 'ninguna migración define public.evaluar_reserva');
+const MIGRACION = readFileSync(new URL(MIGRACION_VIVA, DIR_MIGRACIONES), 'utf8');
 const SIN_COMENTARIOS = MIGRACION.replace(/--.*$/gm, '');
 const CUERPO = SIN_COMENTARIOS.slice(SIN_COMENTARIOS.indexOf('create or replace function public.evaluar_reserva'), SIN_COMENTARIOS.indexOf('revoke all on function public.evaluar_reserva'));
 
@@ -46,7 +53,7 @@ test('⚠️ los códigos que devuelve son los de CodigoReserva (la misma lengua
 test('⚠️ comprueba en el MISMO orden que reservar_plaza (el primer rechazo tiene que ser el mismo)', () => {
   const orden = [
     "'sesion-no-encontrada'", "'estudio-cerrado'", "'impago'", "'necesita-autorizacion'", "'sin-plan'",
-    "'ya-reservada'", "'spot-no-disponible'", "'spot-ocupado'", "'aforo-lleno'", "'conflicto-horario'", "'limite-semanal-actividad'",
+    "'ya-reservada'", "'max-por-dia'", "'spot-no-disponible'", "'spot-ocupado'", "'aforo-lleno'", "'conflicto-horario'", "'limite-semanal-actividad'",
   ];
   const posiciones = orden.map(c => CUERPO.indexOf(c));
   posiciones.forEach((p, i) => assert.ok(p > 0, `falta ${orden[i]}`));
@@ -73,6 +80,42 @@ test('un único pagador por reserva: recuperación, bono o cuota, nunca dos a la
   const cuota = CUERPO.indexOf("'origen', 'cuota'");
   assert.ok(recuperacion > 0 && bono > recuperacion && cuota > bono);
   assert.match(CUERPO, /if v_excede_total or v_excede_tipo then[\s\S]*?v_pagador := jsonb_build_object\('origen', 'recuperacion'[\s\S]*?else\s+v_bono := public\.elegir_bono_consumible/);
+});
+
+test('el máximo diario es un gate opcional y cuenta el día del estudio en la evaluación SQL', () => {
+  assert.match(CUERPO, /v_aplicar_max_por_dia boolean := coalesce\(\(p_opciones ->> 'aplicar_max_por_dia'\)::boolean, false\)/);
+  assert.match(CUERPO, /\(s\.inicio at time zone 'Europe\/Madrid'\)::date = \(v_inicio at time zone 'Europe\/Madrid'\)::date/);
+  assert.match(CUERPO, /r\.estado <> 'CANCELADA'/);
+  assert.match(CUERPO, /not coalesce\(s\.cancelada, false\)/);
+  assert.match(CUERPO, /'detalle', 'MAX_POR_DIA'/);
+});
+
+test('la RPC pública conserva el lock hasta insertar y está cerrada a anon/authenticated', () => {
+  const inicio = SIN_COMENTARIOS.indexOf('create or replace function public.reservar_plaza_con_max_diario');
+  const fin = SIN_COMENTARIOS.indexOf('revoke all on function public.reservar_plaza_con_max_diario', inicio);
+  assert.ok(inicio >= 0 && fin > inicio, 'no se encontró la definición y revocación de la RPC pública');
+  const wrapper = SIN_COMENTARIOS.slice(inicio, fin);
+  assert.match(wrapper, /perform pg_advisory_xact_lock\(hashtext\(p_studio_id \|\| ':' \|\| p_socio_id\)\)/);
+  assert.match(wrapper, /'aplicar_max_por_dia', true/);
+  assert.match(wrapper, /return query select \* from public\.reservar_plaza\(/);
+  assert.match(MIGRACION, /revoke all on function public\.reservar_plaza_con_max_diario\([^;]+ from public, anon, authenticated;/);
+  assert.match(MIGRACION, /grant execute on function public\.reservar_plaza_con_max_diario\([^;]+ to service_role;/);
+  assert.match(MIGRACION, /has_function_privilege\('anon', 'public\.reservar_plaza_con_max_diario/);
+  assert.match(MIGRACION, /has_function_privilege\('authenticated', 'public\.reservar_plaza_con_max_diario/);
+});
+
+test('solo la reserva pública de la alumna usa el wrapper atómico y su rechazo se traduce', () => {
+  const admin = leer('lib/db/supabase-data-admin.ts');
+  const inicio = admin.indexOf('export async function crearReservaPublica(');
+  const fin = admin.indexOf('export async function reservarPlazaTrasPagoPublico(', inicio);
+  assert.ok(inicio >= 0 && fin > inicio, 'no se encontró el límite de crearReservaPublica');
+  const crear = admin.slice(inicio, fin);
+  assert.match(crear, /admin\.rpc\('reservar_plaza_con_max_diario'/);
+  assert.equal((admin.match(/rpc\('reservar_plaza_con_max_diario'/g) ?? []).length, 1,
+    'el gate diario debe seguir limitado al canal de reserva pública de alumna');
+  assert.match(crear, /esCodigoReserva\(error\.message, 'MAX_POR_DIA'\)/);
+  assert.match(leer('lib/reservas/errores-rpc.ts'), /MAX_POR_DIA:/,
+    'el código SQL debe tener traducción en el catálogo de errores');
 });
 
 test('⚠️ cada rechazo dice QUÉ excepción lanza reservar_plaza (`detalle`), y ese nombre es el que el servidor ya traduce', () => {
