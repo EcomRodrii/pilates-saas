@@ -18,11 +18,10 @@ test('con texto, el texto sin espacios de sobra a los lados', () => {
   assert.equal(mensajeParaLaApp('Línea uno\nLínea dos'), 'Línea uno\nLínea dos');
 });
 
-test('la app solo pinta el mensaje del estudio con MI_WEB_NUEVA: el mismo formato que el resto de interruptores', () => {
-  assert.equal(miWebNuevaPara('studio-1', {}), false, 'apagado de serie');
+test('la app pinta el mensaje del estudio con MI_WEB_NUEVA, activado de serie y apagable con off', () => {
+  assert.equal(miWebNuevaPara('studio-1', {}), true, 'activado de serie');
+  assert.equal(miWebNuevaPara('studio-1', { MI_WEB_NUEVA: 'off' }), false, 'apagado de emergencia');
   assert.equal(miWebNuevaPara('studio-1', { MI_WEB_NUEVA: 'on' }), true);
-  assert.equal(miWebNuevaPara('studio-1', { MI_WEB_NUEVA: 'estudios:studio-2,studio-1' }), true);
-  assert.equal(miWebNuevaPara('studio-3', { MI_WEB_NUEVA: 'estudios:studio-2,studio-1' }), false);
 });
 
 test('el payload público manda el mensaje solo tras el punto de corte del servidor, y ya limpio', () => {

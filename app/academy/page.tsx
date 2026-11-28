@@ -4,7 +4,7 @@ import { IslaWeb } from '@/components/web/IslaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
 import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
-import { EscaparateAcademy, FAQ_ACADEMY } from '@/components/academy/EscaparateAcademy';
+import { EscaparateAcademy } from '@/components/academy/EscaparateAcademy';
 import { videosPublicados } from '@/lib/ayuda/videos-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
