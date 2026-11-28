@@ -250,12 +250,18 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
                 showToast={showToast}
               />
             )}
-            {p === USC && usc?.apiDisponible && !porApi && (
+            {p === USC && !porApi && (
               <PedirAcceso
                 plataforma={p}
-                titulo="Beta de la conexión con Urban Sports Club"
-                texto="Estamos probando la conexión con estudios reales. Si quieres ser uno, pídelo y te contamos los pasos; si ya tienes tus IDs de proveedor y de ubicación, pégalos arriba."
+                titulo="Buscamos estudios para probar la beta de USC"
+                texto="Si ya eres partner de Urban Sports Club, queremos acompañarte en la puesta en marcha. La solicitud nos permite avisarte cuando podamos activar tu acceso."
                 boton="Quiero probar la beta"
+                pasos={[
+                  'Si todavía no eres partner de USC, primero da de alta el estudio y espera a que la ubicación esté activa en su app.',
+                  'Entra en tu Partner Portal de USC, abre Ayuda y pide a Partner Support que habilite Tentare como software de reservas para las ubicaciones que quieras conectar.',
+                  'Cuando USC confirme la activación, solicita el ID de proveedor y el ID de cada ubicación. Un proveedor puede tener varias ubicaciones.',
+                  'Pide aquí acceso a la beta. Cuando te confirmemos que está habilitada, pega esos IDs en esta ficha y configura cuántas plazas dejas a USC en cada tipo de clase.',
+                ]}
                 showToast={showToast}
               />
             )}
@@ -466,8 +472,8 @@ function ChapaProximamente({ texto }: { texto: string }) {
  * Club): le dice a Tentare que el estudio la quiere. Se enseña lo que CONTESTA el
  * servidor: «enviada» solo si el correo salió; si ya la había pedido hoy, lo dice.
  */
-function PedirAcceso({ plataforma, titulo, texto, boton, showToast }: {
-  plataforma: Plataforma; titulo: string; texto: string; boton: string; showToast: MostrarToast;
+function PedirAcceso({ plataforma, titulo, texto, boton, pasos, showToast }: {
+  plataforma: Plataforma; titulo: string; texto: string; boton: string; pasos?: string[]; showToast: MostrarToast;
 }) {
   const [estado, setEstado] = useState<'inicial' | 'enviando' | 'enviada'>('inicial');
   const nombre = NOMBRE_PLATAFORMA[plataforma];
@@ -497,6 +503,11 @@ function PedirAcceso({ plataforma, titulo, texto, boton, showToast }: {
     <div className="mt-3 space-y-2 rounded-xl bg-muted/50 px-3 py-3" data-testid={`pedir-acceso-${plataforma.toLowerCase()}`}>
       <p className="text-xs font-semibold text-foreground">{titulo}</p>
       <p className="text-xs text-muted-foreground">{texto}</p>
+      {pasos && (
+        <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
+          {pasos.map(paso => <li key={paso}>{paso}</li>)}
+        </ol>
+      )}
       {estado === 'enviada' ? (
         <p role="status" className="text-xs font-semibold text-foreground">Petición enviada. Te avisamos por correo.</p>
       ) : (
