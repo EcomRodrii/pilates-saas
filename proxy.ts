@@ -54,6 +54,13 @@ import { debeRedirigirPanelAAdmin, raizAdminVaAlLogin } from '@/lib/auth/admin-h
 const POLITICA_PERMISOS = 'camera=(self), microphone=(self), geolocation=(self)';
 
 export function proxy(req: NextRequest) {
+  // Mientras se prepara un sitio de documentación independiente, el host docs
+  // muestra el centro de ayuda que ya existe en la app. La URL pública queda en
+  // la raíz de docs.tentare.app, sin enseñar la landing comercial.
+  if (req.nextUrl.hostname.toLowerCase() === 'docs.tentare.app' && req.nextUrl.pathname === '/') {
+    return NextResponse.rewrite(new URL('/ayuda', req.url));
+  }
+
   // Todo el panel y el flujo de acceso (login/registro) usan un único host
   // para que cookies y navegación no se queden repartidas entre dominios.
   if (debeRedirigirPanelAAdmin(req.nextUrl.hostname, req.nextUrl.pathname)) {
