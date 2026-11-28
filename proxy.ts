@@ -61,6 +61,19 @@ export function proxy(req: NextRequest) {
     return NextResponse.rewrite(new URL('/ayuda', req.url));
   }
 
+  // La API pública mantiene internamente /api/v1 y /api/health. En su host
+  // dedicado se exponen como /v1 y /health; /api/* sigue funcionando para
+  // integraciones antiguas y rutas internas.
+  if (req.nextUrl.hostname.toLowerCase() === 'api.tentare.app') {
+    const destino = req.nextUrl.clone();
+    destino.pathname = req.nextUrl.pathname === '/'
+      ? '/api/health'
+      : req.nextUrl.pathname === '/api' || req.nextUrl.pathname.startsWith('/api/')
+        ? req.nextUrl.pathname
+        : `/api${req.nextUrl.pathname}`;
+    return NextResponse.rewrite(destino);
+  }
+
   // Todo el panel y el flujo de acceso (login/registro) usan un único host
   // para que cookies y navegación no se queden repartidas entre dominios.
   if (debeRedirigirPanelAAdmin(req.nextUrl.hostname, req.nextUrl.pathname)) {
