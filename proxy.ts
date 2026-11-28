@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { raizAdminVaAlLogin } from '@/lib/auth/admin-host';
 
 // 51ª pasada de auditoría (2026-09-10), hallazgo #1: ninguna ruta del repo
 // mandaba X-Frame-Options ni Content-Security-Policy: frame-ancestors —
@@ -53,6 +54,15 @@ import { NextResponse, type NextRequest } from 'next/server';
 const POLITICA_PERMISOS = 'camera=(self), microphone=(self), geolocation=(self)';
 
 export function proxy(req: NextRequest) {
+  // El host de administración empieza en login/registro, nunca en la landing
+  // pública. `/login` permite iniciar sesión o pasar a crear cuenta.
+  if (raizAdminVaAlLogin(req.nextUrl.hostname, req.nextUrl.pathname)) {
+    const destino = req.nextUrl.clone();
+    destino.pathname = '/login';
+    destino.search = '';
+    return NextResponse.redirect(destino);
+  }
+
   const res = NextResponse.next();
   const enMarcoPropio = req.nextUrl.pathname.startsWith('/portal/');
   res.headers.set('X-Frame-Options', enMarcoPropio ? 'SAMEORIGIN' : 'DENY');
