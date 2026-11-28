@@ -253,14 +253,15 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
             {p === USC && !porApi && (
               <PedirAcceso
                 plataforma={p}
-                titulo="Buscamos estudios para probar la beta de USC"
-                texto="Si ya eres partner de Urban Sports Club, queremos acompañarte en la puesta en marcha. La solicitud nos permite avisarte cuando podamos activar tu acceso."
+                titulo="Buscamos estudios para la beta de Urban Sports Club"
+                texto="La integración técnica y las pruebas de reserva ya están aprobadas por USC. Ahora buscamos estudios partner para probarla antes del lanzamiento. Durante la beta, Tentare coordina contigo y presta el soporte inicial."
                 boton="Quiero probar la beta"
                 pasos={[
-                  'Si todavía no eres partner de USC, primero da de alta el estudio y espera a que la ubicación esté activa en su app.',
-                  'Entra en tu Partner Portal de USC, abre Ayuda y pide a Partner Support que habilite Tentare como software de reservas para las ubicaciones que quieras conectar.',
-                  'Cuando USC confirme la activación, solicita el ID de proveedor y el ID de cada ubicación. Un proveedor puede tener varias ubicaciones.',
-                  'Pide aquí acceso a la beta. Cuando te confirmemos que está habilitada, pega esos IDs en esta ficha y configura cuántas plazas dejas a USC en cada tipo de clase.',
+                  'Si tu estudio ya es partner de USC y quieres participar, solicita aquí acceso a la beta. Seleccionaremos los estudios participantes y coordinaremos contigo los siguientes pasos.',
+                  'Tentare comunicará a USC los estudios elegidos. USC compartirá por una hoja de Google el ID de proveedor y los IDs de ubicación; la activación se programa para el día siguiente.',
+                  'Antes de la activación coordinaremos el uso de las credenciales de producción y te indicaremos cómo configurar las plazas de USC por tipo de clase. El horario se publica con hasta 14 días de antelación.',
+                  'La beta dura como máximo una semana completa desde la activación y debe terminar sin errores reportados. USC puede acordar acortarla si todo va bien.',
+                  'Hasta que USC confirme el lanzamiento, la integración no está activa para el resto de estudios: no la anuncies ni programes migraciones. Tras el go-live, USC asumirá la incorporación de futuros partners.',
                 ]}
                 showToast={showToast}
               />

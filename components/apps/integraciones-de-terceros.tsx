@@ -62,7 +62,7 @@ const QUE_HACE: Record<PestanaIntegracion, string> = {
   klaviyo: 'Lleva a Klaviyo los clientes que aceptaron recibir marketing, cada vez que pulsas «Sincronizar ahora».',
   mailchimp: 'Lleva a tu audiencia de Mailchimp los clientes que aceptaron recibir marketing, al pulsar «Sincronizar ahora».',
   classpass: 'Si vendes plazas en ClassPass, apunta sus reservas en la clase para no vender dos veces el mismo hueco.',
-  'urban-sports-club': '¿Ya eres partner de Urban Sports Club? Solicita que USC habilite Tentare para tus sedes y apúntate a nuestra beta. Cuando esté activa, el horario y las reservas se gestionan desde Tentare.',
+  'urban-sports-club': 'La integración técnica con Urban Sports Club ya está aprobada y USC ha validado las reservas. Estamos seleccionando estudios para la beta; durante las pruebas, Tentare coordina la puesta en marcha y el soporte.',
   wellhub: 'Si vendes plazas en Wellhub, apunta sus reservas en la clase para no vender dos veces el mismo hueco.',
   zapier: 'Conecta Tentare con miles de apps. La conexión se autoriza desde Zapier, no desde aquí.',
 };
