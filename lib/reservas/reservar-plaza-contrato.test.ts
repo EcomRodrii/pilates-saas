@@ -40,11 +40,11 @@ function firmaViva(): { fichero: string; params: string[] } {
   assert.fail('ninguna migración define public.reservar_plaza');
 }
 
-/** Cada `admin.rpc('reservar_plaza', { ... })` del repo, con sus claves. */
+/** Cada llamada al escritor de reservas, con sus claves. */
 function llamadasTS(): { linea: number; claves: string[] }[] {
   const fuente = readFileSync(join(raiz, 'lib', 'db', 'supabase-data-admin.ts'), 'utf8');
   const salida: { linea: number; claves: string[] }[] = [];
-  const re = /\.rpc\(\s*['"]reservar_plaza['"]\s*,\s*\{/g;
+  const re = /\.rpc\(\s*['"]reservar_plaza(?:_con_max_diario)?['"]\s*,\s*\{/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(fuente))) {
     // Recorre hasta cerrar la llave del objeto literal, contando anidamiento.
