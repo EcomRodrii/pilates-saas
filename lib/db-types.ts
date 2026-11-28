@@ -1594,6 +1594,10 @@ export interface RowWebhookEvents {
   estado: string | null;
   // migr 20260730012417.
   reclamado_en: string | null;
+  // migr 20261128083955.
+  stripe_account_id: string | null;
+  // migr 20261128083955.
+  reprocesos: number;
 }
 
 export interface RowInstructoraDisponibilidad {
@@ -4594,6 +4598,22 @@ export interface RowAvisosInactividad {
   dias_sin_actividad: number;
 }
 
+export interface RowReservasEventos {
+  id: number;
+  studio_id: string;
+  reserva_id: string;
+  sesion_id: string | null;
+  socio_id: string | null;
+  ocurrido_en: string;
+  operacion: string;
+  actor_uid: string | null;
+  actor_tipo: string;
+  actor_rol: string | null;
+  origen: string;
+  antes: any | null;
+  despues: any | null;
+}
+
 
 export type ReservasInsert = {
   id?: string | null;
@@ -6985,6 +7005,8 @@ export type WebhookEventsInsert = {
   recibido_en?: string | null;
   estado?: string | null | null;
   reclamado_en?: string | null | null;
+  stripe_account_id?: string | null | null;
+  reprocesos?: number | null;
 }
 
 export type WebhookEventsUpdate = {
@@ -6993,6 +7015,8 @@ export type WebhookEventsUpdate = {
   recibido_en?: string | null;
   estado?: string | null | null;
   reclamado_en?: string | null | null;
+  stripe_account_id?: string | null | null;
+  reprocesos?: number | null;
 }
 
 export type InstructoraDisponibilidadInsert = {
@@ -12715,6 +12739,38 @@ export type AvisosInactividadUpdate = {
   dias_sin_actividad?: number | null;
 }
 
+export type ReservasEventosInsert = {
+  id?: number | null;
+  studio_id?: string | null;
+  reserva_id?: string | null;
+  sesion_id?: string | null | null;
+  socio_id?: string | null | null;
+  ocurrido_en?: string | null;
+  operacion?: string | null;
+  actor_uid?: string | null | null;
+  actor_tipo?: string | null;
+  actor_rol?: string | null | null;
+  origen?: string | null;
+  antes?: any | null | null;
+  despues?: any | null | null;
+}
+
+export type ReservasEventosUpdate = {
+  id?: number | null;
+  studio_id?: string | null;
+  reserva_id?: string | null;
+  sesion_id?: string | null | null;
+  socio_id?: string | null | null;
+  ocurrido_en?: string | null;
+  operacion?: string | null;
+  actor_uid?: string | null | null;
+  actor_tipo?: string | null;
+  actor_rol?: string | null | null;
+  origen?: string | null;
+  antes?: any | null | null;
+  despues?: any | null | null;
+}
+
 export type Database = {
   public: {
     Tables: {
@@ -14147,6 +14203,11 @@ export type Database = {
         Row: RowAvisosInactividad;
         Insert: AvisosInactividadInsert;
         Update: AvisosInactividadUpdate;
+      };
+      reservas_eventos: {
+        Row: RowReservasEventos;
+        Insert: ReservasEventosInsert;
+        Update: ReservasEventosUpdate;
       };
     };
   };

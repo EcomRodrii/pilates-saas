@@ -156,6 +156,11 @@ export const CLASIFICACION_SUPRESION: Record<string, ClasificacionTabla> = {
     accion: 'CONSERVAR',
     detalle: 'Seudónima por socio_id (asistencia y métricas). Las futuras las cancela la ruta ANTES, con el núcleo que promociona la lista de espera.',
   },
+  reservas_eventos: {
+    accion: 'CONSERVAR',
+    detalle: 'Historial seudónimo de estado, asistencia y plaza de una reserva; solo guarda ids internos y estados, nunca datos de contacto.',
+    documentadaEn: '20261128083955_p0_historial_y_salvaguardas.sql',
+  },
   suscripciones: { accion: 'CONSERVAR', detalle: 'Seudónima y pasada a CANCELADA: los recibos fiscales la referencian.' },
   pagos_clase: {
     accion: 'CONSERVAR',
