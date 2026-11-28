@@ -122,6 +122,11 @@ function fixture(sociaExtra: Fila = {}): Record<string, Fila[]> {
       { id: 'r2', studio_id: 'st1', socio_id: 's2', sesion_id: 'se1', estado: 'CONFIRMADA', creado_en: '2026-08-30T10:00:00Z' },
       { id: 'r3', studio_id: 'st2', socio_id: 's1', sesion_id: 'se1', estado: 'CONFIRMADA', creado_en: '2026-08-30T10:00:00Z' },
     ],
+    reservas_eventos: [
+      { id: 1, studio_id: 'st1', socio_id: 's1', reserva_id: 'r1', ocurrido_en: '2026-08-30T10:00:00Z', operacion: 'UPDATE', actor_tipo: 'STAFF', actor_rol: 'RECEPCION', origen: 'PANEL', antes: { estado: 'ESPERA' }, despues: { estado: 'CONFIRMADA' }, actor_uid: 'staff-uid' },
+      { id: 2, studio_id: 'st1', socio_id: 's1', reserva_id: 'r-deleted', ocurrido_en: '2026-08-31T10:00:00Z', operacion: 'DELETE', actor_tipo: 'SISTEMA', origen: 'SERVIDOR', antes: { estado: 'CANCELADA' }, despues: null, actor_uid: null },
+      { id: 3, studio_id: 'st2', socio_id: 's1', reserva_id: 'r-other', ocurrido_en: '2026-08-31T10:00:00Z', operacion: 'DELETE', actor_tipo: 'SISTEMA', origen: 'SERVIDOR' },
+    ],
     recibos: [{ id: 'rc1', studio_id: 'st1', socio_id: 's1', concepto: 'Bono 8', importe: 80, estado: 'COBRADO', fecha_vencimiento: '2026-09-01' }],
     facturas: [{ id: 'f1', studio_id: 'st1', recibo_id: 'rc1', numero_completo: 'A-1', fecha_emision: '2026-09-01', receptor_nombre: 'Ana Ruiz', total: 80 }],
     mandatos_sepa: [{ id: 'm1', studio_id: 'st1', socio_id: 's1', iban: 'ES9121000418450200051332', estado: 'ACTIVO' }],
@@ -165,6 +170,12 @@ test('forma: JSON versionado con todas las secciones, y solo lo de ESTA socia en
   assert.equal(reservas.length, 1, 'ni la reserva de otra socia ni la suya en otro estudio');
   assert.equal(reservas[0].clase, 'Reformer');
   assert.equal(reservas[0].instructora, 'Laura');
+  const historial = r.secciones.historialReservas as Fila[];
+  assert.equal(historial.length, 2, 'incluye historial de reservas eliminadas, solo en este estudio y para esta socia');
+  assert.deepEqual(historial[0], {
+    reservaId: 'r1', fecha: '2026-08-30T10:00:00Z', operacion: 'UPDATE', actor: 'STAFF', rol: 'RECEPCION', via: 'PANEL',
+    antes: { estado: 'ESPERA' }, despues: { estado: 'CONFIRMADA' },
+  });
   assert.equal((r.secciones.facturas as Fila[]).length, 1);
   assert.deepEqual(r.secciones.mensajesEnviados, [{ fecha: '2026-09-02T10:00:00Z', texto: 'Hola, ¿mañana hay clase?', retiradoPorElEstudio: false }]);
   const salud = r.secciones.salud as Record<string, unknown>;
@@ -176,7 +187,7 @@ test('minimización: nada de contacto del personal, de quién tecleó ni del IBA
   const { db } = bdFalsa(fixture());
   const r = await exportarDatosSocia(db, { studioId: 'st1', socioId: 's1', incluirSalud: true, saludSoloConConsentimiento: false, puerta: 'alumna', ahora: AHORA });
   const json = JSON.stringify(r);
-  for (const prohibido of ['laura@equipo.es', '600000000', 'Respuesta del equipo', 'ES9121000418450200051332', 'leido_por', 'creado_por']) {
+  for (const prohibido of ['laura@equipo.es', '600000000', 'Respuesta del equipo', 'ES9121000418450200051332', 'leido_por', 'creado_por', 'staff-uid', 'actor_uid']) {
     assert.ok(!json.includes(prohibido), `no debe salir: ${prohibido}`);
   }
   assert.equal(enmascararIban('ES91 2100 0418 4502 0005 1332'), 'ES·· ···· 1332');

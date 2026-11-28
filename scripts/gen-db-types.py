@@ -136,6 +136,7 @@ for ruta in ficheros:
 # ⚠️ Cualquier corrección a mano sobre lib/db-types.ts va AQUÍ, no en el fichero
 # generado — si no, la siguiente regeneración se la lleva por delante.
 TIPOS_MANUALES = {
+    ('webhook_events', 'reprocesos'): 'number',
     ('socios', 'campos_extra'): 'Record<string, string | number | boolean | null> | null',
     ('instructor_dependency_snapshots', 'detalle'):
         'Array<{ socioId: string; nombre: string; gasto: number; pctConInstructor: number }> | null',

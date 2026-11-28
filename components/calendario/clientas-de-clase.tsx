@@ -15,6 +15,7 @@ import { planPasarLista } from '@/lib/calendario-decisiones';
 import { MENSAJE_CLASE_AUN_NO_EMPEZADA } from '@/lib/calendario-estado';
 import type { Pieza } from '@/lib/calendario/tarjeta-clienta';
 import { PiezasFila } from '@/components/calendario/piezas-fila';
+import { HistorialEventosReservas } from '@/components/reservas/historial-eventos';
 
 // Quién viene a la clase, en la ficha del Calendario.
 //
@@ -27,6 +28,7 @@ import { PiezasFila } from '@/components/calendario/piezas-fila';
 // venidas de un toque.
 
 export interface ClientasDeClaseProps {
+  sesionId: string;
   reservas: Reserva[];
   nombreClienta: (socioId: string) => string;
   /** La clase terminó con gente sin marcar: modo pasar lista. */
@@ -290,6 +292,8 @@ export function ClientasDeClase(p: ClientasDeClaseProps) {
       {/* Sitio para que la última fila suba por encima de la burbuja de soporte
           cuando la ficha va al lado (lo mide globals.css; en otro sitio, 0). */}
       <div aria-hidden data-sitio-burbuja />
+
+      <HistorialEventosReservas sesionId={p.sesionId} className="mx-4 mb-4" />
 
       {p.pasarLista && p.onGuardarLista && porMarcar > 0 && (
         <div className="sticky bottom-0 border-t border-border bg-card/95 px-5 py-3 backdrop-blur-sm">

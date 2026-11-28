@@ -23,6 +23,7 @@ import { useRol, puedeVerFichaClinica, puedeVerSemaforo, semaforoDesdeServidor, 
 import { DialogoBorrarDatos, DialogoDarDeBaja } from '@/components/socios/dar-de-baja';
 import { AccesosDeLaClienta } from '@/components/acceso/accesos-de-la-clienta';
 import { HistorialDinero } from '@/components/auditoria/historial-dinero';
+import { HistorialEventosReservas } from '@/components/reservas/historial-eventos';
 import { asignarVentaAClienta, esError, ventasPorAsignarDePlan, type VentaPorAsignar } from '@/lib/pos/cliente';
 import { cambiosSociaPermitidos } from '@/lib/socios/datos-privados';
 import { FichaSalud } from '@/components/socios/ficha-salud';
@@ -2367,6 +2368,9 @@ export function FichaClienta({ id, modo = 'pagina' }: {
                       <HistorialDinero studioId={studio.id} socioId={id} />
                     </section>
                   )}
+                  <section className="mt-8" aria-label="Cambios de reservas y asistencia en esta ficha">
+                    <HistorialEventosReservas socioId={id} />
+                  </section>
                 </div>
                   {/* Domiciliación SEPA (F2 · B2.10). Es el medio de COBRO de la
                       clienta: quien no mueve dinero no lo da de alta ni lo quita. */}

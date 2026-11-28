@@ -4,7 +4,10 @@ import * as Sentry from '@sentry/nextjs';
 import { getSupabaseAdmin } from '@/lib/db/supabase-admin';
 import { cerrarReciboPos, cerrarVentaPos } from '@/lib/pos/cerrar-cobro-pos';
 import { capturar } from '@/lib/analytics';
-import { reclamarWebhookEvent, marcarWebhookProcesado, fallarWebhookEvent, claveWebhook } from '@/lib/webhook-idempotencia';
+import {
+  reclamarWebhookEvent, reclamarWebhookEvent as reclamarEventoWebhookConnect,
+  marcarWebhookProcesado, fallarWebhookEvent, claveWebhook, guardarCuentaStripeWebhook,
+} from '@/lib/webhook-idempotencia';
 import { tenantAutorizado, cuentaFirmante } from '@/lib/billing/webhook-tenant';
 import { guardarTarjetaDeSesion } from '@/lib/billing/guardar-tarjeta-de-sesion';
 import { guardarMetodoDeCompra } from '@/lib/billing/guardar-metodo-de-compra';
@@ -31,8 +34,64 @@ import { verificarFirmaStripe } from '@/lib/billing/verificar-firma-stripe';
 import { eventoDePack } from '@/lib/asistente/packs-stripe';
 import { esSesionDeRegalo } from '@/lib/regalo/sesion';
 import { activarRegaloDesdeSesion, anularRegaloPorPago } from '@/lib/regalo/stripe';
+import { secretoValido } from '@/lib/salud/secreto';
+import {
+  MAX_REINTENTOS_AUTOMATICOS_WEBHOOK,
+  reprocesarWebhooksConnect,
+  type DependenciasReprocesoWebhook,
+} from '@/lib/stripe/webhook-reproceso';
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
+
+// El worker procesa eventos en secuencia y hace peticiones a Stripe; evita el
+// límite por defecto de una función que podría cortar el trabajo a mitad.
+export const maxDuration = 60;
+
+const MAX_ANTIGUEDAD_REPROCESO_MS = 30 * 24 * 60 * 60_000;
+
+async function ejecutarReprocesoWebhooksConnect(stripe: Stripe, admin: AdminClient) {
+  const dependencias: DependenciasReprocesoWebhook<Stripe.Event> = {
+    listar: async (corteIso, limite) => {
+      const { data, error } = await admin.from('webhook_events')
+        .select('id, tipo, stripe_account_id, reprocesos')
+        .gte('id', 'connect:evt_').lt('id', 'connect:evu')
+        .in('estado', ['procesando', 'fallido'])
+        .lt('reclamado_en', corteIso)
+        .gte('recibido_en', new Date(Date.now() - MAX_ANTIGUEDAD_REPROCESO_MS).toISOString())
+        .lt('reprocesos', MAX_REINTENTOS_AUTOMATICOS_WEBHOOK)
+        .order('reclamado_en', { ascending: true })
+        .limit(limite);
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; tipo: string | null; stripe_account_id: string | null; reprocesos: number;
+      }>;
+    },
+    reclamar: evento => reclamarEventoWebhookConnect(admin, evento.id, evento.tipo ?? 'desconocido', 15 * 60),
+    incrementarIntento: async eventId => {
+      const { data, error } = await admin.rpc('incrementar_reprocesos_webhook', { p_event_id: eventId });
+      if (error || typeof data !== 'number') return null;
+      return data;
+    },
+    recuperar: (eventId, cuentaStripe) => stripe.events.retrieve(
+      eventId, {}, cuentaStripe ? { stripeAccount: cuentaStripe } : {},
+    ),
+    procesar: async (evento, clave) => { await procesarEvento(stripe, evento, admin, clave); },
+    estado: async clave => {
+      const { data, error } = await admin.from('webhook_events').select('estado').eq('id', clave).maybeSingle();
+      if (error) throw error;
+      return typeof data?.estado === 'string' ? data.estado : null;
+    },
+    fallar: clave => fallarWebhookEvent(admin, clave),
+    error: (evento, intento, causa) => Sentry.captureException(
+      causa instanceof Error ? causa : new Error(String(causa)),
+      {
+        tags: { area: 'cobros', tipo: 'reproceso-webhook-connect', evento: evento.tipo ?? 'desconocido' },
+        extra: { eventId: evento.id, intento, cuentaStripe: evento.stripe_account_id },
+      },
+    ),
+  };
+  return reprocesarWebhooksConnect(dependencias);
+}
 
 
 // Id de NUESTRA propia cuenta de Stripe (la de la plataforma).
@@ -223,6 +282,27 @@ export async function POST(req: NextRequest) {
   }
 
   const stripe = new Stripe(key, { apiVersion: '2026-06-24.dahlia' });
+
+  // El mismo endpoint actúa como trabajador interno de reproceso. Solo entra
+  // por esta rama con la cabecera de tarea y el secreto de cron; los eventos
+  // públicos de Stripe siguen exigiendo firma y recorriendo el mismo handler.
+  if (req.headers.get('x-tentare-tarea') === 'stripe-reproceso') {
+    const cronSecret = process.env.SUPABASE_CRON_SECRET;
+    if (!cronSecret) return NextResponse.json({ error: 'Cron no configurado' }, { status: 503 });
+    if (!secretoValido(req.headers.get('authorization'), cronSecret)) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    }
+    const admin = getSupabaseAdmin();
+    if (!admin) return NextResponse.json({ error: 'Persistencia no disponible' }, { status: 503 });
+    try {
+      const resumen = await ejecutarReprocesoWebhooksConnect(stripe, admin);
+      return NextResponse.json({ ejecutadoEn: new Date().toISOString(), ...resumen });
+    } catch (error) {
+      Sentry.captureException(error, { tags: { area: 'cobros', tipo: 'reproceso-webhook-connect' } });
+      return NextResponse.json({ error: 'No se pudieron reprocesar los eventos' }, { status: 500 });
+    }
+  }
+
   const body = await req.text();
   const sig = req.headers.get('stripe-signature') ?? '';
 
@@ -312,6 +392,15 @@ export async function POST(req: NextRequest) {
   // Inngest, descartada ahora por cuota (~84 % del plan gratuito).
   after(async () => {
     try {
+      if (adminDedup && event.account) {
+        const guardada = await guardarCuentaStripeWebhook(adminDedup, claveEvento, event.account);
+        if (!guardada) {
+          Sentry.captureMessage('[stripe webhook] no se pudo guardar la cuenta Connect para el reproceso', {
+            level: 'error', tags: { area: 'cobros', tipo: 'reproceso-webhook-cuenta' },
+            extra: { eventId: event.id, eventType: event.type },
+          });
+        }
+      }
       await procesarEvento(stripe, event, adminDedup, claveEvento);
     } catch (e) {
       // `after` corre fuera del ciclo de la petición: una excepción aquí no

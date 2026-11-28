@@ -3650,6 +3650,7 @@ export default function Calendario() {
           {/* Con su clave: las marcas de «pasar lista» a medias son de ESTA clase. */}
           <ClientasDeClase
             key={`clientas-${sesionActual.id}`}
+            sesionId={sesionActual.id}
             reservas={reservasActuales}
             nombreClienta={nombreClientaResolver}
             pasarLista={estadoVista === 'SIN_PASAR_LISTA'}

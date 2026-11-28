@@ -112,3 +112,20 @@ export async function reclamarOperacion(
     return { estado: 'error', previa: false };
   }
 }
+
+/** Asocia el account de Connect a la reclamación, sin cambiar la RPC usada por el resto de webhooks. */
+export async function guardarCuentaStripeWebhook(
+  admin: SupabaseClient,
+  eventId: string,
+  stripeAccountId: string,
+): Promise<boolean> {
+  try {
+    const { error } = await admin.rpc('guardar_cuenta_stripe_webhook', {
+      p_event_id: eventId,
+      p_stripe_account_id: stripeAccountId,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}

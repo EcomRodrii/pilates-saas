@@ -32,7 +32,7 @@ import type { Rol } from '../types.ts';
 export const VERSION_EXPORTACION = 1;
 
 export const SECCIONES = [
-  'reservas', 'suscripciones', 'recibos', 'facturas', 'pagos', 'citas', 'plazasFijas', 'recuperaciones',
+  'reservas', 'historialReservas', 'suscripciones', 'recibos', 'facturas', 'pagos', 'citas', 'plazasFijas', 'recuperaciones',
   'creditos', 'mensajesEnviados', 'valoraciones', 'consentimientos', 'preferencias', 'documentos', 'salud', 'otros',
 ] as const;
 export type Seccion = (typeof SECCIONES)[number];
@@ -44,6 +44,7 @@ export type Seccion = (typeof SECCIONES)[number];
  */
 export const COBERTURA_TABLAS: Record<string, { seccion: Seccion } | { excluida: string }> = {
   reservas: { seccion: 'reservas' },
+  reservas_eventos: { seccion: 'historialReservas' },
   suscripciones: { seccion: 'suscripciones' },
   recibos: { seccion: 'recibos' },
   pagos_historicos: { seccion: 'pagos' },
@@ -266,7 +267,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
   const mensajesSoloDelMostrador = o.puerta !== 'alumna' && o.puerta.estudio !== 'PROPIETARIO';
 
   const [
-    reservas, suscripciones, recibos, pagosHistoricos, ventas, devoluciones, penalizaciones, mandatos, codigos,
+    reservas, reservasEventos, suscripciones, recibos, pagosHistoricos, ventas, devoluciones, penalizaciones, mandatos, codigos,
     citas, plazasFijas, peticionesPlazaFija, recuperaciones,
     saldo, movimientos, canjes, recompensas, logros, progresoLogros, retos, progresoRetos, participacionesRetos,
     participaciones, valoraciones, preferenciasClase, favoritos, documentos,
@@ -276,6 +277,7 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
     valoracionesIniciales, valoracionesInicialesSalud, condiciones, respuestasCuestionario, respuestasSesion, notasProgreso,
   ] = await Promise.all([
     tabla('reservas', 'id, sesion_id, estado, posicion_espera, check_in_en, creado_en, cancelada_tardia, valoracion_experiencia'),
+    tabla('reservas_eventos', 'id, reserva_id, ocurrido_en, operacion, actor_tipo, actor_rol, origen, antes, despues', 'id'),
     tabla('suscripciones', 'id, plan_id, estado, fecha_inicio, fecha_fin, sesiones_restantes'),
     tabla('recibos', 'id, suscripcion_id, concepto, importe, estado, fecha_vencimiento, fecha_cobro, fecha_devolucion, metodo_cobro, importe_devuelto, terminos_aceptados_en'),
     tabla('pagos_historicos', 'id, fecha, concepto, importe, medio_pago'),
@@ -433,6 +435,10 @@ export async function exportarDatosSocia(db: LectorBd, o: OpcionesExportacion): 
       reservas: porFecha(reservas, 'creado_en').map(r => ({
         ...clase(r.sesion_id), estado: str(r.estado), reservadaEn: str(r.creado_en), posicionEspera: num(r.posicion_espera),
         asistenciaRegistradaEn: str(r.check_in_en), cancelacionTardia: bool(r.cancelada_tardia), valoracion: num(r.valoracion_experiencia),
+      })),
+      historialReservas: reservasEventos.map(e => ({
+        reservaId: str(e.reserva_id), fecha: str(e.ocurrido_en), operacion: str(e.operacion), actor: str(e.actor_tipo),
+        rol: str(e.actor_rol), via: str(e.origen), antes: e.antes ?? null, despues: e.despues ?? null,
       })),
       suscripciones: suscripciones.map(x => ({
         plan: nombre(mPlan, x.plan_id), estado: str(x.estado), desde: str(x.fecha_inicio), hasta: str(x.fecha_fin), sesionesRestantes: num(x.sesiones_restantes),
