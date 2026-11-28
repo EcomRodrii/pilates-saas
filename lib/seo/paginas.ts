@@ -811,7 +811,7 @@ export const PAGINAS: PaginaSeo[] = [
     resumen: 'Rutas, guías y vídeos para aprender Tentare paso a paso.',
     prioridad: 0.8,
     changeFrequency: 'weekly',
-    actualizado: '2026-11-14',
+    actualizado: '2026-11-28',
     relacionadas: ['/ayuda'],
   },
   {

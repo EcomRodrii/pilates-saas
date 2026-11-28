@@ -33,8 +33,7 @@ export const INTERRUPTORES = {
   /**
    * El panel rehecho al nivel de Bonsai (14-oct-2026): la guía en tres capas
    * (Primeros pasos, «Cómo funciona», ayuda «?»), las piezas base y las
-   * pantallas que se van rehaciendo. Primero solo en el estudio de prueba del
-   * fundador; a todos cuando él dé el sí.
+   * pantallas que se van rehaciendo. Activado para todos desde el 28-nov-2026.
    */
   panelNuevo: 'PANEL_NUEVO',
   /**
@@ -45,15 +44,13 @@ export const INTERRUPTORES = {
   pedirApp: 'APP_PROPIA_PEDIR',
   /**
    * «Tu app» y «Tu web» rehechos (16-oct-2026, maqueta aprobada por el fundador): dos entradas
-   * propias del menú, la portada «Tus widgets» de la v2 y «Contenido de tu app» v2. Apagado de
-   * serie: PANEL_NUEVO ya está encendido para todos y no esconde nada, así que todo lo nuevo de
-   * estas pantallas va detrás de este. Primero en el estudio de prueba; a todos con el sí del fundador.
+   * propias del menú, la portada «Tus widgets» de la v2 y «Contenido de tu app» v2. Activado para
+   * todos desde el 28-nov-2026 junto con PANEL_NUEVO.
    */
   miWebNueva: 'MI_WEB_NUEVA',
   /**
    * «Mi app» y «Mi web» con la forma de «Tienda online» de Shopify (27-nov-2026, maqueta aprobada por el fundador):
-   * vista previa grande, pantallas y widgets en rejilla. Solo con `miWebNueva`. Apagado de serie: primero en el
-   * estudio de prueba, a todos cuando lo vea publicado.
+   * vista previa grande, pantallas y widgets en rejilla. Solo con `miWebNueva`. Activado para todos desde el 28-nov-2026.
    */
   miWebShopify: 'MI_APP_WEB_SHOPIFY',
   /**
@@ -75,9 +72,7 @@ export const INTERRUPTORES = {
   /**
    * El shell del panel «a sangre» (18-nov-2026, `docs/diseno/fase-3-shell-propuesta.md`): menú a
    * todo el alto del borde izquierdo en `surface-nav` con el logo dentro, esquina interior
-   * redondeada del lienzo y buscador en píldora neutra. Solo cambia el menú en columna: con el
-   * menú arriba no hay nada que pegar al borde. Apagado de serie; primero en el estudio de prueba
-   * del fundador, a todos cuando él dé el sí.
+   * redondeada del lienzo y buscador en píldora neutra. Activado para todos desde el 28-nov-2026.
    */
   shellNuevo: 'SHELL_NUEVO',
   /**
@@ -101,11 +96,22 @@ export type Interruptor = keyof typeof INTERRUPTORES;
 /**
  * Los que ya están ENCENDIDOS DE SERIE para todos (decisión del fundador): sin la variable, o con cualquier
  * valor, están encendidos; solo `off` los apaga (el freno de emergencia, que sí exige un despliegue).
- * - `onboardingNuevo` (19-nov-2026): el onboarding al estilo Shopify, abierto al público.
- * - `altaNueva` (19-nov-2026): la bienvenida de los pasos 3 a 5 del alta nueva para todos los estudios (antes solo los nacidos del
- *   alta nueva o con `ALTA_NUEVA`), ahora que `/crear-estudio` es la nueva para todo el mundo.
+ * - `onboardingNuevo` (19-nov-2026): el onboarding al estilo Shopify.
+ * - `altaNueva` (19-nov-2026): la bienvenida del alta nueva.
+ * - `panelNuevo`, `shellNuevo`, `miWebNueva`, `miWebShopify` (28-nov-2026): el rediseño global
+ *   del panel, el menú y los módulos de Configuración aprobado por el fundador.
  */
-export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = ['onboardingNuevo', 'altaNueva'];
+// El shell y el sistema de Configuración Shopify se han aprobado para Tentare
+// (28-nov-2026). `off` sigue siendo el interruptor de emergencia; no se mantiene
+// un diseño distinto por estudio después de aprobar el rediseño.
+export const ENCENDIDOS_DE_SERIE: readonly Interruptor[] = [
+  'onboardingNuevo',
+  'altaNueva',
+  'panelNuevo',
+  'shellNuevo',
+  'miWebNueva',
+  'miWebShopify',
+];
 
 export function interruptoresDe(studioId: string, entorno: Record<string, string | undefined>): Record<Interruptor, boolean> {
   return Object.fromEntries(

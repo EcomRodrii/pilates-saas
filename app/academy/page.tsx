@@ -3,7 +3,8 @@ import { PageShell } from '@/components/recursos/PageShell';
 import { IslaWeb } from '@/components/web/IslaWeb';
 import { PieWeb } from '@/components/web/PieWeb';
 import { OrganizationStructuredData } from '@/components/OrganizationStructuredData';
-import { EscaparateAcademy } from '@/components/academy/EscaparateAcademy';
+import { PageBreadcrumb } from '@/components/recursos/ArticleStructuredData';
+import { EscaparateAcademy, FAQ_ACADEMY } from '@/components/academy/EscaparateAcademy';
 import { videosPublicados } from '@/lib/ayuda/videos-servidor';
 import { paginaDe, urlDe } from '@/lib/seo/paginas';
 
@@ -16,7 +17,21 @@ export const metadata: Metadata = {
   title: pagina.titulo,
   description: pagina.descripcion,
   alternates: { canonical: urlDe('/academy') },
-  openGraph: { siteName: 'Tentare', type: 'website', title: pagina.titulo, description: pagina.descripcion, url: urlDe('/academy') },
+  openGraph: {
+    siteName: 'Tentare',
+    type: 'website',
+    locale: 'es_ES',
+    title: pagina.titulo,
+    description: pagina.descripcion,
+    url: urlDe('/academy'),
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Tentare Academy' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: pagina.titulo,
+    description: pagina.descripcion,
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'Tentare Academy' }],
+  },
 };
 
 export default async function AcademyPage() {
@@ -24,6 +39,7 @@ export default async function AcademyPage() {
   return (
     <PageShell>
       <OrganizationStructuredData />
+      <PageBreadcrumb path="/academy" name="Tentare Academy" />
       <IslaWeb />
       <EscaparateAcademy videos={videos} />
       <PieWeb />
