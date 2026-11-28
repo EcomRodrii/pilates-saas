@@ -48,8 +48,10 @@ export function RecursosBlogStructuredData() {
 }
 
 // FAQPage JSON-LD para las guías que ya muestran <ArticleFaq> en pantalla —
-// mismo array `items` que recibe ese componente, para no duplicar contenido:
-// Google puede mostrar estas preguntas como rich snippet directamente en el buscador.
+// mismo array `items` que recibe ese componente, para no duplicar contenido.
+// Se mantiene como descripción semántica; desde mayo de 2026 Google ya no
+// muestra FAQ rich results en Search (salvo la excepción documentada para
+// algunas webs oficiales de salud y gobierno), así que no se promete ese efecto.
 export function FaqStructuredData({ items }: { items: { q: string; a: string }[] }) {
   const faqLd = faqPageLd(items);
   return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd).replace(/</g, '\\u003c') }} />;

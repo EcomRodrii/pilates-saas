@@ -7,6 +7,23 @@ import type { VideoAyuda } from '@/lib/ayuda/videos';
 import { urlArticulo, articuloDe } from '@/lib/ayuda/registro';
 import '@/components/ayuda/academy.css';
 
+// Respuestas cortas, visibles y comprobables para que personas, buscadores y
+// asistentes encuentren los datos principales sin tener que inferirlos.
+export const FAQ_ACADEMY = [
+  {
+    q: '¿Qué es Tentare Academy?',
+    a: 'Es el curso de formación de Tentare. Sus lecciones explican cada parte de la gestión de un estudio y te llevan a la pantalla correspondiente dentro del panel.',
+  },
+  {
+    q: '¿Cómo se registra el progreso del curso?',
+    a: 'El progreso se marca cuando completas la acción real en tu estudio, como crear una sala, una clase o una tarifa. Leer una lección por sí solo no la marca como completada.',
+  },
+  {
+    q: '¿Puedo consultar los capítulos antes de entrar al panel?',
+    a: 'Sí. Esta página muestra públicamente el currículo. Para seguir las lecciones conectadas a los datos de tu estudio, abre Academy desde el panel de Tentare.',
+  },
+] as const;
+
 // El ESCAPARATE público de Academy. La formación de verdad está DENTRO del panel, conectada a los datos de cada estudio (el progreso se
 // marca solo cuando lo hecho existe en el estudio: «Primeros pasos» y «Cambiar a Tentare»). Esta página enseña de qué va, para quien aún no
 // tiene cuenta y para quien compara: el índice del curso (que es el currículo real, no una copia) y los vídeos publicados.
@@ -50,6 +67,23 @@ export function EscaparateAcademy({ videos }: { videos: VideoAyuda[] }) {
                   ))}
                 </ol>
               </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="ac-seccion ac-preguntas" aria-labelledby="ac-preguntas-titulo">
+          <div className="ac-seccion-cabecera">
+            <div>
+              <h2 id="ac-preguntas-titulo">Preguntas frecuentes sobre Tentare Academy</h2>
+              <p>Qué incluye el curso y cómo funciona el seguimiento.</p>
+            </div>
+          </div>
+          <div className="ac-faq">
+            {FAQ_ACADEMY.map(({ q, a }) => (
+              <details key={q}>
+                <summary>{q}<span aria-hidden="true" /></summary>
+                <p>{a}</p>
+              </details>
             ))}
           </div>
         </section>

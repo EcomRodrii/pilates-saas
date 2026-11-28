@@ -56,3 +56,66 @@
 .ac-ayuda strong { display: block; font-size: 1.125rem; font-weight: 500; }
 .ac-ayuda p { margin: 4px 0 0; color: var(--w-sobre-noche-2, #C3D3C9); font-size: var(--w-fs-pequeno, .875rem); }
 .ac-ayuda .ac-boton { background: var(--w-sand, #BFDCCB); color: var(--w-olive-hondo, #0A2014); }
+
+/* ── Academy: jerarquía y componentes del admin de Shopify ──────────────────
+   El contenido sigue siendo público y conserva la identidad de Tentare; las
+   superficies, botones y estados usan el lenguaje compacto y claro de Shopify. */
+.ac-hero {
+  max-width: 1120px;
+  padding: clamp(40px, 6vw, 72px) var(--w-margen, 24px) clamp(32px, 4vw, 48px);
+  text-align: left;
+  animation: ac-entrada .42s cubic-bezier(.2,.8,.2,1) both;
+}
+.ac-kicker { border-radius: 8px; background: #e3e3e3; color: #303030; }
+.ac-hero h1 { max-width: 850px; font-size: clamp(2.25rem, 1.55rem + 2.4vw, 3.25rem); letter-spacing: -.035em; }
+.ac-hero > p { margin: 0 0 24px; max-width: 48em; }
+.ac-acciones { justify-content: flex-start; }
+.ac-boton {
+  min-height: 40px; padding: 0 16px; border: 1px solid #303030; border-radius: 8px;
+  background: #303030; color: #fff; font-size: 14px; font-weight: 600;
+  transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.ac-boton:hover { background: #1a1a1a; border-color: #1a1a1a; box-shadow: 0 2px 5px #0002; transform: translateY(-1px); }
+.ac-boton:active { transform: translateY(0) scale(.98); }
+.ac-boton--claro { border-color: #c9cccf; background: #fff; color: #303030; box-shadow: 0 1px 0 #00000012; }
+.ac-boton--claro:hover { border-color: #8c9196; background: #f6f6f7; }
+.ac-cuerpo { max-width: 1120px; padding-bottom: clamp(48px, 7vw, 88px); }
+.ac-seccion { margin-top: clamp(32px, 4vw, 48px); }
+.ac-seccion > h2, .ac-seccion-cabecera h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.02em; line-height: 1.35; }
+.ac-seccion > p, .ac-seccion-cabecera p { margin: 5px 0 18px; color: #616161; font-size: 14px; line-height: 1.5; }
+.ac-tres article, .ac-nivel {
+  border: 1px solid #e3e3e3; border-radius: 14px; background: #fff;
+  box-shadow: 0 1px 2px #0000000a, 0 1px 1px #00000008;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.ac-tres article:hover, .ac-nivel:hover { border-color: #c9cccf; box-shadow: 0 4px 12px #00000010; transform: translateY(-2px); }
+.ac-tres article { padding: 22px; }
+.ac-tres h3, .ac-nivel h3 { color: #202223; font-weight: 600; letter-spacing: -.012em; }
+.ac-tres p, .ac-nivel > p, .ac-nivel li span { color: #616161; }
+.ac-nivel { padding: 22px; }
+.ac-nivel li { gap: 10px; }
+.ac-nivel li b { display: grid; width: 26px; height: 26px; place-items: center; border-radius: 7px; background: #f1f2f3; color: #616161; font-size: 12px; }
+.ac-videos > div { min-width: 0; padding: 8px; border: 1px solid #e3e3e3; border-radius: 14px; background: #fff; box-shadow: 0 1px 2px #0000000a; }
+.ac-videos .ac-video { border-radius: 9px; }
+.ac-cambiar { border: 1px solid #e3e3e3; border-radius: 14px; background: #f6f6f7; }
+.ac-ayuda { border-radius: 14px; }
+.ac-seccion-cabecera { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.ac-faq { display: grid; gap: 10px; }
+.ac-faq details { overflow: hidden; border: 1px solid #e3e3e3; border-radius: 12px; background: #fff; box-shadow: 0 1px 2px #0000000a; }
+.ac-faq summary { display: flex; min-height: 56px; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 18px; color: #202223; font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
+.ac-faq summary::-webkit-details-marker { display: none; }
+.ac-faq summary span { width: 8px; height: 8px; flex: none; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform .18s ease; }
+.ac-faq details[open] summary span { transform: rotate(225deg) translate(-2px, -1px); }
+.ac-faq details > p { margin: 0; padding: 0 18px 18px; max-width: 72ch; color: #616161; font-size: 14px; line-height: 1.6; }
+.ac-faq summary:focus-visible { outline: 3px solid #2c6ecb; outline-offset: -3px; border-radius: 12px; }
+@keyframes ac-entrada { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (max-width: 640px) {
+  .ac-hero { padding-top: 34px; }
+  .ac-hero h1 { font-size: clamp(2rem, 8vw, 2.65rem); }
+  .ac-seccion-cabecera { align-items: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ac-hero { animation: none; }
+  .ac-boton, .ac-tres article, .ac-nivel, .ac-faq summary span { transition: none; }
+  .ac-tres article:hover, .ac-nivel:hover, .ac-boton:hover, .ac-boton:active { transform: none; }
+}
