@@ -74,7 +74,7 @@ export function MiAppEscaparate({ datos, acciones, slug, hrefPresentacion }: {
             <BotonAccion accion={pendiente.accion} clase={e.pastilla} texto={pendiente.texto}><ImagePlus size={16} aria-hidden /></BotonAccion>
           ) : <span />}
           <div className={e.pieDerecha}>
-            {acciones.estilo && <BotonAccion accion={acciones.estilo} clase={e.boton} texto="Editar app" />}
+            {acciones.estilo && <BotonAccion accion={acciones.estilo.tipo === 'enlace' ? { ...acciones.estilo, href: '/configuracion/apariencia?paso=entrada' } : acciones.estilo} clase={e.boton} texto="Editar app" />}
           </div>
         </div>
       </div>

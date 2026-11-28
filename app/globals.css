@@ -2009,6 +2009,8 @@ html:has(.panel-app[data-shell-nuevo]) { background-color: var(--shell-marco, #0
   /* «Mi app» y «Mi web» como la «Tienda online» de Shopify: más anchas y con su propia barra. Los títulos de
      siempre siguen para el lector de pantalla. */
   .panel-app[data-shell-nuevo] [data-config-raiz]:has([data-escaparate]) { max-width: 966px; padding-top: 12px; }
+  /* El editor nuevo de la app necesita las tres columnas (navegación, vista previa y controles). */
+  .panel-app[data-shell-nuevo] [data-config-raiz]:has([data-editor-app]) { max-width: 1440px; padding-top: 20px; }
   [data-config-raiz]:has([data-escaparate]) :is([data-config-cabecera], [data-cabecera-seccion]) { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   /* Sus botones ya están en la barra nueva: escondidos del todo, para que el teclado no caiga en uno que no se ve. */
   [data-config-raiz]:has([data-escaparate]) :is([data-config-cabecera], [data-cabecera-seccion]) :is(a, button) { visibility: hidden; }

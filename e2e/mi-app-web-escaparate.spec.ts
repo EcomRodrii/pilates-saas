@@ -33,7 +33,7 @@ test('Mi app: la app en grande, sus pantallas y los siete asuntos con su sitio',
   }
   await expect(p.locator('#paso-reservar')).toBeVisible();
   await expect(p.locator('#paso-ficha-clase')).toBeVisible();
-  await expect(p.getByRole('link', { name: 'Editar app' })).toHaveAttribute('href', '/configuracion/apariencia?paso=estilo');
+  await expect(p.getByRole('link', { name: 'Editar app' })).toHaveAttribute('href', '/configuracion/apariencia?paso=entrada');
   await expect(p.getByRole('link', { name: 'Abrir mi app' })).toHaveAttribute('href', `/portal/${STUDIO_ROW.slug}`);
   // El menú dice lo mismo que los textos.
   await expect(page.getByRole('navigation', { name: 'Secciones de Configuración' }).getByRole('link', { name: 'Mi app', exact: true })).toBeVisible();

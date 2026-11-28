@@ -23,7 +23,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronRight, ExternalLink, EyeOff, RotateCcw } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, Check, ChevronRight, ExternalLink, EyeOff, RotateCcw, Palette, Image as ImageIcon, Smartphone, Users, Home } from 'lucide-react';
 import { leerPaginaPublica } from '@/lib/pagina-publica-cliente';
 import { hrefDeTarjeta } from '@/lib/configuracion/destino';
 import { usePanelNuevo } from '@/lib/estudio/panel-nuevo-cliente';
@@ -107,48 +107,27 @@ const PASOS: { id: PasoAsistente; corto: string; titulo: string; sub: string }[]
 // Las paletas listas (Bonsai b-32: primero eliges una con nombre, luego afinas)
 // viven en lib/apariencia/paletas.ts: las comparte el paso «Tu marca» del alta.
 
-function LineaDePasos({ pasos, paso, onPaso }: { pasos: typeof PASOS; paso: PasoAsistente; onPaso: (p: PasoAsistente) => void }) {
-  const actual = pasos.findIndex(p => p.id === paso);
-  const lista = useRef<HTMLOListElement>(null);
-  // En móvil la línea no cabe y se desplaza: al avanzar con «Siguiente», el paso actual se
-  // queda fuera de pantalla. Se centra moviendo SOLO el scroll de la línea (nada de
-  // `scrollIntoView`, que también movería la página hasta ella desde la barra de abajo).
-  useEffect(() => {
-    const ol = lista.current;
-    const boton = ol?.querySelector<HTMLElement>('[aria-current="step"]');
-    if (!ol || !boton || ol.scrollWidth <= ol.clientWidth) return;
-    const destino = boton.offsetLeft - (ol.clientWidth - boton.offsetWidth) / 2;
-    ol.scrollTo({ left: Math.max(0, destino), behavior: 'smooth' });
-  }, [paso]);
-  return (
-    <ol ref={lista} className="relative flex items-center overflow-x-auto py-1 lg:justify-center" aria-label="Pasos">
-      {pasos.map((p, i) => {
-        const hecho = i < actual;
-        const esActual = i === actual;
-        return (
-          <li key={p.id} className="flex shrink-0 items-center">
-            <button
-              type="button"
-              onClick={() => onPaso(p.id)}
-              aria-current={esActual ? 'step' : undefined}
-              className="flex items-center gap-2.5 rounded-full py-1 pr-1 text-[14px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <span
-                className={cn('flex size-8 items-center justify-center rounded-full text-[13px] font-semibold', esActual || hecho ? 'text-white' : 'border-[1.5px] border-border bg-card text-muted-foreground')}
-                style={esActual || hecho ? { backgroundColor: 'var(--t-blue-500)', boxShadow: esActual ? '0 0 0 4px color-mix(in srgb, var(--t-blue-500) 18%, transparent)' : undefined } : undefined}
-              >
-                {hecho ? <Check size={15} strokeWidth={2.6} aria-hidden /> : i + 1}
-              </span>
-              <span className={cn(esActual ? 'font-semibold text-foreground' : hecho ? 'text-foreground' : 'text-muted-foreground')}>{p.corto}</span>
-            </button>
-            {i < pasos.length - 1 && (
-              <span aria-hidden className="mx-3 h-px w-8 xl:mx-4 xl:w-14" style={{ backgroundColor: hecho ? 'var(--t-blue-500)' : 'var(--border)' }} />
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
+function NavegacionEditor({ pasos, paso, onPaso }: { pasos: typeof PASOS; paso: PasoAsistente; onPaso: (p: PasoAsistente) => void }) {
+  const grupos: { titulo: string; ids: PasoAsistente[]; Icono: typeof Palette }[] = [
+    { titulo: 'Marca', ids: ['estilo', 'color', 'letra'], Icono: Palette },
+    { titulo: 'Entrada', ids: ['entrada', 'fotos'], Icono: ImageIcon },
+    { titulo: 'Inicio', ids: [], Icono: Home },
+    { titulo: 'Clases y equipo', ids: [], Icono: Users },
+    { titulo: 'Tu app', ids: ['instalar'], Icono: Smartphone },
+  ];
+  return <nav aria-label="Secciones de tu app" className="space-y-6">
+    {grupos.map(g => <section key={g.titulo}>
+      <h2 className="mb-2 flex items-center gap-2 px-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground"><g.Icono size={15} aria-hidden />{g.titulo}</h2>
+      <ul className="space-y-1">{g.ids.map(id => {
+        const item = pasos.find(p => p.id === id);
+        if (!item) return null;
+        return <li key={id}><button type="button" onClick={() => onPaso(id)} aria-current={paso === id ? 'page' : undefined}
+          className={cn('w-full rounded-lg px-3 py-2 text-left text-[13px] transition-colors', paso === id ? 'bg-muted font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground')}>
+          {item.corto}
+        </button></li>;
+      })}{g.titulo === 'Inicio' && <li><Link href={hrefDeTarjeta('contenido-de-tu-app')} className="block rounded-lg px-3 py-2 text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground">Contenido del inicio <ArrowUpRight size={12} className="ml-1 inline" aria-hidden /></Link></li>}{g.titulo === 'Clases y equipo' && <><li><Link href={hrefDeTarjeta('tipos-de-clase')} className="block rounded-lg px-3 py-2 text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground">Fotos de clases <ArrowUpRight size={12} className="ml-1 inline" aria-hidden /></Link></li><li><Link href="/equipo" className="block rounded-lg px-3 py-2 text-[13px] text-muted-foreground hover:bg-muted/60 hover:text-foreground">Fotos del equipo <ArrowUpRight size={12} className="ml-1 inline" aria-hidden /></Link></li></>}</ul>
+    </section>)}
+  </nav>;
 }
 
 function Segmentado<T extends string>({ etiqueta, valor, opciones, onChange }: {
@@ -424,9 +403,10 @@ export function EditorAparienciaApp() {
   const encuadre: EncuadrePortada = borrador.app.encuadre;
 
   return (
-    <div>
-      <header className="max-w-2xl">
-        <h1 className="text-[22px] font-bold text-foreground">Apariencia de tu app</h1>
+    <div data-editor-app>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="max-w-2xl">
+        <h1 className="text-[22px] font-bold text-foreground">{panelNuevo ? 'Tu app' : 'Apariencia de tu app'}</h1>
         {panelNuevo ? (
           <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground text-pretty">
             Nadie lo ve hasta que publiques. {TEXTO_RESERVAS_Y_WIDGET}
@@ -453,18 +433,22 @@ export function EditorAparienciaApp() {
             <Link href="/suscripcion" className="font-medium underline underline-offset-2">Elegir plan</Link>
           </p>
         )}
+        </div>
+        {panelNuevo && <div className="flex items-center gap-2">
+          <span className="hidden text-[12px] text-muted-foreground sm:inline">{cambios.length ? 'Cambios sin publicar' : 'Publicada'}</span>
+          <button type="button" onClick={publicar} disabled={!puedePublicar} className={cn(BOTON_DESTACADO, 'h-9 px-4 text-[13px] disabled:pointer-events-none disabled:opacity-50')}>
+            {reciénPublicado ? 'Publicada' : publicando ? 'Publicando…' : 'Publicar'}
+          </button>
+        </div>}
       </header>
 
-      {panelNuevo && (
-        <div className="mt-5 border-b border-border pb-5">
-          <LineaDePasos pasos={pasos} paso={paso} onPaso={irAPaso} />
-        </div>
-      )}
-
       <div className={panelNuevo
-        ? 'mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start'
+        ? 'mt-6 grid gap-6 lg:grid-cols-[190px_minmax(350px,1fr)_minmax(300px,370px)] lg:items-start xl:gap-8'
         : 'mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start'}>
-        <div className={cn('flex min-w-0 flex-col gap-5', panelNuevo ? 'order-1' : 'order-2 lg:order-1')}>
+        {panelNuevo && <aside className="order-1 rounded-xl border border-border bg-card p-3 lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto" data-editor-navegacion>
+          <NavegacionEditor pasos={pasos} paso={paso} onPaso={irAPaso} />
+        </aside>}
+        <div className={cn('flex min-w-0 flex-col gap-5', panelNuevo ? 'order-2 lg:order-3' : 'order-2 lg:order-1')}>
           {panelNuevo && (() => {
             const i = pasos.findIndex(p => p.id === paso);
             return (
@@ -765,7 +749,7 @@ export function EditorAparienciaApp() {
           })()}
         </div>
 
-        <div className={panelNuevo ? 'order-2 lg:sticky lg:top-20' : 'order-1 lg:sticky lg:top-20 lg:order-2'}>
+        <div className={panelNuevo ? 'order-3 lg:order-2 lg:sticky lg:top-16' : 'order-1 lg:sticky lg:top-20 lg:order-2'}>
           {panelNuevo ? (
             // Como Bonsai: el móvil sobre un panel grande de color, con los tonos del logo.
             <div
