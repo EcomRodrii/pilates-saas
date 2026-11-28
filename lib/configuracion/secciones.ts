@@ -197,6 +197,7 @@ export const SECCIONES = [
     tarjetas: [
       { id: 'correos-automaticos', titulo: 'Correos automáticos', frase: 'Bienvenida, reserva, recordatorio, cancelación…: apaga los que no quieras o cambia lo que dicen.', guardado: 'catalogo', herramienta: 'correos-automaticos', palabras: ['emails', 'recordatorio', 'bienvenida', 'plantillas'] },
       { id: 'avisos-del-movil', titulo: 'Avisos en el móvil', frase: 'Cuándo le llega a cada cliente el recordatorio de su clase y qué dicen los avisos de su móvil, con tus palabras.', guardado: 'catalogo', herramienta: 'avisos-del-movil', palabras: ['push', 'notificaciones', 'antelación', 'recordatorio de clase', 'textos'] },
+      { id: 'pedir-valoraciones-email', titulo: 'Pedir valoración por email', frase: 'Envía un correo después de cada clase asistida. Los avisos dentro de la app siguen activos.', guardado: 'al-pulsar', palabras: ['emails de valoración', 'desactivar valoración', 'encuesta de clase'] },
       { id: 'resenas-y-premio', titulo: 'Reseñas y premio', frase: 'El enlace de tu página de reseñas y, si quieres, un descuento para quien valora una clase.', guardado: 'barra', palabras: ['reseñas', 'reseña', 'opiniones', 'google', 'valoración', 'valorar', 'premio', 'descuento', 'enlace de reseñas'] },
       { id: 'integracion-resend', titulo: 'Nombre y respuesta de tus correos', frase: 'El nombre que ven tus clientes como remitente y la dirección donde llegan sus respuestas.', guardado: 'catalogo', palabras: ['remitente', 'emails'] },
     ],

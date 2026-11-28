@@ -9,13 +9,15 @@
 // es una app de las tiendas y la frase no lo insinúa: lo que se promete es lo
 // que hace «Añadir a la pantalla de inicio».
 //
-// Cada estado pide una acción distinta, y pintar siempre un botón «Instalar»
-// sería un control muerto en la mitad de ellos: iPhone no tiene
-// `beforeinstallprompt`, y un navegador que no lo lanza no deja instalar.
+// Cada estado pide una acción distinta. iPhone y Android tienen instrucciones
+// de instalación aunque el navegador no exponga `beforeinstallprompt`; los
+// navegadores incrustados se mandan a Safari o Chrome.
 
 export type EstadoInstalacion =
   | 'ya-instalada'      // abierta desde el icono (standalone) o dentro de la app nativa: no hay nada que ofrecer
   | 'instalable'        // el navegador ofreció instalar y lo guardamos: botón
+  | 'android-guia'      // Android sin aviso automático: guía para instalar desde el menú del navegador
+  | 'android-incrustado' // Android dentro de WhatsApp, Instagram, etc.: abrir primero en Chrome
   | 'ios-guia'          // iPhone/iPad en un navegador: Compartir → Añadir a pantalla de inicio
   | 'ios-incrustado'    // iPhone dentro del navegador de otra app (Instagram, Facebook…): ahí no se puede
   | 'sin-opcion';       // escritorio o navegador sin prompt: no se ofrece nada
@@ -33,13 +35,14 @@ export interface ContextoInstalacion {
 // Los visores web de otras apps (el de Instagram, el de Facebook, el de LINE…)
 // no tienen el menú de compartir de Safari: mandar a «Añadir a pantalla de
 // inicio» ahí es mandarla a un botón que no existe.
-const INCRUSTADOS = /FBAN|FBAV|Instagram|Line\/|MicroMessenger|Snapchat|Twitter|LinkedInApp|TikTok/i;
+const INCRUSTADOS = /FBAN|FBAV|FB_IAB|FB4A|Instagram|WhatsApp|Telegram|Line\/|MicroMessenger|Snapchat|Twitter|LinkedInApp|TikTok|Pinterest/i;
 
 export function estadoInstalacion(c: ContextoInstalacion): EstadoInstalacion {
   if (c.esNativa || c.esStandalone) return 'ya-instalada';
   // Antes que el iPhone: si en un iPhone hubiera prompt (no lo hay hoy), gana el botón.
   if (c.hayPrompt) return 'instalable';
   if (c.esIOS) return INCRUSTADOS.test(c.userAgent) ? 'ios-incrustado' : 'ios-guia';
+  if (/Android/i.test(c.userAgent)) return INCRUSTADOS.test(c.userAgent) ? 'android-incrustado' : 'android-guia';
   return 'sin-opcion';
 }
 
@@ -88,6 +91,30 @@ export function textoInstalacion(e: EstadoInstalacion, nombreEstudio: string): T
         ],
         accion: null,
       };
+    case 'android-guia':
+      return {
+        titulo: `Instala la app de ${nombreEstudio}`,
+        resumen: 'Añádela desde el menú de Chrome',
+        cuerpo: 'Si no aparece el aviso automático, también puedes instalarla desde el menú del navegador.',
+        pasos: [
+          'Abre esta página en Google Chrome.',
+          'Toca ⋮ y elige «Instalar aplicación» o «Añadir a pantalla de inicio».',
+          'Confirma «Instalar» y abre la app desde su icono.',
+        ],
+        accion: null,
+      };
+    case 'android-incrustado':
+      return {
+        titulo: `Instala la app de ${nombreEstudio}`,
+        resumen: 'Ábrela primero en Chrome',
+        cuerpo: 'El navegador de esta app no permite instalarla. Abre el enlace en Chrome y sigue los pasos del menú.',
+        pasos: [
+          'Toca ⋮ o el menú de compartir y elige «Abrir en Chrome».',
+          'En Chrome, toca ⋮ y elige «Instalar aplicación» o «Añadir a pantalla de inicio».',
+          'Confirma «Instalar» y abre la app desde su icono.',
+        ],
+        accion: null,
+      };
     case 'ya-instalada':
     case 'sin-opcion':
       return { titulo: '', resumen: '', cuerpo: '', pasos: [], accion: null };
@@ -96,7 +123,7 @@ export function textoInstalacion(e: EstadoInstalacion, nombreEstudio: string): T
 
 /** ¿Se ofrece algo en la pantalla? Si no, ni siquiera se pinta la fila. */
 export const seOfrece = (e: EstadoInstalacion | null): boolean =>
-  e === 'instalable' || e === 'ios-guia' || e === 'ios-incrustado';
+  e === 'instalable' || e === 'android-guia' || e === 'android-incrustado' || e === 'ios-guia' || e === 'ios-incrustado';
 
 /**
  * Con la app del estudio PUBLICADA en la App Store, en un iPhone se ofrece esa (con su enlace) en

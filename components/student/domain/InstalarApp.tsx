@@ -14,8 +14,8 @@ import { fraseResultado, ofreceTienda, seOfrece, textoInstalacion, type Resultad
 //
 // Solo se pinta si hay algo que hacer en este navegador (`seOfrece`): sin
 // botón muerto en escritorio, y nada si ya la tiene abierta desde su icono o
-// dentro de la app nativa. Android/Chrome: botón que lanza el aviso del
-// navegador. iPhone: la guía de tres pasos, porque Safari no tiene ese aviso.
+// dentro de la app nativa. Android/Chrome: aviso del navegador o guía para usar
+// su menú si no ofrece el prompt. iPhone: la guía de tres pasos de Safari.
 //
 // ⚠️ «Listo» solo cuando el navegador dice que ACEPTÓ; un rechazo o un fallo se
 // dicen tal cual. Nunca se da por instalada una app por haber tocado el botón.

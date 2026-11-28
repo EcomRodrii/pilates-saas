@@ -6,7 +6,7 @@ import { useStudio } from '@/lib/studio-context';
 import { resumenHerramienta } from '@/lib/configuracion/resumenes';
 import { FILAS_A_OTRA_PANTALLA, seccionPorId, tarjetaPorId } from '@/lib/configuracion/secciones';
 import { CajonAjuste, useCajonAbierto } from '@/components/configuracion/shell/cajon-ajuste';
-import { FilaAjuste, FilaExterna, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
+import { FilaAjuste, FilaExterna, FilaInterruptor, FilaOtraSeccion, GrupoFilas } from '@/components/configuracion/shell/fila-ajuste';
 import { FilaHerramienta } from '@/components/configuracion/shell/fila-herramienta';
 import { dbListTextosAviso } from '@/lib/notifications/textos-estudio-db';
 import { FormRemitente, useRemitente } from '@/components/configuracion/canales-comunicacion';
@@ -24,7 +24,7 @@ import { FormResenasConPremio, useResenas } from '@/components/configuracion/res
 const CAJONES = ['integracion-resend', 'resenas-y-premio'] as const;
 
 export function SeccionComunicacion({ showToast }: { showToast: (m: string) => void }) {
-  const { studio, plantillasEmail, plantillasEmailCargadas } = useStudio();
+  const { studio, updateStudio, plantillasEmail, plantillasEmailCargadas, dataLoaded } = useStudio();
   // Sin leerlos, la fila no dice cuántos textos son suyos: `null`, no «0».
   const [textosPropios, setTextosPropios] = useState<number | null>(null);
   const studioId = studio?.id;
@@ -37,6 +37,16 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
   const remitente = useRemitente();
   const resenas = useResenas();
   const { cajon, abrir, cerrar } = useCajonAbierto(CAJONES);
+  const emailsValoracion = dataLoaded ? (studio?.pedirValoracionPorEmail ?? true) : null;
+
+  async function cambiarEmailsValoracion(activos: boolean): Promise<string | null> {
+    const resultado = await updateStudio({ pedirValoracionPorEmail: activos });
+    if (!resultado.ok) return resultado.error;
+    showToast(activos
+      ? 'Emails de valoración activados'
+      : 'Emails de valoración desactivados; los avisos dentro de la app siguen activos');
+    return null;
+  }
 
   function guardado(texto: string) {
     cerrar();
@@ -68,6 +78,7 @@ export function SeccionComunicacion({ showToast }: { showToast: (m: string) => v
       </GrupoFilas>
 
       <GrupoFilas titulo="Reseñas">
+        <FilaInterruptor id="pedir-valoraciones-email" icono={Mail} on={emailsValoracion} onCambiar={cambiarEmailsValoracion} />
         <FilaAjuste id="resenas-y-premio" icono={Star} valor={resenas.valor} onAbrir={abrir} />
       </GrupoFilas>
 

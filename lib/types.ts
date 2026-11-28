@@ -257,6 +257,8 @@ export interface Studio {
    * —«¿tienes alguna molestia?»— es una decisión del estudio, no del producto.
    */
   valoracionInicialActiva: boolean;
+  /** Si se mandan por correo las invitaciones para valorar las clases asistidas. */
+  pedirValoracionPorEmail?: boolean;
   /**
    * Si la alumna contesta en su app las preguntas de «Datos extra de la ficha»
    * antes de poder usarla (migr 20260925102844). Apagado por defecto.

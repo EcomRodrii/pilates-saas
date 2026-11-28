@@ -209,8 +209,18 @@ export const procesarValoracionesEstudio = inngest.createFunction(
         });
         // `?.`: una ejecución a medias puede traer el resultado antiguo del paso (un número).
         const conAviso = new Set((inapp as { conAviso?: string[] })?.conAviso ?? []);
+        // Se consulta en un step distinto para que ejecuciones durables iniciadas
+        // antes del ajuste también respeten el valor actual al reanudarse.
+        const pedirEmail = await step.run(`valoracion-email-activo-${c.id}`, async () => {
+          const admin = getSupabaseAdmin();
+          if (!admin) return true;
+          const { data, error } = await admin.from('studios')
+            .select('pedir_valoracion_por_email').eq('id', studioId).maybeSingle();
+          // Sin la columna durante un despliegue mixto se mantiene el envío actual.
+          return error ? true : data?.pedir_valoracion_por_email !== false;
+        });
         for (const a of pedida.lista) {
-          if (!a.email || conAviso.has(a.socio_id)) continue;
+          if (!pedirEmail || !a.email || conAviso.has(a.socio_id)) continue;
           const enviado = await step.run(`valorar-${c.id}-${a.socio_id}`, async () => {
             const token = firmarTokenValoracion(studioId, a.socio_id, c.id);
             const r = await enviarEmailPedirValoracion({

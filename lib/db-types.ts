@@ -1058,6 +1058,8 @@ export interface RowStudios {
   racha_clases_semana: number | null;
   // migr 20260909003015.
   valoracion_inicial_activa: boolean | null;
+  // migr 20261128140100.
+  pedir_valoracion_por_email: boolean | null;
   // migr 20260910201734.
   lema: string | null;
   // migr 20260910201734.
@@ -6064,6 +6066,7 @@ export type StudiosInsert = {
   creditos_caducan_meses?: number | null | null;
   racha_clases_semana?: number | null | null;
   valoracion_inicial_activa?: boolean | null | null;
+  pedir_valoracion_por_email?: boolean | null | null;
   lema?: string | null | null;
   frase_heroe?: string | null | null;
   frase_manuscrita?: string | null | null;
@@ -6241,6 +6244,7 @@ export type StudiosUpdate = {
   creditos_caducan_meses?: number | null | null;
   racha_clases_semana?: number | null | null;
   valoracion_inicial_activa?: boolean | null | null;
+  pedir_valoracion_por_email?: boolean | null | null;
   lema?: string | null | null;
   frase_heroe?: string | null | null;
   frase_manuscrita?: string | null | null;

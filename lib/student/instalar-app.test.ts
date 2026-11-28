@@ -17,9 +17,17 @@ test('con el prompt del navegador guardado se ofrece el botón', () => {
   assert.equal(estadoInstalacion({ ...base, hayPrompt: true }), 'instalable');
 });
 
-test('en Android sin prompt (ya rechazado, o no cumple) no se pinta un botón muerto', () => {
-  assert.equal(estadoInstalacion(base), 'sin-opcion');
-  assert.equal(seOfrece('sin-opcion'), false);
+test('en Android sin aviso automático se explica cómo instalar desde el menú', () => {
+  const e = estadoInstalacion(base);
+  assert.equal(e, 'android-guia');
+  assert.equal(seOfrece(e), true);
+  assert.match(textoInstalacion(e, 'Luz').pasos[1], /Instalar aplicación.*Añadir a pantalla de inicio/);
+});
+
+test('Android dentro de otra app: primero se abre en Chrome', () => {
+  const e = estadoInstalacion({ ...base, userAgent: `${CHROME_ANDROID} Instagram 330.0.0` });
+  assert.equal(e, 'android-incrustado');
+  assert.match(textoInstalacion(e, 'Luz').pasos[0], /Abrir en Chrome/);
 });
 
 test('iPhone en Safari: guía de tres pasos y sin botón', () => {
@@ -38,21 +46,21 @@ test('iPhone dentro del navegador de otra app: se manda a Safari, no a un botón
 });
 
 test('solo el estado instalable lleva botón, y nombra al estudio', () => {
-  const todos = ['ya-instalada', 'instalable', 'ios-guia', 'ios-incrustado', 'sin-opcion'] as const;
+  const todos = ['ya-instalada', 'instalable', 'android-guia', 'android-incrustado', 'ios-guia', 'ios-incrustado', 'sin-opcion'] as const;
   for (const e of todos) assert.equal(textoInstalacion(e, 'Luz').accion === 'instalar', e === 'instalable', e);
   assert.match(textoInstalacion('instalable', 'Luz Pilates').titulo, /Luz Pilates/);
 });
 
 test('seOfrece: los tres estados con algo que hacer', () => {
   assert.deepEqual(
-    (['ya-instalada', 'instalable', 'ios-guia', 'ios-incrustado', 'sin-opcion'] as const).filter(seOfrece),
-    ['instalable', 'ios-guia', 'ios-incrustado'],
+    (['ya-instalada', 'instalable', 'android-guia', 'android-incrustado', 'ios-guia', 'ios-incrustado', 'sin-opcion'] as const).filter(seOfrece),
+    ['instalable', 'android-guia', 'android-incrustado', 'ios-guia', 'ios-incrustado'],
   );
   assert.equal(seOfrece(null), false);
 });
 
 test('nada promete la tienda de aplicaciones', () => {
-  for (const e of ['instalable', 'ios-guia', 'ios-incrustado'] as const) {
+  for (const e of ['instalable', 'android-guia', 'android-incrustado', 'ios-guia', 'ios-incrustado'] as const) {
     const t = textoInstalacion(e, 'Luz');
     assert.doesNotMatch(`${t.titulo} ${t.resumen} ${t.cuerpo} ${t.pasos.join(' ')}`, /App Store|Google Play|tienda/i, e);
   }
