@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { raizAdminVaAlLogin } from '@/lib/auth/admin-host';
+import { debeRedirigirPanelAAdmin, raizAdminVaAlLogin } from '@/lib/auth/admin-host';
 
 // 51ª pasada de auditoría (2026-09-10), hallazgo #1: ninguna ruta del repo
 // mandaba X-Frame-Options ni Content-Security-Policy: frame-ancestors —
@@ -54,8 +54,37 @@ import { raizAdminVaAlLogin } from '@/lib/auth/admin-host';
 const POLITICA_PERMISOS = 'camera=(self), microphone=(self), geolocation=(self)';
 
 export function proxy(req: NextRequest) {
-  // El host de administración empieza en login/registro, nunca en la landing
-  // pública. `/login` permite iniciar sesión o pasar a crear cuenta.
+  // Mientras se prepara un sitio de documentación independiente, el host docs
+  // muestra el centro de ayuda que ya existe en la app. La URL pública queda en
+  // la raíz de docs.tentare.app, sin enseñar la landing comercial.
+  if (req.nextUrl.hostname.toLowerCase() === 'docs.tentare.app' && req.nextUrl.pathname === '/') {
+    return NextResponse.rewrite(new URL('/ayuda', req.url));
+  }
+
+  // La API pública mantiene internamente /api/v1 y /api/health. En su host
+  // dedicado se exponen como /v1 y /health; /api/* sigue funcionando para
+  // integraciones antiguas y rutas internas.
+  if (req.nextUrl.hostname.toLowerCase() === 'api.tentare.app') {
+    const destino = req.nextUrl.clone();
+    destino.pathname = req.nextUrl.pathname === '/'
+      ? '/api/health'
+      : req.nextUrl.pathname === '/api' || req.nextUrl.pathname.startsWith('/api/')
+        ? req.nextUrl.pathname
+        : `/api${req.nextUrl.pathname}`;
+    return NextResponse.rewrite(destino);
+  }
+
+  // Todo el panel y el flujo de acceso (login/registro) usan un único host
+  // para que cookies y navegación no se queden repartidas entre dominios.
+  if (debeRedirigirPanelAAdmin(req.nextUrl.hostname, req.nextUrl.pathname)) {
+    const destino = req.nextUrl.clone();
+    destino.protocol = 'https:';
+    destino.hostname = 'admin.tentare.app';
+    destino.port = '';
+    return NextResponse.redirect(destino);
+  }
+
+  // La raíz de administración abre la pantalla de login/registro.
   if (raizAdminVaAlLogin(req.nextUrl.hostname, req.nextUrl.pathname)) {
     const destino = req.nextUrl.clone();
     destino.pathname = '/login';

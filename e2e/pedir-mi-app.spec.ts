@@ -237,7 +237,7 @@ test.describe('Pedir mi app · panel nuevo y móvil', () => {
     await page.setViewportSize({ width: 1440, height: 950 });
     const n = await preparar(page, { encendido: true, panelNuevo: true });
     await ir(page, 'configuracion/apariencia');
-    const pasos = page.getByRole('list', { name: 'Pasos' });
+    const pasos = page.getByRole('navigation', { name: 'Secciones de tu app' });
     await expect(pasos).toBeVisible({ timeout: 60_000 });
     // En el primer paso (Estilo) no está.
     await expect(page.getByTestId('mi-app-pedir')).toHaveCount(0);
