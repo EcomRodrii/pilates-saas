@@ -1,6 +1,7 @@
 'use client';
 
 import { Interruptor } from '@/components/ui/interruptor';
+import { supabase } from '@/lib/db/supabase';
 
 import { uscVerificada } from '@/lib/plataformas/usc/proveedor-config';
 import { useEffect, useState, type ComponentType, type FormEvent } from 'react';
@@ -483,8 +484,17 @@ function PedirAcceso({ plataforma, titulo, texto, boton, pasos, showToast }: {
     if (estado !== 'inicial') return;
     setEstado('enviando');
     try {
+      // Las rutas de staff autentican con el JWT explícito, no con cookies.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setEstado('inicial');
+        showToast('Tu sesión ha caducado. Inicia sesión de nuevo.', { variant: 'error' });
+        return;
+      }
       const r = await fetch('/api/plataformas/pedir-acceso', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ plataforma }),
+        method: 'POST',
+        headers: { 'content-type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ plataforma }),
       });
       const j = (await r.json().catch(() => ({}))) as { error?: string; yaPedida?: boolean };
       if (r.ok || j.yaPedida) {
@@ -493,7 +503,7 @@ function PedirAcceso({ plataforma, titulo, texto, boton, pasos, showToast }: {
         return;
       }
       setEstado('inicial');
-      showToast(j.error ?? 'No hemos podido enviar la petición', { variant: 'error' });
+      showToast(r.status === 401 ? 'Tu sesión ha caducado. Inicia sesión de nuevo.' : j.error ?? 'No hemos podido enviar la petición', { variant: 'error' });
     } catch {
       setEstado('inicial');
       showToast('No hemos podido enviar la petición. Revisa tu conexión.', { variant: 'error' });
