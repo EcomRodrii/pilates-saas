@@ -76,6 +76,11 @@ const ACEPTADAS = {
   // uno (grants de reservar_numero_factura, índice único de socios excluyendo
   // borrado_en, default de reserva_exigir_plan, tiene_consentimiento_salud).
   sinAplicar: [
+    // Verificado en producción el 2026-11-28: existen las tres columnas en
+    // public.studios y authenticated conserva UPDATE sobre ellas. La deriva es
+    // solo del registro de migraciones; no falta el efecto de estas dos DDL.
+    'avisos_push_apagados_por_estudio',
+    'recordatorios_activables',
     'cadenas_current_rol_fix',
     'ficha_clinica',
     'marca_e_iva',
