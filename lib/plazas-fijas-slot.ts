@@ -187,6 +187,12 @@ export interface FranjaSemanal {
   pausadas: PlazaFija[];
 }
 
+/** Una alumna puede tener filas compatibles con varios tipos a la misma hora.
+ *  Físicamente ocupa una plaza: el aforo cuenta personas, no filas. */
+export function numeroDeClientasFijas(plazas: readonly Pick<PlazaFija, 'socioId'>[]): number {
+  return new Set(plazas.map(p => p.socioId)).size;
+}
+
 export function claveFranjaDeSesion(s: SesionSlot): string {
   return `${s.salaId}|${franjaLocalDe(s.inicio).dow}|${horaInicioLocalDe(s.inicio)}|${s.tipoClaseId}`;
 }

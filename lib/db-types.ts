@@ -1178,6 +1178,8 @@ export interface RowStudios {
   resena_premio_valor: number | null;
   // migr 20261122004106.
   resena_premio_dias: number | null;
+  // migr 20261128140100.
+  pedir_valoracion_por_email: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -6124,6 +6126,7 @@ export type StudiosInsert = {
   resena_premio_tipo?: string | null | null;
   resena_premio_valor?: number | null | null;
   resena_premio_dias?: number | null | null;
+  pedir_valoracion_por_email?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6301,6 +6304,7 @@ export type StudiosUpdate = {
   resena_premio_tipo?: string | null | null;
   resena_premio_valor?: number | null | null;
   resena_premio_dias?: number | null | null;
+  pedir_valoracion_por_email?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {

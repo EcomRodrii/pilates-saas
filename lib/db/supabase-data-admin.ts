@@ -6149,7 +6149,7 @@ async function avisosTopeAutomatico(admin: SupabaseClient, studioId: string, fil
   const hoy = hoyEnEstudio();
   const [{ data: ses, error: errSes }, { data: pfs, error: errPf }] = await Promise.all([
     admin.from('sesiones').select('id, aforo_maximo').eq('studio_id', studioId).in('id', crear.map(f => f.sesion_id as string)),
-    admin.from('plazas_fijas').select('sala_id, dia_semana, hora_inicio, tipo_clase_id, vigencia_hasta')
+    admin.from('plazas_fijas').select('socio_id, sala_id, dia_semana, hora_inicio, tipo_clase_id, vigencia_hasta')
       .eq('studio_id', studioId).in('estado', ['ACTIVA', 'PAUSADA'])
       .in('dia_semana', [...new Set(crear.map(f => f.dia_semana as number))]),
   ]);
@@ -6157,10 +6157,11 @@ async function avisosTopeAutomatico(admin: SupabaseClient, studioId: string, fil
   const aforo = new Map((ses ?? []).map(r => [r.id as string, r.aforo_maximo as number | null]));
   for (const f of crear) {
     const hora = normalizarHoraInicio(f.hora_inicio as string);
-    const ocupadas = (pfs ?? []).filter(pf => pf.sala_id === f.sala_id && pf.dia_semana === f.dia_semana
+    const ocupadas = new Set((pfs ?? []).filter(pf => pf.sala_id === f.sala_id && pf.dia_semana === f.dia_semana
       && normalizarHoraInicio(pf.hora_inicio as string) === hora
       && (!pf.vigencia_hasta || (pf.vigencia_hasta as string) >= hoy)
-      && (!pf.tipo_clase_id || !f.tipo_clase_id || pf.tipo_clase_id === f.tipo_clase_id)).length;
+      && (!pf.tipo_clase_id || !f.tipo_clase_id || pf.tipo_clase_id === f.tipo_clase_id))
+      .map(pf => pf.socio_id)).size;
     const texto = avisoTopeAutomatico({
       modo: aprobacion.modo, superaLimite: f.supera_limite, ocupadas,
       cupo: cupoAutomatico(aforo.get(f.sesion_id as string), aprobacion.topePct), pct: aprobacion.topePct,

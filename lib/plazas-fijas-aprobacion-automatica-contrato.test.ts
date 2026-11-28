@@ -105,3 +105,10 @@ test('la migración deja la función cerrada a anon y authenticated, con candado
   assert.match(sql, /plaza_fija_aprobacion text not null default 'MANUAL'/);
   assert.match(sql, /grant update \(plaza_fija_aprobacion, plaza_fija_auto_tope_pct\) on public\.studios to authenticated;/);
 });
+
+test('el cupo de una franja cuenta personas únicas cuando una clienta tiene filas compatibles por tipo', () => {
+  const sql = leer('supabase/migrations/20261128140000_plaza_fija_aforo_por_clienta.sql');
+  assert.match(sql, /count\(distinct pf\.socio_id\)/);
+  assert.match(SERVIDOR, /select\('socio_id, sala_id, dia_semana, hora_inicio, tipo_clase_id, vigencia_hasta'\)/);
+  assert.match(SERVIDOR, /\.map\(pf => pf\.socio_id\)\)\.size/);
+});

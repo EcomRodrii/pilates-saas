@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  sesionEncajaEnPlaza, plazasFijasSinSesion, horaInicioLocalDe, normalizarHoraInicio, nombreDiaSemana,
+  sesionEncajaEnPlaza, plazasFijasSinSesion, horaInicioLocalDe, normalizarHoraInicio, nombreDiaSemana, numeroDeClientasFijas,
   proximaSesionParaPlaza,
 } from './plazas-fijas-slot.ts';
 import { franjaLocalDe, hoyEnEstudio } from './utils.ts';
@@ -28,6 +28,17 @@ const pf = (o: Partial<PlazaFija> & { id: string }): PlazaFija => ({
   tipoClaseId: null, spotId: null, vigenciaDesde: '2026-01-01', vigenciaHasta: null,
   estado: 'ACTIVA', creadaEn: '2026-01-01T00:00:00Z', ...o,
 } as PlazaFija);
+
+test('el aforo cuenta clientas, no filas de plaza fija compatibles por tipo', () => {
+  assert.equal(numeroDeClientasFijas([
+    pf({ id: 'a', socioId: 'socia-1', tipoClaseId: 'tc-1' }),
+    pf({ id: 'b', socioId: 'socia-1', tipoClaseId: 'tc-2' }),
+    pf({ id: 'c', socioId: 'socia-2' }),
+    pf({ id: 'd', socioId: 'socia-3' }),
+    pf({ id: 'e', socioId: 'socia-4' }),
+    pf({ id: 'f', socioId: 'socia-5' }),
+  ]), 5);
+});
 
 /** Sesiones semanales en el slot de referencia durante `semanas` semanas a partir de la referencia. */
 function serieSemanal(semanas: number, over: Partial<Sesion> = {}): Sesion[] {

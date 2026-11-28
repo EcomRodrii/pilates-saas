@@ -26,7 +26,7 @@ import { useEffect, useId, useMemo, useState } from 'react';
 import { useStudio } from '@/lib/studio-context';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { IconoAviso } from '@/lib/iconos';
-import { franjasSemanales, nombreDiaSemana, plazaEnFranja, type FranjaSemanal } from '@/lib/plazas-fijas-slot';
+import { franjasSemanales, nombreDiaSemana, numeroDeClientasFijas, plazaEnFranja, type FranjaSemanal } from '@/lib/plazas-fijas-slot';
 import { cn, fechaCortaEstudio, hoyEnEstudio } from '@/lib/utils';
 import { cuotaParaPlazaFija } from '@/lib/plazas-fijas-reglas';
 import { avisoLimiteSemanal, enumerar, textoYaGuardadas, type ClaseFijaGuardada } from '@/lib/plazas-fijas-guardadas';
@@ -131,7 +131,7 @@ export function DialogoPlazaFija({
   // Mismo recuento que el servidor al crear: las activas que no han vencido.
   const yaTiene = plazasFijas.filter(p => p.socioId === socioId && p.estado === 'ACTIVA' && (!p.vigenciaHasta || p.vigenciaHasta >= hoy)).length;
   const avisoLimite = varias ? avisoLimiteSemanal(cuota?.limiteSemanal, yaTiene, elegidas.length) : null;
-  const completas = elegidas.filter(f => f.fijas.filter(p => p.id !== plaza?.id).length >= f.aforo);
+  const completas = elegidas.filter(f => numeroDeClientasFijas(f.fijas.filter(p => p.id !== plaza?.id)) >= f.aforo);
   const puedeGuardar = elegidas.length > 0 && !!desde && !rangoInvertido && !guardando;
 
   function alternar(f: FranjaSemanal) {
@@ -241,7 +241,8 @@ export function DialogoPlazaFija({
                       const hora = f.horaInicio.slice(0, 5);
                       const yaLaTiene = [...f.fijas, ...f.pausadas].some(p => p.socioId === socioId && p.id !== plaza?.id);
                       const seleccionada = elegidas.some(e => e.clave === f.clave);
-                      const completa = f.fijas.length >= f.aforo;
+                      const fijasUnicas = numeroDeClientasFijas(f.fijas);
+                      const completa = fijasUnicas >= f.aforo;
                       return (
                         <button
                           key={f.clave}
@@ -290,7 +291,7 @@ export function DialogoPlazaFija({
                             </span>
                           </span>
                           <span className={cn('shrink-0 text-xs font-semibold', completa ? 'text-warning' : 'text-muted-foreground')}>
-                            {f.fijas.length}/{f.aforo} fijas
+                            {fijasUnicas}/{f.aforo} fijas
                           </span>
                         </button>
                       );

@@ -5111,6 +5111,7 @@ export async function dbUpdateStudio(changes: Partial<Studio>): Promise<Resultad
   if ('horaCierre' in changes) db.hora_cierre = changes.horaCierre;
   if ('requiereAprobacion' in changes) db.requiere_aprobacion = changes.requiereAprobacion;
   if ('valoracionInicialActiva' in changes) db.valoracion_inicial_activa = changes.valoracionInicialActiva;
+  if ('pedirValoracionPorEmail' in changes) db.pedir_valoracion_por_email = changes.pedirValoracionPorEmail;
   if ('preguntasAltaActivas' in changes) db.preguntas_alta_activas = changes.preguntasAltaActivas;
   if ('listaEsperaPlazoAceptacionMinutos' in changes) db.lista_espera_plazo_aceptacion_minutos = changes.listaEsperaPlazoAceptacionMinutos;
   if ('minimoAsistentesPorClase' in changes) db.minimo_asistentes_por_clase = changes.minimoAsistentesPorClase;
@@ -5551,6 +5552,7 @@ function mapStudio(r: RowStudios, horario?: RowStudioHorario[]): Studio {
     horaCierre: r.hora_cierre ?? '22:00:00',
     requiereAprobacion: r.requiere_aprobacion ?? false,
     valoracionInicialActiva: r.valoracion_inicial_activa ?? false,
+    pedirValoracionPorEmail: r.pedir_valoracion_por_email ?? true,
     preguntasAltaActivas: r.preguntas_alta_activas ?? false,
     listaEsperaPlazoAceptacionMinutos: r.lista_espera_plazo_aceptacion_minutos ?? 0,
     minimoAsistentesPorClase: r.minimo_asistentes_por_clase ?? 0,
