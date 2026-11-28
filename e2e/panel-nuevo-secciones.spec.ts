@@ -48,17 +48,21 @@ for (const ruta of SECCIONES) {
   });
 }
 
-test('Apariencia: un paso cada vez, y «Siguiente» lleva al color con sus paletas', async ({ page }) => {
+test('Apariencia: el editor nuevo navega por secciones y muestra sus controles', async ({ page }) => {
   await preparar(page, { nuevo: true });
   await ir(page, 'configuracion/apariencia');
+  await expect(page.getByRole('heading', { name: 'Tu app', level: 1 })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('[data-editor-app]')).toBeVisible();
+  const navegacion = page.getByRole('navigation', { name: 'Secciones de tu app' });
+  const estilo = navegacion.getByRole('button', { name: 'Estilo' });
+  await expect(estilo).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('heading', { name: 'Elige el estilo de tu app' })).toBeVisible({ timeout: 30_000 });
-  const pasos = page.getByRole('list', { name: 'Pasos' });
-  await expect(pasos.getByRole('button', { name: /Estilo/ })).toHaveAttribute('aria-current', 'step');
-  // El resto de pasos no está a la vista hasta que se llega a ellos.
+  await expect(page.getByRole('radiogroup', { name: 'Estilo de la app' })).toBeVisible();
   await expect(page.getByRole('radiogroup', { name: 'Paletas' })).toHaveCount(0);
-  await page.getByRole('button', { name: /^Siguiente/ }).click();
+
+  await navegacion.getByRole('button', { name: 'Colores' }).click();
   await expect(page.getByRole('heading', { name: 'Tus colores' })).toBeVisible();
-  await expect(pasos.getByRole('button', { name: /Colores/ })).toHaveAttribute('aria-current', 'step');
+  await expect(navegacion.getByRole('button', { name: 'Colores' })).toHaveAttribute('aria-current', 'page');
   const paletas = page.getByRole('radiogroup', { name: 'Paletas' });
   await expect(paletas.getByRole('radio')).toHaveCount(6);
   // Elegir una paleta cambia el color del borrador: «Publicar» se enciende.
