@@ -17,7 +17,7 @@ test('no redirige rutas internas ni la home pública de Tentare', () => {
 
 test('el login, el registro y todas las rutas del panel se sirven en admin', () => {
   for (const host of ['tentare.app', 'www.tentare.app', 'app.tentare.app']) {
-    for (const path of ['/login', '/crear-estudio', '/invitacion', '/dashboard', '/configuracion/apariencia', '/clientas/123']) {
+    for (const path of ['/login', '/crear-estudio', '/invitacion', '/dashboard', '/interno', '/configuracion/apariencia', '/clientas/123', '/network/mensajes']) {
       assert.equal(debeRedirigirPanelAAdmin(host, path), true, `${host}${path}`);
     }
   }
@@ -26,6 +26,7 @@ test('el login, el registro y todas las rutas del panel se sirven en admin', () 
 test('conserva la landing, las rutas de alumnas y los hosts de preview', () => {
   for (const [host, path] of [
     ['tentare.app', '/'], ['tentare.app', '/precios'], ['app.tentare.app', '/portal/estudio/acceso'],
-    ['app.tentare.app', '/network/instructoras'], ['pilates-saas.vercel.app', '/dashboard'],
+    ['app.tentare.app', '/network'], ['app.tentare.app', '/network/instructoras'],
+    ['app.tentare.app', '/network/oportunidades'], ['tentare.app', '/verify/certificado'], ['pilates-saas.vercel.app', '/dashboard'],
   ]) assert.equal(debeRedirigirPanelAAdmin(host, path), false, `${host}${path}`);
 });

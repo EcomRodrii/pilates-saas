@@ -8,10 +8,10 @@ const PREFIJOS_PANEL = [
   '/comunidad', '/configuracion', '/contenido', '/dashboard', '/equipo', '/explorar-funciones',
   '/facturas', '/festivos', '/informes', '/libreta', '/marketing', '/mensajeria', '/mi-perfil',
   '/migracion', '/notificaciones', '/ondemand', '/pagos', '/pos', '/primeros-pasos',
-  '/productos', '/puesta-en-marcha', '/socios', '/sustituciones', '/transacciones', '/verifactu',
+  '/productos', '/puesta-en-marcha', '/socios', '/sustituciones', '/transacciones', '/verifactu', '/interno',
 ] as const;
 
-const RUTAS_DE_ACCESO = ['/login', '/crear-estudio', '/clave-nueva', '/verificar-acceso', '/invitacion', '/verify'] as const;
+const RUTAS_DE_ACCESO = ['/login', '/crear-estudio', '/clave-nueva', '/verificar-acceso', '/invitacion'] as const;
 
 function coincidePrefijo(pathname: string, prefijo: string): boolean {
   return pathname === prefijo || pathname.startsWith(`${prefijo}/`);
@@ -21,6 +21,9 @@ function coincidePrefijo(pathname: string, prefijo: string): boolean {
 export function debeRedirigirPanelAAdmin(hostname: string, pathname: string): boolean {
   const host = hostname.toLowerCase().replace(/:\d+$/, '');
   if (!HOSTS_PUBLICOS_TENTARE.has(host)) return false;
+  if (pathname.startsWith('/network/')) {
+    return !pathname.startsWith('/network/instructoras') && !pathname.startsWith('/network/oportunidades');
+  }
   return PREFIJOS_PANEL.some(p => coincidePrefijo(pathname, p))
     || RUTAS_DE_ACCESO.some(p => coincidePrefijo(pathname, p));
 }
