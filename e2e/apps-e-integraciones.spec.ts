@@ -95,6 +95,10 @@ test.describe('Apps e integraciones', () => {
     await expect(tarjeta('complemento-decisiones').getByText('Activo').first()).toBeVisible();
     await expect(tarjeta('complemento-sustituciones').getByRole('link', { name: 'Activar' })).toBeVisible();
 
+    // Tarjeta regalo ya está disponible y lleva a su configuración en Productos.
+    await expect(tarjeta('tarjeta-regalo').getByTestId('precio-app')).toHaveText('Disponible');
+    await expect(tarjeta('tarjeta-regalo').getByRole('link', { name: 'Abrir' })).toHaveAttribute('href', '/productos?tab=regalo');
+
     // Los módulos del menú no mezclan con las apps: tienen su pestaña.
     await expect(page.getByTestId('tarjeta-modulo')).toHaveCount(0);
     await expect(page.getByTestId('app-destacada')).toContainText('Sustituciones automáticas');
@@ -103,8 +107,8 @@ test.describe('Apps e integraciones', () => {
     await expect(page.locator('[data-testid="tarjeta-modulo"][data-app="/apps"]')).toHaveCount(0);
     await page.getByRole('tab', { name: /^Próximamente/ }).click();
     const proximas = page.locator('[data-testid="tarjeta-app"]');
-    await expect(proximas).toHaveCount(3);
-    for (let i = 0; i < 3; i++) {
+    await expect(proximas).toHaveCount(2);
+    for (let i = 0; i < 2; i++) {
       await expect(proximas.nth(i).getByTestId('precio-app')).toHaveText('Próximamente');
       await expect(proximas.nth(i).getByRole('link')).toHaveCount(0);
     }

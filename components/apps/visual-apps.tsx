@@ -37,7 +37,7 @@ export const VISUAL: Record<string, VisualApp> = {
   'complemento-ia': { tono: 'indigo', glifo: Sparkles },
   'proximamente-datafono-banco': { tono: 'gris', glifo: Wallet },
   'proximamente-app-propia': { tono: 'gris', glifo: Smartphone },
-  'proximamente-tarjeta-regalo': { tono: 'gris', glifo: Gift },
+  'tarjeta-regalo': { tono: 'magenta', glifo: Gift },
 };
 
 export const VISUAL_POR_DEFECTO: VisualApp = { tono: 'azul', glifo: Compass };

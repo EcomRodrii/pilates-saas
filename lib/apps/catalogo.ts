@@ -29,6 +29,7 @@ export const CATEGORIAS: readonly { id: CategoriaApp; label: string }[] = [
 
 export type PrecioApp =
   | { tipo: 'incluida' }
+  | { tipo: 'disponible' }
   | { tipo: 'mensual'; eur: number }
   | { tipo: 'proximamente' };
 
@@ -39,7 +40,7 @@ export interface AppDeTienda {
   nombre: string;
   frase: string;
   categoria: CategoriaApp;
-  origen: 'complemento' | 'integracion' | 'proximamente';
+  origen: 'complemento' | 'integracion' | 'funcion' | 'proximamente';
   precio: PrecioApp;
   /** A dónde lleva «Activar» / «Conectar» (nunca a una pantalla que no exista). */
   href: string;
@@ -89,6 +90,15 @@ const PLATAFORMAS: AppDeTienda[] = ([
   href: hrefIntegracion(p.pestana),
 }));
 
+// Funciones de Tentare ya disponibles en otra sección del panel.
+const FUNCIONES: AppDeTienda[] = [
+  {
+    id: 'tarjeta-regalo', nombre: 'Tarjeta regalo',
+    frase: 'Vende tarjetas regalo desde tu página de reservas y gestiona el saldo desde Productos.',
+    categoria: 'cobros', origen: 'funcion', precio: { tipo: 'disponible' }, href: '/productos?tab=regalo',
+  },
+];
+
 // Solo lo que el repo ya dice que viene; nada de promesas nuevas.
 const PROXIMAMENTE: AppDeTienda[] = [
   {
@@ -101,21 +111,17 @@ const PROXIMAMENTE: AppDeTienda[] = [
     frase: 'Tu estudio con su nombre y su icono en la App Store y Google Play.',
     categoria: 'comunicacion',
   },
-  {
-    id: 'proximamente-tarjeta-regalo', nombre: 'Tarjeta regalo',
-    frase: 'Vende saldo para regalar; llega cuando esté cerrado el tratamiento del IVA.',
-    categoria: 'cobros',
-  },
 ].map((p): AppDeTienda => ({ ...p, origen: 'proximamente', precio: { tipo: 'proximamente' }, href: '/apps' } as AppDeTienda));
 
 /** Todas las apps que no son módulos del menú, en el orden en que se enseñan. */
 export const APPS_DE_TIENDA: readonly AppDeTienda[] = [
-  ...COMPLEMENTOS, ...INTEGRACIONES, ...PLATAFORMAS, ...PROXIMAMENTE,
+  ...COMPLEMENTOS, ...INTEGRACIONES, ...PLATAFORMAS, ...FUNCIONES, ...PROXIMAMENTE,
 ];
 
 /** El texto del precio, sin símbolos sueltos. */
 export function textoPrecio(p: PrecioApp): string {
   if (p.tipo === 'incluida') return 'Incluida';
+  if (p.tipo === 'disponible') return 'Disponible';
   if (p.tipo === 'proximamente') return 'Próximamente';
   return `${p.eur} €/mes`;
 }

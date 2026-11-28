@@ -250,12 +250,19 @@ export function DetallePlataformasExternas({ showToast, solo }: { showToast: Mos
                 showToast={showToast}
               />
             )}
-            {p === USC && usc?.apiDisponible && !porApi && (
+            {p === USC && !porApi && (
               <PedirAcceso
                 plataforma={p}
-                titulo="Beta de la conexión con Urban Sports Club"
-                texto="Estamos probando la conexión con estudios reales. Si quieres ser uno, pídelo y te contamos los pasos; si ya tienes tus IDs de proveedor y de ubicación, pégalos arriba."
+                titulo="Buscamos estudios para la beta de Urban Sports Club"
+                texto="La integración técnica y las pruebas de reserva ya están aprobadas por USC. Ahora buscamos estudios partner para probarla antes del lanzamiento. Durante la beta, Tentare coordina contigo y presta el soporte inicial."
                 boton="Quiero probar la beta"
+                pasos={[
+                  'Si tu estudio ya es partner de USC y quieres participar, solicita aquí acceso a la beta. Seleccionaremos los estudios participantes y coordinaremos contigo los siguientes pasos.',
+                  'Tentare comunicará a USC los estudios elegidos. USC compartirá por una hoja de Google el ID de proveedor y los IDs de ubicación; la activación se programa para el día siguiente.',
+                  'Antes de la activación coordinaremos el uso de las credenciales de producción y te indicaremos cómo configurar las plazas de USC por tipo de clase. El horario se publica con hasta 14 días de antelación.',
+                  'La beta dura como máximo una semana completa desde la activación y debe terminar sin errores reportados. USC puede acordar acortarla si todo va bien.',
+                  'Hasta que USC confirme el lanzamiento, la integración no está activa para el resto de estudios: no la anuncies ni programes migraciones. Tras el go-live, USC asumirá la incorporación de futuros partners.',
+                ]}
                 showToast={showToast}
               />
             )}
@@ -466,8 +473,8 @@ function ChapaProximamente({ texto }: { texto: string }) {
  * Club): le dice a Tentare que el estudio la quiere. Se enseña lo que CONTESTA el
  * servidor: «enviada» solo si el correo salió; si ya la había pedido hoy, lo dice.
  */
-function PedirAcceso({ plataforma, titulo, texto, boton, showToast }: {
-  plataforma: Plataforma; titulo: string; texto: string; boton: string; showToast: MostrarToast;
+function PedirAcceso({ plataforma, titulo, texto, boton, pasos, showToast }: {
+  plataforma: Plataforma; titulo: string; texto: string; boton: string; pasos?: string[]; showToast: MostrarToast;
 }) {
   const [estado, setEstado] = useState<'inicial' | 'enviando' | 'enviada'>('inicial');
   const nombre = NOMBRE_PLATAFORMA[plataforma];
@@ -497,6 +504,11 @@ function PedirAcceso({ plataforma, titulo, texto, boton, showToast }: {
     <div className="mt-3 space-y-2 rounded-xl bg-muted/50 px-3 py-3" data-testid={`pedir-acceso-${plataforma.toLowerCase()}`}>
       <p className="text-xs font-semibold text-foreground">{titulo}</p>
       <p className="text-xs text-muted-foreground">{texto}</p>
+      {pasos && (
+        <ol className="list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-muted-foreground">
+          {pasos.map(paso => <li key={paso}>{paso}</li>)}
+        </ol>
+      )}
       {estado === 'enviada' ? (
         <p role="status" className="text-xs font-semibold text-foreground">Petición enviada. Te avisamos por correo.</p>
       ) : (

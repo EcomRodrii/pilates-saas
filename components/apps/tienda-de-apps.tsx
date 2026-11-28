@@ -167,6 +167,7 @@ export function TiendaDeApps() {
         ? <Link href={a.href} className={BOTON}>Activar</Link>
         : <span className="text-[13px] text-muted-foreground">Lo activa la propietaria</span>;
     }
+    if (a.origen === 'funcion') return <Link href={a.href} className={BOTON}>Abrir<ArrowRight size={13} aria-hidden /></Link>;
     return <Link href={a.href} className={BOTON}>{integracionConectada(a) ? 'Gestionar' : 'Conectar'}<ArrowRight size={13} aria-hidden /></Link>;
   }
 
@@ -180,7 +181,7 @@ export function TiendaDeApps() {
       <Tarjeta
         key={a.id} id={a.id} testid="tarjeta-app" nombre={a.nombre} frase={a.frase} precio={proxima ? 'Próximamente' : precio} nota={nota}
         icono={<IconoApp tamano="lg" tono={v.tono} glifo={v.glifo} logo={v.logo} apagada={proxima} />}
-        chapa={activa ? <ChapaActivo texto={a.origen === 'complemento' ? 'Activo' : 'Conectada'} /> : proxima ? <ChapaNeutra texto="Próximamente" /> : a.origen === 'complemento' ? <ChapaNeutra texto="Complemento" /> : undefined}
+        chapa={activa ? <ChapaActivo texto={a.origen === 'complemento' ? 'Activo' : 'Conectada'} /> : proxima ? <ChapaNeutra texto="Próximamente" /> : a.origen === 'complemento' ? <ChapaNeutra texto="Complemento" /> : a.origen === 'funcion' ? <ChapaNeutra texto="Disponible" /> : undefined}
         accion={accion(a)}
       />
     );
