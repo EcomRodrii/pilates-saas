@@ -1058,8 +1058,6 @@ export interface RowStudios {
   racha_clases_semana: number | null;
   // migr 20260909003015.
   valoracion_inicial_activa: boolean | null;
-  // migr 20261128140100.
-  pedir_valoracion_por_email: boolean | null;
   // migr 20260910201734.
   lema: string | null;
   // migr 20260910201734.
@@ -1180,6 +1178,8 @@ export interface RowStudios {
   resena_premio_valor: number | null;
   // migr 20261122004106.
   resena_premio_dias: number | null;
+  // migr 20261128140100.
+  pedir_valoracion_por_email: boolean | null;
 }
 
 export interface RowSuscripciones {
@@ -6066,7 +6066,6 @@ export type StudiosInsert = {
   creditos_caducan_meses?: number | null | null;
   racha_clases_semana?: number | null | null;
   valoracion_inicial_activa?: boolean | null | null;
-  pedir_valoracion_por_email?: boolean | null | null;
   lema?: string | null | null;
   frase_heroe?: string | null | null;
   frase_manuscrita?: string | null | null;
@@ -6127,6 +6126,7 @@ export type StudiosInsert = {
   resena_premio_tipo?: string | null | null;
   resena_premio_valor?: number | null | null;
   resena_premio_dias?: number | null | null;
+  pedir_valoracion_por_email?: boolean | null | null;
 }
 
 export type StudiosUpdate = {
@@ -6244,7 +6244,6 @@ export type StudiosUpdate = {
   creditos_caducan_meses?: number | null | null;
   racha_clases_semana?: number | null | null;
   valoracion_inicial_activa?: boolean | null | null;
-  pedir_valoracion_por_email?: boolean | null | null;
   lema?: string | null | null;
   frase_heroe?: string | null | null;
   frase_manuscrita?: string | null | null;
@@ -6305,6 +6304,7 @@ export type StudiosUpdate = {
   resena_premio_tipo?: string | null | null;
   resena_premio_valor?: number | null | null;
   resena_premio_dias?: number | null | null;
+  pedir_valoracion_por_email?: boolean | null | null;
 }
 
 export type SuscripcionesInsert = {
